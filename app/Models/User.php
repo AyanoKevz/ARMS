@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'email',
+        'password',
+        'role_id',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'password' => 'hashed',
+        ];
+    }
+
+    // ─────────────────────────────────────────────
+    //  Relationships
+    // ─────────────────────────────────────────────
+
+    /**
+     * Get the role of this user.
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Get the admin profile (if this user is an admin).
+     */
+    public function adminProfile()
+    {
+        return $this->hasOne(AdminProfile::class);
+    }
+
+    /**
+     * Get the individual profile (if this user is an individual applicant).
+     */
+    public function individualProfile()
+    {
+        return $this->hasOne(IndividualProfile::class);
+    }
+
+    /**
+     * Get the organization profile (if this user is an organization applicant).
+     */
+    public function organizationProfile()
+    {
+        return $this->hasOne(OrganizationProfile::class);
+    }
+
+    /**
+     * Get the applications submitted by this user.
+     */
+    public function applications()
+    {
+        return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Get the applications handled by this admin user.
+     */
+    public function handledApplications()
+    {
+        return $this->hasMany(Application::class, 'handled_by_admin_id');
+    }
+}
