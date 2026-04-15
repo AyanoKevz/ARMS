@@ -1,0 +1,108 @@
+/* ═══════════════════════════════════════════
+   register.css — Register page styles
+   Loaded only on /register via @push('styles')
+═══════════════════════════════════════════ */
+
+/* ── Solid navbar override (light page) ── */
+.navbar-arms {
+    background: var(--blue-deep) !important;
+    border-bottom-color: var(--gold) !important;
+    box-shadow: 0 4px 24px rgba(13,43,85,.35) !important;
+}
+.navbar-arms .navbar-brand { padding: 1rem 0; }
+.navbar-arms .brand-logo   { height: 36px; }
+
+/* ── Page wrapper ── */
+.register-page {
+    min-height: 100vh;
+    background: var(--off-white);
+    padding: 110px 0 60px;
+}
+
+/* ── Card shell ── */
+.reg-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(13,43,85,.10);
+    overflow: hidden;
+}
+
+/* ── Card header ── */
+.reg-card-header {
+    background: linear-gradient(135deg, var(--blue-deep) 0%, var(--blue-mid) 100%);
+    padding: 2rem 2.5rem 1.75rem;
+    border-bottom: 3px solid var(--gold);
+}
+.reg-card-header h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5rem;
+    color: #fff;
+    margin: 0;
+}
+.reg-card-header p {
+    color: rgba(255,255,255,.65);
+    font-size: .85rem;
+    margin: .35rem 0 0;
+}
+
+/* ── Card body ── */
+.reg-card-body { padding: 2.25rem 2.5rem; }
+
+/* ── Profile type badge ── */
+.profile-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .35rem .9rem;
+    border-radius: 20px;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+.badge-individual {
+    background: rgba(46,111,216,.12);
+    color: var(--blue-accent);
+    border: 1px solid rgba(46,111,216,.25);
+}
+.badge-organization {
+    background: rgba(212,160,23,.12);
+    color: #a07010;
+    border: 1px solid rgba(212,160,23,.3);
+}
+
+/* ── Step / section divider ── */
+.form-section-title {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--blue-accent);
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+    margin-top: 2rem;
+}
+
+/* ── Disabled option tint ── */
+select option:disabled { color: #bbb; }
+
+/* ── Input focus ring ── */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--blue-accent);
+    box-shadow: 0 0 0 .2rem rgba(46,111,216,.18);
+}
+
+/* ── Sign-in link below card ── */
+.reg-login-link {
+    text-align: center;
+    font-size: .88rem;
+    color: var(--text-muted);
+    margin-top: 1.5rem;
+}
+.reg-login-link a {
+    color: var(--blue-accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+.reg-login-link a:hover { text-decoration: underline; }

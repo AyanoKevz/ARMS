@@ -24,7 +24,9 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->enum('profile_type', ['Individual', 'Organization']);
+            // Example: individual (Practitioner), organization (FATPro)
             $table->foreignId('role_id')->constrained()->cascadeOnDelete();
+            // Example: 1 = admin, 2 = applicant
             $table->rememberToken();
             $table->timestamps();
         });
@@ -36,6 +38,7 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('position');
+            // Example: Evaluator
             $table->timestamps();
         });
 

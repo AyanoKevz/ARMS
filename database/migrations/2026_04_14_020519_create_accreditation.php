@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('accreditation_types', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name');   // Example: First Aid Training Providers
             $table->timestamps();
         });
 
@@ -43,10 +43,9 @@ return new class extends Migration
             $table->date('validity_date')->nullable();
             $table->string('head_name');
             $table->string('designation');
-            $table->string('telephone')->nullable();
-            $table->string('fax')->nullable();
-            $table->string('email');
-            $table->string('logo_path')->nullable();
+            $table->string('telephone')->nullable(); // 123-4567
+            $table->string('fax')->nullable(); // 123-4567
+            $table->string('email'); // company@email.com
             $table->timestamps();
         });
     }

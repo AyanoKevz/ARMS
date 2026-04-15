@@ -2,8 +2,29 @@
 
 @section('title', 'Track Application | ARMS')
 
+{{-- Force the navbar into its solid dark state on this light-background page --}}
+
+@push('styles')
+<style>
+    /* Track page: navbar is always solid, never transparent */
+    .navbar-arms {
+        background: var(--blue-deep) !important;
+        border-bottom-color: var(--gold) !important;
+        box-shadow: 0 4px 24px rgba(13, 43, 85, .35) !important;
+    }
+
+    .navbar-arms .navbar-brand {
+        padding: 1rem 0;
+    }
+
+    .navbar-arms .brand-logo {
+        height: 36px;
+    }
+</style>
+@endpush
+
 @section('content')
-<section class="section-py bg-light" style="min-height: 70vh;">
+<section class="section-py bg-light" style="min-height: 70vh; padding-top: 120px;">
     <div class="container pb-5 mb-5">
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -12,7 +33,7 @@
                         <i class="bi bi-search" style="font-size: 3rem; color: #f5b041;"></i>
                         <h2 class="mt-3 mb-4">Track Your Application</h2>
                         <p class="text-muted mb-4">Enter your application tracking number below to check the current status of your accreditation.</p>
-                        
+
                         <form action="#" method="GET">
                             <div class="input-group input-group-lg mb-3">
                                 <span class="input-group-text bg-white" id="basic-addon1"><i class="bi bi-hash"></i></span>

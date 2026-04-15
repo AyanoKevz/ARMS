@@ -14,21 +14,21 @@ return new class extends Migration
         Schema::create('applications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('accreditation_type_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('accreditation_type_id')->constrained()->cascadeOnDelete(); // 7 = FATPro
             $table->enum('application_type', [
                 'new',
                 'renewal',
                 'reinstatement'
             ]);
             $table->foreignId('handled_by_admin_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('tracking_number')->unique();
+            $table->string('tracking_number')->unique(); // Example: ARMS-2026-000001
             $table->timestamp('submitted_at')->nullable();
             $table->timestamps();
         });
 
         Schema::create('document_types', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name');   // Example: Legal Requirements to Operate Business
             $table->string('code')->unique();
             $table->timestamps();
         });
@@ -44,13 +44,13 @@ return new class extends Migration
                 'rejected',
                 'for_revision'
             ])->default('pending');
-            $table->text('remarks')->nullable();
+            $table->text('remarks')->nullable(); // Example: "File is blurred"
             $table->timestamps();
         });
 
         Schema::create('application_statuses', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name');   // Example: Submitted, Under Evaluation, For Revision
             $table->timestamps();
         });
 
