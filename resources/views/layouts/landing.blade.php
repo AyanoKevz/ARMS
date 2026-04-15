@@ -15,7 +15,7 @@
 <body>
 
     {{-- ══ NAVBAR — lives outside smooth-wrapper so position:fixed works ══ --}}
-    <nav class="navbar navbar-arms navbar-expand-lg">
+    <nav class="navbar navbar-arms {{ request()->is('/') ? '' : 'navbar-solid' }} navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand" href="{{ url('/') }}">
                 <img src="{{ asset('images/oshc-logo.png') }}" class="brand-logo" alt="OSHC Logo">
@@ -110,11 +110,8 @@
                             <div class="col-sm-6 col-lg-3">
                                 <p class="footer-heading">Portals</p>
                                 <ul class="footer-links">
-                                    <li><a href="#">OSH Professionals Login</a></li>
-                                    <li><a href="#">OSH Professionals Register</a></li>
-                                    <li><a href="#">Technical Service Providers</a></li>
-                                    <li><a href="#">Training Orgs Login</a></li>
-                                    <li><a href="#">Training Orgs Register</a></li>
+                                    <li><a href="{{ route('login') }}">Login</a></li>
+                                    <li><a href="{{ route('register') }}">Register</a></li>
                                 </ul>
                             </div>
 

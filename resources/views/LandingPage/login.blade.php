@@ -2,9 +2,7 @@
 
 @section('title', 'Sign In | ARMS')
 
-@push('styles')
-<link rel="stylesheet" href="{{ asset('css/login.css') }}">
-@endpush
+
 
 @section('content')
 <div class="login-page">

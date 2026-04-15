@@ -4,24 +4,7 @@
 
 {{-- Force the navbar into its solid dark state on this light-background page --}}
 
-@push('styles')
-<style>
-    /* Track page: navbar is always solid, never transparent */
-    .navbar-arms {
-        background: var(--blue-deep) !important;
-        border-bottom-color: var(--gold) !important;
-        box-shadow: 0 4px 24px rgba(13, 43, 85, .35) !important;
-    }
 
-    .navbar-arms .navbar-brand {
-        padding: 1rem 0;
-    }
-
-    .navbar-arms .brand-logo {
-        height: 36px;
-    }
-</style>
-@endpush
 
 @section('content')
 <section class="section-py bg-light" style="min-height: 70vh; padding-top: 120px;">

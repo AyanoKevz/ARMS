@@ -2,15 +2,13 @@
 
 @section('title', 'Register | ARMS')
 
-@push('styles')
-    <link rel="stylesheet" href="{{ asset('css/register.css') }}">
-@endpush
+
 
 @section('content')
 <div class="register-page">
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-lg-8 col-xl-7">
+            <div class="col-lg-10 col-xl-9 mx-auto" style="max-width: 900px;">
 
                 <div class="reg-card">
 
@@ -31,7 +29,7 @@
                     {{-- ── Card Body / Form ── --}}
                     <div class="reg-card-body">
 
-                        <form id="registerForm" novalidate>
+                        <form id="registerForm" enctype="multipart/form-data" novalidate>
                             @csrf
 
                             {{-- ════════ STEP 1 — Accreditation Type ════════ --}}
@@ -44,7 +42,7 @@
                                         Accreditation Type <span class="text-danger">*</span>
                                     </label>
                                     <select id="accreditation_type" name="accreditation_type_id"
-                                            class="form-select" required>
+                                        class="form-select" required>
                                         <option value="" disabled selected>— Select Accreditation Type —</option>
                                         {{--
                                             Seeder order (IDs):
@@ -87,7 +85,7 @@
                                             Email Address <span class="text-danger">*</span>
                                         </label>
                                         <input type="email" class="form-control" id="email" name="email"
-                                               placeholder="you@email.com" required>
+                                            placeholder="you@email.com" required>
                                         <div class="invalid-feedback">Please enter a valid email address.</div>
                                     </div>
                                     <div class="col-12">
@@ -96,10 +94,10 @@
                                         </label>
                                         <div class="input-group">
                                             <input type="password" class="form-control" id="password"
-                                                   name="password" placeholder="Min. 8 characters"
-                                                   minlength="8" required>
+                                                name="password" placeholder="Min. 8 characters"
+                                                minlength="8" required>
                                             <button class="btn btn-outline-secondary" type="button"
-                                                    id="toggleRegPass" title="Show/hide password">
+                                                id="toggleRegPass" title="Show/hide password">
                                                 <i class="bi bi-eye" id="toggleRegPassIcon"></i>
                                             </button>
                                         </div>
@@ -109,8 +107,14 @@
                                         <label for="password_confirmation" class="form-label fw-semibold">
                                             Confirm Password <span class="text-danger">*</span>
                                         </label>
-                                        <input type="password" class="form-control" id="password_confirmation"
-                                               name="password_confirmation" placeholder="Re-enter password" required>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="password_confirmation"
+                                                name="password_confirmation" placeholder="Re-enter password" required>
+                                            <button class="btn btn-outline-secondary" type="button"
+                                                id="toggleRegPassConfirm" title="Show/hide password">
+                                                <i class="bi bi-eye" id="toggleRegPassConfirmIcon"></i>
+                                            </button>
+                                        </div>
                                         <div class="invalid-feedback">Passwords do not match.</div>
                                     </div>
                                 </div>
@@ -124,20 +128,20 @@
                                                 First Name <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="first_name"
-                                                   name="first_name" placeholder="Juan">
+                                                name="first_name" placeholder="Juan">
                                             <div class="invalid-feedback">First name is required.</div>
                                         </div>
                                         <div class="col-md-4">
                                             <label for="middle_name" class="form-label fw-semibold">Middle Name</label>
                                             <input type="text" class="form-control" id="middle_name"
-                                                   name="middle_name" placeholder="(optional)">
+                                                name="middle_name" placeholder="(optional)">
                                         </div>
                                         <div class="col-md-4">
                                             <label for="last_name" class="form-label fw-semibold">
                                                 Last Name <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="last_name"
-                                                   name="last_name" placeholder="Dela Cruz">
+                                                name="last_name" placeholder="Dela Cruz">
                                             <div class="invalid-feedback">Last name is required.</div>
                                         </div>
                                         <div class="col-md-4">
@@ -163,7 +167,7 @@
                                                 Region <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="region_ind"
-                                                   name="region" placeholder="e.g. NCR">
+                                                name="region" placeholder="e.g. NCR">
                                             <div class="invalid-feedback">Region is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -171,7 +175,7 @@
                                                 City / Municipality <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="city_ind"
-                                                   name="city" placeholder="Quezon City">
+                                                name="city" placeholder="Quezon City">
                                             <div class="invalid-feedback">City is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -179,7 +183,7 @@
                                                 Full Address <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="address_ind"
-                                                   name="address" placeholder="Street, Barangay">
+                                                name="address" placeholder="Street, Barangay">
                                             <div class="invalid-feedback">Address is required.</div>
                                         </div>
                                     </div>
@@ -194,7 +198,7 @@
                                                 Organization Name <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="org_name"
-                                                   name="org_name" placeholder="e.g. ABC First Aid Training Center">
+                                                name="org_name" placeholder="e.g. ABC First Aid Training Center">
                                             <div class="invalid-feedback">Organization name is required.</div>
                                         </div>
                                         <div class="col-12">
@@ -202,7 +206,7 @@
                                                 Business Address <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="org_address"
-                                                   name="org_address" placeholder="Complete business address">
+                                                name="org_address" placeholder="Complete business address">
                                             <div class="invalid-feedback">Business address is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -210,7 +214,7 @@
                                                 Name of Head / Director <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="head_name"
-                                                   name="head_name" placeholder="Full name">
+                                                name="head_name" placeholder="Full name">
                                             <div class="invalid-feedback">Head name is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -218,26 +222,27 @@
                                                 Designation / Position <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="designation"
-                                                   name="designation" placeholder="e.g. Executive Director">
+                                                name="designation" placeholder="e.g. Executive Director">
                                             <div class="invalid-feedback">Designation is required.</div>
                                         </div>
+
                                         <div class="col-md-6">
+                                            <label for="telephone" class="form-label fw-semibold">Telephone</label>
+                                            <input type="text" class="form-control" id="telephone"
+                                                name="telephone" placeholder="02-123-4567">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="fax" class="form-label fw-semibold">Fax</label>
+                                            <input type="text" class="form-control" id="fax"
+                                                name="fax" placeholder="02-123-4567">
+                                        </div>
+                                        <div class="col-12">
                                             <label for="org_email" class="form-label fw-semibold">
                                                 Organization Email <span class="text-danger">*</span>
                                             </label>
                                             <input type="email" class="form-control" id="org_email"
-                                                   name="org_email" placeholder="org@email.com">
+                                                name="org_email" placeholder="org@email.com">
                                             <div class="invalid-feedback">A valid organization email is required.</div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label for="telephone" class="form-label fw-semibold">Telephone</label>
-                                            <input type="text" class="form-control" id="telephone"
-                                                   name="telephone" placeholder="02-123-4567">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label for="fax" class="form-label fw-semibold">Fax</label>
-                                            <input type="text" class="form-control" id="fax"
-                                                   name="fax" placeholder="02-123-4567">
                                         </div>
                                     </div>
 
@@ -248,7 +253,7 @@
                                                 Representative Full Name <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="rep_name"
-                                                   name="rep_full_name" placeholder="Full name">
+                                                name="rep_full_name" placeholder="Full name">
                                             <div class="invalid-feedback">Representative name is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -256,7 +261,7 @@
                                                 Position <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="rep_position"
-                                                   name="rep_position" placeholder="e.g. Operations Manager">
+                                                name="rep_position" placeholder="e.g. Operations Manager">
                                             <div class="invalid-feedback">Representative position is required.</div>
                                         </div>
                                         <div class="col-md-6">
@@ -264,8 +269,8 @@
                                                 Contact Number <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="rep_contact"
-                                                   name="rep_contact_number" placeholder="09171234567"
-                                                   pattern="^(09|\+639)\d{9}$">
+                                                name="rep_contact_number" placeholder="09171234567"
+                                                pattern="^(09|\+639)\d{9}$">
                                             <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
                                         </div>
                                         <div class="col-md-6">
@@ -273,17 +278,112 @@
                                                 Representative Email <span class="text-danger">*</span>
                                             </label>
                                             <input type="email" class="form-control" id="rep_email"
-                                                   name="rep_email" placeholder="rep@email.com">
+                                                name="rep_email" placeholder="rep@email.com">
                                             <div class="invalid-feedback">A valid email is required.</div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <p class="form-section-title mt-4">Step 5 — Submission of Required Documents</p>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="alert alert-info rounded-3" style="background: rgba(46,111,216,.08); border: 1px solid rgba(46,111,216,.2); color: var(--blue-deep);">
+                                            <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2 text-primary"></i>Document Upload Instructions</h6>
+                                            <p class="mb-0" style="font-size: 0.85rem;">
+                                                Documents under each type below must be combined into a single <strong>PDF format only</strong> file (Maximum file size: <strong>10 MB</strong> per type) before uploading.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_legal" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">1. Legal Requirements to Operate Business <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewLegal">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewLegal">
+                                            <img src="{{ asset('images/Fatpro_1.png') }}" alt="Legal Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_legal" name="documents[LEGAL_REQ]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_training" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">2. Training Management and Staff <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewTraining">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewTraining">
+                                            <img src="{{ asset('images/Fatpro_2.png') }}" alt="Training Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_training" name="documents[TRAINING_MGMT]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_premises" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">3. Premises Including Occupational Safety <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewPremises">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewPremises">
+                                            <img src="{{ asset('images/Fatpro_3.png') }}" alt="Premises Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_premises" name="documents[PREMISES_SAFETY]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_ip" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">4. Policies on IP and Data Protection <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewIp">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewIp">
+                                            <img src="{{ asset('images/Fatpro_4.png') }}" alt="IP Policies Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_ip" name="documents[IP_DATA_POLICY]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_quality" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">5. Quality Assurance and Enhancement <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewQuality">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewQuality">
+                                            <img src="{{ asset('images/Fatpro_5.png') }}" alt="Quality Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_quality" name="documents[QUALITY_ASSURANCE]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-end mb-1">
+                                            <label for="doc_equipment" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">6. Training Equipment and Materials <span class="text-danger">*</span></label>
+                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewEquipment">
+                                                <i class="bi bi-card-checklist"></i> View List
+                                            </button>
+                                        </div>
+                                        <div class="collapse mb-2" id="previewEquipment">
+                                            <img src="{{ asset('images/Fatpro_6.png') }}" alt="Equipment Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                        </div>
+                                        <input class="form-control" type="file" id="doc_equipment" name="documents[TRAINING_EQUIPMENT]" accept=".pdf" required>
+                                        <div class="invalid-feedback">Please upload the required document.</div>
                                     </div>
                                 </div>
 
                                 {{-- Submit --}}
                                 <div class="d-grid mt-4">
                                     <button type="submit" class="btn btn-primary btn-lg fw-semibold"
-                                            style="background:var(--blue-deep);border-color:var(--blue-deep);
-                                                   border-radius:10px;padding:.85rem;">
+                                        style="background:var(--blue-deep);border-color:var(--blue-deep);
+                                        border-radius:10px;padding:.85rem;">
                                         <i class="bi bi-check2-circle me-2"></i> Submit Registration
                                     </button>
                                 </div>
@@ -297,8 +397,8 @@
                             <a href="{{ route('login') }}">Sign in here</a>
                         </div>
 
-                    </div>{{-- /.reg-card-body --}}
-                </div>{{-- /.reg-card --}}
+                    </div> {{-- /.reg-card-body --}}
+                </div> {{-- /.reg-card --}}
 
             </div>
         </div>

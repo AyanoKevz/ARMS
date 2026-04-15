@@ -240,6 +240,19 @@
         });
     }
 
+    /* ── Register confirm password toggle ── */
+    const regConfirmToggle     = document.getElementById('toggleRegPassConfirm');
+    const regConfirmToggleIcon = document.getElementById('toggleRegPassConfirmIcon');
+    const regPwConfirmInput    = document.getElementById('password_confirmation');
+
+    if (regConfirmToggle) {
+        regConfirmToggle.addEventListener('click', function () {
+            const isText       = regPwConfirmInput.type === 'text';
+            regPwConfirmInput.type    = isText ? 'password' : 'text';
+            regConfirmToggleIcon.className = isText ? 'bi bi-eye' : 'bi bi-eye-slash';
+        });
+    }
+
     /* ── Real-time confirm-password match ── */
     const pwConfirm = document.getElementById('password_confirmation');
     if (pwConfirm) {
