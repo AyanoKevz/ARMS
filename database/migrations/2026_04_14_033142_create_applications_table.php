@@ -63,6 +63,20 @@ return new class extends Migration
             $table->json('required_updates')->nullable();
             $table->timestamps();
         });
+
+        // Temporary holding table for unverified registrations
+        Schema::create('pending_registrations', function (Blueprint $table) {
+            $table->id();
+            $table->string('token')->unique();             // verification link token
+            $table->string('email')->unique();              // applicant email
+            $table->string('password');                     // bcrypt hashed
+            $table->enum('profile_type', ['Individual', 'Organization']);
+            $table->unsignedBigInteger('accreditation_type_id');
+            $table->json('form_data');                      // org / individual profile fields
+            $table->json('documents_data')->nullable();     // temp file paths keyed by doc code
+            $table->timestamp('expires_at');                // token valid for 5 minutes
+            $table->timestamps();
+        });
     }
 
     /**
@@ -75,5 +89,6 @@ return new class extends Migration
         Schema::dropIfExists('application_documents');
         Schema::dropIfExists('application_statuses');
         Schema::dropIfExists('application_status_logs');
+        Schema::dropIfExists('pending_registrations');
     }
 };

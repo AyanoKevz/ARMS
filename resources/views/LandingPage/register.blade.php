@@ -2,8 +2,6 @@
 
 @section('title', 'Register | ARMS')
 
-
-
 @section('content')
 <div class="register-page">
     <div class="container">
@@ -29,7 +27,32 @@
                     {{-- ── Card Body / Form ── --}}
                     <div class="reg-card-body">
 
-                        <form id="registerForm" enctype="multipart/form-data" novalidate>
+                        {{-- Dynamic Alert (Fixed Top) --}}
+                        <div id="dynamicAlert" class="alert d-none alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 350px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                            <span id="dynamicAlertMessage"></span>
+                            <button type="button" class="btn-close" aria-label="Close" onclick="document.getElementById('dynamicAlert').classList.add('d-none')"></button>
+                        </div>
+
+                        <div id="emailSentPanel" class="d-none text-center py-4">
+                            <div style="font-size:3.5rem;margin-bottom:1rem;animation:pulse 2s ease-in-out infinite;">✉️</div>
+                            <h2 style="color:var(--navy-deep);font-size:1.4rem;margin-bottom:.5rem;">Check Your Email</h2>
+                            <div style="width:40px;height:3px;background:var(--gold-light);border-radius:2px;margin:0 auto 1.25rem;"></div>
+                            <p style="color:#555;font-size:.95rem;line-height:1.7;">
+                                A verification link has been sent to<br>
+                                <strong id="sentToEmail" style="color:var(--navy-deep);"></strong>
+                            </p>
+                            <div class="alert mt-3 mb-3" style="background:rgba(212,172,75,.1);border:1px solid rgba(212,172,75,.3);border-radius:10px;color:#7a5c00;font-size:.88rem;text-align:left;">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                Please open the email and click <strong>"Verify Email &amp; Submit Application"</strong> to officially submit your application. The link expires in <strong>5 minutes</strong>.
+                            </div>
+                            <p style="font-size:.82rem;color:#999;">
+                                Didn't receive it? Check your spam folder, or
+                                <a href="#" id="tryAgainLink" style="color:var(--gold-light);">try again</a>.
+                            </p>
+                        </div>
+
+                        {{-- ── Registration Form ── --}}
+                        <form id="registerForm" action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" novalidate>
                             @csrf
 
                             {{-- ════════ STEP 1 — Accreditation Type ════════ --}}
@@ -195,19 +218,19 @@
                                     <div class="row g-3">
                                         <div class="col-12">
                                             <label for="org_name" class="form-label fw-semibold">
-                                                Organization Name <span class="text-danger">*</span>
+                                                Name of FATPro<span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="org_name"
                                                 name="org_name" placeholder="e.g. ABC First Aid Training Center">
-                                            <div class="invalid-feedback">Organization name is required.</div>
+                                            <div class="invalid-feedback">Name is required.</div>
                                         </div>
                                         <div class="col-12">
                                             <label for="org_address" class="form-label fw-semibold">
-                                                Business Address <span class="text-danger">*</span>
+                                                Complete Address <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control" id="org_address"
                                                 name="org_address" placeholder="Complete business address">
-                                            <div class="invalid-feedback">Business address is required.</div>
+                                            <div class="invalid-feedback">Address is required.</div>
                                         </div>
                                         <div class="col-md-6">
                                             <label for="head_name" class="form-label fw-semibold">
@@ -227,181 +250,205 @@
                                         </div>
 
                                         <div class="col-md-6">
-                                            <label for="telephone" class="form-label fw-semibold">Telephone</label>
+                                            <label for="telephone" class="form-label fw-semibold">Telephone Number</label>
                                             <input type="text" class="form-control" id="telephone"
                                                 name="telephone" placeholder="02-123-4567">
                                         </div>
                                         <div class="col-md-6">
-                                            <label for="fax" class="form-label fw-semibold">Fax</label>
+                                            <label for="fax" class="form-label fw-semibold">Facsimile Number</label>
                                             <input type="text" class="form-control" id="fax"
                                                 name="fax" placeholder="02-123-4567">
                                         </div>
                                         <div class="col-12">
                                             <label for="org_email" class="form-label fw-semibold">
-                                                Organization Email <span class="text-danger">*</span>
+                                                Email Address <span class="text-danger">*</span>
                                             </label>
                                             <input type="email" class="form-control" id="org_email"
                                                 name="org_email" placeholder="org@email.com">
-                                            <div class="invalid-feedback">A valid organization email is required.</div>
+                                            <div class="invalid-feedback">Email is required.</div>
                                         </div>
                                     </div>
 
-                                    <p class="form-section-title">Step 4 — Authorized Representative</p>
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <label for="rep_name" class="form-label fw-semibold">
-                                                Representative Full Name <span class="text-danger">*</span>
-                                            </label>
-                                            <input type="text" class="form-control" id="rep_name"
-                                                name="rep_full_name" placeholder="Full name">
-                                            <div class="invalid-feedback">Representative name is required.</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="rep_position" class="form-label fw-semibold">
-                                                Position <span class="text-danger">*</span>
-                                            </label>
-                                            <input type="text" class="form-control" id="rep_position"
-                                                name="rep_position" placeholder="e.g. Operations Manager">
-                                            <div class="invalid-feedback">Representative position is required.</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="rep_contact" class="form-label fw-semibold">
-                                                Contact Number <span class="text-danger">*</span>
-                                            </label>
-                                            <input type="text" class="form-control" id="rep_contact"
-                                                name="rep_contact_number" placeholder="09171234567"
-                                                pattern="^(09|\+639)\d{9}$">
-                                            <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="rep_email" class="form-label fw-semibold">
-                                                Representative Email <span class="text-danger">*</span>
-                                            </label>
-                                            <input type="email" class="form-control" id="rep_email"
-                                                name="rep_email" placeholder="rep@email.com">
-                                            <div class="invalid-feedback">A valid email is required.</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <p class="form-section-title mt-4">Step 5 — Submission of Required Documents</p>
+                                <p class="form-section-title mt-4">Step 4 — Authorized Representative</p>
                                 <div class="row g-3">
-                                    <div class="col-12">
-                                        <div class="alert alert-info rounded-3" style="background: rgba(46,111,216,.08); border: 1px solid rgba(46,111,216,.2); color: var(--blue-deep);">
-                                            <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2 text-primary"></i>Document Upload Instructions</h6>
-                                            <p class="mb-0" style="font-size: 0.85rem;">
-                                                Documents under each type below must be combined into a single <strong>PDF format only</strong> file (Maximum file size: <strong>10 MB</strong> per type) before uploading.
-                                            </p>
-                                        </div>
+                                    <div class="col-md-6">
+                                        <label for="rep_name" class="form-label fw-semibold">
+                                            Representative Full Name <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="rep_name"
+                                            name="rep_full_name" placeholder="Full name">
+                                        <div class="invalid-feedback">Name is required.</div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_legal" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">1. Legal Requirements to Operate Business <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewLegal">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewLegal">
-                                            <img src="{{ asset('images/Fatpro_1.png') }}" alt="Legal Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_legal" name="documents[LEGAL_REQ]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                        <label for="rep_position" class="form-label fw-semibold">
+                                            Position <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="rep_position"
+                                            name="rep_position" placeholder="e.g. Operations Manager">
+                                        <div class="invalid-feedback">Position is required.</div>
                                     </div>
-
                                     <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_training" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">2. Training Management and Staff <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewTraining">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewTraining">
-                                            <img src="{{ asset('images/Fatpro_2.png') }}" alt="Training Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_training" name="documents[TRAINING_MGMT]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                        <label for="rep_contact" class="form-label fw-semibold">
+                                            Contact Number <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="rep_contact"
+                                            name="rep_contact_number" placeholder="09171234567"
+                                            pattern="^(09|\+639)\d{9}$">
+                                        <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
                                     </div>
-
                                     <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_premises" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">3. Premises Including Occupational Safety <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewPremises">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewPremises">
-                                            <img src="{{ asset('images/Fatpro_3.png') }}" alt="Premises Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_premises" name="documents[PREMISES_SAFETY]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_ip" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">4. Policies on IP and Data Protection <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewIp">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewIp">
-                                            <img src="{{ asset('images/Fatpro_4.png') }}" alt="IP Policies Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_ip" name="documents[IP_DATA_POLICY]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_quality" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">5. Quality Assurance and Enhancement <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewQuality">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewQuality">
-                                            <img src="{{ asset('images/Fatpro_5.png') }}" alt="Quality Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_quality" name="documents[QUALITY_ASSURANCE]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
-                                    </div>
-
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <label for="doc_equipment" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">6. Training Equipment and Materials <span class="text-danger">*</span></label>
-                                            <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewEquipment">
-                                                <i class="bi bi-card-checklist"></i> View List
-                                            </button>
-                                        </div>
-                                        <div class="collapse mb-2" id="previewEquipment">
-                                            <img src="{{ asset('images/Fatpro_6.png') }}" alt="Equipment Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                        </div>
-                                        <input class="form-control" type="file" id="doc_equipment" name="documents[TRAINING_EQUIPMENT]" accept=".pdf" required>
-                                        <div class="invalid-feedback">Please upload the required document.</div>
+                                        <label for="rep_email" class="form-label fw-semibold">
+                                            Representative Email <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="email" class="form-control" id="rep_email"
+                                            name="rep_email" placeholder="rep@email.com">
+                                        <div class="invalid-feedback">Email is required.</div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {{-- Submit --}}
-                                <div class="d-grid mt-4">
-                                    <button type="submit" class="btn btn-primary btn-lg fw-semibold"
-                                        style="background:var(--blue-deep);border-color:var(--blue-deep);
+                            <p class="form-section-title mt-4">Step 5 — Submission of Required Documents</p>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="alert alert-info rounded-3" style="background: rgba(46,111,216,.08); border: 1px solid rgba(46,111,216,.2); color: var(--blue-deep);">
+                                        <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2 text-primary"></i>Document Upload Instructions</h6>
+                                        <p class="mb-0" style="font-size: 0.85rem;">
+                                            Documents under each type below must be combined into a single <strong>PDF format only</strong> file (Maximum file size: <strong>10 MB</strong> per type) before uploading.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_legal" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">1. Legal Requirements to Operate Business <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewLegal">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewLegal">
+                                        <img src="{{ asset('images/Fatpro_1.png') }}" alt="Legal Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_legal" name="documents[LEGAL_REQ]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_training" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">2. Training Management and Staff <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewTraining">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewTraining">
+                                        <img src="{{ asset('images/Fatpro_2.png') }}" alt="Training Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_training" name="documents[TRAINING_MGMT]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_premises" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">3. Premises Including Occupational Safety <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewPremises">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewPremises">
+                                        <img src="{{ asset('images/Fatpro_3.png') }}" alt="Premises Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_premises" name="documents[PREMISES_SAFETY]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_ip" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">4. Policies on IP and Data Protection <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewIp">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewIp">
+                                        <img src="{{ asset('images/Fatpro_4.png') }}" alt="IP Policies Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_ip" name="documents[IP_DATA_POLICY]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_quality" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">5. Quality Assurance and Enhancement <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewQuality">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewQuality">
+                                        <img src="{{ asset('images/Fatpro_5.png') }}" alt="Quality Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_quality" name="documents[QUALITY_ASSURANCE]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="d-flex justify-content-between align-items-end mb-1">
+                                        <label for="doc_equipment" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">6. Training Equipment and Materials <span class="text-danger">*</span></label>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewEquipment">
+                                            <i class="bi bi-card-checklist"></i> View List
+                                        </button>
+                                    </div>
+                                    <div class="collapse mb-2" id="previewEquipment">
+                                        <img src="{{ asset('images/Fatpro_6.png') }}" alt="Equipment Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
+                                    </div>
+                                    <input class="form-control" type="file" id="doc_equipment" name="documents[TRAINING_EQUIPMENT]" accept=".pdf" required>
+                                    <div class="invalid-feedback">Please upload the required document.</div>
+                                </div>
+                            </div>
+
+                            {{-- Submit --}}
+                            <div class="d-grid mt-4">
+                                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg fw-semibold"
+                                    style="background:var(--blue-deep);border-color:var(--blue-deep);
                                         border-radius:10px;padding:.85rem;">
+                                    <span id="submitBtnText">
                                         <i class="bi bi-check2-circle me-2"></i> Submit Registration
-                                    </button>
-                                </div>
+                                    </span>
+                                    <span id="submitBtnSpinner" class="d-none">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        Sending verification email…
+                                    </span>
+                                </button>
+                            </div>
 
-                            </div>{{-- /#formSections --}}
 
-                        </form>
+                    </div>{{-- /#formSections --}}
 
-                        <div class="reg-login-link">
-                            Already have an account?
-                            <a href="{{ route('login') }}">Sign in here</a>
-                        </div>
+                    </form>
 
-                    </div> {{-- /.reg-card-body --}}
-                </div> {{-- /.reg-card --}}
+                    <div class="reg-login-link">
+                        Already have an account?
+                        <a href="{{ route('login') }}">Sign in here</a>
+                    </div>
 
-            </div>
+                </div> {{-- /.reg-card-body --}}
+            </div> {{-- /.reg-card --}}
+
         </div>
     </div>
 </div>
+</div>
+@push('scripts')
+
+<style>
+    @keyframes pulse {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.08);
+        }
+    }
+</style>
+@endpush
+
 @endsection

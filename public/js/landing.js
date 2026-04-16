@@ -262,29 +262,125 @@
         });
     }
 
-    /* ── Bootstrap validation on submit ── */
-    registerForm.addEventListener('submit', function (e) {
+    // ── Fetch submission ──
+    const submitBtn     = document.getElementById('submitBtn');
+    const submitText    = document.getElementById('submitBtnText');
+    const submitSpinner = document.getElementById('submitBtnSpinner');
+    const emailPanel    = document.getElementById('emailSentPanel');
+    const sentToEmail   = document.getElementById('sentToEmail');
+    const tryAgainLink  = document.getElementById('tryAgainLink');
+
+    if (tryAgainLink) {
+        tryAgainLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            emailPanel.classList.add('d-none');
+            registerForm.classList.remove('d-none');
+        });
+    }
+
+    function showTopAlert(message, type) {
+        const alertEl  = document.getElementById('dynamicAlert');
+        const alertMsg = document.getElementById('dynamicAlertMessage');
+        if (!alertEl || !alertMsg) return;
+        
+        alertEl.className = `alert alert-${type} alert-dismissible fade show shadow`;
+        alertMsg.textContent = message;
+        alertEl.classList.remove('d-none');
+        
+        // Auto hide after 5 seconds
+        setTimeout(() => {
+            alertEl.classList.add('d-none');
+        }, 5000);
+    }
+
+    const fieldMap = {
+        accreditation_type_id: 'accreditation_type',
+        email: 'email',
+        password: 'password',
+        password_confirmation: 'password_confirmation',
+        org_name: 'org_name',
+        org_address: 'org_address',
+        head_name: 'head_name',
+        designation: 'designation',
+        telephone: 'telephone',
+        fax: 'fax',
+        org_email: 'org_email',
+        rep_full_name: 'rep_name',
+        rep_position: 'rep_position',
+        rep_contact_number: 'rep_contact',
+        rep_email: 'rep_email',
+    };
+
+    function renderFieldErrors(errors) {
+        Object.entries(errors).forEach(([field, messages]) => {
+            const inputId = fieldMap[field] || field;
+            const input   = document.getElementById(inputId);
+            if (input) {
+                input.classList.add('is-invalid');
+                const fb = input.closest('.col-12, .col-md-4, .col-md-6, .input-group')?.querySelector('.invalid-feedback') || 
+                           input.parentElement?.querySelector('.invalid-feedback');
+                if (fb) fb.textContent = messages[0];
+            } else {
+                showTopAlert(messages[0], 'danger');
+            }
+        });
+    }
+
+    function clearAllFieldErrors() {
+        registerForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    }
+
+    registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        e.stopPropagation();
 
-        /* Check password match before native validation */
-        const pw  = document.getElementById('password');
-        const pwc = document.getElementById('password_confirmation');
-        if (pw && pwc) {
-            pwc.setCustomValidity(pw.value !== pwc.value ? 'Passwords do not match.' : '');
-        }
-
+        // ── Client-side Bootstrap validation ──
         if (!this.checkValidity()) {
             this.classList.add('was-validated');
-            const first = this.querySelector(':invalid');
-            if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
             return;
         }
 
-        this.classList.add('was-validated');
-        /* TODO: replace with real fetch/form submit when backend ready */
-        console.log('[ARMS] Registration submitted');
-        alert('Registration submitted! (Backend integration pending)');
+        const alertEl = document.getElementById('dynamicAlert');
+        if(alertEl) { alertEl.classList.add('d-none'); }
+        clearAllFieldErrors();
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (submitText) submitText.classList.add('d-none');
+        if (submitSpinner) submitSpinner.classList.remove('d-none');
+
+        try {
+            const formData = new FormData(this);
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'pending') {
+                if (sentToEmail) sentToEmail.textContent = data.email;
+                this.classList.add('d-none');
+                if (emailPanel) emailPanel.classList.remove('d-none');
+                showTopAlert('Registration submitted successfully! Please check your email.', 'success');
+            } else if (response.status === 422 && data.errors) {
+                renderFieldErrors(data.errors);
+                this.classList.add('was-validated');
+                showTopAlert('Please correct the highlighted errors.', 'warning');
+            } else {
+                showTopAlert(data.message || 'An unexpected error occurred. Please try again.', 'danger');
+            }
+
+        } catch (err) {
+            console.error(err);
+            showTopAlert('System error. Please check your connection and try again.', 'danger');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (submitText) submitText.classList.remove('d-none');
+            if (submitSpinner) submitSpinner.classList.add('d-none');
+        }
     });
 
 })();

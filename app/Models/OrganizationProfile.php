@@ -36,4 +36,12 @@ class OrganizationProfile extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Get the authorized representatives for this organization.
+     */
+    public function authorizedRepresentatives()
+    {
+        return $this->hasMany(\App\Models\AuthorizedRepresentative::class, 'organization_profile_id');
+    }
 }

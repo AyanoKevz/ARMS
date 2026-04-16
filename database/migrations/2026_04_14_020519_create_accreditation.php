@@ -48,6 +48,29 @@ return new class extends Migration
             $table->string('email'); // company@email.com
             $table->timestamps();
         });
+
+        Schema::create('authorized_representatives', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('organization_profile_id')
+                ->constrained()
+                ->cascadeOnDelete();
+            // Link to organization (FATPro)
+
+            $table->string('full_name');
+            // Example: Juan Dela Cruz
+
+            $table->string('position');
+            // Example: Operations Manager
+
+            $table->string('contact_number');
+            // Example: 09171234567
+
+            $table->string('email');
+            // Example: juan@email.com
+
+            $table->timestamps();
+        });
     }
 
     /**
@@ -55,8 +78,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('accreditation');
+        Schema::dropIfExists('accreditation_types');
         Schema::dropIfExists('individual_profiles');
         Schema::dropIfExists('organization_profiles');
+        Schema::dropIfExists('authorized_representatives');
     }
 };

@@ -27,6 +27,8 @@ return new class extends Migration
             // Example: individual (Practitioner), organization (FATPro)
             $table->foreignId('role_id')->constrained()->cascadeOnDelete();
             // Example: 1 = admin, 2 = applicant
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('email_verification_token')->nullable()->unique();
             $table->rememberToken();
             $table->timestamps();
         });
