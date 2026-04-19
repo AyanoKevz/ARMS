@@ -18,6 +18,14 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('divisions', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            // Example: HCD, SCD, ECD, TPID
+
+            $table->timestamps();
+        });
+
 
         Schema::create('users', function (Blueprint $table) {
             $table->id();
@@ -39,6 +47,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('first_name');
             $table->string('last_name');
+            $table->foreignId('division_id')->constrained()->cascadeOnDelete();
+            // Example: 1 = HCD;
             $table->string('position');
             // Example: Evaluator
             $table->timestamps();
@@ -67,6 +77,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('roles');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('divisions');
         Schema::dropIfExists('admin_profiles');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');

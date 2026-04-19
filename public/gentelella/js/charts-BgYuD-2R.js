@@ -1,0 +1,1 @@
+import{C as o,r}from"./vendor-chartjs-CYXIErbJ.js";import{S as s}from"./leaflet-Bpjl05x6.js";import"./vendor-maps-BJwRIiSq.js";import"./vendor-utils-Dh0SF7sI.js";o.register(...r),window.Chart=o;const t=s(window);window.Skycons=t;const i={Chart:o,Skycons:t,L:window.L,initialized:!0};export{i as default};

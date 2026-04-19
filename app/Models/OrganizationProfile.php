@@ -12,10 +12,7 @@ class OrganizationProfile extends Model
     protected $fillable = [
         'user_id',
         'name',
-        'accreditation_number',
         'address',
-        'date_of_accreditation',
-        'validity_date',
         'head_name',
         'designation',
         'telephone',
@@ -25,8 +22,6 @@ class OrganizationProfile extends Model
     ];
 
     protected $casts = [
-        'date_of_accreditation' => 'date',
-        'validity_date'         => 'date',
     ];
 
     /**

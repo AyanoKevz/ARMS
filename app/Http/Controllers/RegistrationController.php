@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\VerifyRegistrationEmail;
+use App\Mail\ApplicationSubmittedEmail;
 use App\Models\Application;
 use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
@@ -31,7 +32,7 @@ class RegistrationController extends Controller
             'accreditation_type_id' => ['required', 'integer', 'exists:accreditation_types,id'],
             'profile_type'          => ['required', 'in:Individual,Organization'],
             'email'                 => ['required', 'email', 'unique:users,email', 'unique:pending_registrations,email'],
-            'password'              => ['required', 'confirmed', Password::min(8)],
+            'password'              => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
 
             // Organization fields (required when profile_type = Organization)
             'org_name'     => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
@@ -45,7 +46,7 @@ class RegistrationController extends Controller
             // Representative fields
             'rep_full_name'      => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'rep_position'       => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
-            'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:20'],
+            'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:11'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
             // Document uploads
@@ -71,11 +72,25 @@ class RegistrationController extends Controller
 
         // ── Gather form data to store as JSON ────────────────────
         $formData = $request->only([
-            'org_name', 'org_address', 'head_name', 'designation',
-            'telephone', 'fax', 'org_email',
-            'rep_full_name', 'rep_position', 'rep_contact_number', 'rep_email',
-            'first_name', 'middle_name', 'last_name', 'sex', 'birthday',
-            'region', 'city', 'address',
+            'org_name',
+            'org_address',
+            'head_name',
+            'designation',
+            'telephone',
+            'fax',
+            'org_email',
+            'rep_full_name',
+            'rep_position',
+            'rep_contact_number',
+            'rep_email',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'sex',
+            'birthday',
+            'region',
+            'city',
+            'address',
         ]);
 
         // ── Create pending registration ───────────────────────────
@@ -177,8 +192,8 @@ class RegistrationController extends Controller
 
                 // 4. Generate tracking number
                 $year           = now()->format('Y');
-                $sequence       = str_pad(Application::count() + 1, 6, '0', STR_PAD_LEFT);
-                $trackingNumber = "ARMS-{$year}-{$sequence}";
+                $sequence = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+                $trackingNumber = "ARMS{$year}-{$sequence}";
 
                 // 5. Create Application
                 $application = Application::create([
@@ -227,11 +242,13 @@ class RegistrationController extends Controller
                 $pending->delete();
             });
 
+            // Send confirmation email copy
+            Mail::to($pending->email)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $pending->email));
+
             return view('LandingPage.verify_result', [
                 'status'         => 'success',
                 'trackingNumber' => $trackingNumber,
             ]);
-
         } catch (\Throwable $e) {
             Log::error('Registration verification failed: ' . $e->getMessage(), ['exception' => $e]);
 

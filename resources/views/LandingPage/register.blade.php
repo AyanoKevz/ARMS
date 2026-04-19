@@ -14,8 +14,8 @@
                     <div class="reg-card-header">
                         <div class="d-flex align-items-center gap-3">
                             <div style="width:48px;height:48px;background:rgba(255,255,255,.12);border-radius:12px;
-                                        display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--gold-light);">
-                                <i class="bi bi-person-plus-fill"></i>
+                                        display:flex;align-items:center;justify-content:center;">
+                                <img src="{{ asset('images/oshc-icon.ico') }}" alt="Icon" style="width: 28px; height: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">
                             </div>
                             <div>
                                 <h1>Create an Account</h1>
@@ -117,14 +117,19 @@
                                         </label>
                                         <div class="input-group">
                                             <input type="password" class="form-control" id="password"
-                                                name="password" placeholder="Min. 8 characters"
+                                                name="password" placeholder="Min. 8 characters, letters & numbers"
                                                 minlength="8" required>
                                             <button class="btn btn-outline-secondary" type="button"
                                                 id="toggleRegPass" title="Show/hide password">
                                                 <i class="bi bi-eye" id="toggleRegPassIcon"></i>
                                             </button>
                                         </div>
-                                        <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                                        <div id="passwordStrengthFeedback" class="mt-2" style="font-size: 0.85rem; line-height: 1.4;">
+                                            <div class="text-secondary" id="rule-length"><i class="bi bi-circle me-2"></i>At least 8 characters</div>
+                                            <div class="text-secondary" id="rule-letter"><i class="bi bi-circle me-2"></i>Contains letters</div>
+                                            <div class="text-secondary" id="rule-number"><i class="bi bi-circle me-2"></i>Contains numbers</div>
+                                        </div>
+                                        <div class="invalid-feedback">Please enter a valid password.</div>
                                     </div>
                                     <div class="col-12">
                                         <label for="password_confirmation" class="form-label fw-semibold">
@@ -293,7 +298,7 @@
                                         </label>
                                         <input type="text" class="form-control" id="rep_contact"
                                             name="rep_contact_number" placeholder="09171234567"
-                                            pattern="^(09|\+639)\d{9}$">
+                                            pattern="^(09|\+639)\d{9}$" maxlength="11">
                                         <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
                                     </div>
                                     <div class="col-md-6">
@@ -402,11 +407,32 @@
                                 </div>
                             </div>
 
-                            {{-- Submit --}}
-                            <div class="d-grid mt-4">
-                                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg fw-semibold"
+                            <div id="reviewSection" class="d-none mt-4">
+                                <p class="form-section-title">Step 6 — Review & Submit</p>
+                                <div class="card bg-light border-0 mb-4 p-4 rounded-3" style="font-size: 0.95rem;">
+                                    <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-2"></i>Registration Summary</h6>
+                                    <div id="reviewContent"></div>
+                                </div>
+                                <div class="form-check mb-4 p-3 bg-white border rounded">
+                                    <input class="form-check-input ms-1 me-3" type="checkbox" id="data_privacy_agreement" value="1" required style="transform: scale(1.3); margin-top: 5px;">
+                                    <label class="form-check-label fw-semibold" for="data_privacy_agreement" style="font-size: 0.9rem; margin-left: 0.5rem; display: block;">
+                                        I agree to the Data Privacy Act of 2012 (Republic Act No. 10173). I hereby give my consent to the Occupational Safety and Health Center (OSHC) to collect, process, and store my personal and organizational information for the purpose of accreditation reporting and monitoring.
+                                    </label>
+                                    <div class="invalid-feedback ms-4 mt-2">You must agree to the Data Privacy Act before submitting.</div>
+                                </div>
+                            </div>
+
+                            {{-- Submit / Review Buttons --}}
+                            <div class="d-grid mt-4 gap-2 d-md-flex justify-content-md-end">
+                                <button type="button" id="reviewBtn" class="btn btn-outline-primary btn-lg fw-semibold" style="border-radius:10px;padding:.85rem 1.5rem;">
+                                    <i class="bi bi-search me-2"></i> Review Details
+                                </button>
+                                <button type="button" id="backBtn" class="btn btn-outline-secondary btn-lg fw-semibold d-none" style="border-radius:10px;padding:.85rem 1.5rem;">
+                                    <i class="bi bi-arrow-left me-2"></i> Edit Details
+                                </button>
+                                <button type="submit" id="submitBtn" class="btn btn-primary btn-lg fw-semibold d-none"
                                     style="background:var(--blue-deep);border-color:var(--blue-deep);
-                                        border-radius:10px;padding:.85rem;">
+                                        border-radius:10px;padding:.85rem 1.5rem;">
                                     <span id="submitBtnText">
                                         <i class="bi bi-check2-circle me-2"></i> Submit Registration
                                     </span>

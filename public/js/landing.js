@@ -240,6 +240,41 @@
         });
     }
 
+    /* ── Real-time password strength ── */
+    if (regPwInput) {
+        regPwInput.addEventListener('input', function () {
+            const val = this.value;
+            const hasLen = val.length >= 8;
+            const hasLetter = /[A-Za-z]/.test(val);
+            const hasNumber = /\d/.test(val);
+            
+            const rLen = document.getElementById('rule-length');
+            const rLet = document.getElementById('rule-letter');
+            const rNum = document.getElementById('rule-number');
+            
+            if (rLen) {
+                rLen.className = hasLen ? 'text-success' : 'text-secondary';
+                rLen.querySelector('i').className = hasLen ? 'bi bi-check-circle-fill me-2' : 'bi bi-circle me-2';
+            }
+            if (rLet) {
+                rLet.className = hasLetter ? 'text-success' : 'text-secondary';
+                rLet.querySelector('i').className = hasLetter ? 'bi bi-check-circle-fill me-2' : 'bi bi-circle me-2';
+            }
+            if (rNum) {
+                rNum.className = hasNumber ? 'text-success' : 'text-secondary';
+                rNum.querySelector('i').className = hasNumber ? 'bi bi-check-circle-fill me-2' : 'bi bi-circle me-2';
+            }
+            
+            this.setCustomValidity((hasLen && hasLetter && hasNumber) ? '' : 'Password must contain at least 8 characters, including letters and numbers.');
+            
+            // Re-trigger confirm match
+            const mainConf = document.getElementById('password_confirmation');
+            if (mainConf && mainConf.value) {
+                mainConf.setCustomValidity(mainConf.value !== val ? 'Passwords do not match.' : '');
+            }
+        });
+    }
+
     /* ── Register confirm password toggle ── */
     const regConfirmToggle     = document.getElementById('toggleRegPassConfirm');
     const regConfirmToggleIcon = document.getElementById('toggleRegPassConfirmIcon');
@@ -262,7 +297,7 @@
         });
     }
 
-    // ── Fetch submission ──
+    // ── Fetch submission & Review Step ──
     const submitBtn     = document.getElementById('submitBtn');
     const submitText    = document.getElementById('submitBtnText');
     const submitSpinner = document.getElementById('submitBtnSpinner');
@@ -270,11 +305,92 @@
     const sentToEmail   = document.getElementById('sentToEmail');
     const tryAgainLink  = document.getElementById('tryAgainLink');
 
+    const reviewBtn     = document.getElementById('reviewBtn');
+    const backBtn       = document.getElementById('backBtn');
+    const reviewSec     = document.getElementById('reviewSection');
+    const reviewCont    = document.getElementById('reviewContent');
+
+    function toggleReviewMode(isReview) {
+        const stepTops = document.querySelectorAll('.form-section-title:not(#reviewSection .form-section-title)');
+        const rows = document.querySelectorAll('#registerForm > .row, #registerForm > #formSections > .row, #registerForm > #formSections > div > .row');
+        
+        stepTops.forEach(el => el.classList.toggle('d-none', isReview));
+        rows.forEach(el => {
+            // keep the row if it's inside reviewSection
+            if (!el.closest('#reviewSection')) {
+                el.classList.toggle('d-none', isReview);
+            }
+        });
+        
+        if (reviewSec) reviewSec.classList.toggle('d-none', !isReview);
+        if (reviewBtn) reviewBtn.classList.toggle('d-none', isReview);
+        if (backBtn) backBtn.classList.toggle('d-none', !isReview);
+        if (submitBtn) {
+            if(isReview) submitBtn.classList.remove('d-none');
+            else submitBtn.classList.add('d-none');
+        }
+        
+        // Scroll to top
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', function() {
+            const privacyCheck = document.getElementById('data_privacy_agreement');
+            if (privacyCheck) privacyCheck.required = false;
+
+            if (!registerForm.checkValidity()) {
+                registerForm.classList.add('was-validated');
+                if (privacyCheck) privacyCheck.required = true;
+                
+                // Focus first invalid element
+                const firstInvalid = registerForm.querySelector(':invalid');
+                if(firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                }
+                return;
+            }
+
+            if (privacyCheck) privacyCheck.required = true;
+            
+            // Build summary HTML
+            let summaryHtml = '<ul class="list-group list-group-flush">';
+            const pType = hiddenPType.value;
+            const typeText = selectType.options[selectType.selectedIndex].text;
+            summaryHtml += `<li class="list-group-item px-0"><strong>Accreditation Type:</strong> ${typeText}</li>`;
+            summaryHtml += `<li class="list-group-item px-0"><strong>Email:</strong> ${document.getElementById('email').value} (Email Account)</li>`;
+            
+            if (pType === 'Organization') {
+                summaryHtml += `<li class="list-group-item px-0"><strong>FatPro Name:</strong> ${document.getElementById('org_name').value}</li>`;
+                summaryHtml += `<li class="list-group-item px-0"><strong>Address:</strong> ${document.getElementById('org_address').value}</li>`;
+                summaryHtml += `<li class="list-group-item px-0"><strong>Head / Director:</strong> ${document.getElementById('head_name').value} (${document.getElementById('designation').value})</li>`;
+                summaryHtml += `<li class="list-group-item px-0"><strong>Representative Name and Contact:</strong> ${document.getElementById('rep_name').value} (${document.getElementById('rep_contact').value})</li>`;
+            } else {
+                summaryHtml += `<li class="list-group-item px-0"><strong>Name:</strong> ${document.getElementById('first_name').value} ${document.getElementById('middle_name').value} ${document.getElementById('last_name').value}</li>`;
+                summaryHtml += `<li class="list-group-item px-0"><strong>Sex:</strong> ${document.getElementById('sex').value}</li>`;
+                summaryHtml += `<li class="list-group-item px-0"><strong>Address:</strong> ${document.getElementById('address_ind').value}, ${document.getElementById('city_ind').value}, ${document.getElementById('region_ind').value}</li>`;
+            }
+            summaryHtml += '</ul><p class="mt-3 text-muted" style="font-size:0.8rem;">Note: The uploaded PDF documents will be included in your final submission.</p>';
+            
+            if (reviewCont) reviewCont.innerHTML = summaryHtml;
+            toggleReviewMode(true);
+        });
+    }
+
+    if (backBtn) {
+        backBtn.addEventListener('click', function() {
+            toggleReviewMode(false);
+        });
+    }
+
     if (tryAgainLink) {
         tryAgainLink.addEventListener('click', function(e) {
             e.preventDefault();
             emailPanel.classList.add('d-none');
             registerForm.classList.remove('d-none');
+            toggleReviewMode(false);
+            submitBtn.disabled = false;
         });
     }
 

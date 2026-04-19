@@ -21,7 +21,6 @@
 
                     <form id="loginForm" novalidate>
                         @csrf
-
                         {{-- Email --}}
                         <div class="mb-2">
                             <label for="login_email">Email Address</label>
@@ -44,7 +43,9 @@
                             <div class="invalid-feedback">Password is required.</div>
                         </div>
 
-                        <span class="forgot-link"><a href="#">Forgot password?</a></span>
+                        <span class="forgot-link">
+                            <a href="{{ route('password.request') }}">Forgot password?</a>
+                        </span>
 
                         <button type="submit" class="btn-login">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Sign In

@@ -37,10 +37,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name'); // FATPro name
-            $table->string('accreditation_number')->nullable();
             $table->text('address');
-            $table->date('date_of_accreditation')->nullable();
-            $table->date('validity_date')->nullable();
             $table->string('head_name');
             $table->string('designation');
             $table->string('telephone')->nullable(); // 123-4567

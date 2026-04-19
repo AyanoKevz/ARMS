@@ -77,4 +77,12 @@ class Application extends Model
     {
         return $this->hasOne(ApplicationStatusLog::class)->latestOfMany();
     }
+
+    /**
+     * Get the accreditation associated with this application.
+     */
+    public function accreditation()
+    {
+        return $this->hasOne(Accreditation::class);
+    }
 }
