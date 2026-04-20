@@ -26,7 +26,7 @@ class TrackingController extends Controller
             // Note: If no application is found, we pass null to the view so it can display "Not Found" message.
         }
 
-        return view('LandingPage.track', compact('application'));
+        return view('landing.track', compact('application'));
     }
 
     /**

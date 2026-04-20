@@ -127,7 +127,7 @@ class RegistrationController extends Controller
 
         // ── Invalid or expired token ──────────────────────────────
         if (! $pending) {
-            return view('LandingPage.verify_result', [
+            return view('landing.verify-result', [
                 'status'  => 'error',
                 'message' => 'This verification link is invalid or has already been used.',
             ]);
@@ -135,7 +135,7 @@ class RegistrationController extends Controller
 
         if ($pending->isExpired()) {
             $pending->delete();
-            return view('LandingPage.verify_result', [
+            return view('landing.verify-result', [
                 'status'  => 'error',
                 'message' => 'This verification link has expired. Please register again.',
             ]);
@@ -144,7 +144,7 @@ class RegistrationController extends Controller
         // ── Double-check email isn't taken yet ────────────────────
         if (User::where('email', $pending->email)->exists()) {
             $pending->delete();
-            return view('LandingPage.verify_result', [
+            return view('landing.verify-result', [
                 'status'  => 'error',
                 'message' => 'This email address is already registered. Please log in.',
             ]);
@@ -245,14 +245,14 @@ class RegistrationController extends Controller
             // Send confirmation email copy
             Mail::to($pending->email)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $pending->email));
 
-            return view('LandingPage.verify_result', [
+            return view('landing.verify-result', [
                 'status'         => 'success',
                 'trackingNumber' => $trackingNumber,
             ]);
         } catch (\Throwable $e) {
             Log::error('Registration verification failed: ' . $e->getMessage(), ['exception' => $e]);
 
-            return view('LandingPage.verify_result', [
+            return view('landing.verify-result', [
                 'status'  => 'error',
                 'message' => 'Something went wrong while finalizing your registration. Please try again or contact support.',
             ]);

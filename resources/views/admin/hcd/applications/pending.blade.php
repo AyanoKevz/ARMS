@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Pending Applications')
 
@@ -44,7 +44,8 @@
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking Number </th>
-                                    <th class="column-title">Applicant Type </th>
+                                    <th class="column-title">Applicant Name </th>
+                                    <th class="column-title">Type </th>
                                     <th class="column-title">Date Submitted </th>
                                     <th class="column-title">Status </th>
                                     <th class="column-title no-link last"><span class="nobr">Action</span></th>
@@ -55,10 +56,17 @@
                                 @forelse($applications as $app)
                                     <tr class="even pointer">
                                         <td class=" ">{{ $app->tracking_number }}</td>
+                                        <td class=" ">
+                                            @if($app->user->profile_type === 'Organization')
+                                                {{ $app->user->organizationProfile->name ?? 'N/A' }}
+                                            @else
+                                                {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
+                                            @endif
+                                        </td>
                                         <td class=" ">{{ $app->user->profile_type ?? 'Unknown' }}</td>
                                         <td class=" ">{{ $app->created_at->format('M d, Y') }}</td>
                                         <td class=" ">
-                                            <span class="badge bg-warning text-dark">{{ $app->status }}</span>
+                                            <span class="badge bg-warning text-dark">{{ $app->latestStatus->status->name ?? 'Pending' }}</span>
                                         </td>
                                         <td class=" last">
                                             <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" onsubmit="return confirm('Update this application to Under Evaluation?');">

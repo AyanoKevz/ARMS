@@ -27,21 +27,20 @@ class AuthController extends Controller
             // Wait, we need to distinguish admin vs applicant.
             if ($user->role && strtolower($user->role->name) === 'admin') {
                 // Admin Login Logic
-                $adminProfile = $user->adminProfile;
+                $adminProfile = $user->adminProfile()->with('division')->first();
                 
-                if ($adminProfile && $adminProfile->division_id) {
-                    // For now, hardcode HCD logic, or make it dynamic if we had Division model with names.
-                    // Let's assume division_id 1 is HCD. Actually we can check the division name if available.
-                    // For the scope of the request, we redirect to HCD dashboard if they are an Admin.
-                    // Better to redirect generic or specific:
-                    return redirect()->route('admin.hcd.dashboard');
+                if ($adminProfile && $adminProfile->division) {
+                    $divisionName = strtolower($adminProfile->division->name);
+                    return redirect()->route("admin.{$divisionName}.dashboard");
                 }
                 
                 // Fallback for admins without specific division routing yet
                 return redirect()->route('admin.hcd.dashboard');
             } else {
                 // Applicant Login Logic
-                if (!$user->accreditations()->exists()) {
+                $accreditations = $user->accreditations()->with('accreditationType')->get();
+                
+                if ($accreditations->isEmpty()) {
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
@@ -51,7 +50,22 @@ class AuthController extends Controller
                     ])->onlyInput('email');
                 }
 
-                // If they have an accreditation, let them in.
+                // If they have an accreditation, redirect based on accreditation type.
+                // For simplicity, we take the type of their first accreditation
+                // or if there are multiple, maybe a portal selection page in the future.
+                $firstAccreditationType = $accreditations->first()->accreditationType;
+                
+                if ($firstAccreditationType) {
+                    // E.g., 'Practitioners' turns into 'practitioners'
+                    $typeSlug = \Illuminate\Support\Str::slug($firstAccreditationType->name);
+                    
+                    // Route example: applicant.practitioners.dashboard
+                    if (\Illuminate\Support\Facades\Route::has("applicant.{$typeSlug}.dashboard")) {
+                        return redirect()->route("applicant.{$typeSlug}.dashboard");
+                    }
+                }
+
+                // Fallback applicant dashboard
                 return redirect()->route('applicant.dashboard');
             }
         }

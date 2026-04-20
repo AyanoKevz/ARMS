@@ -14,8 +14,11 @@ class ApplicationController extends Controller
     public function pending()
     {
         // Get applications that haven't been evaluated yet
-        $applications = Application::with(['user', 'applicationType'])
-            ->where('status', 'Pending')
+        // Get applications that are still 'Submitted' based on their latest status log
+        $applications = Application::with(['user.organizationProfile', 'user.individualProfile', 'accreditationType', 'latestStatus.status'])
+            ->whereHas('latestStatus.status', function ($query) {
+                $query->where('name', 'Submitted');
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -27,15 +30,27 @@ class ApplicationController extends Controller
      */
     public function updateToEvaluation(Request $request, Application $application)
     {
-        // Enforce basic validation if needed
-        if ($application->status !== 'Pending') {
-            return back()->with('error', 'Only pending applications can be moved to evaluation.');
+        // Use relationship logic for status
+        $latestStatusName = $application->latestStatus->status->name ?? null;
+
+        if ($latestStatusName !== 'Submitted') {
+            return back()->with('error', 'Only newly submitted applications can be moved to evaluation.');
         }
 
-        $application->status = 'Under Evaluation';
-        // Assign the evaluating admin if necessary:
-        // $application->handled_by_admin_id = auth()->user()->id;
+        $underEvaluationStatus = \App\Models\ApplicationStatus::where('name', 'Under Evaluation')->first();
+
+        // Assign the evaluating admin
+        $application->handled_by_admin_id = auth()->id();
         $application->save();
+
+        if ($underEvaluationStatus) {
+            \App\Models\ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $underEvaluationStatus->id,
+                'updated_by'     => auth()->id(),
+                'remarks'        => 'Application is now being evaluated.',
+            ]);
+        }
 
         return back()->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation.');
     }

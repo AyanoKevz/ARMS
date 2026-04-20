@@ -14,6 +14,7 @@ class AdminProfile extends Model
         'first_name',
         'last_name',
         'position',
+        'division_id',
     ];
 
     /**
@@ -22,5 +23,13 @@ class AdminProfile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the division for this admin profile.
+     */
+    public function division()
+    {
+        return $this->belongsTo(Division::class);
     }
 }

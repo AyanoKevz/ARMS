@@ -19,7 +19,17 @@
                     <div class="gold-divider"></div>
                     <p class="login-sub">OSHC Accreditation Reporting and Monitoring System</p>
 
-                    <form id="loginForm" novalidate>
+                    @if ($errors->any())
+                        <div class="alert alert-danger pt-2 pb-2 mb-3">
+                            <ul class="mb-0 ps-3">
+                                @foreach ($errors->all() as $error)
+                                    <li><small>{{ $error }}</small></li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <form id="loginForm" method="POST" action="{{ route('login.post') }}" novalidate>
                         @csrf
                         {{-- Email --}}
                         <div class="mb-2">

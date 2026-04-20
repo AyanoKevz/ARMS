@@ -18,7 +18,7 @@ class PasswordResetController extends Controller
      */
     public function showLinkRequestForm()
     {
-        return view('LandingPage.forgot_password');
+        return view('landing.forgot-password');
     }
 
     /**
@@ -55,7 +55,7 @@ class PasswordResetController extends Controller
      */
     public function showResetForm(Request $request, $token = null)
     {
-        return view('LandingPage.reset_password')->with(
+        return view('landing.reset-password')->with(
             ['token' => $token, 'email' => $request->email]
         );
     }

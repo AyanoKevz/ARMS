@@ -150,10 +150,9 @@
 
     /* ── Bootstrap validation ── */
     loginForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-
         if (!this.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
             this.classList.add('was-validated');
             const first = this.querySelector(':invalid');
             if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
@@ -161,9 +160,7 @@
         }
 
         this.classList.add('was-validated');
-        /* TODO: replace with real fetch/form submit when backend ready */
-        console.log('[ARMS] Login submitted');
-        alert('Login submitted! (Backend integration pending)');
+        // Let normal submission proceed
     });
 
 })();

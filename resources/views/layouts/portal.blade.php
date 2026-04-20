@@ -7,12 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'ARMS') | Gentelella Base</title>
+    <title>@yield('title', 'ARMS') | Portal</title>
 
     <!-- Gentelella CSS Base -->
     <link rel="stylesheet" href="{{ asset('gentelella/assets/init-Cvid-qA8.css') }}">
     <link rel="stylesheet" href="{{ asset('gentelella/assets/leaflet-CIGW-MKW.css') }}">
     <link rel="stylesheet" href="{{ asset('gentelella/assets/choices-CINgOKWX.css') }}">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
     @stack('styles')
 </head>
@@ -112,7 +116,7 @@
             <!-- footer content -->
             <footer>
                 <div class="pull-right">
-                    ARMS Portal - Layout based on Gentelella Bootstrap 5
+                    ARMS Portal
                 </div>
                 <div class="clearfix"></div>
             </footer>
