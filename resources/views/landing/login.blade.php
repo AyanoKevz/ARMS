@@ -63,10 +63,6 @@
 
                     </form>
 
-                    <div class="reg-link">
-                        Don't have an account?
-                        <a href="{{ route('register') }}">Register here</a>
-                    </div>
 
                 </div>
 

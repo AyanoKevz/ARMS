@@ -1,5 +1,5 @@
 @extends('layouts.portal')
 
 @section('sidebar')
-    @include('partials.portal.sidebars.applicant')
+    @include('applicant.sidebar')
 @endsection

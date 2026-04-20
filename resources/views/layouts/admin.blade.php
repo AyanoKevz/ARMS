@@ -33,5 +33,5 @@
 
 @section('sidebar')
     {{-- Dynamically load the sidebar based on admin division --}}
-    @includeIf("partials.portal.sidebars.admin-{$division}")
+    @includeIf("admin.{$division}.sidebar")
 @endsection

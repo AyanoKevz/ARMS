@@ -27,10 +27,10 @@
 
             <div class="col-lg-5 offset-lg-1 hero-image-side mt-5 mt-lg-0">
                 <div class="hero-btns">
-                    <a href="#portals" class="btn-hero-primary">
+                    <a href="{{ route('register') }}" class="btn-hero-primary">
                         <i class="bi bi-file-earmark-check"></i> Apply for Accreditation
                     </a>
-                    <a href="#portals" class="btn-hero-outline">
+                    <a href="{{ route('login') }}" class="btn-hero-outline">
                         <i class="bi bi-arrow-repeat"></i> Renew Accreditation
                     </a>
                     <a href="{{ route('track') }}" class="btn-hero-primary fw-bold fs-5">
@@ -71,11 +71,11 @@
 <section id="portals" class="section-py bg-white">
     <div class="container">
         <div class="text-center mb-5">
-            <p class="section-label">Access Portal</p>
-            <h2 class="section-title">OSHC Accreditation Portal</h2>
+            <p class="section-label">Portal Access</p>
+            <h2 class="section-title">Sign In to Your Account</h2>
             <p class="section-desc mx-auto mt-2">
-                One portal for all accreditation types. Log in to manage your existing accreditation
-                or register to start a new application.
+                Access the official OSHC accreditation portal to manage your existing profile, 
+                track applications, and update your information.
             </p>
         </div>
 
@@ -103,11 +103,8 @@
                     </ul>
 
                     <div class="portal-actions">
-                        <a href="{{ route('login') }}" class="btn-portal-login">
-                            <i class="bi bi-box-arrow-in-right"></i> Login
-                        </a>
-                        <a href="{{ route('register') }}" class="btn-portal-register">
-                            <i class="bi bi-person-plus"></i> Register
+                        <a href="{{ route('login') }}" class="btn-portal-login w-100">
+                            <i class="bi bi-box-arrow-in-right"></i> Sign In to Portal
                         </a>
                     </div>
                 </div>
@@ -131,7 +128,7 @@
                 </p>
             </div>
             <div class="col-lg-5 d-flex flex-wrap gap-3 justify-content-lg-end">
-                <a href="#portals" class="btn-cta">
+                <a href="{{ route('register') }}" class="btn-cta">
                     <i class="bi bi-file-earmark-check"></i> Apply Now
                 </a>
                 <a href="https://oshc.dole.gov.ph/" target="_blank" class="btn-cta-ghost">

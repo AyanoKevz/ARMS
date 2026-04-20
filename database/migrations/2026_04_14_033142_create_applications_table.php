@@ -84,11 +84,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('applications');
-        Schema::dropIfExists('document_types');
-        Schema::dropIfExists('application_documents');
-        Schema::dropIfExists('application_statuses');
-        Schema::dropIfExists('application_status_logs');
         Schema::dropIfExists('pending_registrations');
+        Schema::dropIfExists('application_status_logs');
+        Schema::dropIfExists('application_documents');
+        Schema::dropIfExists('applications');
+        Schema::dropIfExists('application_statuses');
+        Schema::dropIfExists('document_types');
     }
 };

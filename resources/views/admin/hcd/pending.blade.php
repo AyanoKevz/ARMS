@@ -72,7 +72,7 @@
                                             <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" onsubmit="return confirm('Update this application to Under Evaluation?');">
                                                 @csrf
                                                 <button type="submit" class="btn btn-primary btn-sm m-0">
-                                                    Update to Evaluated
+                                                    Start Evaluation
                                                 </button>
                                             </form>
                                         </td>

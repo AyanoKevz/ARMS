@@ -30,7 +30,7 @@ class AdminUserSeeder extends Seeder
 
         // Create Admin User
         $admin = User::firstOrCreate(
-            ['email' => 'hcd@osch.com'],
+            ['email' => 'hcd@oshc.com'],
             [
                 'password' => Hash::make('Hcd@2026'),
                 'role_id'  => $adminRole->id,
