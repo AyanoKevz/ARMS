@@ -111,6 +111,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the documents uploaded by this user.
+     */
+    public function userDocuments()
+    {
+        return $this->hasMany(UserDocument::class);
+    }
+
+    /**
      * Send the password reset notification.
      *
      * @param  string  $token

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             AccreditationTypeSeeder::class,
             ApplicationStatusSeeder::class,
             DocumentTypeSeeder::class,
+            DocumentFieldSeeder::class,
         ]);
     }
 }

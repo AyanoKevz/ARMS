@@ -11,8 +11,8 @@ class ApplicationDocument extends Model
 
     protected $fillable = [
         'application_id',
-        'document_type_id',
-        'file_path',
+        'document_field_id',
+        'user_document_id',
         'status',
         'remarks',
     ];
@@ -26,10 +26,18 @@ class ApplicationDocument extends Model
     }
 
     /**
-     * Get the document type of this document.
+     * Get the specific document field for this application document.
      */
-    public function documentType()
+    public function documentField()
     {
-        return $this->belongsTo(DocumentType::class);
+        return $this->belongsTo(DocumentField::class);
+    }
+
+    /**
+     * Get the actual user document value/file path used.
+     */
+    public function userDocument()
+    {
+        return $this->belongsTo(UserDocument::class);
     }
 }

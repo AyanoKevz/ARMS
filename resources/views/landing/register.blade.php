@@ -318,94 +318,146 @@
                                     <div class="alert alert-info rounded-3" style="background: rgba(46,111,216,.08); border: 1px solid rgba(46,111,216,.2); color: var(--blue-deep);">
                                         <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2 text-primary"></i>Document Upload Instructions</h6>
                                         <p class="mb-0" style="font-size: 0.85rem;">
-                                            Documents under each type below must be combined into a single <strong>PDF format only</strong> file (Maximum file size: <strong>10 MB</strong> per type) before uploading.
+                                            Upload each required file in <strong>PDF format only</strong> (Maximum: <strong>10 MB</strong> per file).
+                                            Fill in all text and date fields exactly as they appear.
                                         </p>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_legal" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">1. Legal Requirements to Operate Business <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewLegal">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+
+                                {{-- ── Type 1: Legal Requirements to Operate Business ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">1</span>Legal Requirements to Operate Business</h6>
+                                        <div class="row g-3">
+                                            @foreach([
+                                                ['code'=>'LEGAL_01','label'=>'Business Permit / Mayor\'s Permit'],
+                                                ['code'=>'LEGAL_02','label'=>'SEC / DTI / CDA Registration Certificate'],
+                                                ['code'=>'LEGAL_03','label'=>'BIR Certificate of Registration'],
+                                                ['code'=>'LEGAL_04','label'=>'SSS / PhilHealth / Pag-IBIG Registration'],
+                                                ['code'=>'LEGAL_05','label'=>'Organizational Chart'],
+                                                ['code'=>'LEGAL_06','label'=>'Proof of Office / Training Facility Ownership or Lease'],
+                                                ['code'=>'LEGAL_07','label'=>'List of Current Trainers and Staff'],
+                                            ] as $f)
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                            </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewLegal">
-                                        <img src="{{ asset('images/Fatpro_1.png') }}" alt="Legal Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_legal" name="documents[LEGAL_REQ]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_training" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">2. Training Management and Staff <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewTraining">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+                                {{-- ── Type 2: Training Management and Staff ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">2</span>Training Management and Staff</h6>
+                                        <div class="row g-3">
+                                            @foreach([
+                                                ['code'=>'TRAIN_01','label'=>'Training Program / Course Outline'],
+                                                ['code'=>'TRAIN_02','label'=>'Trainer\'s Certificates / Credentials'],
+                                                ['code'=>'TRAIN_03','label'=>'Staff Job Descriptions or Employment Contracts'],
+                                            ] as $f)
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                            </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewTraining">
-                                        <img src="{{ asset('images/Fatpro_2.png') }}" alt="Training Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_training" name="documents[TRAINING_MGMT]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_premises" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">3. Premises Including Occupational Safety <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewPremises">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+                                {{-- ── Type 3: Premises Including Occupational Safety ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">3</span>Premises Including Occupational Safety</h6>
+                                        <div class="row g-3">
+                                            @foreach([
+                                                ['code'=>'PREM_01','label'=>'Floor Plan of Training Facility'],
+                                                ['code'=>'PREM_02','label'=>'Occupancy Permit'],
+                                                ['code'=>'PREM_03','label'=>'Fire Safety Inspection Certificate'],
+                                                ['code'=>'PREM_04','label'=>'Sanitary Permit'],
+                                                ['code'=>'PREM_05','label'=>'Emergency Evacuation Plan'],
+                                                ['code'=>'PREM_06','label'=>'Electrical Inspection Certificate'],
+                                                ['code'=>'PREM_07','label'=>'Photos of Training Premises'],
+                                            ] as $f)
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                            </div>
+                                            @endforeach
+                                            {{-- 1 Date input --}}
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Date of Last Safety Inspection <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="date" name="documents[PREM_DATE]">
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewPremises">
-                                        <img src="{{ asset('images/Fatpro_3.png') }}" alt="Premises Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_premises" name="documents[PREMISES_SAFETY]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_ip" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">4. Policies on IP and Data Protection <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewIp">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+                                {{-- ── Type 4: Policies on IP and Data Protection ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">4</span>Policies on Intellectual Property and Data Protection</h6>
+                                        <div class="row g-3">
+                                            {{-- 1 Text --}}
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Name of Data Protection Officer <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="text" name="documents[IP_DPO_NAME]" placeholder="Full name of DPO">
+                                            </div>
+                                            {{-- 2 File --}}
+                                            @foreach([
+                                                ['code'=>'IP_01','label'=>'Data Privacy Policy Document'],
+                                                ['code'=>'IP_02','label'=>'Intellectual Property Policy Document'],
+                                            ] as $f)
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                            </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewIp">
-                                        <img src="{{ asset('images/Fatpro_4.png') }}" alt="IP Policies Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_ip" name="documents[IP_DATA_POLICY]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_quality" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">5. Quality Assurance and Enhancement <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewQuality">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+                                {{-- ── Type 5: Quality Assurance and Enhancement ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">5</span>Quality Assurance and Enhancement</h6>
+                                        <div class="row g-3">
+                                            @foreach([
+                                                ['code'=>'QA_01','label'=>'Quality Management Manual / Handbook'],
+                                                ['code'=>'QA_02','label'=>'Internal Audit Reports'],
+                                                ['code'=>'QA_03','label'=>'Trainee Feedback / Evaluation Forms'],
+                                                ['code'=>'QA_04','label'=>'Post-Training Evaluation Results'],
+                                                ['code'=>'QA_05','label'=>'Certificates Issued to Graduates (sample)'],
+                                                ['code'=>'QA_06','label'=>'Annual Report or Operations Report'],
+                                                ['code'=>'QA_07','label'=>'List of Completed Trainings / Batches'],
+                                                ['code'=>'QA_08','label'=>'Corrective Action Plan (if applicable)'],
+                                                ['code'=>'QA_09','label'=>'Continuous Improvement Documentation'],
+                                            ] as $f)
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                            </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewQuality">
-                                        <img src="{{ asset('images/Fatpro_5.png') }}" alt="Quality Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_quality" name="documents[QUALITY_ASSURANCE]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="d-flex justify-content-between align-items-end mb-1">
-                                        <label for="doc_equipment" class="form-label fw-semibold mb-0" style="font-size: .88rem; line-height: 1.2;">6. Training Equipment and Materials <span class="text-danger">*</span></label>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none py-0 px-1 border-0" style="font-size: .75rem;" data-bs-toggle="collapse" data-bs-target="#previewEquipment">
-                                            <i class="bi bi-card-checklist"></i> View List
-                                        </button>
+                                {{-- ── Type 6: Training Equipment and Materials ── --}}
+                                <div class="col-12">
+                                    <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
+                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">6</span>Training Equipment and Materials</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Inventory of Training Equipment and Materials <span class="text-danger">*</span></label>
+                                                <input class="form-control form-control-sm" type="file" name="documents[EQUIP_01]" accept=".pdf">
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="collapse mb-2" id="previewEquipment">
-                                        <img src="{{ asset('images/Fatpro_6.png') }}" alt="Equipment Requirements Preview" class="img-fluid rounded border shadow-sm w-100" style="height: auto; max-height: 300px; object-fit: contain; background: white;">
-                                    </div>
-                                    <input class="form-control" type="file" id="doc_equipment" name="documents[TRAINING_EQUIPMENT]" accept=".pdf" required>
-                                    <div class="invalid-feedback">Please upload the required document.</div>
                                 </div>
+
                             </div>
+
 
                             <div id="reviewSection" class="d-none mt-4">
                                 <p class="form-section-title">Step 6 — Review & Submit</p>

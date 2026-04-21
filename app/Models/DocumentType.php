@@ -15,10 +15,10 @@ class DocumentType extends Model
     ];
 
     /**
-     * Get the application documents of this type.
+     * Get the document fields that belong to this section.
      */
-    public function applicationDocuments()
+    public function documentFields()
     {
-        return $this->hasMany(ApplicationDocument::class);
+        return $this->hasMany(DocumentField::class);
     }
 }

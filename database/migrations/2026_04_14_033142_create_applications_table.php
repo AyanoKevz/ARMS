@@ -33,11 +33,32 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('document_fields', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('document_type_id')->constrained()->cascadeOnDelete();
+            // Which section it belongs to
+            $table->string('name'); // Example: Name of Data Protection Officer
+            $table->string('code'); // Example: DPO_NAME
+            $table->enum('input_type', ['file', 'text', 'date']); // What kind of input
+
+            $table->timestamps();
+        });
+
+        Schema::create('user_documents', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('document_field_id')->constrained()->cascadeOnDelete();
+            $table->string('file_path')->nullable();
+            $table->text('value')->nullable();
+            $table->timestamps();
+            $table->unique(['user_id', 'document_field_id']);
+        });
+
         Schema::create('application_documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('application_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('document_type_id')->constrained('document_types')->cascadeOnDelete();
-            $table->string('file_path'); // ONLY file path (PDF)
+            $table->foreignId('document_field_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_document_id')->constrained('user_documents')->cascadeOnDelete();
             $table->enum('status', [
                 'pending',
                 'approved',
@@ -87,6 +108,8 @@ return new class extends Migration
         Schema::dropIfExists('pending_registrations');
         Schema::dropIfExists('application_status_logs');
         Schema::dropIfExists('application_documents');
+        Schema::dropIfExists('user_documents');
+        Schema::dropIfExists('document_fields');
         Schema::dropIfExists('applications');
         Schema::dropIfExists('application_statuses');
         Schema::dropIfExists('document_types');

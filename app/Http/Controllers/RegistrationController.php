@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Mail\VerifyRegistrationEmail;
 use App\Mail\ApplicationSubmittedEmail;
 use App\Models\Application;
+use App\Models\ApplicationDocument;
 use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
 use App\Models\AuthorizedRepresentative;
+use App\Models\DocumentField;
 use App\Models\OrganizationProfile;
 use App\Models\PendingRegistration;
 use App\Models\User;
+use App\Models\UserDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -28,7 +31,22 @@ class RegistrationController extends Controller
     public function store(Request $request)
     {
         // ── Validation ──────────────────────────────────────────
-        $request->validate([
+        // Build dynamic per-field rules from document_fields table
+        $documentFields = DocumentField::all()->keyBy('code');
+
+        $documentRules = [];
+        foreach ($documentFields as $code => $field) {
+            $key = "documents.{$code}";
+            if ($field->input_type === 'file') {
+                $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+            } elseif ($field->input_type === 'date') {
+                $documentRules[$key] = ['nullable', 'date'];
+            } elseif ($field->input_type === 'text') {
+                $documentRules[$key] = ['nullable', 'string', 'max:500'];
+            }
+        }
+
+        $request->validate(array_merge([
             'accreditation_type_id' => ['required', 'integer', 'exists:accreditation_types,id'],
             'profile_type'          => ['required', 'in:Individual,Organization'],
             'email'                 => ['required', 'email', 'unique:users,email', 'unique:pending_registrations,email'],
@@ -49,24 +67,31 @@ class RegistrationController extends Controller
             'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:11'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
-            // Document uploads
-            'documents'          => ['required', 'array'],
-            'documents.*'        => ['required', 'file', 'mimes:pdf', 'max:10240'],
-        ]);
+            'documents' => ['nullable', 'array'],
+        ], $documentRules));
 
         // ── Generate token ───────────────────────────────────────
         $token = Str::random(64);
 
-        // ── Store uploaded PDFs to a private temp directory ──────
-        $documentsData = [];
-        if ($request->hasFile('documents')) {
-            foreach ($request->file('documents') as $code => $file) {
-                $tempPath = $file->storeAs(
-                    "pending/{$token}",
-                    "{$code}.pdf",
-                    'local'
-                );
-                $documentsData[$code] = $tempPath;
+        // ── Store each document field value to a temp area ───────
+        // documents[FIELD_CODE] can be a file (PDF), a date string, or a text value
+        $documentsData = []; // code => ['type' => 'file|text|date', 'value' => path|string]
+
+        $allDocumentFields = DocumentField::all()->keyBy('code');
+
+        foreach ($allDocumentFields as $code => $field) {
+            if ($field->input_type === 'file') {
+                if ($request->hasFile("documents.{$code}")) {
+                    $file     = $request->file("documents.{$code}");
+                    $tempPath = $file->storeAs("pending/{$token}", "{$code}.pdf", 'local');
+                    $documentsData[$code] = ['input_type' => 'file', 'value' => $tempPath];
+                }
+            } else {
+                // text or date
+                $val = $request->input("documents.{$code}");
+                if (! is_null($val) && $val !== '') {
+                    $documentsData[$code] = ['input_type' => $field->input_type, 'value' => $val];
+                }
             }
         }
 
@@ -204,24 +229,47 @@ class RegistrationController extends Controller
                     'submitted_at'          => now(),
                 ]);
 
-                // 6. Move documents from temp → permanent storage
-                $docTypeMap = []; // code => document_type_id
-                $docTypes = \App\Models\DocumentType::all()->keyBy('code');
-                $docsData = $pending->documents_data ?? [];
+                // 6. Persist each field value → user_documents → application_documents
+                $fieldMap  = DocumentField::all()->keyBy('code'); // code => DocumentField
+                $docsData  = $pending->documents_data ?? [];       // code => ['input_type', 'value']
 
-                foreach ($docsData as $code => $tempPath) {
-                    $finalPath = "public/documents/{$application->id}/{$code}.pdf";
-                    Storage::disk('local')->move($tempPath, $finalPath);
-
-                    $docType = $docTypes->get($code);
-                    if ($docType) {
-                        \App\Models\ApplicationDocument::create([
-                            'application_id'   => $application->id,
-                            'document_type_id' => $docType->id,
-                            'file_path'        => $finalPath,
-                            'status'           => 'pending',
-                        ]);
+                foreach ($docsData as $code => $entry) {
+                    $field = $fieldMap->get($code);
+                    if (! $field) {
+                        continue;
                     }
+
+                    $filePath  = null;
+                    $textValue = null;
+
+                    if ($entry['input_type'] === 'file') {
+                        // Move from temp to permanent location
+                        $filePath = "public/documents/{$application->id}/{$code}.pdf";
+                        Storage::disk('local')->move($entry['value'], $filePath);
+                    } else {
+                        // text or date — store as plain value
+                        $textValue = $entry['value'];
+                    }
+
+                    // Upsert into user_documents (one row per user+field)
+                    $userDoc = UserDocument::updateOrCreate(
+                        [
+                            'user_id'           => $user->id,
+                            'document_field_id' => $field->id,
+                        ],
+                        [
+                            'file_path' => $filePath,
+                            'value'     => $textValue,
+                        ]
+                    );
+
+                    // Create the tracking row in application_documents
+                    ApplicationDocument::create([
+                        'application_id'   => $application->id,
+                        'document_field_id'=> $field->id,
+                        'user_document_id' => $userDoc->id,
+                        'status'           => 'pending',
+                    ]);
                 }
 
                 // Clean up the temp folder

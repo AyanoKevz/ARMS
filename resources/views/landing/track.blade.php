@@ -71,49 +71,82 @@
                                 </div>
                                 <hr class="my-4" style="border-color: #e9ecef;">
                                 <h5 class="mb-3 fw-bold" style="color: #1a2e5a;">Submitted Documents</h5>
-                                <div class="list-group list-group-flush border-top">
-                                    @foreach($application->documents as $doc)
-                                        <div class="list-group-item px-0 py-3 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between border-bottom">
-                                            <div class="mb-2 mb-md-0 me-md-3 flex-grow-1">
-                                                <h6 class="mb-1 fw-bold">{{ $doc->documentType->name ?? 'Requirement Document' }}</h6>
-                                                <div class="d-flex align-items-center gap-2 mb-1">
-                                                    @if($doc->status === 'approved')
-                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="background-color: #dcfce7!important; color: #166534!important;"><i class="bi bi-check-circle me-1"></i> Approved</span>
-                                                    @elseif($doc->status === 'returned' || $doc->status === 'rejected')
-                                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25" style="background-color: #fee2e2!important; color: #991b1b!important;"><i class="bi bi-x-circle me-1"></i> Requires Resubmission</span>
-                                                    @else
-                                                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25" style="background-color: #fef9c3!important; color: #854d0e!important;"><i class="bi bi-clock me-1"></i> Pending Review</span>
+
+                                @php
+                                    // Group documents by their document type (section)
+                                    $grouped = $application->documents->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                                @endphp
+
+                                <div class="d-flex flex-column gap-4">
+                                @foreach($grouped as $typeId => $docs)
+                                    @php
+                                        $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'Other Documents';
+                                    @endphp
+
+                                    {{-- Section / Type Label --}}
+                                    <div class="border rounded-3 overflow-hidden">
+                                        <div class="px-3 py-2 fw-bold" style="background:#f0f4ff; color:#0b3d91; font-size:.85rem; letter-spacing:.3px;">
+                                            <i class="bi bi-folder2-open me-2"></i>{{ $sectionName }}
+                                        </div>
+
+                                        <div class="list-group list-group-flush">
+                                        @foreach($docs as $doc)
+                                            <div class="list-group-item px-3 py-3 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2">
+                                                <div class="flex-grow-1">
+                                                    {{-- Field name --}}
+                                                    <h6 class="mb-1 fw-semibold" style="font-size:.9rem;">
+                                                        {{ $doc->documentField?->name ?? 'Document' }}
+                                                    </h6>
+
+                                                    {{-- Status badge + file icon --}}
+                                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                                        @if($doc->status === 'approved')
+                                                            <span class="badge" style="background:#dcfce7; color:#166534;"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                                        @elseif(in_array($doc->status, ['returned','rejected']))
+                                                            <span class="badge" style="background:#fee2e2; color:#991b1b;"><i class="bi bi-x-circle me-1"></i>Requires Resubmission</span>
+                                                        @else
+                                                            <span class="badge" style="background:#fef9c3; color:#854d0e;"><i class="bi bi-clock me-1"></i>Pending Review</span>
+                                                        @endif
+
+                                                        @if($doc->documentField?->input_type === 'file')
+                                                            <span class="text-muted small"><i class="bi bi-file-earmark-pdf"></i> Uploaded file</span>
+                                                        @elseif($doc->documentField?->input_type === 'date')
+                                                            <span class="text-muted small"><i class="bi bi-calendar"></i> {{ $doc->userDocument?->value ?? '—' }}</span>
+                                                        @else
+                                                            <span class="text-muted small"><i class="bi bi-chat-square-text"></i> {{ $doc->userDocument?->value ?? '—' }}</span>
+                                                        @endif
+                                                    </div>
+
+                                                    {{-- Evaluator remarks --}}
+                                                    @if(in_array($doc->status, ['returned','rejected']) && $doc->remarks)
+                                                        <div class="alert py-2 px-3 border-0 rounded mt-2 mb-0" style="background:#fee2e2; color:#7f1d1d; font-size:.85rem;">
+                                                            <strong><i class="bi bi-chat-left-text-fill me-1"></i>Evaluator Remarks:</strong>
+                                                            <p class="mb-0 mt-1">{{ $doc->remarks }}</p>
+                                                        </div>
                                                     @endif
-                                                    
-                                                    <span class="text-muted small">
-                                                        <i class="bi bi-file-earmark-pdf"></i> Uploaded file
-                                                    </span>
                                                 </div>
-                                                
-                                                @if(($doc->status === 'returned' || $doc->status === 'rejected') && $doc->remarks)
-                                                    <div class="alert alert-danger mt-3 mb-0 py-2 px-3 border-0 bg-danger bg-opacity-10 text-danger shadow-sm rounded">
-                                                        <strong><i class="bi bi-chat-left-text-fill me-1"></i> Evaluator Remarks:</strong>
-                                                        <p class="mb-0 mt-1 small" style="color: #7f1d1d">{{ $doc->remarks }}</p>
+
+                                                {{-- Resubmission form (only for file fields that are rejected/returned) --}}
+                                                @if(in_array($doc->status, ['returned','rejected']) && $doc->documentField?->input_type === 'file')
+                                                    <div class="mt-2 mt-md-0" style="min-width: 240px; max-width: 320px;">
+                                                        <form action="{{ route('track.resubmit', $doc->id) }}" method="POST" enctype="multipart/form-data"
+                                                              class="d-flex border border-danger border-opacity-25 rounded bg-light p-2 shadow-sm align-items-center gap-2">
+                                                            @csrf
+                                                            <label class="btn btn-outline-danger btn-sm m-0 border-0 fw-semibold text-nowrap position-relative" style="background:#fff0f0;">
+                                                                <i class="bi bi-upload"></i> Browse...
+                                                                <input type="file" name="replacement_file" class="position-absolute top-0 start-0 opacity-0 w-100 h-100" accept=".pdf" style="cursor:pointer;" required>
+                                                            </label>
+                                                            <button type="submit" class="btn btn-sm btn-danger fw-semibold flex-grow-1">Submit</button>
+                                                        </form>
                                                     </div>
                                                 @endif
                                             </div>
-                                            
-                                            {{-- Resubmission Form if necessary --}}
-                                            @if($doc->status === 'returned' || $doc->status === 'rejected')
-                                                <div class="mt-3 mt-md-0 w-100" style="max-width: 380px;">
-                                                    <form action="{{ route('track.resubmit', $doc->id) }}" method="POST" enctype="multipart/form-data" class="d-flex border border-danger border-opacity-25 rounded bg-light p-2 shadow-sm align-items-center">
-                                                        @csrf
-                                                        <label class="btn btn-outline-danger btn-sm m-0 border-0 fw-semibold text-nowrap me-2 position-relative" style="background-color: #fff0f0;">
-                                                            <i class="bi bi-upload"></i> Browse...
-                                                            <input type="file" name="replacement_file" class="position-absolute top-0 start-0 opacity-0 w-100 h-100 cursor-pointer" accept=".pdf" style="cursor: pointer;" required>
-                                                        </label>
-                                                        <button type="submit" class="btn btn-sm btn-danger fw-semibold flex-grow-1">Submit</button>
-                                                    </form>
-                                                </div>
-                                            @endif
+                                        @endforeach
                                         </div>
-                                    @endforeach
+                                    </div>
+                                @endforeach
                                 </div>
+
                             </div>
                         </div>
                     @else
