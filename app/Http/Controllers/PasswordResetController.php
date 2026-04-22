@@ -68,12 +68,16 @@ class PasswordResetController extends Controller
      */
     public function reset(Request $request)
     {
+        // ── Step 1: validate inputs BEFORE touching the token ─────
+        // Laravel's Password::reset() deletes the token even when
+        // the password is invalid, so we must hard-fail here first.
         $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
+            'token'    => 'required',
+            'email'    => 'required|email',
             'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
         ]);
 
+        // ── Step 2: now let the broker verify the token & reset ───
         $status = Password::broker()->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {

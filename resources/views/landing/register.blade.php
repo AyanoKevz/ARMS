@@ -27,8 +27,8 @@
                     {{-- ── Card Body / Form ── --}}
                     <div class="reg-card-body">
 
-                        {{-- Dynamic Alert (Fixed Top) --}}
-                        <div id="dynamicAlert" class="alert d-none alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 350px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        {{-- Dynamic Alert --}}
+                        <div id="dynamicAlert" class="alert d-none alert-dismissible fade show" role="alert" style="text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 1.5rem;">
                             <span id="dynamicAlertMessage"></span>
                             <button type="button" class="btn-close" aria-label="Close" onclick="document.getElementById('dynamicAlert').classList.add('d-none')"></button>
                         </div>
@@ -56,7 +56,8 @@
                             @csrf
 
                             {{-- ════════ STEP 1 — Accreditation Type ════════ --}}
-                            <p class="form-section-title mt-0">Step 1 — Accreditation Type</p>
+                            <div id="allFormSteps">
+                                <p class="form-section-title mt-0">Step 1 — Accreditation Type</p>
 
                             <div class="row g-3 align-items-end mb-1">
 
@@ -330,16 +331,17 @@
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">1</span>Legal Requirements to Operate Business</h6>
                                         <div class="row g-3">
                                             @foreach([
-                                                ['code'=>'LEGAL_01','label'=>'Business Permit / Mayor\'s Permit'],
-                                                ['code'=>'LEGAL_02','label'=>'SEC / DTI / CDA Registration Certificate'],
-                                                ['code'=>'LEGAL_03','label'=>'BIR Certificate of Registration'],
-                                                ['code'=>'LEGAL_04','label'=>'SSS / PhilHealth / Pag-IBIG Registration'],
-                                                ['code'=>'LEGAL_05','label'=>'Organizational Chart'],
-                                                ['code'=>'LEGAL_06','label'=>'Proof of Office / Training Facility Ownership or Lease'],
-                                                ['code'=>'LEGAL_07','label'=>'List of Current Trainers and Staff'],
+                                                ['code'=>'LEGAL_01','title'=>'DOLE Registration','label'=>'Certificate of Registration to the Department of Labor and Employment (Rule 10-20, OSHS).','required'=>true],
+                                                ['code'=>'LEGAL_02','title'=>'Business Registration','label'=>'Registration of business with DTI, SEC, or CDA.','required'=>true],
+                                                ['code'=>'LEGAL_03','title'=>'Articles of Incorporation','label'=>'Articles of Incorporation with By-Laws','required'=>true],
+                                                ['code'=>'LEGAL_04','title'=>'Mayor\'s Permit','label'=>'Valid Mayor\'s Permit','required'=>true],
+                                                ['code'=>'LEGAL_05','title'=>'BIR Registration & TIN','label'=>'Registration Certificate with BIR, TIN, receipts, and Books of Accounts','required'=>true],
+                                                ['code'=>'LEGAL_06','title'=>'DOLE clearance','label'=>'DOLE-issued certificate of no pending labor standard case','required'=>true],
+                                                ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of building','required'=>false],
                                             ] as $f)
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif </label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
                                             </div>
                                             @endforeach
@@ -353,12 +355,13 @@
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">2</span>Training Management and Staff</h6>
                                         <div class="row g-3">
                                             @foreach([
-                                                ['code'=>'TRAIN_01','label'=>'Training Program / Course Outline'],
-                                                ['code'=>'TRAIN_02','label'=>'Trainer\'s Certificates / Credentials'],
-                                                ['code'=>'TRAIN_03','label'=>'Staff Job Descriptions or Employment Contracts'],
+                                                ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
+                                                ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
+                                                ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
                                             ] as $f)
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                            <div class="col-12 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
                                             </div>
                                             @endforeach
@@ -372,22 +375,24 @@
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">3</span>Premises Including Occupational Safety</h6>
                                         <div class="row g-3">
                                             @foreach([
-                                                ['code'=>'PREM_01','label'=>'Floor Plan of Training Facility'],
-                                                ['code'=>'PREM_02','label'=>'Occupancy Permit'],
-                                                ['code'=>'PREM_03','label'=>'Fire Safety Inspection Certificate'],
-                                                ['code'=>'PREM_04','label'=>'Sanitary Permit'],
-                                                ['code'=>'PREM_05','label'=>'Emergency Evacuation Plan'],
-                                                ['code'=>'PREM_06','label'=>'Electrical Inspection Certificate'],
-                                                ['code'=>'PREM_07','label'=>'Photos of Training Premises'],
+                                                ['code'=>'PREM_01','title'=>'Location Map','label'=>'Organization\'s location map','required'=>true],
+                                                ['code'=>'PREM_02','title'=>'Site Floor Plan','label'=>'Detailed floor plan including classrooms, facilities, and emergency exits.','required'=>true],
+                                                ['code'=>'PREM_03','title'=>'OSH Policy & Program','label'=>'Occupational Safety and Health Policy and Program','required'=>true],
+                                                ['code'=>'PREM_04','title'=>'Decontamination Procedures','label'=>'Written procedures for decontamination of first aid tools/equipment.','required'=>true],
+                                                ['code'=>'PREM_05','title'=>'Safety Officers List','label'=>'List of qualified and designated "safety officers".','required'=>true],
+                                                ['code'=>'PREM_06','title'=>'First-Aiders List','label'=>'List of qualified first-aiders in the organization.','required'=>true],
+                                                ['code'=>'PREM_07','title'=>'First-Aider Certificate','label'=>'Valid first-aider certificate in your organization.','required'=>true],
                                             ] as $f)
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
                                             </div>
                                             @endforeach
                                             {{-- 1 Date input --}}
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Date of Last Safety Inspection <span class="text-danger">*</span></label>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Certificate Validity Date <span class="text-danger">*</span></label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Validity date of your first-aider certificate.</div>
                                                 <input class="form-control form-control-sm" type="date" name="documents[PREM_DATE]">
                                             </div>
                                         </div>
@@ -400,20 +405,23 @@
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">4</span>Policies on Intellectual Property and Data Protection</h6>
                                         <div class="row g-3">
                                             {{-- 1 Text --}}
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Name of Data Protection Officer <span class="text-danger">*</span></label>
-                                                <input class="form-control form-control-sm" type="text" name="documents[IP_DPO_NAME]" placeholder="Full name of DPO">
+                                            <div class="col-12 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Data Protection Officer <span class="text-danger">*</span></label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Please provide the full name of your designated Data Protection Officer.</div>
+                                                <input class="form-control form-control-sm" type="text" name="documents[IP_DPO_NAME]" placeholder="Full name of  Data Protection Officer">
                                             </div>
                                             {{-- 2 File --}}
                                             @foreach([
-                                                ['code'=>'IP_01','label'=>'Data Privacy Policy Document'],
-                                                ['code'=>'IP_02','label'=>'Intellectual Property Policy Document'],
+                                                ['code'=>'IP_01','title'=>'Data Privacy Policy','label'=>'Written policy on how to ensure privacy and security of the data subjects.','required'=>true],
+                                                ['code'=>'IP_02','title'=>'Intellectual Property Policy','label'=>'Written policy on use of intellectual properties as applicable.','required'=>true],
                                             ] as $f)
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                            <div class="col-12 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
                                             </div>
                                             @endforeach
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -424,18 +432,19 @@
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">5</span>Quality Assurance and Enhancement</h6>
                                         <div class="row g-3">
                                             @foreach([
-                                                ['code'=>'QA_01','label'=>'Quality Management Manual / Handbook'],
-                                                ['code'=>'QA_02','label'=>'Internal Audit Reports'],
-                                                ['code'=>'QA_03','label'=>'Trainee Feedback / Evaluation Forms'],
-                                                ['code'=>'QA_04','label'=>'Post-Training Evaluation Results'],
-                                                ['code'=>'QA_05','label'=>'Certificates Issued to Graduates (sample)'],
-                                                ['code'=>'QA_06','label'=>'Annual Report or Operations Report'],
-                                                ['code'=>'QA_07','label'=>'List of Completed Trainings / Batches'],
-                                                ['code'=>'QA_08','label'=>'Corrective Action Plan (if applicable)'],
-                                                ['code'=>'QA_09','label'=>'Continuous Improvement Documentation'],
+                                                ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>false],
+                                                ['code'=>'QA_02','title'=>'Test Results Summary','label'=>'Template summary of the pre- and post-test results.','required'=>true],
+                                                ['code'=>'QA_03','title'=>'Evaluation Summary','label'=>'Template summary of general and individual trainer evaluation numerical ratings.','required'=>true],
+                                                ['code'=>'QA_04','title'=>'Assessment Tools','label'=>'Sample assessment tools such as test questions, etc.','required'=>true],
+                                                ['code'=>'QA_05','title'=>'Participant Directory Template','label'=>'Template containing participant data, unique codes, and ID pictures.','required'=>true],
+                                                ['code'=>'QA_06','title'=>'Attendance Sheet Template','label'=>'Daily attendance sheet template.','required'=>true],
+                                                ['code'=>'QA_07','title'=>'Emergency First Aid Manual','label'=>'Emergency First Aid (1-day) Manual.','required'=>true],
+                                                ['code'=>'QA_08','title'=>'Occupational First Aid Manual','label'=>'Occupational First Aid (2-days) Manual.','required'=>true],
+                                                ['code'=>'QA_09','title'=>'Standard First Aid Manual','label'=>'Standard First Aid (4-days) Manual.','required'=>true],
                                             ] as $f)
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">{{ $f['label'] }} <span class="text-danger">*</span></label>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
                                             </div>
                                             @endforeach
@@ -448,8 +457,9 @@
                                     <div class="doc-type-section p-3 border rounded-3 bg-white shadow-sm">
                                         <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">6</span>Training Equipment and Materials</h6>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold" style="font-size:.85rem;">Inventory of Training Equipment and Materials <span class="text-danger">*</span></label>
+                                            <div class="col-md-6 mb-2">
+                                                <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Equipment & Materials List <span class="text-danger">*</span></label>
+                                                <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to FATPro MOP).</div>
                                                 <input class="form-control form-control-sm" type="file" name="documents[EQUIP_01]" accept=".pdf">
                                             </div>
                                         </div>
@@ -458,6 +468,7 @@
 
                             </div>
 
+                            </div><!-- /#allFormSteps -->
 
                             <div id="reviewSection" class="d-none mt-4">
                                 <p class="form-section-title">Step 6 — Review & Submit</p>

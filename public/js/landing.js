@@ -166,7 +166,7 @@
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   REGISTER FORM — only activates on /register
+    REGISTER FORM — only activates on /register
 ═══════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
@@ -308,16 +308,10 @@
     const reviewCont    = document.getElementById('reviewContent');
 
     function toggleReviewMode(isReview) {
-        const stepTops = document.querySelectorAll('.form-section-title:not(#reviewSection .form-section-title)');
-        const rows = document.querySelectorAll('#registerForm > .row, #registerForm > #formSections > .row, #registerForm > #formSections > div > .row');
-        
-        stepTops.forEach(el => el.classList.toggle('d-none', isReview));
-        rows.forEach(el => {
-            // keep the row if it's inside reviewSection
-            if (!el.closest('#reviewSection')) {
-                el.classList.toggle('d-none', isReview);
-            }
-        });
+        const allSteps = document.getElementById('allFormSteps');
+        if (allSteps) {
+            allSteps.classList.toggle('d-none', isReview);
+        }
         
         if (reviewSec) reviewSec.classList.toggle('d-none', !isReview);
         if (reviewBtn) reviewBtn.classList.toggle('d-none', isReview);
@@ -395,15 +389,23 @@
         const alertEl  = document.getElementById('dynamicAlert');
         const alertMsg = document.getElementById('dynamicAlertMessage');
         if (!alertEl || !alertMsg) return;
-        
+
         alertEl.className = `alert alert-${type} alert-dismissible fade show shadow`;
         alertMsg.textContent = message;
         alertEl.classList.remove('d-none');
-        
-        // Auto hide after 5 seconds
-        setTimeout(() => {
-            alertEl.classList.add('d-none');
-        }, 5000);
+
+        // Scroll to alert — use GSAP to avoid conflict with ScrollSmoother
+        try {
+            const top = alertEl.getBoundingClientRect().top + window.scrollY - 80;
+            if (typeof gsap !== 'undefined') {
+                gsap.to(window, { scrollTo: { y: top }, duration: 0.6, ease: 'power2.out' });
+            } else {
+                alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } catch (scrollErr) { /* silent – scroll is non-critical */ }
+
+        // Auto hide after 6 seconds
+        setTimeout(() => { alertEl.classList.add('d-none'); }, 6000);
     }
 
     const fieldMap = {
@@ -443,19 +445,79 @@
         registerForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
     }
 
+    /* ── File validation (PDF & 10MB) ── */
+    function validateFile(input) {
+        const files = input.files;
+        if (!files || files.length === 0) return true;
+
+        const file = files[0];
+        const maxSize = 10 * 1024 * 1024; // 10 MB
+        const allowedExt = ['pdf'];
+        const fileName = file.name;
+        const fileExt = fileName.split('.').pop().toLowerCase();
+
+        input.classList.remove('is-invalid');
+        const fb = input.closest('.col-12, .col-md-4, .col-md-6, .input-group')?.querySelector('.invalid-feedback') || 
+                    input.parentElement?.querySelector('.invalid-feedback');
+
+        if (!allowedExt.includes(fileExt)) {
+            input.classList.add('is-invalid');
+            if (fb) fb.textContent = 'Invalid file format. Please upload PDF only.';
+            showTopAlert(`Field "${input.previousElementSibling?.textContent.replace('*','').trim()}": Only PDF files are allowed.`, 'warning');
+            return false;
+        }
+
+        if (file.size > maxSize) {
+            input.classList.add('is-invalid');
+            if (fb) fb.textContent = 'File is too large. Maximum size is 10 MB.';
+            showTopAlert(`Field "${input.previousElementSibling?.textContent.replace('*','').trim()}": File exceeds 10 MB limit.`, 'warning');
+            return false;
+        }
+
+        return true;
+    }
+
+    // Attach immediate validation to all file inputs
+    registerForm.querySelectorAll('input[type="file"]').forEach(input => {
+        input.addEventListener('change', function () {
+            validateFile(this);
+        });
+    });
+
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // ── Client-side Bootstrap validation ──
         if (!this.checkValidity()) {
             this.classList.add('was-validated');
+            
+            const firstInvalid = this.querySelector(':invalid');
+            if (firstInvalid && firstInvalid.id === 'data_privacy_agreement') {
+                showTopAlert('Please agree to the Data Privacy Act by checking the box below.', 'warning');
+            } else if (firstInvalid) {
+                showTopAlert('Some fields are missing or invalid. Please click "Edit Details" and check your inputs.', 'danger');
+            }
             return;
         }
 
+        // ── Client-side File validation ──
+        let filesValid = true;
+        const fileInputs = this.querySelectorAll('input[type="file"]');
+        for (const input of fileInputs) {
+            if (!validateFile(input)) {
+                filesValid = false;
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input.focus();
+                break;
+            }
+        }
+        if (!filesValid) return;
+
         const alertEl = document.getElementById('dynamicAlert');
-        if(alertEl) { alertEl.classList.add('d-none'); }
+        if (alertEl) alertEl.classList.add('d-none');
         clearAllFieldErrors();
 
+        // Use outer-scope variables (declared at lines ~298-303)
         if (submitBtn) submitBtn.disabled = true;
         if (submitText) submitText.classList.add('d-none');
         if (submitSpinner) submitSpinner.classList.remove('d-none');
@@ -471,13 +533,26 @@
                 body: formData,
             });
 
-            const data = await response.json();
+            // ── Parse JSON separately ──────────────────────────────────────────────
+            // If the server returns an HTML error page (PHP exception, timeout, etc.)
+            // response.json() will throw. We catch it here so the outer catch block
+            // (which shows "Connection error") is reserved for real network failures.
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                console.error('[ARMS] Server returned non-JSON. HTTP', response.status, response.statusText);
+                showTopAlert(`Server error (${response.status}). Please try again or contact support.`, 'danger');
+                return; // finally still runs to re-enable the button
+            }
 
             if (response.ok && data.status === 'pending') {
+                // ── SUCCESS: hide form, show email-sent panel ──────────────────────
                 if (sentToEmail) sentToEmail.textContent = data.email;
                 this.classList.add('d-none');
                 if (emailPanel) emailPanel.classList.remove('d-none');
-                showTopAlert('Registration submitted successfully! Please check your email.', 'success');
+                showTopAlert('Submitted! A verification link has been sent to your email.', 'success');
+
             } else if (response.status === 422 && data.errors) {
                 renderFieldErrors(data.errors);
                 this.classList.add('was-validated');
@@ -487,8 +562,9 @@
             }
 
         } catch (err) {
-            console.error(err);
-            showTopAlert('System error. Please check your connection and try again.', 'danger');
+            // Only reaches here on a true network failure (no internet, server down, CORS, etc.)
+            console.error('[ARMS] Fetch/network error:', err);
+            showTopAlert('Connection error. Please check your internet and try again.', 'danger');
         } finally {
             if (submitBtn) submitBtn.disabled = false;
             if (submitText) submitText.classList.remove('d-none');

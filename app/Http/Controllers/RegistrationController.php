@@ -30,6 +30,20 @@ class RegistrationController extends Controller
     // ─────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
+        // ── Guard: PHP silently drops files beyond max_file_uploads ──
+        // When this happens the $_FILES array is incomplete and PHP emits a
+        // warning that corrupts the JSON response. Detect it early and return
+        // a clean JSON error so the front-end shows a helpful message.
+        if (isset($_SERVER['CONTENT_TYPE']) && str_contains($_SERVER['CONTENT_TYPE'], 'multipart/form-data')) {
+            $maxUploads = (int) ini_get('max_file_uploads');
+            if (count($_FILES) >= $maxUploads) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Too many file uploads. Please contact support or try reducing the number of files.',
+                ], 422);
+            }
+        }
+
         // ── Validation ──────────────────────────────────────────
         // Build dynamic per-field rules from document_fields table
         $documentFields = DocumentField::all()->keyBy('code');
@@ -121,7 +135,7 @@ class RegistrationController extends Controller
         // ── Create pending registration ───────────────────────────
         PendingRegistration::where('email', $request->email)->delete(); // overwrite stale
 
-        PendingRegistration::create([
+        $pending = PendingRegistration::create([
             'token'                 => $token,
             'email'                 => $request->email,
             'password'              => Hash::make($request->password),
@@ -134,7 +148,19 @@ class RegistrationController extends Controller
 
         // ── Send verification email ───────────────────────────────
         $verificationUrl = route('register.verify', ['token' => $token]);
-        Mail::to($request->email)->send(new VerifyRegistrationEmail($verificationUrl, $request->email));
+        
+        try {
+            Mail::to($request->email)->send(new VerifyRegistrationEmail($verificationUrl, $request->email));
+        } catch (\Exception $e) {
+            $pending->delete();
+            Storage::disk('local')->deleteDirectory("pending/{$token}");
+            Log::error('SMTP Error during registration logic: ' . $e->getMessage());
+            
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unable to send verification email due to a mail server error. Please try again later.'
+            ], 500);
+        }
 
         return response()->json([
             'status'  => 'pending',
@@ -177,6 +203,7 @@ class RegistrationController extends Controller
 
         try {
             $trackingNumber = null;
+            $applicantEmail = $pending->email; // Capture before deletion
 
             DB::transaction(function () use ($pending, &$trackingNumber) {
                 $form = $pending->form_data;
@@ -230,8 +257,8 @@ class RegistrationController extends Controller
                 ]);
 
                 // 6. Persist each field value → user_documents → application_documents
-                $fieldMap  = DocumentField::all()->keyBy('code'); // code => DocumentField
-                $docsData  = $pending->documents_data ?? [];       // code => ['input_type', 'value']
+                $fieldMap  = DocumentField::all()->keyBy('code');
+                $docsData  = $pending->documents_data ?? [];
 
                 foreach ($docsData as $code => $entry) {
                     $field = $fieldMap->get($code);
@@ -251,7 +278,6 @@ class RegistrationController extends Controller
                         $textValue = $entry['value'];
                     }
 
-                    // Upsert into user_documents (one row per user+field)
                     $userDoc = UserDocument::updateOrCreate(
                         [
                             'user_id'           => $user->id,
@@ -263,7 +289,6 @@ class RegistrationController extends Controller
                         ]
                     );
 
-                    // Create the tracking row in application_documents
                     ApplicationDocument::create([
                         'application_id'   => $application->id,
                         'document_field_id'=> $field->id,
@@ -275,28 +300,32 @@ class RegistrationController extends Controller
                 // Clean up the temp folder
                 Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
 
-                // 7. Create initial status log — "Submitted"
+                // 7. Create initial status log
                 $submittedStatus = ApplicationStatus::where('name', 'Submitted')->first();
                 if ($submittedStatus) {
                     ApplicationStatusLog::create([
                         'application_id' => $application->id,
                         'status_id'      => $submittedStatus->id,
-                        'updated_by'     => null, // self-submitted
+                        'updated_by'     => null,
                         'remarks'        => 'Application submitted by applicant after email verification.',
                     ]);
                 }
 
-                // 8. Delete pending record
                 $pending->delete();
             });
 
-            // Send confirmation email copy
-            Mail::to($pending->email)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $pending->email));
+            // 8. Try to send confirmation email, but don't fail if mail server hangs
+            try {
+                Mail::to($applicantEmail)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $applicantEmail));
+            } catch (\Exception $mailEx) {
+                Log::warning('Verification success email failed to send: ' . $mailEx->getMessage());
+            }
 
             return view('landing.verify-result', [
                 'status'         => 'success',
                 'trackingNumber' => $trackingNumber,
             ]);
+
         } catch (\Throwable $e) {
             Log::error('Registration verification failed: ' . $e->getMessage(), ['exception' => $e]);
 
