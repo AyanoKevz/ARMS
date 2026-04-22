@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordChangedEmail;
 
 class PasswordResetController extends Controller
 {
@@ -83,11 +85,14 @@ class PasswordResetController extends Controller
             function ($user, $password) {
                 $user->password = Hash::make($password);
                 $user->save();
+
+                // Send confirmation email after password change
+                Mail::to($user->email)->send(new PasswordChangedEmail($user));
             }
         );
 
         return $status === Password::PASSWORD_RESET
-                    ? redirect()->route('login')->with('status', __($status))
+                    ? redirect()->route('login')->with('status', 'Password successfully changed')
                     : back()->withErrors(['email' => [__($status)]]);
     }
 }

@@ -21,10 +21,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
             $user = Auth::user();
 
-            // 1) Applicant Check
-            // Since role_id=2 typically means applicant, or you can just check accreditation:
-            // "Applicants can only log in if they already have an accreditation number"
-            // Wait, we need to distinguish admin vs applicant.
+            // Check user account role first
             if ($user->role && strtolower($user->role->name) === 'admin') {
                 // Admin Login Logic
                 $adminProfile = $user->adminProfile()->with('division')->first();
@@ -36,7 +33,8 @@ class AuthController extends Controller
                 
                 // Fallback for admins without specific division routing yet
                 return redirect()->route('admin.hcd.dashboard');
-            } else {
+                
+            } elseif ($user->role && strtolower($user->role->name) === 'applicant') {
                 // Applicant Login Logic
                 $accreditations = $user->accreditations()->with('accreditationType')->get();
                 
@@ -51,15 +49,11 @@ class AuthController extends Controller
                 }
 
                 // If they have an accreditation, redirect based on accreditation type.
-                // For simplicity, we take the type of their first accreditation
-                // or if there are multiple, maybe a portal selection page in the future.
                 $firstAccreditationType = $accreditations->first()->accreditationType;
                 
                 if ($firstAccreditationType) {
-                    // E.g., 'Practitioners' turns into 'practitioners'
                     $typeSlug = \Illuminate\Support\Str::slug($firstAccreditationType->name);
                     
-                    // Route example: applicant.practitioners.dashboard
                     if (\Illuminate\Support\Facades\Route::has("applicant.{$typeSlug}.dashboard")) {
                         return redirect()->route("applicant.{$typeSlug}.dashboard");
                     }
@@ -67,6 +61,16 @@ class AuthController extends Controller
 
                 // Fallback applicant dashboard
                 return redirect()->route('applicant.dashboard');
+                
+            } else {
+                // Unrecognized or missing role
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Access Denied: Unauthorized account role.',
+                ])->onlyInput('email');
             }
         }
 

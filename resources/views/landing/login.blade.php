@@ -19,6 +19,12 @@
                     <div class="gold-divider"></div>
                     <p class="login-sub">OSHC Accreditation Reporting and Monitoring System</p>
 
+                    @if (session('status'))
+                        <div class="alert alert-success pt-2 pb-2 mb-3">
+                            <small>{{ session('status') }}</small>
+                        </div>
+                    @endif
+
                     @if ($errors->any())
                         <div class="alert alert-danger pt-2 pb-2 mb-3">
                             <ul class="mb-0 ps-3">
