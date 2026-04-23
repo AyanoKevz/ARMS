@@ -32,8 +32,9 @@ class AdminUserSeeder extends Seeder
         $admin = User::firstOrCreate(
             ['email' => 'hcd@oshc.com'],
             [
-                'password' => Hash::make('Hcd@2026'),
-                'role_id'  => $adminRole->id,
+                'password'   => Hash::make('Hcd@2026'),
+                'role_id'    => $adminRole->id,
+                'user_photo' => 'images/profile_picture/default_photo.jpg',
             ]
         );
 

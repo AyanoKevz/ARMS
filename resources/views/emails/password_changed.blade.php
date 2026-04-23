@@ -125,7 +125,7 @@
 
         .btn-login {
             display: inline-block;
-            background: linear-gradient(135deg, #1a2e5a, #0d1f42);
+            background: linear-gradient(135deg, #D4AC4B, #b8922e);
             color: #ffffff !important;
             font-weight: 700;
             font-size: 1rem;

@@ -342,7 +342,16 @@
                                             <div class="col-md-6 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif </label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                             @endforeach
                                         </div>
@@ -362,7 +371,16 @@
                                             <div class="col-12 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                             @endforeach
                                         </div>
@@ -386,14 +404,23 @@
                                             <div class="col-md-6 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                             @endforeach
                                             {{-- 1 Date input --}}
                                             <div class="col-md-6 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Certificate Validity Date <span class="text-danger">*</span></label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Validity date of your first-aider certificate.</div>
-                                                <input class="form-control form-control-sm" type="date" name="documents[PREM_DATE]">
+                                                <input class="form-control form-control-sm" type="date" name="documents[PREM_DATE]" required>
                                             </div>
                                         </div>
                                     </div>
@@ -408,7 +435,7 @@
                                             <div class="col-12 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Data Protection Officer <span class="text-danger">*</span></label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Please provide the full name of your designated Data Protection Officer.</div>
-                                                <input class="form-control form-control-sm" type="text" name="documents[IP_DPO_NAME]" placeholder="Full name of  Data Protection Officer">
+                                                <input class="form-control form-control-sm" type="text" name="documents[IP_DPO_NAME]" placeholder="Full name of  Data Protection Officer" required>
                                             </div>
                                             {{-- 2 File --}}
                                             @foreach([
@@ -418,7 +445,16 @@
                                             <div class="col-12 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                             @endforeach
                                         </div>
@@ -445,7 +481,16 @@
                                             <div class="col-md-6 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                             @endforeach
                                         </div>
@@ -460,7 +505,16 @@
                                             <div class="col-md-6 mb-2">
                                                 <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Equipment & Materials List <span class="text-danger">*</span></label>
                                                 <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to FATPro MOP).</div>
-                                                <input class="form-control form-control-sm" type="file" name="documents[EQUIP_01]" accept=".pdf">
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input class="real-file-input visually-hidden" type="file" name="documents[EQUIP_01]" id="doc_EQUIP_01" accept=".pdf" required>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_EQUIP_01" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -526,6 +580,26 @@
 @push('scripts')
 
 <style>
+    .file-upload-wrapper .custom-file-btn {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+    .real-file-input.is-invalid ~ .file-invalid-feedback {
+        display: block !important;
+    }
+    .was-validated .real-file-input:invalid ~ div .custom-file-btn,
+    .real-file-input.is-invalid ~ div .custom-file-btn {
+        border-color: var(--bs-danger) !important;
+        color: var(--bs-danger) !important;
+        background-color: transparent !important;
+    }
+    .was-validated .real-file-input:valid ~ div .custom-file-btn {
+        background-color: var(--bs-success) !important;
+        border-color: var(--bs-success) !important;
+        color: white !important;
+    }
+
     @keyframes pulse {
 
         0%,

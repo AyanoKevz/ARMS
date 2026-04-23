@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role_id',
         'profile_type',
         'email_verified_at',
+        'user_photo',
     ];
 
     /**
@@ -116,6 +117,28 @@ class User extends Authenticatable
     public function userDocuments()
     {
         return $this->hasMany(UserDocument::class);
+    }
+
+    /**
+     * Get the user's display name based on their profile.
+     */
+    public function getNameAttribute()
+    {
+        if ($this->role && strtolower($this->role->name) === 'admin') {
+            $admin = $this->adminProfile;
+            return $admin ? "{$admin->first_name} {$admin->last_name}" : 'Admin';
+        }
+
+        if ($this->profile_type === 'Organization') {
+            return $this->organizationProfile->name ?? 'Organization User';
+        }
+
+        $ind = $this->individualProfile;
+        if ($ind) {
+            return "{$ind->first_name} {$ind->last_name}";
+        }
+
+        return 'User';
     }
 
     /**

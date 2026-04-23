@@ -37,6 +37,7 @@ return new class extends Migration
             // Example: 1 = admin, 2 = applicant
             $table->timestamp('email_verified_at')->nullable();
             $table->string('email_verification_token')->nullable()->unique();
+            $table->string('user_photo')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

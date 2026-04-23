@@ -460,17 +460,21 @@
         const fb = input.closest('.col-12, .col-md-4, .col-md-6, .input-group')?.querySelector('.invalid-feedback') || 
                     input.parentElement?.querySelector('.invalid-feedback');
 
+        // Robust way to find the label text regardless of nesting
+        const titleLabel = input.closest('.col-12, .col-md-4, .col-md-6')?.querySelector('label.form-label');
+        const fieldName = titleLabel ? titleLabel.textContent.replace('*', '').trim() : 'File';
+
         if (!allowedExt.includes(fileExt)) {
             input.classList.add('is-invalid');
             if (fb) fb.textContent = 'Invalid file format. Please upload PDF only.';
-            showTopAlert(`Field "${input.previousElementSibling?.textContent.replace('*','').trim()}": Only PDF files are allowed.`, 'warning');
+            showTopAlert(`Field "${fieldName}": Only PDF files are allowed.`, 'warning');
             return false;
         }
 
         if (file.size > maxSize) {
             input.classList.add('is-invalid');
             if (fb) fb.textContent = 'File is too large. Maximum size is 10 MB.';
-            showTopAlert(`Field "${input.previousElementSibling?.textContent.replace('*','').trim()}": File exceeds 10 MB limit.`, 'warning');
+            showTopAlert(`Field "${fieldName}": File exceeds 10 MB limit.`, 'warning');
             return false;
         }
 
@@ -480,6 +484,25 @@
     // Attach immediate validation to all file inputs
     registerForm.querySelectorAll('input[type="file"]').forEach(input => {
         input.addEventListener('change', function () {
+            // Update file name display for custom file input
+            const nameSpan = this.parentElement.querySelector('.file-name-text');
+            const fileBtn = this.parentElement.querySelector('.custom-file-btn');
+            
+            if (nameSpan && fileBtn) {
+                if (this.files && this.files.length > 0) {
+                    nameSpan.textContent = this.files[0].name;
+                    nameSpan.classList.remove('text-muted');
+                    nameSpan.classList.add('text-primary', 'fw-semibold');
+                    fileBtn.classList.remove('btn-outline-primary');
+                    fileBtn.classList.add('btn-primary', 'text-white');
+                } else {
+                    nameSpan.textContent = 'No file chosen';
+                    nameSpan.classList.add('text-muted');
+                    nameSpan.classList.remove('text-primary', 'fw-semibold');
+                    fileBtn.classList.add('btn-outline-primary');
+                    fileBtn.classList.remove('btn-primary', 'text-white');
+                }
+            }
             validateFile(this);
         });
     });

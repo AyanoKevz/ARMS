@@ -213,7 +213,7 @@ class RegistrationController extends Controller
                     'email'                      => $pending->email,
                     'password'                   => $pending->password, // already hashed
                     'profile_type'               => $pending->profile_type,
-                    'role_id'                    => 2, // applicant
+                    'role_id'                    => 1, // applicant
                     'email_verified_at'          => now(),
                 ]);
 

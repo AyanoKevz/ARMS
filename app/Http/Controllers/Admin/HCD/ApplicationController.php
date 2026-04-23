@@ -15,7 +15,12 @@ class ApplicationController extends Controller
     {
         // Get applications that haven't been evaluated yet
         // Get applications that are still 'Submitted' based on their latest status log
-        $applications = Application::with(['user.organizationProfile', 'user.individualProfile', 'accreditationType', 'latestStatus.status'])
+        $applications = Application::with([
+            'user.organizationProfile.authorizedRepresentatives',
+            'user.individualProfile',
+            'accreditationType',
+            'latestStatus.status',
+        ])
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {
                     $q->where('name', 'Submitted');

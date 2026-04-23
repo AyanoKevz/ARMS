@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TrackingController;
@@ -9,13 +10,19 @@ use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationContro
 
 // LANDING PAGE 
 Route::get('/', function () {
+    if (Auth::check()) {
+        return AuthController::redirectAuthenticatedUser(Auth::user());
+    }
     return view('landing.index');
-});
+})->middleware('prevent-back-history');
 
 // Registration — show form
 Route::get('/register', function () {
+    if (Auth::check()) {
+        return AuthController::redirectAuthenticatedUser(Auth::user());
+    }
     return view('landing.register');
-})->name('register');
+})->name('register')->middleware('prevent-back-history');
 
 // Registration — process form & send verification email
 Route::post('/register', [RegistrationController::class, 'store'])->name('register.store');
@@ -24,14 +31,17 @@ Route::post('/register', [RegistrationController::class, 'store'])->name('regist
 Route::get('/verify-email/{token}', [RegistrationController::class, 'verify'])->name('register.verify');
 
 Route::get('/login', function () {
+    if (Auth::check()) {
+        return AuthController::redirectAuthenticatedUser(Auth::user());
+    }
     return view('landing.login');
-})->name('login');
+})->name('login')->middleware('prevent-back-history');
 
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Dashboard placeholders
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'prevent-back-history'])->group(function () {
     Route::prefix('applicant')->name('applicant.')->group(function () {
         Route::get('/dashboard', function () {
             return view('applicant.dashboard');

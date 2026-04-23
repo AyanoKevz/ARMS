@@ -39,47 +39,66 @@
                 </div>
                 
                 <div class="x_content">
+                    <style>
+                        .table-compact th, .table-compact td {
+                            padding: 8px 10px !important;
+                            vertical-align: middle !important;
+                            font-size: 0.85rem;
+                        }
+                        .btn-xs {
+                            padding: 2px 8px !important;
+                            font-size: 0.75rem !important;
+                            line-height: 1.5;
+                            border-radius: 3px;
+                        }
+                    </style>
                     <div class="table-responsive">
-                        <table class="table table-striped jambo_table bulk_action">
+                        <table class="table table-striped table-bordered jambo_table bulk_action table-compact">
                             <thead>
                                 <tr class="headings">
-                                    <th class="column-title">Tracking Number </th>
-                                    <th class="column-title">Applicant Name </th>
-                                    <th class="column-title">Type </th>
-                                    <th class="column-title">Date Submitted </th>
-                                    <th class="column-title">Status </th>
-                                    <th class="column-title no-link last"><span class="nobr">Action</span></th>
+                                    <th class="column-title">Tracking #</th>
+                                    <th class="column-title">FATPro Name</th>
+                                    <th class="column-title">Representative Name</th>
+                                    <th class="column-title">Date Submitted</th>
+                                    <th class="column-title text-center">Status</th>
+                                    <th class="column-title no-link last text-center"><span class="nobr">Action</span></th>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 @forelse($applications as $app)
+                                    @php
+                                        $org  = $app->user->organizationProfile;
+                                        $rep  = $org?->authorizedRepresentatives?->first();
+                                        $isOrg = $app->user->profile_type === 'Organization';
+                                    @endphp
                                     <tr class="even pointer">
-                                        <td class=" ">{{ $app->tracking_number }}</td>
-                                        <td class=" ">
-                                            @if($app->user->profile_type === 'Organization')
-                                                {{ $app->user->organizationProfile->name ?? 'N/A' }}
+                                        <td><strong>{{ $app->tracking_number }}</strong></td>
+                                        <td>
+                                            @if($isOrg)
+                                                {{ $org->name ?? 'N/A' }}
                                             @else
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
                                         </td>
-                                        <td class=" ">{{ $app->user->profile_type ?? 'Unknown' }}</td>
-                                        <td class=" ">{{ $app->created_at->format('M d, Y') }}</td>
-                                        <td class=" ">
-                                            <span class="badge bg-warning text-dark">{{ $app->latestStatus->status->name ?? 'Pending' }}</span>
+                                        <td>{{ $rep->full_name ?? '—' }}</td>
+                                        <td>{{ $app->created_at->format('M d, Y') }}</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-warning text-dark">{{ $app->latestStatus?->status?->name ?? 'Pending' }}</span>
                                         </td>
-                                        <td class=" last">
-                                            <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" onsubmit="return confirm('Update this application to Under Evaluation?');">
+                                        <td class="last text-center">
+                                            <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" onsubmit="return confirm('Move this application to Under Evaluation?');">
                                                 @csrf
-                                                <button type="submit" class="btn btn-primary btn-sm m-0">
-                                                    Start Evaluation
+                                                <button type="submit" class="btn btn-primary btn-xs m-0">
+                                                    <i class="fas fa-play me-1"></i> Start Evaluation
                                                 </button>
                                             </form>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
                                             No pending applications found.
                                         </td>
                                     </tr>

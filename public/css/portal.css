@@ -1,0 +1,121 @@
+/* ── Unified OSHC Portal Theme ── */
+:root {
+    --portal-bg:   #0D2B55;
+    --portal-gold: #D4AC4B;
+}
+
+/* Sidebar Branding & Backgrounds */
+.left_col, .nav_title {
+    background-color: var(--portal-bg) !important;
+}
+
+.nav_title {
+    border-bottom: 1px solid var(--portal-gold) !important;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 0 !important;
+}
+.sidebar-footer a {
+    background-color: #091e3e !important;
+}
+.sidebar-footer a:hover {
+    background-color: #0D2B55 !important;
+    color: var(--portal-gold) !important;
+}
+
+/* Sidebar Hover & Active Styles */
+.nav.side-menu > li > a:hover,
+.nav.side-menu > li > a:hover i {
+    background: rgba(212,172,75,.08) !important;
+    color: var(--portal-gold) !important;
+}
+
+.nav.side-menu > li.active > a,
+.nav.child_menu > li.active > a {
+    background: rgba(212,172,75,.15) !important;
+    border-left: 3px solid var(--portal-gold) !important;
+    color: var(--portal-gold) !important;
+}
+
+.nav.child_menu li > a:hover {
+    color: var(--portal-gold) !important;
+    background: transparent !important;
+}
+
+.nav.child_menu li.active > a {
+    color: var(--portal-gold) !important;
+}
+
+.nav li.current-page {
+    border-right: 5px solid var(--portal-gold) !important;
+}
+
+/* Top Navigation Bar */
+.top_nav .nav_menu {
+    border-bottom: 2px solid var(--portal-gold) !important;
+    background: var(--portal-bg) !important;
+}
+
+.top_nav .nav-item a {
+    transition: color 0.2s;
+}
+
+/* Top Nav Link Colors & Hover Effects */
+.top_nav .nav_menu .nav.navbar-nav > li > a {
+    color: rgba(255,255,255,.85) !important; 
+    transition: color 0.2s;
+}
+
+.top_nav .nav-item a:hover,
+.top_nav .nav-item a:focus,
+.top_nav .user-profile:hover, 
+.top_nav .user-profile:focus,
+.top_nav .nav.navbar-nav > li > a:hover,
+.top_nav .nav.navbar-nav > li.show > a,
+.top_nav .nav_menu .nav.navbar-nav > li.open > a {
+    background: transparent !important;
+    color: var(--portal-gold) !important;
+}
+
+.nav.side-menu>li.current-page, .nav.side-menu>li.active {
+    border: 0 !important;
+}
+
+/* Dropdown User Menu */
+.dropdown-menu.dropdown-usermenu .dropdown-item {
+    color: #222 !important;
+}
+.dropdown-menu.dropdown-usermenu .dropdown-item:hover {
+    background: #f5f5f5 !important;
+}
+
+/* Sticky Footer styling */
+footer {
+    background: #fff;
+    padding: 15px 20px !important;
+    border-top: 1px solid #e6e9ed;
+    clear: both;
+    transition: margin-left 0.3s ease;
+}
+
+/* Footer margin based on sidebar state */
+body.nav-md footer {
+    margin-left: 230px !important;
+}
+body.nav-sm footer {
+    margin-left: 70px !important;
+}
+@media (max-width: 991px) {
+    body.nav-md footer, body.nav-sm footer {
+        margin-left: 0 !important;
+    }
+}
+
+/* Content area minimal height to push footer */
+.right_col {
+    min-height: calc(100vh - 54px) !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 20px !important;
+}
