@@ -36,7 +36,6 @@ return new class extends Migration
         Schema::create('document_fields', function (Blueprint $table) {
             $table->id();
             $table->foreignId('document_type_id')->constrained()->cascadeOnDelete();
-            // Which section it belongs to
             $table->string('name'); // Example: Name of Data Protection Officer
             $table->string('code'); // Example: DPO_NAME
             $table->enum('input_type', ['file', 'text', 'date']); // What kind of input
@@ -62,8 +61,7 @@ return new class extends Migration
             $table->enum('status', [
                 'pending',
                 'approved',
-                'rejected',
-                'for_revision'
+                'rejected'
             ])->default('pending');
             $table->text('remarks')->nullable(); // Example: "File is blurred"
             $table->timestamps();

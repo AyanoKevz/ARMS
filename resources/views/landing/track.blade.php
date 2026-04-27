@@ -69,6 +69,58 @@
                                         </span>
                                     </div>
                                 </div>
+
+                                {{-- ── Interview Schedule Banner ── --}}
+                                @php $interview = $application->interview; @endphp
+                                @if($interview && $application->latestStatus?->status?->name === 'Scheduled for Interview')
+                                <div class="rounded-3 border mb-4 overflow-hidden" style="border-color:#bfdbfe !important;">
+                                    <div class="px-4 py-2 fw-bold d-flex align-items-center gap-2"
+                                         style="background:#1d4ed8; color:#fff; font-size:.9rem;">
+                                        <i class="bi bi-camera-video-fill"></i> Your Interview Has Been Scheduled
+                                    </div>
+                                    <div class="px-4 py-3" style="background:#eff6ff;">
+                                        <div class="row g-3">
+                                            <div class="col-6 col-md-3">
+                                                <p class="text-uppercase text-muted fw-bold mb-1" style="font-size:.72rem; letter-spacing:.4px;">Date</p>
+                                                <p class="mb-0 fw-bold" style="color:#1e3a5f; font-size:.95rem;">
+                                                    <i class="bi bi-calendar-event me-1 text-primary"></i>
+                                                    {{ $interview->interview_date->format('F d, Y') }}
+                                                </p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <p class="text-uppercase text-muted fw-bold mb-1" style="font-size:.72rem; letter-spacing:.4px;">Time</p>
+                                                <p class="mb-0 fw-bold" style="color:#1e3a5f; font-size:.95rem;">
+                                                    <i class="bi bi-clock me-1 text-primary"></i>
+                                                    {{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}
+                                                </p>
+                                            </div>
+                                            <div class="col-6 col-md-3">
+                                                <p class="text-uppercase text-muted fw-bold mb-1" style="font-size:.72rem; letter-spacing:.4px;">Mode</p>
+                                                <p class="mb-0 fw-bold" style="color:#1e3a5f; font-size:.95rem;">
+                                                    @if($interview->mode === 'online')
+                                                        <i class="bi bi-camera-video me-1 text-primary"></i> Online
+                                                    @else
+                                                        <i class="bi bi-people me-1 text-primary"></i> Face-to-Face
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            @if($interview->venue)
+                                            <div class="col-6 col-md-3">
+                                                <p class="text-uppercase text-muted fw-bold mb-1" style="font-size:.72rem; letter-spacing:.4px;">Venue</p>
+                                                <p class="mb-0 fw-bold" style="color:#1e3a5f; font-size:.95rem;">
+                                                    <i class="bi bi-geo-alt me-1 text-primary"></i>
+                                                    {{ $interview->venue }}
+                                                </p>
+                                            </div>
+                                            @endif
+                                        </div>
+                                        <p class="mb-0 mt-3 small text-muted">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Please be ready on the scheduled date and time. Contact our office if you need to reschedule.
+                                        </p>
+                                    </div>
+                                </div>
+                                @endif
                                 <hr class="my-4" style="border-color: #e9ecef;">
                                 <h5 class="mb-3 fw-bold" style="color: #1a2e5a;">Submitted Documents</h5>
 
@@ -126,18 +178,12 @@
                                                     @endif
                                                 </div>
 
-                                                {{-- Resubmission form (only for file fields that are rejected/returned) --}}
+                                                 {{-- Resubmission file picker lives in the batch form below --}}
                                                 @if(in_array($doc->status, ['returned','rejected']) && $doc->documentField?->input_type === 'file')
-                                                    <div class="mt-2 mt-md-0" style="min-width: 240px; max-width: 320px;">
-                                                        <form action="{{ route('track.resubmit', $doc->id) }}" method="POST" enctype="multipart/form-data"
-                                                              class="d-flex border border-danger border-opacity-25 rounded bg-light p-2 shadow-sm align-items-center gap-2">
-                                                            @csrf
-                                                            <label class="btn btn-outline-danger btn-sm m-0 border-0 fw-semibold text-nowrap position-relative" style="background:#fff0f0;">
-                                                                <i class="bi bi-upload"></i> Browse...
-                                                                <input type="file" name="replacement_file" class="position-absolute top-0 start-0 opacity-0 w-100 h-100" accept=".pdf" style="cursor:pointer;" required>
-                                                            </label>
-                                                            <button type="submit" class="btn btn-sm btn-danger fw-semibold flex-grow-1">Submit</button>
-                                                        </form>
+                                                    <div class="mt-1">
+                                                        <span class="badge" style="background:#fff3cd; color:#856404; font-size:.75rem;">
+                                                            <i class="bi bi-arrow-up-circle me-1"></i>Attach replacement below
+                                                        </span>
                                                     </div>
                                                 @endif
                                             </div>
@@ -146,6 +192,72 @@
                                     </div>
                                 @endforeach
                                 </div>
+
+                            {{-- ── Batch Resubmission Form (shown only when there are rejected file docs) ── --}}
+                            @php
+                                $rejectedFileDocs = $application->documents->filter(
+                                    fn($d) => in_array($d->status, ['rejected','returned'])
+                                             && $d->documentField?->input_type === 'file'
+                                );
+                            @endphp
+                            @if($rejectedFileDocs->isNotEmpty())
+                            <div class="mt-4 p-4 border rounded-3" style="background:#fff8f8; border-color:#f5c6cb !important;">
+                                <h6 class="fw-bold mb-3" style="color:#842029;">
+                                    <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents
+                                </h6>
+
+                                <form action="{{ route('track.resubmit.all') }}" method="POST" enctype="multipart/form-data" id="batch-resubmit-form">
+                                    @csrf
+                                    <input type="hidden" name="application_id" value="{{ $application->id }}">
+
+                                    <div class="d-flex flex-column gap-3">
+                                        @foreach($rejectedFileDocs as $rdoc)
+                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                    {{ $rdoc->documentField?->name ?? 'Document' }}
+                                                </div>
+                                                @if($rdoc->remarks)
+                                                <div class="text-muted small mt-1">
+                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div style="min-width:260px;">
+                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                </label>
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input type="file"
+                                                           name="files[{{ $rdoc->id }}]"
+                                                           id="doc_{{ $rdoc->id }}"
+                                                           class="real-file-input batch-file-input visually-hidden"
+                                                           accept=".pdf"
+                                                           required>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
+                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="mt-4 text-end">
+                                        <button type="submit" class="btn btn-danger fw-bold px-5" id="btn-resubmit-all">
+                                            <i class="bi bi-send-fill me-2"></i>
+                                            Resubmit All Documents ({{ $rejectedFileDocs->count() }})
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            @endif
 
                             </div>
                         </div>
@@ -171,19 +283,51 @@
     </div>
 </section>
 
-{{-- Extra Script for file input interaction UX --}}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('input[type="file"]').forEach(function (input) {
-            input.addEventListener('change', function (e) {
-                if(e.target.files.length > 0) {
-                    let label = e.target.closest('label');
-                    if(label) {
-                        label.innerHTML = '<i class="bi bi-file-earmark-check"></i> ' + e.target.files[0].name.substring(0, 15) + (e.target.files[0].name.length>15 ? '...' : '') + '<input type="file" name="replacement_file" class="position-absolute top-0 start-0 opacity-0 w-100 h-100" accept=".pdf" required>';
-                    }
-                }
-            });
+document.addEventListener('DOMContentLoaded', function () {
+    // Show filename next to each file input after selection
+    document.querySelectorAll('.batch-file-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            const hint = this.closest('div.file-upload-wrapper').querySelector('.file-name-text');
+            if (hint && this.files.length > 0) {
+                hint.textContent = this.files[0].name;
+            } else if (hint) {
+                hint.textContent = 'No file chosen';
+            }
         });
     });
+
+    // Prevent double-submit
+    const form = document.getElementById('batch-resubmit-form');
+    const btn  = document.getElementById('btn-resubmit-all');
+    if (form && btn) {
+        form.addEventListener('submit', function () {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
+        });
+    }
+});
 </script>
+
+<style>
+    .file-upload-wrapper .custom-file-btn {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+    .real-file-input.is-invalid ~ .file-invalid-feedback {
+        display: block !important;
+    }
+    .was-validated .real-file-input:invalid ~ div .custom-file-btn,
+    .real-file-input.is-invalid ~ div .custom-file-btn {
+        border-color: var(--bs-danger) !important;
+        color: var(--bs-danger) !important;
+        background-color: transparent !important;
+    }
+    .was-validated .real-file-input:valid ~ div .custom-file-btn {
+        background-color: var(--bs-success) !important;
+        border-color: var(--bs-success) !important;
+        color: white !important;
+    }
+</style>
 @endsection

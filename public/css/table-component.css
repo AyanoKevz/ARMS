@@ -1,0 +1,123 @@
+/* Table Component Reusable CSS */
+.table-compact th, .table-compact td {
+    padding: 8px 10px !important;
+    vertical-align: middle !important;
+    font-size: 0.85rem;
+}
+.btn-xs {
+    padding: 2px 8px !important;
+    font-size: 0.75rem !important;
+    line-height: 1.5;
+    border-radius: 3px;
+}
+/* DataTables toolbar styling */
+.dt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.dt-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+.dt-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.dataTables_length label,
+.dataTables_filter label {
+    margin-bottom: 0;
+    font-size: 0.85rem;
+}
+.dataTables_length select,
+.dataTables_filter input {
+    padding: 4px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.dt-buttons .btn {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+}
+div.dataTables_wrapper div.dataTables_info {
+    font-size: 0.82rem;
+    color: #6c757d;
+    padding-top: 6px;
+}
+.dataTables_paginate .paginate_button {
+    font-size: 0.82rem !important;
+}
+.dataTables_paginate .paginate_button.current,
+.dataTables_paginate .paginate_button.current:hover {
+    background: #2A3F54 !important;
+    color: #fff !important;
+    border-color: #2A3F54 !important;
+}
+.dataTables_paginate .paginate_button:hover {
+    background: #eee !important;
+    color: #333 !important;
+    border-color: #ccc !important;
+}
+/* Date filter dropdown in header */
+.date-filter-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.date-filter-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 14px;
+    min-width: 220px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+}
+.date-filter-panel.show {
+    display: block;
+}
+.date-filter-panel label {
+    font-size: 0.78rem;
+    color: #555;
+    margin-bottom: 2px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.date-filter-panel input[type="date"] {
+    font-size: 0.82rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 4px 8px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+.date-filter-toggle {
+    cursor: pointer;
+    color: rgba(255,255,255,0.75);
+    font-size: 0.75rem;
+    margin-left: 4px;
+    transition: color 0.15s;
+}
+.date-filter-toggle:hover,
+.date-filter-toggle.active {
+    color: #fff;
+}
+
+div.dataTables_wrapper div.dataTables_length select{
+    width: 70px !important;
+}
+
+.page-link.active, .active>.page-link {
+    color: #000000 !important;
+}

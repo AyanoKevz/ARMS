@@ -8,6 +8,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'ARMS') | Portal</title>
+    <link rel="icon" href="{{ asset('images/oshc-icon.ico') }}" type="image/x-icon">
 
     <!-- Gentelella CSS Base -->
     <link rel="stylesheet" href="{{ asset('gentelella/assets/init-Cvid-qA8.css') }}">
@@ -108,7 +109,7 @@
                                     <img src="{{ asset(Auth::user()->user_photo ?? 'gentelella/images/img.jpg') }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">{{ Auth::user()->name ?? 'User' }}
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end dropdown-usermenu dropdown-menu-sm" aria-labelledby="navbarDropdown">
-                                    <a class="dropdown-item" href="javascript:;" style="color: #222 !important;"> Profile</a>
+                                    <a class="dropdown-item" href="{{ route('profile.index') }}" style="color: #222 !important;"> Profile</a>
                                     <a class="dropdown-item" href="#" style="color: #222 !important;" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                                         <i class="fas fa-sign-out-alt float-end" style="color: #222 !important;"></i> Log Out
                                     </a>
@@ -144,6 +145,25 @@
     <script type="module" src="{{ asset('gentelella/js/security-ChJmw7QZ.js') }}"></script>
     <script type="module" src="{{ asset('gentelella/js/init-CkBYjM5e.js') }}"></script>
     <script type="module" src="{{ asset('gentelella/js/main-minimal-Ba_GM_Ws.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-dismiss alerts after 5 seconds
+            setTimeout(function() {
+                const alerts = document.querySelectorAll('.alert:not(.alert-important)');
+                alerts.forEach(alert => {
+                    // Use Bootstrap's own close method if possible, or just fade out
+                    if (window.bootstrap && bootstrap.Alert) {
+                        const alertInstance = bootstrap.Alert.getOrCreateInstance(alert);
+                        if (alertInstance) alertInstance.close();
+                    } else {
+                        alert.style.transition = "opacity 0.6s ease";
+                        alert.style.opacity = "0";
+                        setTimeout(() => alert.remove(), 600);
+                    }
+                });
+            }, 5000);
+        });
+    </script>
     @stack('scripts')
 </body>
 </html>

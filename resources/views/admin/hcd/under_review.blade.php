@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Pending Applications')
+@section('title', 'Applications Under Evaluation')
 
 @push('styles')
 {{-- DataTables CSS --}}
@@ -14,7 +14,7 @@
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3>Pending Applications</h3>
+            <h3>Applications Under Evaluation</h3>
         </div>
     </div>
 
@@ -39,7 +39,7 @@
 
             <div class="x_panel">
                 <div class="x_title">
-                    <h2>New Applications Awaiting Evaluation</h2>
+                    <h2>Applications Currently Under Evaluation</h2>
                     <ul class="nav navbar-right panel_toolbox">
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
@@ -48,29 +48,14 @@
                 
                 <div class="x_content">
                     <div class="table-responsive">
-                        <table id="pending_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
+                        <table id="under_review_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
                                     <th class="column-title">FATPro Name</th>
                                     <th class="column-title">Head Name</th>
-                                    <th class="column-title">
-                                        <span>Date Submitted</span>
-                                        <span class="date-filter-dropdown">
-                                            <i class="fas fa-filter date-filter-toggle" id="dateFilterToggle" title="Filter by date"></i>
-                                            <div class="date-filter-panel" id="dateFilterPanel">
-                                                <p class="mb-2" style="font-size:0.8rem;font-weight:700;color:#2A3F54;">Filter by Date</p>
-                                                <label>From</label>
-                                                <input type="date" id="date_from">
-                                                <label>To</label>
-                                                <input type="date" id="date_to">
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" id="apply_date_filter" class="btn btn-primary btn-sm flex-fill">Apply</button>
-                                                    <button type="button" id="clear_date_filter" class="btn btn-outline-secondary btn-sm flex-fill">Clear</button>
-                                                </div>
-                                            </div>
-                                        </span>
-                                    </th>
+                                    <th class="column-title">Address</th>
+                                    <th class="column-title">Organization Email</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -86,21 +71,26 @@
                                     <tr class="even pointer">
                                         <td><strong>{{ $app->tracking_number }}</strong></td>
                                         <td>
-                                            @if($isOrg)
+                                            @if($isOrg && $org)
                                                 {{ $org->name ?? 'N/A' }}
                                             @else
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
                                         </td>
                                         <td>{{ $isOrg && $org ? ($org->head_name ?? '—') : '—' }}</td>
-                                        <td data-order="{{ $app->created_at->format('Y-m-d') }}">{{ $app->created_at->format('M d, Y') }}</td>
+                                        <td>{{ $isOrg && $org ? ($org->address ?? '—') : ($app->user->individualProfile->address ?? '—') }}</td>
+                                        <td>{{ $isOrg && $org ? ($org->email ?? '—') : ($app->user->email ?? '—') }}</td>
                                         <td class="text-center">
-                                            <span class="badge bg-warning text-dark">{{ $app->latestStatus?->status?->name ?? 'Pending' }}</span>
+                                            @php
+                                                $statusName = $app->latestStatus?->status?->name ?? 'Under Evaluation';
+                                                $badgeClass = $statusName === 'For Update' ? 'bg-warning text-dark' : 'bg-success text-white';
+                                            @endphp
+                                            <span class="badge {{ $badgeClass }}">{{ $statusName }}</span>
                                         </td>
                                         <td class="last text-center">
-                                            <button type="button" class="btn btn-primary btn-xs m-0" data-bs-toggle="modal" data-bs-target="#evalModal{{ $app->id }}">
-                                                <i class="fas fa-play me-1"></i> Start Evaluation
-                                            </button>
+                                            <a href="{{ route('admin.hcd.applications.show', $app->id) }}" class="btn btn-info btn-xs m-0">
+                                                <i class="fas fa-eye me-1"></i> View
+                                            </a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -112,39 +102,6 @@
         </div>
     </div>
 </div>
-
-@foreach($applications as $app)
-@php
-    $org  = $app->user->organizationProfile;
-    $isOrg = $app->user->profile_type === 'Organization';
-    $fatproName = $isOrg ? ($org->name ?? 'N/A') : trim(($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? ''));
-@endphp
-<!-- Modal -->
-<div class="modal fade" id="evalModal{{ $app->id }}" tabindex="-1" aria-labelledby="evalModalLabel{{ $app->id }}" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="evalModalLabel{{ $app->id }}">Confirm Evaluation</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-start">
-                <p>Are you sure you want to start the evaluation for the following application?</p>
-                <ul class="mb-0">
-                    <li><strong>Tracking Number:</strong> {{ $app->tracking_number }}</li>
-                    <li><strong>FATPro Name:</strong> {{ $fatproName }}</li>
-                </ul>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">Start Evaluation</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-@endforeach
 @endsection
 
 @push('scripts')
