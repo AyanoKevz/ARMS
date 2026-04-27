@@ -519,6 +519,53 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Invite a new admin.
+     */
+    public function inviteAdmin(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email', 'unique:users,email', 'unique:pending_admins,email'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'position' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $token = \Illuminate\Support\Str::random(64);
+        
+        $loggedInUser = auth()->user();
+        $divisionId = $loggedInUser->adminProfile->division_id ?? null;
+
+        $pendingAdmin = \App\Models\PendingAdmin::create([
+            'token' => $token,
+            'email' => $request->email,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'position' => $request->position,
+            'division_id' => $divisionId,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $invitationUrl = url('/admin/setup-password/' . $token);
+
+        try {
+            Mail::to($request->email)->send(new \App\Mail\AdminInvitationEmail($invitationUrl, $request->email));
+        } catch (\Exception $e) {
+            $pendingAdmin->delete();
+            \Illuminate\Support\Facades\Log::error('SMTP Error during admin invitation: ' . $e->getMessage());
+            
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unable to send invitation email due to a mail server error. Please try again later.'
+            ], 500);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Invitation sent to ' . $request->email . ' successfully.',
+        ]);
+    }
+
+    /**
      * Show a list of admins in the same division as the currently authenticated admin.
      */
     public function adminsList()

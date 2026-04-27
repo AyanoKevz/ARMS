@@ -26,6 +26,11 @@
                 <div class="x_title">
                     <h2>Administrators in your Division</h2>
                     <ul class="nav navbar-right panel_toolbox">
+                        <li>
+                            <button type="button" class="btn btn-primary btn-sm mt-1" data-bs-toggle="modal" data-bs-target="#createAdminModal" style="background-color: #1a2e5a; border-color: #1a2e5a;">
+                                <i class="fas fa-plus me-1"></i> Create Admin
+                            </button>
+                        </li>
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
                     <div class="clearfix"></div>
@@ -69,6 +74,53 @@
         </div>
     </div>
 </div>
+
+<!-- Create Admin Modal -->
+<div class="modal fade" id="createAdminModal" tabindex="-1" aria-labelledby="createAdminModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1a2e5a 0%, #0d1f42 100%); color: white; border-bottom: none;">
+                <h5 class="modal-title" id="createAdminModalLabel">Create New Admin</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="createAdminForm">
+                @csrf
+                <div class="modal-body">
+                    <div id="createAdminAlert"></div>
+                    
+                    <div class="mb-3">
+                        <label for="admin_email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="admin_email" name="email" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="admin_first_name" class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="admin_first_name" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="admin_last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="admin_last_name" name="last_name" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="admin_position" class="form-label">Position</label>
+                        <input type="text" class="form-control" id="admin_position" name="position">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnSubmitAdmin" style="background-color: #D4AC4B; border-color: #D4AC4B; color: white; font-weight: bold;">
+                        <span class="spinner-border spinner-border-sm d-none" id="adminSpinner" role="status" aria-hidden="true"></span>
+                        Send Invitation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -90,4 +142,49 @@
 
 {{-- Reusable Table Component JS --}}
 <script src="{{ asset('js/table-component.js') }}"></script>
+
+<script>
+$(document).ready(function() {
+    $('#createAdminForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        let $form = $(this);
+        let $btn = $('#btnSubmitAdmin');
+        let $spinner = $('#adminSpinner');
+        let $alert = $('#createAdminAlert');
+        
+        $btn.prop('disabled', true);
+        $spinner.removeClass('d-none');
+        $alert.html('').removeClass('alert alert-danger alert-success');
+        
+        $.ajax({
+            url: '{{ route('admin.hcd.directory.admins.invite') }}',
+            type: 'POST',
+            data: $form.serialize(),
+            success: function(response) {
+                $alert.addClass('alert alert-success').html(response.message);
+                $form[0].reset();
+                setTimeout(function() {
+                    $('#createAdminModal').modal('hide');
+                    $alert.html('').removeClass('alert alert-success');
+                }, 2000);
+            },
+            error: function(xhr) {
+                let errorMsg = 'An error occurred. Please try again.';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    errorMsg = Object.values(xhr.responseJSON.errors)[0][0];
+                }
+                $alert.addClass('alert alert-danger').html(errorMsg);
+            },
+            complete: function() {
+                $btn.prop('disabled', false);
+                $spinner.addClass('d-none');
+            }
+        });
+    });
+});
+</script>
 @endpush

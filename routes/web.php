@@ -6,6 +6,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
 
 // LANDING PAGE 
@@ -43,9 +44,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Dashboard placeholders
 Route::middleware(['auth', 'prevent-back-history'])->group(function () {
     // ── Profile routes (available to any authenticated user) ──────────
-    Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'index'])->name('profile.index');
-    Route::post('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
-    Route::get('/profile/{user}', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
+    Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
+    Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/profile/{user}', [ProfileController::class, 'show'])->name('profile.show');
 
     Route::prefix('applicant')->name('applicant.')->group(function () {
         Route::get('/dashboard', function () {
@@ -71,9 +72,10 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/interviews/pending', [HCDApplicationController::class, 'pendingInterview'])->name('interviews.pending');
             Route::get('/interviews/scheduled', [HCDApplicationController::class, 'scheduledInterviews'])->name('interviews.scheduled');
             Route::post('/applications/{application}/interview-result', [HCDApplicationController::class, 'recordInterviewResult'])->name('applications.interview_result');
-            
+
             // Directories (using main ApplicationController)
             Route::get('/directory/admins', [HCDApplicationController::class, 'adminsList'])->name('directory.admins');
+            Route::post('/directory/admins/invite', [HCDApplicationController::class, 'inviteAdmin'])->name('directory.admins.invite');
             Route::get('/directory/fatpros', [HCDApplicationController::class, 'activeFatprosList'])->name('directory.fatpros');
         });
 
@@ -100,3 +102,7 @@ Route::get('/forgot-password', [PasswordResetController::class, 'showLinkRequest
 Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLinkEmail'])->name('password.email');
 Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
+
+// Admin Invitation Routes
+Route::get('/admin/setup-password/{token}', [App\Http\Controllers\AdminInvitationController::class, 'setupPassword'])->name('admin.setup_password');
+Route::post('/admin/setup-password/{token}', [App\Http\Controllers\AdminInvitationController::class, 'storePassword'])->name('admin.setup_password.store');
