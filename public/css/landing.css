@@ -840,3 +840,29 @@ select option:disabled { color: #bbb; }
     text-decoration: none;
 }
 .reg-login-link a:hover { text-decoration: underline; }
+
+/* ── File upload button states (register form) ── */
+.file-upload-wrapper .custom-file-btn {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+.real-file-input.is-invalid ~ .file-invalid-feedback {
+    display: block !important;
+}
+.was-validated .real-file-input:invalid ~ div .custom-file-btn,
+.real-file-input.is-invalid ~ div .custom-file-btn {
+    border-color: var(--bs-danger) !important;
+    color: var(--bs-danger) !important;
+    background-color: transparent !important;
+}
+.was-validated .real-file-input:valid ~ div .custom-file-btn {
+    background-color: var(--bs-success) !important;
+    border-color: var(--bs-success) !important;
+    color: white !important;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.08); }
+}

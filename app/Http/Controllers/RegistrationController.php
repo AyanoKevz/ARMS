@@ -10,6 +10,8 @@ use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
 use App\Models\AuthorizedRepresentative;
 use App\Models\DocumentField;
+use App\Models\Instructor;
+use App\Models\InstructorCredential;
 use App\Models\OrganizationProfile;
 use App\Models\PendingRegistration;
 use App\Models\User;
@@ -25,15 +27,15 @@ use Illuminate\Validation\Rules\Password;
 
 class RegistrationController extends Controller
 {
+    // Credential types with their required fields
+    private const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+
     // ─────────────────────────────────────────────────────────────
     //  POST /register  — Save pending data, send verification email
     // ─────────────────────────────────────────────────────────────
     public function store(Request $request)
     {
         // ── Guard: PHP silently drops files beyond max_file_uploads ──
-        // When this happens the $_FILES array is incomplete and PHP emits a
-        // warning that corrupts the JSON response. Detect it early and return
-        // a clean JSON error so the front-end shows a helpful message.
         if (isset($_SERVER['CONTENT_TYPE']) && str_contains($_SERVER['CONTENT_TYPE'], 'multipart/form-data')) {
             $maxUploads = (int) ini_get('max_file_uploads');
             if (count($_FILES) >= $maxUploads) {
@@ -44,8 +46,7 @@ class RegistrationController extends Controller
             }
         }
 
-        // ── Validation ──────────────────────────────────────────
-        // Build dynamic per-field rules from document_fields table
+        // ── Build document field validation rules ──────────────────
         $documentFields = DocumentField::all()->keyBy('code');
 
         $documentRules = [];
@@ -60,13 +61,40 @@ class RegistrationController extends Controller
             }
         }
 
+        // ── Build instructor validation rules ──────────────────────
+        $instructorRules = [];
+        $instructors = $request->input('instructors', []);
+
+        if (is_array($instructors) && count($instructors) > 0) {
+            foreach ($instructors as $i => $inst) {
+                $instructorRules["instructors.{$i}.first_name"] = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.middle_name"] = ['nullable', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.last_name"]  = ['required', 'string', 'max:255'];
+
+                // Service agreement PDF (nullable)
+                $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+
+                foreach (self::CREDENTIAL_TYPES as $type) {
+                    $base = "instructors.{$i}.credentials.{$type}";
+                    $instructorRules["{$base}.number"]         = ['nullable', 'string', 'max:255'];
+                    $instructorRules["{$base}.issued_date"]    = ['nullable', 'date'];
+                    $instructorRules["{$base}.validity_date"]  = ['nullable', 'date'];
+                    $instructorRules["{$base}.pdf"]            = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                    if ($type === 'BOSH') {
+                        $instructorRules["{$base}.training_dates"] = ['nullable', 'string', 'max:500'];
+                    }
+                }
+            }
+        }
+
+        // ── Full validation ────────────────────────────────────────
         $request->validate(array_merge([
             'accreditation_type_id' => ['required', 'integer', 'exists:accreditation_types,id'],
             'profile_type'          => ['required', 'in:Individual,Organization'],
             'email'                 => ['required', 'email', 'unique:users,email', 'unique:pending_registrations,email'],
             'password'              => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
 
-            // Organization fields (required when profile_type = Organization)
+            // Organization fields
             'org_name'     => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'org_address'  => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:500'],
             'head_name'    => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
@@ -81,16 +109,15 @@ class RegistrationController extends Controller
             'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:11'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
-            'documents' => ['nullable', 'array'],
-        ], $documentRules));
+            'documents'   => ['nullable', 'array'],
+            'instructors' => ['nullable', 'array'],
+        ], $documentRules, $instructorRules));
 
-        // ── Generate token ───────────────────────────────────────
+        // ── Generate token ─────────────────────────────────────────
         $token = Str::random(64);
 
-        // ── Store each document field value to a temp area ───────
-        // documents[FIELD_CODE] can be a file (PDF), a date string, or a text value
-        $documentsData = []; // code => ['type' => 'file|text|date', 'value' => path|string]
-
+        // ── Store regular document fields ──────────────────────────
+        $documentsData    = [];
         $allDocumentFields = DocumentField::all()->keyBy('code');
 
         foreach ($allDocumentFields as $code => $field) {
@@ -101,7 +128,6 @@ class RegistrationController extends Controller
                     $documentsData[$code] = ['input_type' => 'file', 'value' => $tempPath];
                 }
             } else {
-                // text or date
                 $val = $request->input("documents.{$code}");
                 if (! is_null($val) && $val !== '') {
                     $documentsData[$code] = ['input_type' => $field->input_type, 'value' => $val];
@@ -109,31 +135,73 @@ class RegistrationController extends Controller
             }
         }
 
-        // ── Gather form data to store as JSON ────────────────────
+        // ── Store instructor data ──────────────────────────────────
+        $instructorsData = [];
+
+        foreach ($instructors as $i => $inst) {
+            $entry = [
+                'first_name'  => $inst['first_name']  ?? '',
+                'middle_name' => $inst['middle_name'] ?? null,
+                'last_name'   => $inst['last_name']   ?? '',
+                'service_agreement_path' => null,
+                'credentials' => [],
+            ];
+
+            // Service agreement PDF
+            if ($request->hasFile("instructors.{$i}.service_agreement")) {
+                $file = $request->file("instructors.{$i}.service_agreement");
+                $entry['service_agreement_path'] = $file->storeAs(
+                    "pending/{$token}/instructors/{$i}",
+                    'service_agreement.pdf',
+                    'local'
+                );
+            }
+
+            // Credentials
+            foreach (self::CREDENTIAL_TYPES as $type) {
+                $cred = $inst['credentials'][$type] ?? [];
+                $credEntry = [
+                    'number'         => $cred['number']         ?? null,
+                    'issued_date'    => $cred['issued_date']    ?? null,
+                    'validity_date'  => $cred['validity_date']  ?? null,
+                    'training_dates' => $cred['training_dates'] ?? null,
+                    'pdf_path'       => null,
+                ];
+
+                // Credential PDF
+                if ($request->hasFile("instructors.{$i}.credentials.{$type}.pdf")) {
+                    $file = $request->file("instructors.{$i}.credentials.{$type}.pdf");
+                    $credEntry['pdf_path'] = $file->storeAs(
+                        "pending/{$token}/instructors/{$i}",
+                        "{$type}.pdf",
+                        'local'
+                    );
+                }
+
+                // Only store if at least one field is populated
+                $hasData = ($credEntry['number'] || $credEntry['issued_date']
+                    || $credEntry['validity_date'] || $credEntry['training_dates']
+                    || $credEntry['pdf_path']);
+
+                if ($hasData) {
+                    $entry['credentials'][$type] = $credEntry;
+                }
+            }
+
+            $instructorsData[] = $entry;
+        }
+
+        // ── Gather form data ───────────────────────────────────────
         $formData = $request->only([
-            'org_name',
-            'org_address',
-            'head_name',
-            'designation',
-            'telephone',
-            'fax',
-            'org_email',
-            'rep_full_name',
-            'rep_position',
-            'rep_contact_number',
-            'rep_email',
-            'first_name',
-            'middle_name',
-            'last_name',
-            'sex',
-            'birthday',
-            'region',
-            'city',
-            'address',
+            'org_name', 'org_address', 'head_name', 'designation',
+            'telephone', 'fax', 'org_email',
+            'rep_full_name', 'rep_position', 'rep_contact_number', 'rep_email',
+            'first_name', 'middle_name', 'last_name',
+            'sex', 'birthday', 'region', 'city', 'address',
         ]);
 
-        // ── Create pending registration ───────────────────────────
-        PendingRegistration::where('email', $request->email)->delete(); // overwrite stale
+        // ── Create pending registration ────────────────────────────
+        PendingRegistration::where('email', $request->email)->delete();
 
         $pending = PendingRegistration::create([
             'token'                 => $token,
@@ -143,19 +211,20 @@ class RegistrationController extends Controller
             'accreditation_type_id' => $request->accreditation_type_id,
             'form_data'             => $formData,
             'documents_data'        => $documentsData,
+            'instructors_data'      => $instructorsData,
             'expires_at'            => now()->addMinutes(5),
         ]);
 
-        // ── Send verification email ───────────────────────────────
+        // ── Send verification email ────────────────────────────────
         $verificationUrl = route('register.verify', ['token' => $token]);
-        
+
         try {
             Mail::to($request->email)->send(new VerifyRegistrationEmail($verificationUrl, $request->email));
         } catch (\Exception $e) {
             $pending->delete();
             Storage::disk('local')->deleteDirectory("pending/{$token}");
             Log::error('SMTP Error during registration logic: ' . $e->getMessage());
-            
+
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Unable to send verification email due to a mail server error. Please try again later.'
@@ -176,7 +245,7 @@ class RegistrationController extends Controller
     {
         $pending = PendingRegistration::where('token', $token)->first();
 
-        // ── Invalid or expired token ──────────────────────────────
+        // ── Invalid or expired token ───────────────────────────────
         if (! $pending) {
             return view('landing.verify-result', [
                 'status'  => 'error',
@@ -192,7 +261,7 @@ class RegistrationController extends Controller
             ]);
         }
 
-        // ── Double-check email isn't taken yet ────────────────────
+        // ── Double-check email isn't taken yet ─────────────────────
         if (User::where('email', $pending->email)->exists()) {
             $pending->delete();
             return view('landing.verify-result', [
@@ -203,48 +272,48 @@ class RegistrationController extends Controller
 
         try {
             $trackingNumber = null;
-            $applicantEmail = $pending->email; // Capture before deletion
+            $applicantEmail = $pending->email;
 
             DB::transaction(function () use ($pending, &$trackingNumber) {
                 $form = $pending->form_data;
 
                 // 1. Create User
                 $user = User::create([
-                    'email'                      => $pending->email,
-                    'password'                   => $pending->password, // already hashed
-                    'profile_type'               => $pending->profile_type,
-                    'role_id'                    => 1, // applicant
-                    'email_verified_at'          => now(),
+                    'email'             => $pending->email,
+                    'password'          => $pending->password,
+                    'profile_type'      => $pending->profile_type,
+                    'role_id'           => 1,
+                    'email_verified_at' => now(),
                 ]);
 
-                // 2. Create Profile
+                // 2. Create Organization Profile
                 $orgProfileId = null;
                 if ($pending->profile_type === 'Organization') {
                     $orgProfile = OrganizationProfile::create([
                         'user_id'     => $user->id,
-                        'name'        => $form['org_name'] ?? '',
-                        'address'     => $form['org_address'] ?? '',
-                        'head_name'   => $form['head_name'] ?? '',
-                        'designation' => $form['designation'] ?? '',
-                        'telephone'   => $form['telephone'] ?? null,
-                        'fax'         => $form['fax'] ?? null,
-                        'email'       => $form['org_email'] ?? '',
+                        'name'        => $form['org_name']     ?? '',
+                        'address'     => $form['org_address']  ?? '',
+                        'head_name'   => $form['head_name']    ?? '',
+                        'designation' => $form['designation']  ?? '',
+                        'telephone'   => $form['telephone']    ?? null,
+                        'fax'         => $form['fax']          ?? null,
+                        'email'       => $form['org_email']    ?? '',
                     ]);
                     $orgProfileId = $orgProfile->id;
 
                     // 3. Authorized Representative
                     AuthorizedRepresentative::create([
                         'organization_profile_id' => $orgProfileId,
-                        'full_name'               => $form['rep_full_name'] ?? '',
-                        'position'                => $form['rep_position'] ?? '',
+                        'full_name'               => $form['rep_full_name']      ?? '',
+                        'position'                => $form['rep_position']       ?? '',
                         'contact_number'          => $form['rep_contact_number'] ?? '',
-                        'email'                   => $form['rep_email'] ?? '',
+                        'email'                   => $form['rep_email']          ?? '',
                     ]);
                 }
 
                 // 4. Generate tracking number
                 $year           = now()->format('Y');
-                $sequence = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+                $sequence       = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                 $trackingNumber = "ARMS{$year}-{$sequence}";
 
                 // 5. Create Application
@@ -256,51 +325,79 @@ class RegistrationController extends Controller
                     'submitted_at'          => now(),
                 ]);
 
-                // 6. Persist each field value → user_documents → application_documents
-                $fieldMap  = DocumentField::all()->keyBy('code');
-                $docsData  = $pending->documents_data ?? [];
+                // 6. Persist document fields → user_documents → application_documents
+                $fieldMap = DocumentField::all()->keyBy('code');
+                $docsData = $pending->documents_data ?? [];
 
                 foreach ($docsData as $code => $entry) {
                     $field = $fieldMap->get($code);
-                    if (! $field) {
-                        continue;
-                    }
+                    if (! $field) continue;
 
                     $filePath  = null;
                     $textValue = null;
 
                     if ($entry['input_type'] === 'file') {
-                        // Move from temp to permanent location
                         $filePath = "public/documents/{$application->id}/{$code}.pdf";
                         Storage::disk('local')->move($entry['value'], $filePath);
                     } else {
-                        // text or date — store as plain value
                         $textValue = $entry['value'];
                     }
 
                     $userDoc = UserDocument::updateOrCreate(
-                        [
-                            'user_id'           => $user->id,
-                            'document_field_id' => $field->id,
-                        ],
-                        [
-                            'file_path' => $filePath,
-                            'value'     => $textValue,
-                        ]
+                        ['user_id' => $user->id, 'document_field_id' => $field->id],
+                        ['file_path' => $filePath, 'value' => $textValue]
                     );
 
                     ApplicationDocument::create([
-                        'application_id'   => $application->id,
-                        'document_field_id'=> $field->id,
-                        'user_document_id' => $userDoc->id,
-                        'status'           => 'pending',
+                        'application_id'    => $application->id,
+                        'document_field_id' => $field->id,
+                        'user_document_id'  => $userDoc->id,
+                        'status'            => 'pending',
                     ]);
                 }
 
-                // Clean up the temp folder
+                // 7. Persist instructors + credentials
+                $instructorsData = $pending->instructors_data ?? [];
+
+                foreach ($instructorsData as $i => $instData) {
+                    // Move service agreement PDF
+                    $saPermanent = null;
+                    if ($instData['service_agreement_path'] ?? null) {
+                        $saPermanent = "public/instructors/{$user->id}/{$i}/service_agreement.pdf";
+                        Storage::disk('local')->move($instData['service_agreement_path'], $saPermanent);
+                    }
+
+                    $instructor = Instructor::create([
+                        'user_id'                => $user->id,
+                        'first_name'             => $instData['first_name']  ?? '',
+                        'middle_name'            => $instData['middle_name'] ?? null,
+                        'last_name'              => $instData['last_name']   ?? '',
+                        'service_agreement_path' => $saPermanent,
+                    ]);
+
+                    foreach ($instData['credentials'] ?? [] as $type => $credData) {
+                        $credPermanent = null;
+                        if ($credData['pdf_path'] ?? null) {
+                            $credPermanent = "public/instructors/{$user->id}/{$i}/{$type}.pdf";
+                            Storage::disk('local')->move($credData['pdf_path'], $credPermanent);
+                        }
+
+                        InstructorCredential::create([
+                            'instructor_id'  => $instructor->id,
+                            'type'           => $type,
+                            'number'         => $credData['number']         ?? null,
+                            'issued_date'    => $credData['issued_date']    ?? null,
+                            'validity_date'  => $credData['validity_date']  ?? null,
+                            'training_dates' => $credData['training_dates'] ?? null,
+                            'pdf_path'       => $credPermanent,
+                        ]);
+                    }
+                }
+
+                // 8. Clean up temp folder
                 Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
 
-                // 7. Create initial status log
+                // 9. Create initial status log
                 $submittedStatus = ApplicationStatus::where('name', 'Submitted')->first();
                 if ($submittedStatus) {
                     ApplicationStatusLog::create([
@@ -314,7 +411,7 @@ class RegistrationController extends Controller
                 $pending->delete();
             });
 
-            // 8. Try to send confirmation email, but don't fail if mail server hangs
+            // 10. Send confirmation email (non-fatal on failure)
             try {
                 Mail::to($applicantEmail)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $applicantEmail));
             } catch (\Exception $mailEx) {

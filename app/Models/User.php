@@ -120,6 +120,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the instructors submitted by this FATPro applicant.
+     */
+    public function instructors()
+    {
+        return $this->hasMany(Instructor::class);
+    }
+
+    /**
      * Get the user's display name based on their profile.
      */
     public function getNameAttribute()

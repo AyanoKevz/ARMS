@@ -14,13 +14,15 @@ class PendingRegistration extends Model
         'accreditation_type_id',
         'form_data',
         'documents_data',
+        'instructors_data',
         'expires_at',
     ];
 
     protected $casts = [
-        'form_data'      => 'array',
-        'documents_data' => 'array',
-        'expires_at'     => 'datetime',
+        'form_data'       => 'array',
+        'documents_data'  => 'array',
+        'instructors_data'=> 'array',
+        'expires_at'      => 'datetime',
     ];
 
     /**

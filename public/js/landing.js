@@ -596,3 +596,116 @@
     });
 
 })();
+
+/* ═══════════════════════════════════════════════════════════
+   INSTRUCTOR CARD MANAGER — only activates on /register
+   (requires #instructorCardsContainer to be present)
+═══════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    const container = document.getElementById('instructorCardsContainer');
+    if (!container) return; /* not on register page — bail out */
+
+    const template = document.getElementById('instructorTemplate');
+    const addBtn   = document.getElementById('addInstructorBtn');
+    let   cardCount = 0;
+
+    /**
+     * Replace every __IDX__ placeholder in an element's
+     * name, id, and for attributes with the real numeric index.
+     */
+    function reindexElement(el, idx) {
+        ['name', 'id', 'for'].forEach(attr => {
+            if (el.hasAttribute(attr)) {
+                el.setAttribute(attr, el.getAttribute(attr).replace(/__IDX__/g, idx));
+            }
+        });
+        el.querySelectorAll('[name],[id],[for]').forEach(child => {
+            ['name', 'id', 'for'].forEach(attr => {
+                if (child.hasAttribute(attr)) {
+                    child.setAttribute(attr, child.getAttribute(attr).replace(/__IDX__/g, idx));
+                }
+            });
+        });
+    }
+
+    /** Relabel all visible cards (Instructor #1, #2, …) and toggle Remove btn */
+    function relabelCards() {
+        const cards = container.querySelectorAll('.instructor-card');
+        cards.forEach((card, i) => {
+            card.querySelector('.instructor-label').textContent = 'Instructor #' + (i + 1);
+            const removeBtn = card.querySelector('.remove-instructor-btn');
+            if (cards.length > 1) {
+                removeBtn.classList.remove('d-none');
+            } else {
+                removeBtn.classList.add('d-none');
+            }
+        });
+    }
+
+    /** Wire file inputs inside a card to show the chosen filename */
+    function bindFileInputs(card) {
+        card.querySelectorAll('.real-file-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const wrapper  = this.closest('.file-upload-wrapper');
+                if (!wrapper) return;
+                const nameSpan = wrapper.querySelector('.file-name-text');
+                const fileBtn  = wrapper.querySelector('.custom-file-btn');
+
+                if (this.files && this.files.length > 0) {
+                    if (nameSpan) {
+                        nameSpan.textContent = this.files[0].name;
+                        nameSpan.classList.remove('text-muted');
+                        nameSpan.classList.add('text-primary', 'fw-semibold');
+                    }
+                    if (fileBtn) {
+                        fileBtn.classList.remove('btn-outline-primary');
+                        fileBtn.classList.add('btn-primary', 'text-white');
+                    }
+                } else {
+                    if (nameSpan) {
+                        nameSpan.textContent = 'No file chosen';
+                        nameSpan.classList.add('text-muted');
+                        nameSpan.classList.remove('text-primary', 'fw-semibold');
+                    }
+                    if (fileBtn) {
+                        fileBtn.classList.add('btn-outline-primary');
+                        fileBtn.classList.remove('btn-primary', 'text-white');
+                    }
+                }
+            });
+        });
+    }
+
+    /** Clone the hidden template and append a new instructor card */
+    function addCard() {
+        const idx   = cardCount++;
+        const clone = template.querySelector('.instructor-card').cloneNode(true);
+
+        reindexElement(clone, idx);
+
+        clone.querySelector('.remove-instructor-btn').addEventListener('click', function () {
+            clone.remove();
+            relabelCards();
+        });
+
+        bindFileInputs(clone);
+
+        // Animate in
+        clone.style.opacity    = '0';
+        clone.style.transform  = 'translateY(-8px)';
+        clone.style.transition = 'opacity .25s ease, transform .25s ease';
+        container.appendChild(clone);
+        requestAnimationFrame(() => {
+            clone.style.opacity   = '1';
+            clone.style.transform = 'translateY(0)';
+        });
+
+        relabelCards();
+    }
+
+    // Initialise with one card and wire the Add button
+    addCard();
+    addBtn.addEventListener('click', addCard);
+})();
