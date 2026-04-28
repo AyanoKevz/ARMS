@@ -306,7 +306,13 @@
                 <div class="fw-bold text-success" style="font-size:1rem;">Application Approved</div>
                 @if($application->accreditation)
                 <small class="text-muted">Accreditation No: <strong>{{ $application->accreditation->accreditation_number }}</strong></small><br>
-                <small class="text-muted">Valid Until: <strong>{{ $application->accreditation->validity_date->format('F d, Y') }}</strong></small>
+                <small class="text-muted">Valid Until: <strong>{{ $application->accreditation->validity_date->format('F d, Y') }}</strong></small><br>
+                <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
+                   target="_blank"
+                   class="btn btn-success btn-sm mt-2 fw-semibold"
+                   style="border-radius:8px;font-size:.82rem;">
+                    <i class="bi bi-file-earmark-arrow-down me-1"></i> Download Certificate PDF
+                </a>
                 @endif
             </div>
         </div>

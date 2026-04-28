@@ -5,7 +5,7 @@
 @section('content')
 {{-- ══ HERO ══ --}}
 <section class="hero">
-    <img src="https://oshc-arms.com/wp-content/uploads/2026/02/OSHC_paint1-1024x686.jpg" class="hero-bg-img" alt=""
+    <img src="{{ asset('images/OSHC hero-bg.jpg') }}" class="hero-bg-img" alt=""
         aria-hidden="true">
     <div class="hero-overlay"></div>
 

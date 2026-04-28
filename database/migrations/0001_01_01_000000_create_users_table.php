@@ -55,6 +55,18 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('pending_admins', function (Blueprint $table) {
+            $table->id();
+            $table->string('token')->unique();
+            $table->string('email')->unique();
+            $table->string('first_name');
+            $table->string('last_name');
+            $table->string('position')->nullable();
+            $table->foreignId('division_id')->nullable()->constrained('divisions')->onDelete('cascade');
+            $table->timestamp('expires_at');
+            $table->timestamps();
+        });
+
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
@@ -80,6 +92,7 @@ return new class extends Migration
         Schema::dropIfExists('users');
         Schema::dropIfExists('divisions');
         Schema::dropIfExists('admin_profiles');
+        Schema::dropIfExists('pending_admins');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }

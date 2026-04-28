@@ -61,9 +61,17 @@
                                                 {{ $acc->validity_date ? $acc->validity_date->format('M d, Y') : '—' }}
                                             </span>
                                         </td>
-                                        <td class="last text-center">
-                                            <a href="{{ route('admin.hcd.applications.show', $acc->application_id) }}" class="btn btn-info btn-xs m-0">
-                                                <i class="fas fa-eye me-1"></i> View Application
+                                        <td class="last text-center" style="white-space:nowrap;">
+                                            <a href="{{ route('admin.hcd.applications.show', $acc->application_id) }}"
+                                               class="btn btn-info btn-xs m-0 me-1"
+                                               title="View Application">
+                                                <i class="fas fa-eye me-1"></i> View
+                                            </a>
+                                            <a href="{{ route('admin.hcd.accreditations.certificate', $acc->id) }}"
+                                               target="_blank"
+                                               class="btn btn-success btn-xs m-0"
+                                               title="Download Certificate PDF">
+                                                <i class="fas fa-file-alt me-1"></i> Certificate
                                             </a>
                                         </td>
                                     </tr>

@@ -57,6 +57,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::get('/practitioners/dashboard', function () {
             return view('applicant.practitioners.dashboard');
         })->name('practitioners.dashboard');
+
+        // Accreditation Certificate PDF (own certificate only)
+        Route::get('/certificate', [\App\Http\Controllers\TrackingController::class, 'downloadCertificate'])->name('certificate');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -77,6 +80,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/directory/admins', [HCDApplicationController::class, 'adminsList'])->name('directory.admins');
             Route::post('/directory/admins/invite', [HCDApplicationController::class, 'inviteAdmin'])->name('directory.admins.invite');
             Route::get('/directory/fatpros', [HCDApplicationController::class, 'activeFatprosList'])->name('directory.fatpros');
+
+            // Accreditation Certificate PDF
+            Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
         });
 
         // Example of multi-portal support by division

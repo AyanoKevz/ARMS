@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DocumentRejectionEmail;
 use App\Mail\InterviewResultEmail;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ApplicationController extends Controller
 {
@@ -602,6 +603,38 @@ class ApplicationController extends Controller
             ->get();
 
         return view('admin.hcd.active_fatpros', compact('accreditations'));
+    }
+
+    /**
+     * Generate and stream the Accreditation Certificate as a PDF.
+     */
+    public function downloadCertificate(\App\Models\Accreditation $accreditation)
+    {
+        $accreditation->load([
+            'user.organizationProfile',
+            'user.individualProfile',
+            'accreditationType',
+        ]);
+
+        $user = $accreditation->user;
+
+        // Resolve FATPro display name
+        if ($user->profile_type === 'Organization' && $user->organizationProfile) {
+            $fatproName = $user->organizationProfile->name ?? $user->name;
+        } elseif ($user->individualProfile) {
+            $fatproName = $user->individualProfile->full_name ?? $user->name;
+        } else {
+            $fatproName = $user->name;
+        }
+
+        $pdf = Pdf::loadView('certificates.accreditation', [
+            'accreditation' => $accreditation,
+            'fatproName'    => $fatproName,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'Accreditation_Certificate_' . $accreditation->accreditation_number . '.pdf';
+
+        return $pdf->stream($filename);
     }
 
     /**

@@ -6,10 +6,46 @@ use Illuminate\Http\Request;
 use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\UserDocument;
+use App\Models\Accreditation;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class TrackingController extends Controller
 {
+    /**
+     * Generate and stream the applicant's own Accreditation Certificate as PDF.
+     */
+    public function downloadCertificate()
+    {
+        $accreditation = Accreditation::where('user_id', auth()->id())
+            ->where('status', 'active')
+            ->with(['user.organizationProfile', 'user.individualProfile', 'accreditationType'])
+            ->first();
+
+        if (! $accreditation) {
+            abort(404, 'No active accreditation found for your account.');
+        }
+
+        $user = $accreditation->user;
+
+        if ($user->profile_type === 'Organization' && $user->organizationProfile) {
+            $fatproName = $user->organizationProfile->name ?? $user->name;
+        } elseif ($user->individualProfile) {
+            $fatproName = $user->individualProfile->full_name ?? $user->name;
+        } else {
+            $fatproName = $user->name;
+        }
+
+        $pdf = Pdf::loadView('certificates.accreditation', [
+            'accreditation' => $accreditation,
+            'fatproName'    => $fatproName,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'Accreditation_Certificate_' . $accreditation->accreditation_number . '.pdf';
+
+        return $pdf->stream($filename);
+    }
+
     /**
      * Display the tracking page, resolving the application if a tracking number is provided.
      */
