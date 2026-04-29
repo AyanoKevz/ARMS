@@ -249,6 +249,166 @@
         @endif
     </div>
 
+    {{-- ── Instructor Credentials Card ── --}}
+    @if($application->user && $application->user->instructors && $application->user->instructors->count() > 0)
+    <div class="ai-card mt-4">
+        <div class="ai-card-header">
+            <i class="bi bi-people-fill fs-5" style="color:#27ae60;"></i>
+            <h5>Instructor Credentials</h5>
+        </div>
+        
+        <div class="row g-3">
+            @foreach($application->user->instructors as $instructor)
+            <div class="col-md-12">
+                <div class="doc-section">
+                    <div class="doc-section-header">
+                        <i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}
+                    </div>
+                    
+                    {{-- Credentials --}}
+                    @foreach($instructor->credentials as $credential)
+                    @php
+                        $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
+                        $badgeClassCred = match($credential->status) {
+                            'approved'     => 'doc-badge-approved',
+                            'rejected'     => 'doc-badge-rejected',
+                            'for_revision' => 'doc-badge-for_revision',
+                            default        => 'doc-badge-pending',
+                        };
+                        $badgeLabelCred = match($credential->status) {
+                            'approved'     => 'Approved',
+                            'rejected'     => 'Rejected',
+                            'for_revision' => 'For Revision',
+                            default        => 'Pending',
+                        };
+                    @endphp
+                    <div class="doc-row" id="doc-row-cred-{{ $credential->id }}">
+                        <input type="hidden" name="credential_evaluations[{{ $credential->id }}][id]" value="{{ $credential->id }}">
+                        <input type="hidden" name="credential_evaluations[{{ $credential->id }}][status]" id="status-input-cred-{{ $credential->id }}" value="{{ $evalStatusCred }}">
+                        
+                        <div class="doc-field-name">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                <span class="fw-bold">
+                                    @if($credential->type === 'EMS')
+                                        TESDA Emergency Medical Services NC II or III Certificate
+                                    @elseif($credential->type === 'TM1')
+                                        TESDA Trainers Methodology Certificate 1
+                                    @elseif($credential->type === 'NTTC')
+                                        TESDA National TVET Trainer Certificate
+                                    @elseif($credential->type === 'BOSH')
+                                        BOSH SO1 or SO2 Certificate
+                                    @else
+                                        {{ $credential->type }} Credential
+                                    @endif
+                                </span>
+                            </div>
+                            <div class="ms-4 text-muted" style="font-size: 0.78rem; line-height: 1.5;">
+                                @if($credential->number)
+                                    <div><strong style="color:#555;">Certificate Number:</strong> {{ $credential->number }}</div>
+                                @endif
+                                @if($credential->issued_date)
+                                    <div><strong style="color:#555;">Issued On:</strong> {{ \Carbon\Carbon::parse($credential->issued_date)->format('M d, Y') }}</div>
+                                @endif
+                                @if($credential->validity_date)
+                                    <div><strong style="color:#555;">Valid Until:</strong> {{ \Carbon\Carbon::parse($credential->validity_date)->format('M d, Y') }}</div>
+                                @endif
+                                @if($credential->training_dates)
+                                    <div><strong style="color:#555;">Training date(s):</strong> {{ $credential->training_dates }}</div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="doc-value text-muted" style="font-size:.75rem;">
+                            {{ $credential->pdf_path ? basename($credential->pdf_path) : 'No file' }}
+                        </div>
+                        
+                        <span class="doc-badge {{ $badgeClassCred }}" id="badge-cred-{{ $credential->id }}">{{ $badgeLabelCred }}</span>
+                        
+                        @if($credential->pdf_path)
+                        <div class="doc-actions">
+                            <a href="{{ route('admin.hcd.instructors.credentials.view', $credential->id) }}?v={{ $credential->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </div>
+                        @endif
+                        
+                        @if(!$allApproved && !$isScheduled)
+                        <div class="doc-eval-actions">
+                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
+                                <i class="bi bi-check-circle-fill"></i> Approve
+                            </button>
+                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'rejected')">
+                                <i class="bi bi-x-circle-fill"></i> Reject
+                            </button>
+                        </div>
+                        <div class="reject-panel" id="reject-panel-cred-{{ $credential->id }}" style="{{ $evalStatusCred === 'rejected' ? '' : 'display:none;' }}">
+                            <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
+                            <textarea class="reject-remarks-input" name="credential_evaluations[{{ $credential->id }}][remarks]" id="remarks-cred-{{ $credential->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $credential->remarks }}</textarea>
+                        </div>
+                        @endif
+                    </div>
+                    @endforeach
+
+                    {{-- Service Agreement --}}
+                    @php
+                        $evalStatus = in_array($instructor->status, ['approved','rejected']) ? $instructor->status : 'pending';
+                        $badgeClass = match($instructor->status) {
+                            'approved'     => 'doc-badge-approved',
+                            'rejected'     => 'doc-badge-rejected',
+                            'for_revision' => 'doc-badge-for_revision',
+                            default        => 'doc-badge-pending',
+                        };
+                        $badgeLabel = match($instructor->status) {
+                            'approved'     => 'Approved',
+                            'rejected'     => 'Rejected',
+                            'for_revision' => 'For Revision',
+                            default        => 'Pending',
+                        };
+                    @endphp
+                    <div class="doc-row" id="doc-row-inst-{{ $instructor->id }}">
+                        <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][id]" value="{{ $instructor->id }}">
+                        <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][status]" id="status-input-inst-{{ $instructor->id }}" value="{{ $evalStatus }}">
+                        
+                        <div class="doc-field-name">
+                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                            <span class="fw-bold">Service Agreement between FATPro head and instructor</span>
+                        </div>
+                        <div class="doc-value text-muted" style="font-size:.75rem;">
+                            {{ $instructor->service_agreement_path ? basename($instructor->service_agreement_path) : 'No file' }}
+                        </div>
+                        
+                        <span class="doc-badge {{ $badgeClass }}" id="badge-inst-{{ $instructor->id }}">{{ $badgeLabel }}</span>
+                        
+                        @if($instructor->service_agreement_path)
+                        <div class="doc-actions">
+                            <a href="{{ route('admin.hcd.instructors.service_agreement.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </div>
+                        @endif
+                        
+                        @if(!$allApproved && !$isScheduled)
+                        <div class="doc-eval-actions">
+                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
+                                <i class="bi bi-check-circle-fill"></i> Approve
+                            </button>
+                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'rejected')">
+                                <i class="bi bi-x-circle-fill"></i> Reject
+                            </button>
+                        </div>
+                        <div class="reject-panel" id="reject-panel-inst-{{ $instructor->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
+                            <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
+                            <textarea class="reject-remarks-input" name="instructor_evaluations[{{ $instructor->id }}][remarks]" id="remarks-inst-{{ $instructor->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $instructor->remarks }}</textarea>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
 </form>
 
 {{-- ══ Schedule Interview Button (always visible, enabled only when ALL docs approved) ══ --}}

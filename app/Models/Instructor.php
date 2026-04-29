@@ -15,6 +15,8 @@ class Instructor extends Model
         'middle_name',
         'last_name',
         'service_agreement_path',
+        'status',
+        'remarks',
     ];
 
     /**

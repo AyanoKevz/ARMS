@@ -15,17 +15,23 @@ class DocumentRejectionEmail extends Mailable
 
     public $application;
     public $rejectedDocuments;
+    public $rejectedInstructors;
+    public $rejectedCredentials;
 
     /**
      * Create a new message instance.
      *
      * @param Application $application
      * @param \Illuminate\Support\Collection $rejectedDocuments
+     * @param \Illuminate\Support\Collection $rejectedInstructors
+     * @param \Illuminate\Support\Collection $rejectedCredentials
      */
-    public function __construct(Application $application, $rejectedDocuments)
+    public function __construct(Application $application, $rejectedDocuments, $rejectedInstructors = null, $rejectedCredentials = null)
     {
         $this->application = $application;
         $this->rejectedDocuments = $rejectedDocuments;
+        $this->rejectedInstructors = $rejectedInstructors ?? collect();
+        $this->rejectedCredentials = $rejectedCredentials ?? collect();
     }
 
     /**

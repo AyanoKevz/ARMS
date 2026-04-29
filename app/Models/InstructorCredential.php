@@ -17,6 +17,8 @@ class InstructorCredential extends Model
         'validity_date',
         'training_dates',
         'pdf_path',
+        'status',
+        'remarks',
     ];
 
     protected $casts = [

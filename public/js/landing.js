@@ -681,7 +681,8 @@
     /** Clone the hidden template and append a new instructor card */
     function addCard() {
         const idx   = cardCount++;
-        const clone = template.querySelector('.instructor-card').cloneNode(true);
+        const sourceNode = template.content ? template.content : template;
+        const clone = sourceNode.querySelector('.instructor-card').cloneNode(true);
 
         reindexElement(clone, idx);
 

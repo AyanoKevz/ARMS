@@ -8,6 +8,8 @@ use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
+use App\Models\Instructor;
+use App\Models\InstructorCredential;
 use App\Models\Interview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -213,6 +215,7 @@ class ApplicationController extends Controller
             'documents.userDocument',
             'interview',
             'accreditation',
+            'user.instructors.credentials',
         ]);
 
         return view('admin.hcd.show_application_info', compact('application'));
@@ -287,19 +290,58 @@ class ApplicationController extends Controller
     public function finalizeEvaluation(Request $request, Application $application)
     {
         $request->validate([
-            'evaluations' => ['required', 'array'],
+            'evaluations' => ['nullable', 'array'],
             'evaluations.*.id' => ['required', 'exists:application_documents,id'],
             'evaluations.*.status' => ['required', 'in:approved,rejected'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
+            'instructor_evaluations' => ['nullable', 'array'],
+            'instructor_evaluations.*.id' => ['required', 'exists:instructors,id'],
+            'instructor_evaluations.*.status' => ['required', 'in:approved,rejected'],
+            'instructor_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
+            'credential_evaluations' => ['nullable', 'array'],
+            'credential_evaluations.*.id' => ['required', 'exists:instructor_credentials,id'],
+            'credential_evaluations.*.status' => ['required', 'in:approved,rejected'],
+            'credential_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $evaluations = $request->input('evaluations');
+        $evaluations = $request->input('evaluations', []);
+        $instructorEvals = $request->input('instructor_evaluations', []);
+        $credentialEvals = $request->input('credential_evaluations', []);
+        
         $hasRejections = false;
 
         foreach ($evaluations as $eval) {
             $doc = ApplicationDocument::find($eval['id']);
             if ($doc) {
                 $doc->update([
+                    'status' => $eval['status'],
+                    'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
+                ]);
+
+                if ($eval['status'] === 'rejected') {
+                    $hasRejections = true;
+                }
+            }
+        }
+
+        foreach ($instructorEvals as $eval) {
+            $inst = \App\Models\Instructor::find($eval['id']);
+            if ($inst) {
+                $inst->update([
+                    'status' => $eval['status'],
+                    'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
+                ]);
+
+                if ($eval['status'] === 'rejected') {
+                    $hasRejections = true;
+                }
+            }
+        }
+
+        foreach ($credentialEvals as $eval) {
+            $cred = \App\Models\InstructorCredential::find($eval['id']);
+            if ($cred) {
+                $cred->update([
                     'status' => $eval['status'],
                     'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
                 ]);
@@ -324,7 +366,11 @@ class ApplicationController extends Controller
 
             // Send Email
             $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
-            Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs));
+            $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
+            $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                                    ->where('status', 'rejected')->get();
+                                    
+            Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
 
             return response()->json([
                 'success' => true,
@@ -335,8 +381,10 @@ class ApplicationController extends Controller
         } else {
             // Check if all are approved (secondary safety check)
             $allApproved = $application->documents()->get()->every(fn($d) => $d->status === 'approved');
+            $allInstApproved = $application->user->instructors()->get()->every(fn($i) => $i->status === 'approved');
+            $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
 
-            if ($allApproved) {
+            if ($allApproved && $allInstApproved && $allCredApproved) {
                 // Status: Scheduled for Interview (ID 4)
                 $scheduledStatus = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
                 if ($scheduledStatus) {
@@ -649,6 +697,60 @@ class ApplicationController extends Controller
         }
 
         $path = $userDoc->file_path;
+
+        if (! Storage::disk('local')->exists($path)) {
+            abort(404, 'File not found on disk.');
+        }
+
+        $fullPath = Storage::disk('local')->path($path);
+        $filename = basename($path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Serve a local-disk instructor credential file to the admin browser.
+     */
+    public function serveInstructorCredential(InstructorCredential $credential)
+    {
+        if (! $credential || ! $credential->pdf_path) {
+            abort(404, 'File path not found.');
+        }
+
+        $path = $credential->pdf_path;
+
+        if (! Storage::disk('local')->exists($path)) {
+            abort(404, 'File not found on disk.');
+        }
+
+        $fullPath = Storage::disk('local')->path($path);
+        $filename = basename($path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Serve a local-disk instructor service agreement file to the admin browser.
+     */
+    public function serveInstructorServiceAgreement(Instructor $instructor)
+    {
+        if (! $instructor || ! $instructor->service_agreement_path) {
+            abort(404, 'File path not found.');
+        }
+
+        $path = $instructor->service_agreement_path;
 
         if (! Storage::disk('local')->exists($path)) {
             abort(404, 'File not found on disk.');

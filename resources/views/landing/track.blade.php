@@ -41,7 +41,7 @@
 
                         <form action="{{ route('track') }}" method="GET">
                             <div class="input-group input-group-lg mb-3">
-                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-hash text-muted"></i></span>
+                                <span class="input-group-text bg-white border-end" style="border-right: 1px solid #000000ff; !important"><i class="bi bi-hash fw-bold" style="color: #0b3d91;"></i></span>
                                 <input type="text" class="form-control border-start-0 ps-0" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS-2026-000001)" value="{{ request('tracking_number') }}" required>
                                 <button class="btn btn-primary px-4 fw-semibold" type="submit" style="background-color: #0b3d91; border-color: #0b3d91;">Track Status</button>
                             </div>
@@ -193,14 +193,104 @@
                                 @endforeach
                                 </div>
 
+                                {{-- Instructor Credentials Tracking --}}
+                                @if($application->user && $application->user->instructors->count() > 0)
+                                    <div class="border rounded-3 overflow-hidden mt-4">
+                                        <div class="px-3 py-2 fw-bold" style="background:#f0f4ff; color:#0b3d91; font-size:.85rem; letter-spacing:.3px;">
+                                            <i class="bi bi-person-badge me-2"></i>Instructor Credentials
+                                        </div>
+
+                                        <div class="list-group list-group-flush">
+                                        @foreach($application->user->instructors as $instructor)
+                                            {{-- Instructor Service Agreement --}}
+                                            <div class="list-group-item px-3 py-3 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2" style="background-color: #fafbfe;">
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1 fw-semibold" style="font-size:.9rem; color:#1e3a5f;">
+                                                        {{ $instructor->first_name }} {{ $instructor->last_name }} &mdash; Service Agreement
+                                                    </h6>
+                                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                                        @if($instructor->status === 'approved')
+                                                            <span class="badge" style="background:#dcfce7; color:#166534;"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                                        @elseif(in_array($instructor->status, ['returned','rejected']))
+                                                            <span class="badge" style="background:#fee2e2; color:#991b1b;"><i class="bi bi-x-circle me-1"></i>Requires Resubmission</span>
+                                                        @else
+                                                            <span class="badge" style="background:#fef9c3; color:#854d0e;"><i class="bi bi-clock me-1"></i>Pending Review</span>
+                                                        @endif
+                                                        <span class="text-muted small"><i class="bi bi-file-earmark-pdf"></i> Uploaded PDF</span>
+                                                    </div>
+                                                    @if(in_array($instructor->status, ['returned','rejected']) && $instructor->remarks)
+                                                        <div class="alert py-2 px-3 border-0 rounded mt-2 mb-0" style="background:#fee2e2; color:#7f1d1d; font-size:.85rem;">
+                                                            <strong><i class="bi bi-chat-left-text-fill me-1"></i>Evaluator Remarks:</strong>
+                                                            <p class="mb-0 mt-1">{{ $instructor->remarks }}</p>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                @if(in_array($instructor->status, ['returned','rejected']))
+                                                    <div class="mt-1">
+                                                        <span class="badge" style="background:#fff3cd; color:#856404; font-size:.75rem;">
+                                                            <i class="bi bi-arrow-down-circle me-1"></i>Attach replacement below
+                                                        </span>
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                            {{-- Instructor Credentials --}}
+                                            @foreach($instructor->credentials as $cred)
+                                                <div class="list-group-item px-3 py-3 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 ps-4">
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="mb-1 fw-semibold" style="font-size:.9rem; color:#495057;">
+                                                            <span class="badge bg-secondary me-2" style="font-size:.7rem;">{{ $cred->type }}</span>{{ $cred->certificate_number }}
+                                                        </h6>
+                                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                                            @if($cred->status === 'approved')
+                                                                <span class="badge" style="background:#dcfce7; color:#166534;"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                                            @elseif(in_array($cred->status, ['returned','rejected']))
+                                                                <span class="badge" style="background:#fee2e2; color:#991b1b;"><i class="bi bi-x-circle me-1"></i>Requires Resubmission</span>
+                                                            @else
+                                                                <span class="badge" style="background:#fef9c3; color:#854d0e;"><i class="bi bi-clock me-1"></i>Pending Review</span>
+                                                            @endif
+                                                            <span class="text-muted small"><i class="bi bi-file-earmark-pdf"></i> Uploaded PDF</span>
+                                                        </div>
+                                                        @if(in_array($cred->status, ['returned','rejected']) && $cred->remarks)
+                                                            <div class="alert py-2 px-3 border-0 rounded mt-2 mb-0" style="background:#fee2e2; color:#7f1d1d; font-size:.85rem;">
+                                                                <strong><i class="bi bi-chat-left-text-fill me-1"></i>Evaluator Remarks:</strong>
+                                                                <p class="mb-0 mt-1">{{ $cred->remarks }}</p>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                    @if(in_array($cred->status, ['returned','rejected']))
+                                                        <div class="mt-1">
+                                                            <span class="badge" style="background:#fff3cd; color:#856404; font-size:.75rem;">
+                                                                <i class="bi bi-arrow-down-circle me-1"></i>Attach replacement below
+                                                            </span>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+
                             {{-- ── Batch Resubmission Form (shown only when there are rejected file docs) ── --}}
                             @php
-                                $rejectedFileDocs = $application->documents->filter(
+                                $rejectedDocs = $application->documents->filter(
                                     fn($d) => in_array($d->status, ['rejected','returned'])
-                                             && $d->documentField?->input_type === 'file'
                                 );
+                                $rejectedInstructors = $application->user ? $application->user->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
+                                $rejectedCredentials = collect();
+                                if ($application->user) {
+                                    foreach ($application->user->instructors as $inst) {
+                                        foreach ($inst->credentials as $cred) {
+                                            if (in_array($cred->status, ['rejected','returned'])) {
+                                                $rejectedCredentials->push($cred);
+                                            }
+                                        }
+                                    }
+                                }
+                                $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
                             @endphp
-                            @if($rejectedFileDocs->isNotEmpty())
+                            @if($totalRejected > 0)
                             <div class="mt-4 p-4 border rounded-3" style="background:#fff8f8; border-color:#f5c6cb !important;">
                                 <h6 class="fw-bold mb-3" style="color:#842029;">
                                     <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents
@@ -211,11 +301,16 @@
                                     <input type="hidden" name="application_id" value="{{ $application->id }}">
 
                                     <div class="d-flex flex-column gap-3">
-                                        @foreach($rejectedFileDocs as $rdoc)
+                                        {{-- Standard Documents --}}
+                                        @foreach($rejectedDocs as $rdoc)
                                         <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
                                             <div class="flex-grow-1">
                                                 <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
-                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                    @if($rdoc->documentField?->input_type === 'file')
+                                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                    @else
+                                                        <i class="bi bi-input-cursor-text text-danger me-1"></i>
+                                                    @endif
                                                     {{ $rdoc->documentField?->name ?? 'Document' }}
                                                 </div>
                                                 @if($rdoc->remarks)
@@ -225,18 +320,91 @@
                                                 @endif
                                             </div>
                                             <div style="min-width:260px;">
+                                                @if($rdoc->documentField?->input_type === 'file')
+                                                    <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                        Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                    </label>
+                                                    <div class="file-upload-wrapper mt-1">
+                                                        <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                            </label>
+                                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                        </div>
+                                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                    </div>
+                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                @else
+                                                    <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                        Update Value <span class="text-danger">*</span>
+                                                    </label>
+                                                    <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
+                                                           name="values[{{ $rdoc->id }}]" 
+                                                           id="doc_{{ $rdoc->id }}" 
+                                                           class="form-control form-control-sm" 
+                                                           value="{{ $rdoc->userDocument?->value }}" 
+                                                           required>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        @endforeach
+
+                                        {{-- Instructor Service Agreements --}}
+                                        @foreach($rejectedInstructors as $rInst)
+                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                    Service Agreement - {{ $rInst->first_name }} {{ $rInst->last_name }}
+                                                </div>
+                                                @if($rInst->remarks)
+                                                <div class="text-muted small mt-1">
+                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rInst->remarks }}
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div style="min-width:260px;">
                                                 <label class="form-label small fw-semibold mb-1" style="color:#842029;">
                                                     Upload Replacement (PDF) <span class="text-danger">*</span>
                                                 </label>
                                                 <div class="file-upload-wrapper mt-1">
-                                                    <input type="file"
-                                                           name="files[{{ $rdoc->id }}]"
-                                                           id="doc_{{ $rdoc->id }}"
-                                                           class="real-file-input batch-file-input visually-hidden"
-                                                           accept=".pdf"
-                                                           required>
+                                                    <input type="file" name="instructor_files[{{ $rInst->id }}]" id="inst_{{ $rInst->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                        <label for="inst_{{ $rInst->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
+                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                            </div>
+                                        </div>
+                                        @endforeach
+
+                                        {{-- Instructor Credentials --}}
+                                        @foreach($rejectedCredentials as $rCred)
+                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                    {{ $rCred->type }} Credential - {{ $rCred->instructor->first_name }} {{ $rCred->instructor->last_name }}
+                                                </div>
+                                                @if($rCred->remarks)
+                                                <div class="text-muted small mt-1">
+                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rCred->remarks }}
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div style="min-width:260px;">
+                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                </label>
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input type="file" name="credential_files[{{ $rCred->id }}]" id="cred_{{ $rCred->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="cred_{{ $rCred->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
                                                             <i class="bi bi-cloud-upload me-1"></i> Choose File
                                                         </label>
                                                         <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
@@ -252,7 +420,7 @@
                                     <div class="mt-4 text-end">
                                         <button type="submit" class="btn btn-danger fw-bold px-5" id="btn-resubmit-all">
                                             <i class="bi bi-send-fill me-2"></i>
-                                            Resubmit All Documents ({{ $rejectedFileDocs->count() }})
+                                            Resubmit All Documents ({{ $totalRejected }})
                                         </button>
                                     </div>
                                 </form>

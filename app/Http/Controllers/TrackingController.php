@@ -83,56 +83,90 @@ class TrackingController extends Controller
     {
         $request->validate([
             'application_id' => ['required', 'exists:applications,id'],
-            'files'          => ['required', 'array'],
+            'files'          => ['nullable', 'array'],
             'files.*'        => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'values'         => ['nullable', 'array'],
+            'values.*'       => ['required', 'string', 'max:500'],
+            'instructor_files' => ['nullable', 'array'],
+            'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'credential_files' => ['nullable', 'array'],
+            'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
-        $application = Application::with('user')->findOrFail($request->input('application_id'));
+        $application = Application::with('user.instructors.credentials')->findOrFail($request->input('application_id'));
         $userId      = $application->user_id;
-        $files       = $request->file('files'); // keyed by application_document.id
-        $resubmitted = 0;
+        
+        $files             = $request->file('files') ?? [];
+        $values            = $request->input('values') ?? [];
+        $instructorFiles   = $request->file('instructor_files') ?? [];
+        $credentialFiles   = $request->file('credential_files') ?? [];
+        $resubmitted       = 0;
 
-        foreach ($files as $appDocId => $file) {
-
-            // ── 1. Load and validate the ApplicationDocument ─────────────────
+        foreach ($values as $appDocId => $value) {
             $appDoc = ApplicationDocument::with(['documentField', 'userDocument'])
                 ->where('id', $appDocId)
                 ->where('application_id', $application->id)
                 ->first();
 
             if (! $appDoc) continue;
+            if (! in_array($appDoc->status, ['rejected', 'returned'])) continue;
 
-            // ── 2. Guard: only process rejected / returned docs ──────────────
+            $field = $appDoc->documentField;
+            if (! $field || $field->input_type === 'file') continue;
+
+            $userDoc = UserDocument::where('user_id', $userId)
+                ->where('document_field_id', $field->id)
+                ->first();
+
+            if ($userDoc) {
+                $userDoc->update(['value' => $value]);
+            } else {
+                $userDoc = UserDocument::create([
+                    'user_id'           => $userId,
+                    'document_field_id' => $field->id,
+                    'value'             => $value,
+                ]);
+            }
+
+            $appDoc->update([
+                'user_document_id' => $userDoc->id,
+                'status'           => 'pending',
+                'remarks'          => null,
+            ]);
+
+            $resubmitted++;
+        }
+
+        foreach ($files as $appDocId => $file) {
+            $appDoc = ApplicationDocument::with(['documentField', 'userDocument'])
+                ->where('id', $appDocId)
+                ->where('application_id', $application->id)
+                ->first();
+
+            if (! $appDoc) continue;
             if (! in_array($appDoc->status, ['rejected', 'returned'])) continue;
 
             $field = $appDoc->documentField;
             if (! $field || $field->input_type !== 'file') continue;
 
-            // ── 3. Build unique path to prevent browser caching & ensure actual DB update ───
             $code      = $field->code;
             $timestamp = time();
             $filename  = "{$code}_{$timestamp}.pdf";
             $subFolder = "public/documents/{$application->id}";
             $finalPath = "{$subFolder}/{$filename}";
 
-            // ── 4. Find UserDocument by the true unique key ──────────────────
-            //    user_documents has UNIQUE(user_id, document_field_id)
-            //    so this is always the canonical record for this field+user.
             $userDoc = UserDocument::where('user_id', $userId)
                 ->where('document_field_id', $field->id)
                 ->first();
 
-            // ── 5. Delete old file if it exists, so we don't stack files ─────
             if ($userDoc && $userDoc->file_path) {
                 if (Storage::disk('local')->exists($userDoc->file_path)) {
                     Storage::disk('local')->delete($userDoc->file_path);
                 }
             }
 
-            // ── 6. Store the new file ────────────────────────────────────────
             $file->storeAs($subFolder, $filename, 'local');
 
-            // ── 7. Update or create the UserDocument record ──────────────────
             if ($userDoc) {
                 $userDoc->update(['file_path' => $finalPath]);
             } else {
@@ -143,11 +177,66 @@ class TrackingController extends Controller
                 ]);
             }
 
-            // ── 8. Re-link ApplicationDocument → correct UserDocument ────────
             $appDoc->update([
                 'user_document_id' => $userDoc->id,
                 'status'           => 'pending',
                 'remarks'          => null,
+            ]);
+
+            $resubmitted++;
+        }
+
+        foreach ($instructorFiles as $instructorId => $file) {
+            $instructor = $application->user->instructors->firstWhere('id', $instructorId);
+            if (! $instructor || ! in_array($instructor->status, ['rejected', 'returned'])) continue;
+
+            $timestamp = time();
+            $filename  = "sa_{$timestamp}.pdf";
+            $subFolder = "public/instructors/{$userId}/{$instructorId}";
+            $finalPath = "{$subFolder}/{$filename}";
+
+            if ($instructor->service_agreement_path && Storage::disk('local')->exists($instructor->service_agreement_path)) {
+                Storage::disk('local')->delete($instructor->service_agreement_path);
+            }
+
+            $file->storeAs($subFolder, $filename, 'local');
+
+            $instructor->update([
+                'service_agreement_path' => $finalPath,
+                'status'                 => 'pending',
+                'remarks'                => null,
+            ]);
+
+            $resubmitted++;
+        }
+
+        foreach ($credentialFiles as $credentialId => $file) {
+            $credential = null;
+            foreach ($application->user->instructors as $inst) {
+                $cred = $inst->credentials->firstWhere('id', $credentialId);
+                if ($cred) {
+                    $credential = $cred;
+                    break;
+                }
+            }
+            if (! $credential || ! in_array($credential->status, ['rejected', 'returned'])) continue;
+
+            $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
+            $timestamp = time();
+            $filename  = "{$typeClean}_{$timestamp}.pdf";
+            $subFolder = "public/instructors/{$userId}/{$credential->instructor_id}";
+            $finalPath = "{$subFolder}/{$filename}";
+
+            if ($credential->pdf_path && Storage::disk('local')->exists($credential->pdf_path)) {
+                Storage::disk('local')->delete($credential->pdf_path);
+            }
+
+            $file->storeAs($subFolder, $filename, 'local');
+
+            $credential->update([
+                'pdf_path' => $finalPath,
+                'status'   => 'pending',
+                'remarks'  => null,
             ]);
 
             $resubmitted++;

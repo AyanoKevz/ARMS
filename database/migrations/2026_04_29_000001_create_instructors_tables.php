@@ -21,6 +21,9 @@ return new class extends Migration
             $table->string('service_agreement_path')->nullable();
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
 
+            $table->enum('status', ['pending', 'approved', 'returned', 'rejected'])->default('pending');
+            $table->text('remarks')->nullable();
+
             $table->timestamps();
         });
 
@@ -49,6 +52,9 @@ return new class extends Migration
 
             $table->string('pdf_path')->nullable();
             // Path to the credential PDF
+
+            $table->enum('status', ['pending', 'approved', 'returned', 'rejected'])->default('pending');
+            $table->text('remarks')->nullable();
 
             $table->timestamps();
 

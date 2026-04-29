@@ -243,6 +243,28 @@
                     </div>
                 </div>
                 @endforeach
+                
+                @if(isset($rejectedInstructors))
+                    @foreach($rejectedInstructors as $rInst)
+                    <div class="doc-item">
+                        <div class="doc-item-name">Service Agreement - {{ $rInst->first_name }} {{ $rInst->last_name }}</div>
+                        <div class="doc-item-remark">
+                            <span>Remarks:</span> {{ $rInst->remarks ?: 'No specific remark provided. Please ensure the document is complete and legible.' }}
+                        </div>
+                    </div>
+                    @endforeach
+                @endif
+                
+                @if(isset($rejectedCredentials))
+                    @foreach($rejectedCredentials as $rCred)
+                    <div class="doc-item">
+                        <div class="doc-item-name">{{ $rCred->type }} Credential - {{ $rCred->instructor->first_name }} {{ $rCred->instructor->last_name }}</div>
+                        <div class="doc-item-remark">
+                            <span>Remarks:</span> {{ $rCred->remarks ?: 'No specific remark provided. Please ensure the document is complete and legible.' }}
+                        </div>
+                    </div>
+                    @endforeach
+                @endif
             </div>
 
             <div class="btn-wrap">

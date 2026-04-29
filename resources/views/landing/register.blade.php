@@ -10,7 +10,7 @@
 
                 <div class="reg-card">
 
-                    {{-- â”€â”€ Card Header â”€â”€ --}}
+                    {{-- Card Header --}}
                     <div class="reg-card-header">
                         <div class="d-flex align-items-center gap-3">
                             <div style="width:48px;height:48px;background:rgba(255,255,255,.12);border-radius:12px;
@@ -24,7 +24,7 @@
                         </div>
                     </div>
 
-                    {{-- â”€â”€ Card Body / Form â”€â”€ --}}
+                    {{-- Card Body / Form --}}
                     <div class="reg-card-body">
 
                         {{-- Dynamic Alert --}}
@@ -34,7 +34,7 @@
                         </div>
 
                         <div id="emailSentPanel" class="d-none text-center py-4">
-                            <div style="font-size:3.5rem;margin-bottom:1rem;animation:pulse 2s ease-in-out infinite;">âœ‰ï¸</div>
+                            <div style="font-size:3.5rem;margin-bottom:1rem;animation:pulse 2s ease-in-out infinite;color:var(--navy-deep);"><i class="bi bi-envelope-paper"></i></div>
                             <h2 style="color:var(--navy-deep);font-size:1.4rem;margin-bottom:.5rem;">Check Your Email</h2>
                             <div style="width:40px;height:3px;background:var(--gold-light);border-radius:2px;margin:0 auto 1.25rem;"></div>
                             <p style="color:#555;font-size:.95rem;line-height:1.7;">
@@ -55,7 +55,7 @@
                         <form id="registerForm" action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" novalidate>
                             @csrf
 
-                            {{-- â•â•â•â•â•â•â•â• STEP 1  &mdash;  Accreditation Type â•â•â•â•â•â•â•â• --}}
+                            {{-- STEP 1  &mdash;  Accreditation Type --}}
                             <div id="allFormSteps">
                                 <p class="form-section-title mt-0">Step 1  &mdash;  Accreditation Type</p>
 
@@ -97,7 +97,7 @@
 
                             </div>
 
-                            {{-- â•â•â•â•â•â•â•â• Remaining steps (revealed on type selection) â•â•â•â•â•â•â•â• --}}
+                            {{-- Remaining steps (revealed on type selection) --}}
                             <div id="formSections" class="d-none">
 
                                 {{-- STEP 2  &mdash;  Account Credentials --}}
@@ -325,7 +325,7 @@
                             </div>
 
                             {{-- â”€â”€ Hidden template card (cloned by JS) â”€â”€ --}}
-                            <div id="instructorTemplate" class="d-none" aria-hidden="true">
+                            <template id="instructorTemplate" class="d-none" aria-hidden="true">
                                 <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
                                         <h6 class="fw-bold mb-0" style="color:#0b3d91;">
@@ -501,7 +501,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </template>
                             {{-- â”€â”€ Live instructor cards container â”€â”€ --}}
                             <div id="instructorCardsContainer"></div>
 
@@ -762,6 +762,185 @@
                     </div>{{-- /#formSections --}}
 
                     </form>
+
+                    {{--  Hidden template card (cloned by JS). Kept outside form so its 'required' attributes don't block checkValidity().  --}}
+                    <div id="instructorTemplate" class="d-none" aria-hidden="true">
+                        <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold mb-0" style="color:#0b3d91;">
+                                    <i class="bi bi-person-fill me-2"></i>
+                                    <span class="instructor-label">Instructor #1</span>
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn d-none">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                            </div>
+
+                            {{-- Personal Info --}}
+                            <p class="fw-semibold mb-2" style="font-size:.82rem;color:#555;text-transform:uppercase;letter-spacing:.05em;">Personal Information</p>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size:.88rem;">First Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][first_name]" placeholder="Juan" required>
+                                    <div class="invalid-feedback">First name is required.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size:.88rem;">Middle Name</label>
+                                    <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][middle_name]" placeholder="(optional)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" style="font-size:.88rem;">Last Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][last_name]" placeholder="Dela Cruz" required>
+                                    <div class="invalid-feedback">Last name is required.</div>
+                                </div>
+                            </div>
+
+                            {{-- TESDA EMS NC II/III --}}
+                            <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">EMS</span>TESDA Emergency Medical Services NC II or III Certificate</p>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][EMS][number]" placeholder="e.g. NC-EMS-2024-00001" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][EMS][issued_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Issued date is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][EMS][validity_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                        <div class="file-upload-wrapper">
+                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][EMS][pdf]" id="inst_ems_pdf___IDX__" accept=".pdf" required>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <label for="inst_ems_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
+                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
+                                            </div>
+                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the EMS certificate PDF.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- TESDA TM1 --}}
+                            <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">TM1</span>TESDA TM1</p>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][TM1][number]" placeholder="e.g. TM1-2024-00001" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][TM1][issued_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Issued date is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][TM1][validity_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                        <div class="file-upload-wrapper">
+                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][TM1][pdf]" id="inst_tm1_pdf___IDX__" accept=".pdf" required>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <label for="inst_tm1_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
+                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
+                                            </div>
+                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the TM1 certificate PDF.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- TESDA NTTC --}}
+                            <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">NTTC</span>TESDA NTTC</p>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][NTTC][number]" placeholder="e.g. NTTC-2024-00001" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][NTTC][issued_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Issued date is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][NTTC][validity_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                        <div class="file-upload-wrapper">
+                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][NTTC][pdf]" id="inst_nttc_pdf___IDX__" accept=".pdf" required>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <label for="inst_nttc_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
+                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
+                                            </div>
+                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the NTTC certificate PDF.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- BOSH SO1/SO2 --}}
+                            <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">BOSH</span>BOSH SO1/SO2</p>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][number]" placeholder="e.g. BOSH-2024-00001" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][validity_date]" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Training Date(s) <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][training_dates]" placeholder="e.g. Jan 10-12, 2024" required>
+                                        <div class="invalid-feedback" style="font-size:.78rem;">Training date(s) are required.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                        <div class="file-upload-wrapper">
+                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][BOSH][pdf]" id="inst_bosh_pdf___IDX__" accept=".pdf" required>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <label for="inst_bosh_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
+                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
+                                            </div>
+                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the BOSH certificate PDF.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Service Agreement --}}
+                            <div class="credential-block border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="bi bi-file-earmark-text-fill me-1"></i>Service Agreement</p>
+                                <div class="file-upload-wrapper">
+                                    <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][service_agreement]" id="inst_sa___IDX__" accept=".pdf" required>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="inst_sa___IDX__" class="btn btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border:1px solid #d4ac4b;color:#7a5c00;"><i class="bi bi-cloud-upload me-1"></i>Choose PDF</label>
+                                        <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
+                                    </div>
+                                    <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the Service Agreement PDF.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="reg-login-link">
                         Already have an account?

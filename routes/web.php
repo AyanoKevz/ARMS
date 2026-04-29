@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
 
 // LANDING PAGE 
@@ -59,7 +60,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         })->name('practitioners.dashboard');
 
         // Accreditation Certificate PDF (own certificate only)
-        Route::get('/certificate', [\App\Http\Controllers\TrackingController::class, 'downloadCertificate'])->name('certificate');
+        Route::get('/certificate', [TrackingController::class, 'downloadCertificate'])->name('certificate');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -83,7 +84,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Accreditation Certificate PDF
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
+
         });
+
 
         // Example of multi-portal support by division
         Route::prefix('scd')->name('scd.')->group(function () {
@@ -98,9 +101,13 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 Route::get('/track-application', [TrackingController::class, 'index'])->name('track');
 Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all');
 
-// Document file viewer (auth required, but NO prevent-back-history so PDFs open correctly)
+
+
+// Document and Instructor file viewers (auth required, but NO prevent-back-history to avoid PDF header errors)
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/hcd/documents/{document}/view', [HCDApplicationController::class, 'serveDocument'])->name('admin.hcd.documents.view');
+    Route::get('/admin/hcd/instructors/credentials/{credential}/view', [HCDApplicationController::class, 'serveInstructorCredential'])->name('admin.hcd.instructors.credentials.view');
+    Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
 });
 
 // Password Reset Routes
@@ -110,5 +117,5 @@ Route::get('/reset-password/{token}', [PasswordResetController::class, 'showRese
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
 
 // Admin Invitation Routes
-Route::get('/admin/setup-password/{token}', [App\Http\Controllers\AdminInvitationController::class, 'setupPassword'])->name('admin.setup_password');
-Route::post('/admin/setup-password/{token}', [App\Http\Controllers\AdminInvitationController::class, 'storePassword'])->name('admin.setup_password.store');
+Route::get('/admin/setup-password/{token}', [AdminInvitationController::class, 'setupPassword'])->name('admin.setup_password');
+Route::post('/admin/setup-password/{token}', [AdminInvitationController::class, 'storePassword'])->name('admin.setup_password.store');
