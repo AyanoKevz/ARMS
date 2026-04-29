@@ -41,8 +41,8 @@
 
                         <form action="{{ route('track') }}" method="GET">
                             <div class="input-group input-group-lg mb-3">
-                                <span class="input-group-text bg-white border-end" style="border-right: 1px solid #000000ff; !important"><i class="bi bi-hash fw-bold" style="color: #0b3d91;"></i></span>
-                                <input type="text" class="form-control border-start-0 ps-0" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS-2026-000001)" value="{{ request('tracking_number') }}" required>
+                                <span class="input-group-text bg-white"><i class="bi bi-hash fw-bold" style="color: #0b3d91;"></i></span>
+                                <input type="text" class="form-control" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS-2026-000001)" value="{{ request('tracking_number') }}" required>
                                 <button class="btn btn-primary px-4 fw-semibold" type="submit" style="background-color: #0b3d91; border-color: #0b3d91;">Track Status</button>
                             </div>
                         </form>

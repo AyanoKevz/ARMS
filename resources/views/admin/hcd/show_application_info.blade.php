@@ -21,8 +21,10 @@
 
     $currentStatus  = $application->latestStatus?->status?->name ?? 'Under Evaluation';
     $isScheduled    = $currentStatus === 'Scheduled for Interview';
-    $allApproved    = $application->documents->count() > 0
-                      && $application->documents->every(fn($d) => $d->status === 'approved');
+    $docApproved  = $application->documents->count() === 0 || $application->documents->every(fn($d) => $d->status === 'approved');
+    $instApproved = !$application->user || $application->user->instructors->count() === 0 || $application->user->instructors->every(fn($i) => $i->status === 'approved');
+    $credApproved = !$application->user || $application->user->instructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+    $allApproved  = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
 
     $interview      = $application->interview;
     $isAccredited   = (bool) $application->accreditation;
@@ -83,7 +85,7 @@
 {{-- ══ Org / Reps Card ══ --}}
 <div class="ai-card mb-4">
     <div class="ai-card-header">
-        <i class="bi bi-building fs-5 text-primary"></i>
+        <i class="bi bi-building fs-5 text-dark"></i>
         <h5>Organization Information</h5>
     </div>
     @if($isOrg && $org)
@@ -103,7 +105,7 @@
     <hr style="border:0; border-top:1px dashed #dde3ef; margin:16px -20px;">
 
     <div class="ai-card-header">
-        <i class="bi bi-person-badge fs-5 text-success"></i>
+        <i class="bi bi-person-badge fs-5 text-dark"></i>
         <h5>Authorized Representative(s)</h5>
     </div>
     @forelse($reps as $rep)
@@ -128,7 +130,7 @@
     {{-- ── Documents Card ── --}}
     <div class="ai-card">
         <div class="ai-card-header">
-            <i class="bi bi-folder2-open fs-5" style="color:#8e44ad;"></i>
+            <i class="bi bi-folder2-open fs-5 text-dark"></i>
             <h5>Submitted Documents</h5>
             <span class="ms-auto small text-muted fst-italic" id="eval-progress-label"></span>
         </div>
@@ -253,7 +255,7 @@
     @if($application->user && $application->user->instructors && $application->user->instructors->count() > 0)
     <div class="ai-card mt-4">
         <div class="ai-card-header">
-            <i class="bi bi-people-fill fs-5" style="color:#27ae60;"></i>
+            <i class="bi bi-people-fill fs-5 text-dark"></i>
             <h5>Instructor Credentials</h5>
         </div>
         

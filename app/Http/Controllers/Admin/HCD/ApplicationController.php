@@ -654,6 +654,31 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Show a list of revoked/expired FATPro users.
+     */
+    public function inactiveFatprosList(Request $request)
+    {
+        $status = $request->input('status', ''); // 'revoked' or 'expired' or empty
+
+        $query = \App\Models\Accreditation::whereIn('status', ['revoked', 'expired'])
+            ->whereHas('accreditationType', function ($q) {
+                $q->where('name', 'like', '%FATPro%')
+                  ->orWhere('name', 'like', '%First Aid Training Providers%');
+            })
+            ->with(['user.organizationProfile', 'accreditationType', 'application']);
+
+        if ($status === 'revoked') {
+            $query->where('status', 'revoked');
+        } elseif ($status === 'expired') {
+            $query->where('status', 'expired');
+        }
+
+        $accreditations = $query->get();
+
+        return view('admin.hcd.inactive_fatpros', compact('accreditations', 'status'));
+    }
+
+    /**
      * Generate and stream the Accreditation Certificate as a PDF.
      */
     public function downloadCertificate(\App\Models\Accreditation $accreditation)
@@ -675,7 +700,7 @@ class ApplicationController extends Controller
             $fatproName = $user->name;
         }
 
-        $pdf = Pdf::loadView('certificates.accreditation', [
+        $pdf = Pdf::loadView('admin.accreditation_certificate', [
             'accreditation' => $accreditation,
             'fatproName'    => $fatproName,
         ])->setPaper('a4', 'portrait');

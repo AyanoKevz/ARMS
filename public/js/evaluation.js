@@ -91,18 +91,75 @@
             if (btnText) btnText.textContent = `Send Rejection Email (${rejected} rejected)`;
 
         } else {
-            // ── State 3: All approved → Schedule Interview ──
+            // ── State 3: All approved → Save Approvals & Schedule Interview ──
             btn.disabled = false;
             btn.className = 'btn btn-success btn-lg fw-bold px-5 py-3 shadow';
-            btn.setAttribute('data-bs-toggle', 'modal');
-            btn.setAttribute('data-bs-target', '#scheduleInterviewModal');
-            btn.onclick = null;
-            if (btnIcon) btnIcon.className = 'bi bi-calendar-check-fill me-2 fs-5';
-            if (btnText) btnText.textContent = 'Schedule Interview';
+            btn.removeAttribute('data-bs-toggle');
+            btn.removeAttribute('data-bs-target');
+            btn.onclick = submitAllApproved;
+            if (btnIcon) btnIcon.className = 'bi bi-save me-2 fs-5';
+            if (btnText) btnText.textContent = 'Save Approvals & Schedule Interview';
+        }
+    }
 
+    /* ─── submitAllApproved (called when all approved on UI) ─ */
+    async function submitAllApproved() {
+        const form    = document.getElementById('evaluation-form');
+        const mainBtn = document.getElementById('btn-open-schedule');
+        if (!form) return;
+
+        mainBtn.disabled = true;
+        mainBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+
+        try {
+            const res  = await fetch(form.dataset.url, {
+                method:  'POST',
+                body:    new FormData(form),
+                headers: { 'Accept': 'application/json' },
+            });
+
+            const data = await res.json();
+
+            if (!data.success) {
+                alert(data.message || 'Submission failed. Please try again.');
+                mainBtn.disabled = false;
+                mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals & Schedule Interview';
+                return;
+            }
+
+            // Update status badge
+            const statusBadge = document.getElementById('app-status-badge');
+            if (statusBadge && data.new_status) {
+                statusBadge.textContent = data.new_status;
+                statusBadge.className   = 'badge fs-6 px-3 py-2 bg-primary';
+            }
+
+            showToast(data.message || 'Approvals saved!', 'success');
+            
             // Lock eval buttons — evaluation complete
             document.querySelectorAll('.doc-eval-actions').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.reject-panel').forEach(el => el.style.display = 'none');
+
+            // Set up button to open modal now
+            mainBtn.innerHTML = '<i class="bi bi-calendar-check-fill me-2 fs-5"></i>Schedule Interview';
+            mainBtn.disabled = false;
+            mainBtn.onclick = null;
+            mainBtn.setAttribute('data-bs-toggle', 'modal');
+            mainBtn.setAttribute('data-bs-target', '#scheduleInterviewModal');
+            
+            // Auto-open modal
+            const modalEl = document.getElementById('scheduleInterviewModal');
+            if (window.bootstrap && window.bootstrap.Modal) {
+                new window.bootstrap.Modal(modalEl).show();
+            } else if (typeof $ !== 'undefined') {
+                $(modalEl).modal('show');
+            }
+
+        } catch (err) {
+            console.error('Approval submission error:', err);
+            alert('A network error occurred. Please try again.');
+            mainBtn.disabled = false;
+            mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals & Schedule Interview';
         }
     }
 

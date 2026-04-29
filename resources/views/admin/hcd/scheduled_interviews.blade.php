@@ -40,7 +40,6 @@
             <div class="x_panel">
                 <div class="x_title">
                     <h2>
-                        <i class="fas fa-calendar-check text-success me-2"></i>
                         Applicants with Set Interview Schedules
                     </h2>
                     <ul class="nav navbar-right panel_toolbox">
@@ -108,7 +107,7 @@
                                         <td class="last text-center">
                                             <a href="{{ route('admin.hcd.applications.show', $app->id) }}"
                                                class="btn btn-info btn-xs m-0">
-                                                <i class="fas fa-eye me-1"></i> View
+                                                View
                                             </a>
                                         </td>
                                     </tr>

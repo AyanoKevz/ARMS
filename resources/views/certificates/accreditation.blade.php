@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Certificate of Accreditation – {{ $accreditation->accreditation_number }}</title>
     <style>
         /* ─── Page ──────────────────────────────────────────────────────────── */
@@ -11,7 +12,11 @@
             margin: 0;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: "Times New Roman", Times, serif;
@@ -244,96 +249,97 @@
         }
     </style>
 </head>
+
 <body>
 
-@php
-    $accNumber      = $accreditation->accreditation_number;
-    $validUntil     = $accreditation->validity_date->format('F d, Y');
-    $dateIssued     = $accreditation->date_of_accreditation;
-    $dayNum         = (int) $dateIssued->format('j');
+    @php
+    $accNumber = $accreditation->accreditation_number;
+    $validUntil = $accreditation->validity_date->format('F d, Y');
+    $dateIssued = $accreditation->date_of_accreditation;
+    $dayNum = (int) $dateIssued->format('j');
     $suffix = match(true) {
-        in_array($dayNum % 100, [11, 12, 13]) => 'th',
-        ($dayNum % 10) === 1                  => 'st',
-        ($dayNum % 10) === 2                  => 'nd',
-        ($dayNum % 10) === 3                  => 'rd',
-        default                               => 'th',
+    in_array($dayNum % 100, [11, 12, 13]) => 'th',
+    ($dayNum % 10) === 1 => 'st',
+    ($dayNum % 10) === 2 => 'nd',
+    ($dayNum % 10) === 3 => 'rd',
+    default => 'th',
     };
-    $givenDay       = $dayNum . $suffix;
+    $givenDay = $dayNum . $suffix;
     $givenMonthYear = $dateIssued->format('F Y');
-    $logoBase64     = base64_encode(file_get_contents(public_path('images/oshc-logo.png')));
-    $logoSrc        = 'data:image/png;base64,' . $logoBase64;
-@endphp
+    $logoBase64 = base64_encode(file_get_contents(public_path('images/oshc-logo.png')));
+    $logoSrc = 'data:image/png;base64,' . $logoBase64;
+    @endphp
 
-{{-- ── Fixed page decoration ────────────────────────────────────────────── --}}
-<div class="page-border"></div>
+    {{-- ── Fixed page decoration ────────────────────────────────────────────── --}}
+    <div class="page-border"></div>
 
-{{-- ── Watermark ─────────────────────────────────────────────────────────── --}}
-<img class="watermark" src="{{ $logoSrc }}" alt="">
+    {{-- ── Watermark ─────────────────────────────────────────────────────────── --}}
+    <img class="watermark" src="{{ $logoSrc }}" alt="">
 
-{{-- ── Signature block (fixed bottom-right) ───────────────────────────────── --}}
-<div class="signature-block">
-    <div class="sig-line"></div>
-    <div class="sig-name">JOSE MARIA S. BATINO</div>
-    <div class="sig-title">Executive Director</div>
-    <div class="sig-org">Occupational Safety and Health Center</div>
-</div>
-
-{{-- ── Footer strip (fixed bottom-centre) ──────────────────────────────────── --}}
-<div class="footer-strip">
-  Accreditation is valid per requirements set forth in d.o no. 
-  235-22 and ra no. 11058 and its irr d.o no. 198-18
-</div>
-
-{{-- ── Main certificate content (normal flow) ──────────────────────────────── --}}
-<div class="cert-content">
-
-    {{-- Letterhead --}}
-    <img class="logo" src="{{ $logoSrc }}" alt="OSHC Logo">
-    <div class="republic-text">Republic of the Philippines</div>
-    <div class="dept-text">Department of Labor and Employment</div>
-    <div class="oshc-name">Occupational Safety and Health Center</div>
-
-    <hr class="divider-gold">
-
-    {{-- Title --}}
-    <div class="cert-preamble">This is to certify that</div>
-    <div class="cert-title">Certificate of Accreditation</div>
-    <div class="cert-as">as</div>
-    <div class="cert-type">First Aid Training Provider</div>
-
-    <hr class="divider-thin">
-
-    {{-- Accreditation info box --}}
-    <div class="info-box">
-        <div class="info-row">
-            <span class="info-label">No. </span>
-            <span class="info-value">{{ $accNumber }}</span>
-        </div>
-        <div class="info-row">
-            <span class="info-label">Valid Until: </span>
-            <span class="info-value">{{ $validUntil }}</span>
-        </div>
+    {{-- ── Signature block (fixed bottom-right) ───────────────────────────────── --}}
+    <div class="signature-block">
+        <div class="sig-line"></div>
+        <div class="sig-name">JOSE MARIA S. BATINO</div>
+        <div class="sig-title">Executive Director</div>
+        <div class="sig-org">Occupational Safety and Health Center</div>
     </div>
 
-    {{-- Certifies body --}}
-    <div class="certifies-line">This certifies that</div>
-
-    <div class="fatpro-name">{{ $fatproName }}</div>
-    <div class="name-rule"></div>
-
-    <div class="body-copy">
-        is hereby duly accredited as a <strong>First Aid Training Provider</strong> by the <strong>Occupational Safety and Health Center (OSHC)</strong> 
-        by virtue of <strong>DOLE Department Order No. 235, Series of 2022 </strong>, to conduct in the Philippines the <strong>1-day Emergency First Aid</strong>, 
-        <strong>2-day Occupational</strong>, and <strong>4-day Standard First Aid training Courses</strong> within the validity period. 
-        <div class="validity-statement">
-            This accreditation shall be valid until <strong>{{ $validUntil }}</strong>, unless otherwise suspended or revoked in accordance with Order.
-        </div>
-        <div class="given-text">
-        Given this <strong>{{ $givenDay }}</strong> day of <strong>{{ $givenMonthYear }}</strong> at Quezon City, Philippines.
-        </div>
+    {{-- ── Footer strip (fixed bottom-centre) ──────────────────────────────────── --}}
+    <div class="footer-strip">
+        Accreditation is valid per requirements set forth in d.o no.
+        235-22 and ra no. 11058 and its irr d.o no. 198-18
     </div>
 
-</div>
+    {{-- ── Main certificate content (normal flow) ──────────────────────────────── --}}
+    <div class="cert-content">
+
+        {{-- Letterhead --}}
+        <img class="logo" src="{{ $logoSrc }}" alt="OSHC Logo">
+        <div class="republic-text">Republic of the Philippines</div>
+        <div class="dept-text">Department of Labor and Employment</div>
+        <div class="oshc-name">Occupational Safety and Health Center</div>
+
+        <hr class="divider-gold">
+
+        {{-- Title --}}
+        <div class="cert-preamble">Certificate of Accreditation</div>
+        <div class="cert-as">as</div>
+        <div class="cert-type">First Aid Training Provider</div>
+
+        <hr class="divider-thin">
+
+        {{-- Accreditation info box --}}
+        <div class="info-box">
+            <div class="info-row">
+                <span class="info-label">No. </span>
+                <span class="info-value">{{ $accNumber }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Valid Until: </span>
+                <span class="info-value">{{ $validUntil }}</span>
+            </div>
+        </div>
+
+        {{-- Certifies body --}}
+        <div class="certifies-line">This certifies that</div>
+
+        <div class="fatpro-name">{{ $fatproName }}</div>
+        <div class="name-rule"></div>
+
+        <div class="body-copy">
+            is hereby duly accredited as a <strong>First Aid Training Provider</strong> by the <strong>Occupational Safety and Health Center (OSHC)</strong>
+            by virtue of <strong>DOLE Department Order No. 235, Series of 2022 </strong>, to conduct in the Philippines the <strong>1-day Emergency First Aid</strong>,
+            <strong>2-day Occupational</strong>, and <strong>4-day Standard First Aid training Courses</strong> within the validity period.
+            <div class="validity-statement">
+                This accreditation shall be valid until <strong>{{ $validUntil }}</strong>, unless otherwise suspended or revoked in accordance with Order.
+            </div>
+            <div class="given-text">
+                Given this <strong>{{ $givenDay }}</strong> day of <strong>{{ $givenMonthYear }}</strong> at Quezon City, Philippines.
+            </div>
+        </div>
+
+    </div>
 
 </body>
+
 </html>
