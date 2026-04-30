@@ -9,6 +9,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
+use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -59,6 +60,12 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             return view('applicant.practitioners.dashboard');
         })->name('practitioners.dashboard');
 
+        // FATPro Instructor Management
+        Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
+        Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
+        Route::post('/instructors/{instructor}/credentials/{credential}', [ApplicantInstructorController::class, 'updateCredential'])->name('instructors.credentials.update');
+        Route::post('/instructors/{instructor}/service-agreement', [ApplicantInstructorController::class, 'updateServiceAgreement'])->name('instructors.service_agreement.update');
+
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -107,6 +114,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/hcd/documents/{document}/view', [HCDApplicationController::class, 'serveDocument'])->name('admin.hcd.documents.view');
     Route::get('/admin/hcd/instructors/credentials/{credential}/view', [HCDApplicationController::class, 'serveInstructorCredential'])->name('admin.hcd.instructors.credentials.view');
     Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
+
+    // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
+    Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');
+    Route::get('/applicant/instructors/{instructor}/service-agreement/view', [ApplicantInstructorController::class, 'serveServiceAgreement'])->name('applicant.instructors.service_agreement.view');
 });
 
 // Password Reset Routes

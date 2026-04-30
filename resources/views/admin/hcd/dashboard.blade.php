@@ -78,7 +78,7 @@
         <div class="col-12">
             <div class="x_panel">
                 <div class="x_title d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <h2><i class="bi bi-table me-1 text-primary"></i> Monthly Applications &amp; Accreditations</h2>
+                    <h2><i class="bi bi-table me-1 text-primary"></i> Monthly Applications and Accreditations</h2>
                     <form method="GET" action="{{ route('admin.hcd.dashboard') }}" class="d-flex align-items-center gap-2 mb-0">
                         <label class="form-label mb-0 small fw-semibold">Year:</label>
                         <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">

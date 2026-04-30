@@ -198,7 +198,7 @@
 
             <div class="btn-wrap">
                 <a href="{{ $verificationUrl }}" class="btn-verify">
-                    Verify Email &amp; Submit Application
+                    Verify Email and Submit Application
                 </a>
             </div>
 

@@ -32,11 +32,12 @@
                 </div>
                 
                 <div class="x_content">
-                    <div class="mb-3">
-                        <form action="{{ route('admin.hcd.directory.fatpros.inactive') }}" method="GET" class="d-flex align-items-center" style="max-width: 300px;">
-                            <label for="status" class="me-2 fw-bold">Status Filter:</label>
-                            <select name="status" id="status" class="form-select" onchange="this.form.submit()">
-                                <option value="" {{ request('status') === '' ? 'selected' : '' }}>All (Revoked & Expired)</option>
+                    {{-- Status Filter (Moved to DataTables Toolbar via JS) --}}
+                    <div id="statusFilterContainer" class="d-none">
+                        <form action="{{ route('admin.hcd.directory.fatpros.inactive') }}" method="GET" class="d-flex align-items-center">
+                            <label for="status" class="me-2 fw-bold" style="font-size: 0.85rem; margin-bottom: 0;">Status:</label>
+                            <select name="status" id="status" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto; padding: 4px 30px 4px 10px; height: 33px;">
+                                <option value="" {{ request('status') === '' ? 'selected' : '' }}>All</option>
                                 <option value="revoked" {{ request('status') === 'revoked' ? 'selected' : '' }}>Revoked</option>
                                 <option value="expired" {{ request('status') === 'expired' ? 'selected' : '' }}>Expired</option>
                             </select>
@@ -112,4 +113,17 @@
 
 {{-- Reusable Table Component JS --}}
 <script src="{{ asset('js/table-component.js') }}"></script>
+
+<script>
+$(document).ready(function() {
+    // Wait for DataTables to initialize (which happens in table-component.js)
+    // Then move our status filter into the toolbar
+    setTimeout(function() {
+        const filterContainer = $('#statusFilterContainer');
+        if (filterContainer.length && $('.dt-toolbar-left').length) {
+            filterContainer.removeClass('d-none').detach().appendTo('.dt-toolbar-left');
+        }
+    }, 100); // Small delay to ensure DT has finished its layout
+});
+</script>
 @endpush

@@ -98,7 +98,7 @@
             btn.removeAttribute('data-bs-target');
             btn.onclick = submitAllApproved;
             if (btnIcon) btnIcon.className = 'bi bi-save me-2 fs-5';
-            if (btnText) btnText.textContent = 'Save Approvals & Schedule Interview';
+            if (btnText) btnText.textContent = 'Save Approvals and Schedule Interview';
         }
     }
 
@@ -123,7 +123,7 @@
             if (!data.success) {
                 alert(data.message || 'Submission failed. Please try again.');
                 mainBtn.disabled = false;
-                mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals & Schedule Interview';
+                mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals and Schedule Interview';
                 return;
             }
 
@@ -159,7 +159,7 @@
             console.error('Approval submission error:', err);
             alert('A network error occurred. Please try again.');
             mainBtn.disabled = false;
-            mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals & Schedule Interview';
+            mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals and Schedule Interview';
         }
     }
 
@@ -239,7 +239,7 @@
 
             if (!data.success) {
                 alert(data.message || 'Submission failed. Please try again.');
-                if (confBtn) { confBtn.disabled = false; confBtn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Confirm & Send Email'; }
+                if (confBtn) { confBtn.disabled = false; confBtn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Confirm and Send Email'; }
                 return;
             }
 
@@ -263,7 +263,7 @@
             }
             
             alert('A network error occurred. Please try again.');
-            if (confBtn) { confBtn.disabled = false; confBtn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Confirm & Send Email'; }
+            if (confBtn) { confBtn.disabled = false; confBtn.innerHTML = '<i class="bi bi-send-fill me-2"></i>Confirm and Send Email'; }
         }
     }
 

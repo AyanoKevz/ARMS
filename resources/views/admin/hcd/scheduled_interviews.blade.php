@@ -106,7 +106,7 @@
                                         <td>{{ $schedule?->venue ?? '—' }}</td>
                                         <td class="last text-center">
                                             <a href="{{ route('admin.hcd.applications.show', $app->id) }}"
-                                               class="btn btn-info btn-xs m-0">
+                                               class="btn btn-info btn-xs m-0 fw-bold">
                                                 View
                                             </a>
                                         </td>

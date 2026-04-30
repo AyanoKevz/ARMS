@@ -57,6 +57,12 @@
 @endpush
 
 @section('content')
+@php
+    $myAccreditation = \App\Models\Accreditation::where('user_id', $user->id)
+        ->whereIn('status', ['active', 'expired', 'revoked'])
+        ->orderBy('created_at', 'desc')
+        ->first();
+@endphp
 <div class="">
 
     <div class="page-title">
@@ -95,7 +101,7 @@
                         {{-- Left Col: Photo --}}
                         <div class="col-md-4 border-end pe-md-4">
                             <div class="profile-avatar-wrapper">
-                                <img src="{{ asset($user->user_photo ?? 'gentelella/images/img.jpg') }}" alt="Profile Photo" id="photoPreview" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
+                                <img src="{{ asset($user->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="Profile Photo" id="photoPreview" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
                                 <h5 class="fw-bold mb-1">{{ $user->name }}</h5>
                                 <p class="text-muted small mb-3">{{ $user->email }}</p>
                                 
@@ -109,6 +115,26 @@
                                     <input type="file" name="photo" id="photoInput" accept="image/png, image/jpeg, image/jpg">
                                 </span>
                                 <div class="text-muted mt-1" style="font-size: .7rem;">Max 5MB (JPG, PNG)</div>
+                                @endif
+
+                                @if($myAccreditation)
+                                <div class="mt-4 p-3 rounded text-start" style="background-color: #f8f9fa; border: 1px solid #e9ecef;">
+                                    <h6 class="fw-bold mb-2 pb-1 border-bottom" style="color: #2A3F54; font-size: 0.85rem; text-transform: uppercase;">Accreditation Details</h6>
+                                    <p class="mb-1" style="font-size: 0.85rem;"><strong>Number:</strong> <br>{{ $myAccreditation->accreditation_number ?? 'N/A' }}</p>
+                                    <p class="mb-1" style="font-size: 0.85rem;"><strong>Date Accredited:</strong> <br>{{ $myAccreditation->date_of_accreditation ? \Carbon\Carbon::parse($myAccreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}</p>
+                                    <p class="mb-1" style="font-size: 0.85rem;"><strong>Valid Until:</strong> <br>{{ $myAccreditation->validity_date ? \Carbon\Carbon::parse($myAccreditation->validity_date)->format('F d, Y') : 'N/A' }}</p>
+                                    <p class="mb-0" style="font-size: 0.85rem;"><strong>Status:</strong> <br>
+                                        @if($myAccreditation->status === 'active')
+                                            <span class="badge bg-success">Active</span>
+                                        @elseif($myAccreditation->status === 'expired')
+                                            <span class="badge bg-warning text-dark">Expired</span>
+                                        @elseif($myAccreditation->status === 'revoked')
+                                            <span class="badge bg-danger">Revoked</span>
+                                        @else
+                                            <span class="badge bg-secondary">{{ ucfirst($myAccreditation->status) }}</span>
+                                        @endif
+                                    </p>
+                                </div>
                                 @endif
                             </div>
                         </div>
@@ -153,13 +179,45 @@
                                         <label class="form-label">Designation</label>
                                         <input type="text" class="form-control" name="designation" value="{{ old('designation', $profile->designation ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label">Telephone Number</label>
                                         <input type="text" class="form-control" name="telephone" value="{{ old('telephone', $profile->telephone ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Fax Number</label>
+                                        <input type="text" class="form-control" name="fax" value="{{ old('fax', $profile->fax ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Organization Email</label>
+                                        <input type="email" class="form-control" name="email" value="{{ old('email', $profile->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Office Address</label>
                                         <input type="text" class="form-control" name="address" value="{{ old('address', $profile->address ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                </div>
+                                
+                                @php
+                                    $rep = $profile->authorizedRepresentatives->first() ?? null;
+                                @endphp
+                                
+                                <h5 class="mb-3 border-bottom pb-2 mt-4" style="color: #2A3F54; font-weight: 700;">Authorized Representative</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Full Name</label>
+                                        <input type="text" class="form-control" name="rep_full_name" value="{{ old('rep_full_name', $rep->full_name ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Position</label>
+                                        <input type="text" class="form-control" name="rep_position" value="{{ old('rep_position', $rep->position ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Contact Number</label>
+                                        <input type="text" class="form-control" name="rep_contact_number" value="{{ old('rep_contact_number', $rep->contact_number ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" name="rep_email" value="{{ old('rep_email', $rep->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
                                 </div>
 

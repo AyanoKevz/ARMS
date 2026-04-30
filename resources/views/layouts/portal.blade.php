@@ -48,7 +48,7 @@
                     <!-- menu profile quick info -->
                     <div class="profile clearfix">
                         <div class="profile_pic">
-                            <img src="{{ asset(Auth::user()->user_photo ?? 'gentelella/images/img.jpg') }}" alt="..." class="img-circle profile_img" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
+                            <img src="{{ asset(Auth::user()->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="..." class="img-circle profile_img" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
                         </div>
                         <div class="profile_info">
                             <span>Welcome,</span>
@@ -106,7 +106,7 @@
                         <ul class="navbar-right d-flex align-items-center gap-3 pe-3">
                             <li class="nav-item dropdown">
                                 <a href="#" role="button" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <img src="{{ asset(Auth::user()->user_photo ?? 'gentelella/images/img.jpg') }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">{{ Auth::user()->name ?? 'User' }}
+                                    <img src="{{ asset(Auth::user()->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">{{ Auth::user()->name ?? 'User' }}
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end dropdown-usermenu dropdown-menu-sm" aria-labelledby="navbarDropdown">
                                     <a class="dropdown-item" href="{{ route('profile.index') }}" style="color: #222 !important;"> Profile</a>

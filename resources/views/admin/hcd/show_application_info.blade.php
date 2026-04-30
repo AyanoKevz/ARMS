@@ -451,7 +451,7 @@
             <i class="bi bi-flag-fill text-white fs-5"></i>
         </div>
         <div>
-            <h6 class="text-white mb-0 fw-bold">Interview Result</h6>
+            <h6 class="text-white mb-0 fw-bold">Application Result</h6>
             <small class="text-white-50">Record the outcome of the interview session</small>
         </div>
     </div>

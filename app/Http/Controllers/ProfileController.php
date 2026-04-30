@@ -21,7 +21,7 @@ class ProfileController extends Controller
             $profile = $user->adminProfile;
             $layout = 'layouts.admin';
         } elseif ($user->profile_type === 'Organization') {
-            $user->load('organizationProfile');
+            $user->load('organizationProfile.authorizedRepresentatives');
             $profile = $user->organizationProfile;
             $layout = 'layouts.applicant';
         } else {
@@ -57,7 +57,7 @@ class ProfileController extends Controller
             $user->load('adminProfile.division');
             $profile = $user->adminProfile;
         } elseif ($user->profile_type === 'Organization') {
-            $user->load('organizationProfile');
+            $user->load('organizationProfile.authorizedRepresentatives');
             $profile = $user->organizationProfile;
         } else {
             $user->load('individualProfile');
@@ -92,6 +92,12 @@ class ProfileController extends Controller
             $rules['address']     = 'required|string|max:500';
             $rules['telephone']   = 'required|string|max:50';
             $rules['designation'] = 'nullable|string|max:100';
+            $rules['fax']         = 'nullable|string|max:50';
+            $rules['email']       = 'required|email|max:255';
+            $rules['rep_full_name'] = 'required|string|max:255';
+            $rules['rep_position']  = 'required|string|max:100';
+            $rules['rep_contact_number'] = 'required|string|max:50';
+            $rules['rep_email']     = 'required|email|max:255';
         } else {
             $rules['first_name']  = 'required|string|max:100';
             $rules['last_name']   = 'required|string|max:100';
@@ -138,7 +144,26 @@ class ProfileController extends Controller
                 'address'     => $validated['address'],
                 'telephone'   => $validated['telephone'],
                 'designation' => $validated['designation'] ?? $user->organizationProfile->designation,
+                'fax'         => $validated['fax'] ?? $user->organizationProfile->fax,
+                'email'       => $validated['email'],
             ]);
+
+            $rep = $user->organizationProfile->authorizedRepresentatives()->first();
+            if ($rep) {
+                $rep->update([
+                    'full_name' => $validated['rep_full_name'],
+                    'position' => $validated['rep_position'],
+                    'contact_number' => $validated['rep_contact_number'],
+                    'email' => $validated['rep_email']
+                ]);
+            } else {
+                $user->organizationProfile->authorizedRepresentatives()->create([
+                    'full_name' => $validated['rep_full_name'],
+                    'position' => $validated['rep_position'],
+                    'contact_number' => $validated['rep_contact_number'],
+                    'email' => $validated['rep_email']
+                ]);
+            }
         } elseif ($user->profile_type === 'Individual' && $user->individualProfile) {
             $user->individualProfile->update([
                 'first_name' => $validated['first_name'],
