@@ -12,8 +12,8 @@
 
 <li><a><i class="fas fa-sync-alt"></i> Renewal <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu">
-        <li><a href="#"><i class="fas fa-hourglass-half"></i> Pending</a></li>
-        <li><a href="#"><i class="fas fa-search"></i> Under Review</a></li>
+        <li><a href="{{ route('admin.hcd.renewal.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
+        <li><a href="{{ route('admin.hcd.renewal.under_review') }}"><i class="fas fa-search"></i> Under Review</a></li>
     </ul>
 </li>
 

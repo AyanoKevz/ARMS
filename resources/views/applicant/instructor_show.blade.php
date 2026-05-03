@@ -57,7 +57,7 @@
             </h3>
         </div>
         <a href="{{ route('applicant.instructors.index') }}" class="btn btn-secondary btn-sm mt-3">
-            <i class="bi bi-arrow-left me-1"></i> Back to List
+            <i class="bi bi-arrow-left me-1"></i> Back
         </a>
     </div>
     <div class="clearfix"></div>

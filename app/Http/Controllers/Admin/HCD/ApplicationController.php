@@ -638,6 +638,54 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Display a listing of pending renewal / reinstatement applications.
+     */
+    public function renewalPending()
+    {
+        $applications = Application::with([
+            'user.organizationProfile.authorizedRepresentatives',
+            'user.individualProfile',
+            'user.accreditations',
+            'accreditationType',
+            'latestStatus.status',
+        ])
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->where('name', 'Submitted');
+                });
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.renewal_pending', compact('applications'));
+    }
+
+    /**
+     * Display a listing of renewal / reinstatement applications under evaluation.
+     */
+    public function renewalUnderReview()
+    {
+        $applications = Application::with([
+            'user.organizationProfile',
+            'user.individualProfile',
+            'user.accreditations',
+            'accreditationType',
+            'latestStatus.status',
+        ])
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->whereIn('name', ['Under Evaluation', 'For Update']);
+                });
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.renewal_under_review', compact('applications'));
+    }
+
+    /**
      * Show a list of active FATPro users.
      */
     public function activeFatprosList()

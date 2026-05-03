@@ -109,15 +109,24 @@ class ProfileController extends Controller
         // 1. Handle Photo Upload
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $extension = $file->getClientOriginalExtension();
+            
+            $firstName = $validated['first_name'] ?? ($validated['name'] ?? 'User');
+            $lastName = $validated['last_name'] ?? '';
+            
+            $sanitizedFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $firstName));
+            $sanitizedLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $lastName));
+            $namePart = trim($sanitizedFirst . '_' . $sanitizedLast, '_');
+            
+            $filename = $namePart . '_' . time() . '.' . $extension;
             
             // Delete old photo if it exists and isn't a default string
             if ($user->user_photo && Storage::disk('public')->exists(str_replace('storage/', '', $user->user_photo))) {
                 Storage::disk('public')->delete(str_replace('storage/', '', $user->user_photo));
             }
 
-            // Store new photo in storage/app/public/profiles
-            $path = $file->storeAs('profiles', $filename, 'public');
+            // Store new photo in storage/app/public/user_images
+            $path = $file->storeAs('user_images', $filename, 'public');
             
             // Save path accessible via the symlink
             $user->update(['user_photo' => 'storage/' . $path]);

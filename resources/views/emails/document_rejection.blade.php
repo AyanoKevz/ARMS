@@ -268,9 +268,15 @@
             </div>
 
             <div class="btn-wrap">
+                @if(in_array($application->application_type, ['renewal', 'reinstatement']))
+                <a href="{{ url('/applicant/renewal/reupload?application_id=' . $application->id) }}" class="btn-track">
+                    Log In & Update My Documents
+                </a>
+                @else
                 <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-track">
                     Update My Documents
                 </a>
+                @endif
             </div>
 
             <p style="font-size:0.85rem; color:#888;">

@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
+use App\Http\Controllers\Applicant\RenewalController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -66,6 +67,12 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/instructors/{instructor}/credentials/{credential}', [ApplicantInstructorController::class, 'updateCredential'])->name('instructors.credentials.update');
         Route::post('/instructors/{instructor}/service-agreement', [ApplicantInstructorController::class, 'updateServiceAgreement'])->name('instructors.service_agreement.update');
 
+        // Renewal / Reinstatement
+        Route::get('/renewal', [RenewalController::class, 'index'])->name('renewal.index');
+        Route::post('/renewal', [RenewalController::class, 'store'])->name('renewal.store');
+        Route::get('/renewal/reupload', [RenewalController::class, 'reupload'])->name('renewal.reupload');
+        Route::post('/renewal/reupload', [RenewalController::class, 'submitReupload'])->name('renewal.reupload.store');
+
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -90,6 +97,10 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Accreditation Certificate PDF
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
+
+            // Renewal / Reinstatement
+            Route::get('/renewal/pending', [HCDApplicationController::class, 'renewalPending'])->name('renewal.pending');
+            Route::get('/renewal/under-review', [HCDApplicationController::class, 'renewalUnderReview'])->name('renewal.under_review');
 
         });
 

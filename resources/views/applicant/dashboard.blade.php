@@ -4,10 +4,10 @@
 
 @section('content')
 @php
-    $myAccreditation = \App\Models\Accreditation::where('user_id', auth()->id())
-        ->whereIn('status', ['active', 'expired', 'revoked'])
-        ->orderBy('created_at', 'desc')
-        ->first();
+$myAccreditation = \App\Models\Accreditation::where('user_id', auth()->id())
+->whereIn('status', ['active', 'expired', 'revoked'])
+->orderBy('created_at', 'desc')
+->first();
 @endphp
 
 <div class="">
@@ -51,13 +51,13 @@
                             <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Status</p>
                             <p class="mb-0 mt-1">
                                 @if($myAccreditation->status === 'active')
-                                    <span class="badge bg-success" style="font-size: 0.9rem; padding: 6px 12px;">Active</span>
+                                <span class="badge bg-success" style="font-size: 0.9rem; padding: 6px 12px;">Active</span>
                                 @elseif($myAccreditation->status === 'expired')
-                                    <span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 6px 12px;">Expired</span>
+                                <span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 6px 12px;">Expired</span>
                                 @elseif($myAccreditation->status === 'revoked')
-                                    <span class="badge bg-danger" style="font-size: 0.9rem; padding: 6px 12px;">Revoked</span>
+                                <span class="badge bg-danger" style="font-size: 0.9rem; padding: 6px 12px;">Revoked</span>
                                 @else
-                                    <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 6px 12px;">{{ ucfirst($myAccreditation->status) }}</span>
+                                <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 6px 12px;">{{ ucfirst($myAccreditation->status) }}</span>
                                 @endif
                             </p>
                         </div>
@@ -67,20 +67,6 @@
         </div>
         @endif
 
-        {{-- Overview card --}}
-        <div class="col-md-12 col-sm-12">
-            <div class="x_panel">
-                <div class="x_title">
-                    <h2>Overview</h2>
-                    <div class="clearfix"></div>
-                </div>
-                <div class="x_content">
-                    <p>Welcome to the Applicant Portal. Start tracking your applications here.</p>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 @endsection
-

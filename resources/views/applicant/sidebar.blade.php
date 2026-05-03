@@ -9,5 +9,5 @@
         <li><a href="#">Post Training Report</a></li>
     </ul>
 </li>
-<li><a href="#"><i class="fas fa-sync-alt"></i> Renewal/Re-Instatement </a></li>
+<li><a href="{{ route('applicant.renewal.index') }}"><i class="fas fa-sync-alt"></i> Renewal / Re-Instatement </a></li>
 <li><a href="{{ route('applicant.instructors.index') }}"><i class="fas fa-chalkboard-teacher"></i> FATPRO Instructor </a></li>

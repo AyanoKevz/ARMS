@@ -60,8 +60,17 @@ class TrackingController extends Controller
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
-        $application = Application::with('user.instructors.credentials')->findOrFail($request->input('application_id'));
+        $application = Application::with(['user.instructors.credentials', 'accreditationType'])->findOrFail($request->input('application_id'));
         $userId      = $application->user_id;
+        
+        $accreditationName = $application->accreditationType ? $application->accreditationType->name : 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+
+        $fatProName = $application->user->name;
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+
+        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+        $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
         
         $files             = $request->file('files') ?? [];
         $values            = $request->input('values') ?? [];
@@ -119,7 +128,7 @@ class TrackingController extends Controller
             $code      = $field->code;
             $timestamp = time();
             $filename  = "{$code}_{$timestamp}.pdf";
-            $subFolder = "public/documents/{$application->id}";
+            $subFolder = $baseDocPath;
             $finalPath = "{$subFolder}/{$filename}";
 
             $userDoc = UserDocument::where('user_id', $userId)
@@ -158,8 +167,10 @@ class TrackingController extends Controller
             if (! $instructor || ! in_array($instructor->status, ['rejected', 'returned'])) continue;
 
             $timestamp = time();
-            $filename  = "sa_{$timestamp}.pdf";
-            $subFolder = "public/instructors/{$userId}/{$instructorId}";
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
+            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
+            $filename  = "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+            $subFolder = $baseCredPath;
             $finalPath = "{$subFolder}/{$filename}";
 
             if ($instructor->service_agreement_path && Storage::disk('local')->exists($instructor->service_agreement_path)) {
@@ -190,8 +201,10 @@ class TrackingController extends Controller
 
             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
             $timestamp = time();
-            $filename  = "{$typeClean}_{$timestamp}.pdf";
-            $subFolder = "public/instructors/{$userId}/{$credential->instructor_id}";
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->first_name));
+            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->last_name));
+            $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+            $subFolder = $baseCredPath;
             $finalPath = "{$subFolder}/{$filename}";
 
             if ($credential->pdf_path && Storage::disk('local')->exists($credential->pdf_path)) {

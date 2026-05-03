@@ -71,10 +71,22 @@ class InstructorController extends Controller
                 Storage::disk('local')->delete($credential->pdf_path);
             }
 
-            $path = $request->file('pdf_file')->store(
-                'public/instructors/' . auth()->id() . '/' . $instructor->id . '/credentials',
-                'local'
-            );
+            $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
+            $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
+            $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+
+            $fatProName = auth()->user()->name;
+            $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+
+            $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+
+            $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
+            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
+            $timestamp = time();
+            $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+
+            $path = $request->file('pdf_file')->storeAs($baseCredPath, $filename, 'local');
             $data['pdf_path'] = $path;
         }
 
@@ -101,10 +113,21 @@ class InstructorController extends Controller
             Storage::disk('local')->delete($instructor->service_agreement_path);
         }
 
-        $path = $request->file('service_agreement')->store(
-            'public/instructors/' . auth()->id() . '/' . $instructor->id,
-            'local'
-        );
+        $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
+        $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+
+        $fatProName = auth()->user()->name;
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+
+        $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+
+        $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
+        $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
+        $timestamp = time();
+        $filename  = "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+
+        $path = $request->file('service_agreement')->storeAs($baseCredPath, $filename, 'local');
 
         $instructor->update([
             'service_agreement_path' => $path,

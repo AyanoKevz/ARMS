@@ -66,7 +66,7 @@
         <div class="col-12">
             <div class="dash-chart-card">
                 <div class="dash-chart-title">
-                    <i class="bi bi-bar-chart-fill me-1 text-primary"></i> Monthly Applications — {{ $selectedYear }}
+                    <i class="bi bi-bar-chart-fill me-1"></i> Monthly Applications — {{ $selectedYear }}
                 </div>
                 <canvas id="barChart" height="80"></canvas>
             </div>
@@ -78,12 +78,12 @@
         <div class="col-12">
             <div class="x_panel">
                 <div class="x_title d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <h2><i class="bi bi-table me-1 text-primary"></i> Monthly Applications and Accreditations</h2>
+                    <h2><i class="bi bi-table me-1"></i> Monthly Applications and Accreditations</h2>
                     <form method="GET" action="{{ route('admin.hcd.dashboard') }}" class="d-flex align-items-center gap-2 mb-0">
                         <label class="form-label mb-0 small fw-semibold">Year:</label>
                         <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
                             @foreach($availableYears as $yr)
-                                <option value="{{ $yr }}" {{ $yr == $selectedYear ? 'selected' : '' }}>{{ $yr }}</option>
+                            <option value="{{ $yr }}" {{ $yr == $selectedYear ? 'selected' : '' }}>{{ $yr }}</option>
                             @endforeach
                         </select>
                     </form>
@@ -105,25 +105,25 @@
                             <tbody>
                                 @php $totNew = 0; $totRen = 0; $totAcc = 0; @endphp
                                 @foreach($monthlyRows as $row)
-                                    @php
-                                        $totNew += $row['new'];
-                                        $totRen += $row['renewal'];
-                                        $totAcc += $row['accredited'];
-                                        $rowTotal = $row['new'] + $row['renewal'];
-                                    @endphp
-                                    <tr>
-                                        <td class="fw-semibold">{{ $row['month'] }}</td>
-                                        <td class="text-center {{ $row['new'] == 0 ? 'zero' : '' }}">{{ $row['new'] ?: '—' }}</td>
-                                        <td class="text-center {{ $row['renewal'] == 0 ? 'zero' : '' }}">{{ $row['renewal'] ?: '—' }}</td>
-                                        <td class="text-center fw-semibold {{ $rowTotal == 0 ? 'zero' : '' }}">{{ $rowTotal ?: '—' }}</td>
-                                        <td class="text-center">
-                                            @if($row['accredited'])
-                                                <span class="badge bg-success">{{ $row['accredited'] }}</span>
-                                            @else
-                                                <span class="zero">—</span>
-                                            @endif
-                                        </td>
-                                    </tr>
+                                @php
+                                $totNew += $row['new'];
+                                $totRen += $row['renewal'];
+                                $totAcc += $row['accredited'];
+                                $rowTotal = $row['new'] + $row['renewal'];
+                                @endphp
+                                <tr>
+                                    <td class="fw-semibold">{{ $row['month'] }}</td>
+                                    <td class="text-center {{ $row['new'] == 0 ? 'zero' : '' }}">{{ $row['new'] ?: '—' }}</td>
+                                    <td class="text-center {{ $row['renewal'] == 0 ? 'zero' : '' }}">{{ $row['renewal'] ?: '—' }}</td>
+                                    <td class="text-center fw-semibold {{ $rowTotal == 0 ? 'zero' : '' }}">{{ $rowTotal ?: '—' }}</td>
+                                    <td class="text-center">
+                                        @if($row['accredited'])
+                                        <span class="badge bg-success">{{ $row['accredited'] }}</span>
+                                        @else
+                                        <span class="zero">—</span>
+                                        @endif
+                                    </td>
+                                </tr>
                                 @endforeach
                             </tbody>
                             <tfoot class="table-secondary fw-bold">
@@ -148,39 +148,82 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
 
-    const months        = @json($monthlyRows->pluck('month'));
-    const newData       = @json($monthlyRows->pluck('new'));
-    const renewalData   = @json($monthlyRows->pluck('renewal'));
-    const accreditedData= @json($monthlyRows->pluck('accredited'));
+        @php
+            $months = $monthlyRows->pluck('month');
+            $newData = $monthlyRows->pluck('new');
+            $renewalData = $monthlyRows->pluck('renewal');
+            $accreditedData = $monthlyRows->pluck('accredited');
+        @endphp
 
-    // Bar Chart
-    new Chart(document.getElementById('barChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: months,
-            datasets: [
-                { label: 'New',       data: newData,        backgroundColor: 'rgba(26,111,189,.75)', borderRadius: 4 },
-                { label: 'Renewal',   data: renewalData,    backgroundColor: 'rgba(230,126,34,.75)',  borderRadius: 4 },
-                { label: 'Accredited',data: accreditedData, backgroundColor: 'rgba(39,174,96,.75)',   borderRadius: 4 },
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'top', labels: { font: { size: 11 } } },
-                tooltip: { mode: 'index', intersect: false }
+        const months = @json($months);
+        const newData = @json($newData);
+        const renewalData = @json($renewalData);
+        const accreditedData = @json($accreditedData);
+
+        // Bar Chart
+        new Chart(document.getElementById('barChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [{
+                        label: 'New',
+                        data: newData,
+                        backgroundColor: 'rgba(26,111,189,.75)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Renewal',
+                        data: renewalData,
+                        backgroundColor: 'rgba(230,126,34,.75)',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Accredited',
+                        data: accreditedData,
+                        backgroundColor: 'rgba(39,174,96,.75)',
+                        borderRadius: 4
+                    },
+                ]
             },
-            scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,.05)' } }
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,.05)'
+                        }
+                    }
+                }
             }
-        }
+        });
+
+
+
     });
-
-
-
-});
 </script>
 @endpush

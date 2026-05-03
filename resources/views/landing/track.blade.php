@@ -300,121 +300,140 @@
                                     @csrf
                                     <input type="hidden" name="application_id" value="{{ $application->id }}">
 
-                                    <div class="d-flex flex-column gap-3">
-                                        {{-- Standard Documents --}}
-                                        @foreach($rejectedDocs as $rdoc)
-                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
-                                                    @if($rdoc->documentField?->input_type === 'file')
-                                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                                    @else
-                                                        <i class="bi bi-input-cursor-text text-danger me-1"></i>
-                                                    @endif
-                                                    {{ $rdoc->documentField?->name ?? 'Document' }}
-                                                </div>
-                                                @if($rdoc->remarks)
-                                                <div class="text-muted small mt-1">
-                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
-                                                </div>
-                                                @endif
+                                    <div class="d-flex flex-column gap-4">
+                                        {{-- FATPro Documents Section --}}
+                                        @if($rejectedDocs->count() > 0)
+                                        <div>
+                                            <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                                                <i class="bi bi-file-earmark-text me-1"></i> FATPro Documents
                                             </div>
-                                            <div style="min-width:260px;">
-                                                @if($rdoc->documentField?->input_type === 'file')
-                                                    <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                        Upload Replacement (PDF) <span class="text-danger">*</span>
-                                                    </label>
-                                                    <div class="file-upload-wrapper mt-1">
-                                                        <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
-                                                                <i class="bi bi-cloud-upload me-1"></i> Choose File
-                                                            </label>
-                                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                            <div class="d-flex flex-column gap-3">
+                                                @foreach($rejectedDocs as $rdoc)
+                                                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                                                    <div class="flex-grow-1">
+                                                        <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                            @if($rdoc->documentField?->input_type === 'file')
+                                                                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                            @else
+                                                                <i class="bi bi-input-cursor-text text-danger me-1"></i>
+                                                            @endif
+                                                            {{ $rdoc->documentField?->name ?? 'Document' }}
                                                         </div>
-                                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                        @if($rdoc->remarks)
+                                                        <div class="text-muted small mt-1">
+                                                            <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
+                                                        </div>
+                                                        @endif
                                                     </div>
-                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
-                                                @else
-                                                    <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                        Update Value <span class="text-danger">*</span>
-                                                    </label>
-                                                    <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
-                                                           name="values[{{ $rdoc->id }}]" 
-                                                           id="doc_{{ $rdoc->id }}" 
-                                                           class="form-control form-control-sm" 
-                                                           value="{{ $rdoc->userDocument?->value }}" 
-                                                           required>
-                                                @endif
+                                                    <div style="min-width:260px;">
+                                                        @if($rdoc->documentField?->input_type === 'file')
+                                                            <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                                Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                            </label>
+                                                            <div class="file-upload-wrapper mt-1">
+                                                                <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                                <div class="d-flex align-items-center gap-2">
+                                                                    <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                        <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                                    </label>
+                                                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                                </div>
+                                                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                            </div>
+                                                            <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                        @else
+                                                            <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                                Update Value <span class="text-danger">*</span>
+                                                            </label>
+                                                            <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
+                                                                   name="values[{{ $rdoc->id }}]" 
+                                                                   id="doc_{{ $rdoc->id }}" 
+                                                                   class="form-control form-control-sm" 
+                                                                   value="{{ $rdoc->userDocument?->value }}" 
+                                                                   required>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                @endforeach
                                             </div>
                                         </div>
-                                        @endforeach
+                                        @endif
 
-                                        {{-- Instructor Service Agreements --}}
-                                        @foreach($rejectedInstructors as $rInst)
-                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
-                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                                    Service Agreement - {{ $rInst->first_name }} {{ $rInst->last_name }}
-                                                </div>
-                                                @if($rInst->remarks)
-                                                <div class="text-muted small mt-1">
-                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rInst->remarks }}
-                                                </div>
-                                                @endif
+                                        {{-- Instructor Credentials Section --}}
+                                        @if($rejectedInstructors->count() > 0 || $rejectedCredentials->count() > 0)
+                                        <div>
+                                            <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                                                <i class="bi bi-person-badge me-1"></i> Instructor Credentials
                                             </div>
-                                            <div style="min-width:260px;">
-                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                    Upload Replacement (PDF) <span class="text-danger">*</span>
-                                                </label>
-                                                <div class="file-upload-wrapper mt-1">
-                                                    <input type="file" name="instructor_files[{{ $rInst->id }}]" id="inst_{{ $rInst->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <label for="inst_{{ $rInst->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
-                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
-                                                        </label>
-                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                            <div class="d-flex flex-column gap-3">
+                                                {{-- Instructor Service Agreements --}}
+                                                @foreach($rejectedInstructors as $rInst)
+                                                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                                                    <div class="flex-grow-1">
+                                                        <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                            Service Agreement - {{ $rInst->first_name }} {{ $rInst->last_name }}
+                                                        </div>
+                                                        @if($rInst->remarks)
+                                                        <div class="text-muted small mt-1">
+                                                            <i class="bi bi-chat-left-text me-1"></i>{{ $rInst->remarks }}
+                                                        </div>
+                                                        @endif
                                                     </div>
-                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                    <div style="min-width:260px;">
+                                                        <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                            Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                        </label>
+                                                        <div class="file-upload-wrapper mt-1">
+                                                            <input type="file" name="instructor_files[{{ $rInst->id }}]" id="inst_{{ $rInst->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <label for="inst_{{ $rInst->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                    <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                                </label>
+                                                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                            </div>
+                                                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                        </div>
+                                                        <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                    </div>
                                                 </div>
-                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
-                                            </div>
-                                        </div>
-                                        @endforeach
+                                                @endforeach
 
-                                        {{-- Instructor Credentials --}}
-                                        @foreach($rejectedCredentials as $rCred)
-                                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
-                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                                    {{ $rCred->type }} Credential - {{ $rCred->instructor->first_name }} {{ $rCred->instructor->last_name }}
-                                                </div>
-                                                @if($rCred->remarks)
-                                                <div class="text-muted small mt-1">
-                                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rCred->remarks }}
-                                                </div>
-                                                @endif
-                                            </div>
-                                            <div style="min-width:260px;">
-                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                    Upload Replacement (PDF) <span class="text-danger">*</span>
-                                                </label>
-                                                <div class="file-upload-wrapper mt-1">
-                                                    <input type="file" name="credential_files[{{ $rCred->id }}]" id="cred_{{ $rCred->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <label for="cred_{{ $rCred->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
-                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
-                                                        </label>
-                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                {{-- Instructor Credentials --}}
+                                                @foreach($rejectedCredentials as $rCred)
+                                                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                                                    <div class="flex-grow-1">
+                                                        <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                            {{ $rCred->type }} Credential - {{ $rCred->instructor->first_name }} {{ $rCred->instructor->last_name }}
+                                                        </div>
+                                                        @if($rCred->remarks)
+                                                        <div class="text-muted small mt-1">
+                                                            <i class="bi bi-chat-left-text me-1"></i>{{ $rCred->remarks }}
+                                                        </div>
+                                                        @endif
                                                     </div>
-                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                    <div style="min-width:260px;">
+                                                        <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                            Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                        </label>
+                                                        <div class="file-upload-wrapper mt-1">
+                                                            <input type="file" name="credential_files[{{ $rCred->id }}]" id="cred_{{ $rCred->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <label for="cred_{{ $rCred->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                    <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                                </label>
+                                                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                            </div>
+                                                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                        </div>
+                                                        <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                    </div>
                                                 </div>
-                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                @endforeach
                                             </div>
                                         </div>
-                                        @endforeach
+                                        @endif
                                     </div>
 
                                     <div class="mt-4 text-end">

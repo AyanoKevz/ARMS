@@ -316,6 +316,27 @@ class RegistrationController extends Controller
                 $sequence       = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                 $trackingNumber = "ARMS{$year}-{$sequence}";
 
+                $timestamp = time();
+                
+                // Get Accreditation Name and FATProName for Folder Structure
+                $accreditationType = \App\Models\AccreditationType::find($pending->accreditation_type_id);
+                $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+                $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+
+                // Derive FATProName from form data
+                $fatProName = 'Unknown';
+                if ($pending->profile_type === 'Organization') {
+                    $fatProName = $form['org_name'] ?? 'Unknown';
+                } else {
+                    $first = $form['first_name'] ?? '';
+                    $last = $form['last_name'] ?? '';
+                    $fatProName = trim("{$first} {$last}");
+                }
+                $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+
+                $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+                $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+
                 // 5. Create Application
                 $application = Application::create([
                     'user_id'               => $user->id,
@@ -337,7 +358,7 @@ class RegistrationController extends Controller
                     $textValue = null;
 
                     if ($entry['input_type'] === 'file') {
-                        $filePath = "public/documents/{$application->id}/{$code}.pdf";
+                        $filePath = "{$baseDocPath}/{$code}_{$timestamp}.pdf";
                         Storage::disk('local')->move($entry['value'], $filePath);
                     } else {
                         $textValue = $entry['value'];
@@ -360,10 +381,13 @@ class RegistrationController extends Controller
                 $instructorsData = $pending->instructors_data ?? [];
 
                 foreach ($instructorsData as $i => $instData) {
+                    $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['first_name'] ?? ''));
+                    $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['last_name'] ?? ''));
+
                     // Move service agreement PDF
                     $saPermanent = null;
                     if ($instData['service_agreement_path'] ?? null) {
-                        $saPermanent = "public/instructors/{$user->id}/{$i}/service_agreement.pdf";
+                        $saPermanent = "{$baseCredPath}/sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
                         Storage::disk('local')->move($instData['service_agreement_path'], $saPermanent);
                     }
 
@@ -378,7 +402,8 @@ class RegistrationController extends Controller
                     foreach ($instData['credentials'] ?? [] as $type => $credData) {
                         $credPermanent = null;
                         if ($credData['pdf_path'] ?? null) {
-                            $credPermanent = "public/instructors/{$user->id}/{$i}/{$type}.pdf";
+                            $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $type));
+                            $credPermanent = "{$baseCredPath}/{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
                             Storage::disk('local')->move($credData['pdf_path'], $credPermanent);
                         }
 

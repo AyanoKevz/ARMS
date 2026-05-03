@@ -12,10 +12,13 @@
 
 @section('content')
 <div class="">
-    <div class="page-title">
+    <div class="page-title d-flex justify-content-between align-items-center">
         <div class="title_left">
             <h3>FATPRO Instructor List</h3>
         </div>
+        <a href="{{ route('applicant.dashboard') }}" class="btn btn-secondary btn-sm mt-3">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </a>
     </div>
 
     <div class="clearfix"></div>

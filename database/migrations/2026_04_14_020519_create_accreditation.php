@@ -68,6 +68,37 @@ return new class extends Migration
 
             $table->timestamps();
         });
+
+        Schema::create('accreditations', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('user_id')
+                ->constrained()
+                ->cascadeOnDelete();
+            // Works for BOTH individual and organization
+
+            $table->foreignId('application_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->foreignId('accreditation_type_id')
+                ->constrained()
+                ->cascadeOnDelete();
+            // Example: FATPro, Practitioner, Consultant
+
+            $table->string('accreditation_number')->unique();
+            // Example: FATPRO-2026-0001
+
+            $table->date('date_of_accreditation');
+            // Example: 2026-05-01
+
+            $table->date('validity_date');
+            // Example: 2028-05-01
+
+            $table->enum('status', ['active', 'expired', 'revoked']);
+
+            $table->timestamps();
+        });
     }
 
     /**
@@ -75,9 +106,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('accreditation_types');
-        Schema::dropIfExists('individual_profiles');
-        Schema::dropIfExists('organization_profiles');
+        Schema::dropIfExists('accreditations');
         Schema::dropIfExists('authorized_representatives');
+        Schema::dropIfExists('organization_profiles');
+        Schema::dropIfExists('individual_profiles');
+        Schema::dropIfExists('accreditation_types');
     }
 };
