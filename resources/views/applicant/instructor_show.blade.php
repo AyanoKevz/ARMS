@@ -2,50 +2,7 @@
 
 @section('title', 'Instructor Details')
 
-@push('styles')
-<style>
-    .cred-card {
-        background: #fff;
-        border-radius: 10px;
-        border: 1px solid #e4eaf2;
-        box-shadow: 0 2px 8px rgba(0,0,0,.04);
-        margin-bottom: 20px;
-        overflow: hidden;
-    }
-    .cred-header {
-        background: linear-gradient(135deg, #1a2e5a, #0b3d91);
-        padding: 14px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .cred-header h6 { color: #fff; margin: 0; font-weight: 700; font-size: 0.95rem; }
-    .cred-body { padding: 18px 20px; }
-    .info-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 14px; }
-    .info-item { flex: 1 1 180px; }
-    .info-label { font-size: 0.75rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .4px; }
-    .info-val { font-size: 0.92rem; color: #2A3F54; font-weight: 600; margin-top: 2px; }
-    .badge-pending  { background: #ffc107; color: #333; }
-    .badge-approved { background: #28a745; color: #fff; }
-    .badge-returned { background: #fd7e14; color: #fff; }
-    .badge-rejected { background: #dc3545; color: #fff; }
-    .update-section {
-        background: #f8fafc;
-        border-top: 1px dashed #dde3ef;
-        padding: 14px 20px;
-    }
-    .update-section .form-label { font-size: 0.82rem; font-weight: 600; color: #2A3F54; }
-    .remarks-box {
-        background: #fff3cd;
-        border-left: 4px solid #ffc107;
-        border-radius: 6px;
-        padding: 10px 14px;
-        font-size: 0.82rem;
-        color: #555;
-        margin-bottom: 12px;
-    }
-</style>
-@endpush
+
 
 @section('content')
 <div class="">
@@ -57,7 +14,7 @@
             </h3>
         </div>
         <a href="{{ route('applicant.instructors.index') }}" class="btn btn-secondary btn-sm mt-3">
-            <i class="bi bi-arrow-left me-1"></i> Back
+            Back
         </a>
     </div>
     <div class="clearfix"></div>
@@ -121,20 +78,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="update-section">
-                    <form action="{{ route('applicant.instructors.service_agreement.update', $instructor->id) }}"
-                          method="POST" enctype="multipart/form-data">
-                        @csrf
-                        <label class="form-label">Replace Service Agreement (PDF only, max 10MB)</label>
-                        <div class="d-flex align-items-center gap-2">
-                            <input type="file" name="service_agreement" class="form-control form-control-sm" accept=".pdf">
-                            <button type="submit" class="btn btn-sm btn-primary px-4">
-                                <i class="bi bi-upload me-1"></i> Upload
-                            </button>
-                        </div>
-                    </form>
-                </div>
             </div>
+
 
             {{-- ── Credentials ── --}}
             @php
@@ -218,6 +163,7 @@
                 </div>
 
                 {{-- Update Form --}}
+                @if(!$isAccredited || $instructor->update_request_status === 'allowed')
                 <div class="update-section">
                     <form action="{{ route('applicant.instructors.credentials.update', [$instructor->id, $credential->id]) }}"
                           method="POST" enctype="multipart/form-data">
@@ -264,6 +210,7 @@
                         </small>
                     </form>
                 </div>
+                @endif
             </div>
             @endforeach
 
@@ -274,6 +221,55 @@
             @endif
 
         </div>
+
+        @if($isAccredited)
+        <div class="col-12 mt-3">
+            @if($instructor->update_request_status === 'none')
+                <div class="alert alert-secondary d-flex align-items-center justify-content-between">
+                    <div>
+                        <strong><i class="bi bi-shield-lock me-1"></i> Credentials Locked</strong><br>
+                        <small>As an accredited FATPro, you must request permission from the admin to update this instructor's credentials.</small>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#requestUpdateModal">
+                        Request Instructor Update
+                    </button>
+                </div>
+                
+                <!-- Request Update Modal -->
+                <div class="modal fade" id="requestUpdateModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <form action="{{ route('applicant.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content">
+                            @csrf
+                            <div class="modal-header">
+                                <h5 class="modal-title">Request Instructor Update</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Reason for Update</label>
+                                    <textarea name="reason" class="form-control" rows="3" required placeholder="e.g. Expired credentials, new certification acquired, etc."></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Submit Request</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @elseif($instructor->update_request_status === 'requested')
+                <div class="alert alert-info">
+                    <i class="bi bi-hourglass-split me-1"></i> <strong>Update Requested</strong><br>
+                    <small>Your request to update this instructor's credentials is pending admin approval.</small>
+                </div>
+            @elseif($instructor->update_request_status === 'allowed')
+                <div class="alert alert-success">
+                    <i class="bi bi-unlock me-1"></i> <strong>Updates Allowed</strong><br>
+                    <small>The admin has unlocked these credentials for update. You can upload new files above.</small>
+                </div>
+            @endif
+        </div>
+        @endif
     </div>
 </div>
 @endsection

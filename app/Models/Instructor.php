@@ -17,6 +17,8 @@ class Instructor extends Model
         'service_agreement_path',
         'status',
         'remarks',
+        'update_request_status',
+        'update_request_reason',
     ];
 
     /**

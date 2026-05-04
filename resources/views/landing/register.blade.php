@@ -743,7 +743,7 @@
                                     <i class="bi bi-search me-2"></i> Review Details
                                 </button>
                                 <button type="button" id="backBtn" class="btn btn-outline-secondary btn-lg fw-semibold d-none" style="border-radius:10px;padding:.85rem 1.5rem;">
-                                    <i class="bi bi-arrow-left me-2"></i> Edit Details
+                                    Edit Details
                                 </button>
                                 <button type="submit" id="submitBtn" class="btn btn-primary btn-lg fw-semibold d-none"
                                     style="background:var(--blue-deep);border-color:var(--blue-deep);

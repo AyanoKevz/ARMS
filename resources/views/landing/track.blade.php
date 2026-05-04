@@ -462,7 +462,7 @@
 
                 <div class="text-center mt-4 mb-5">
                     <a href="{{ url('/') }}" class="text-decoration-none fw-semibold" style="color: #0b3d91;">
-                        <i class="bi bi-arrow-left me-1"></i> Back to Home
+                        Back to Home
                     </a>
                 </div>
             </div>

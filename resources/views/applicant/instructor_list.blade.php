@@ -17,7 +17,7 @@
             <h3>FATPRO Instructor List</h3>
         </div>
         <a href="{{ route('applicant.dashboard') }}" class="btn btn-secondary btn-sm mt-3">
-            <i class="bi bi-arrow-left me-1"></i> Back
+            Back
         </a>
     </div>
 
@@ -34,7 +34,7 @@
         <div class="col-md-12 col-sm-12">
             <div class="x_panel">
                 <div class="x_title">
-                    <h2><i class="fas fa-chalkboard-teacher me-2"></i> My Instructors</h2>
+                    <h2><i class="fas fa-chalkboard-teacher me-2"></i> My Instructors under {{ auth()->user()->name }}</h2>
                     <ul class="nav navbar-right panel_toolbox">
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
@@ -46,9 +46,10 @@
                         <table id="instructors_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
                             <thead>
                                 <tr class="headings">
-                                    <th class="column-title">Instructor Name</th>
-                                    <th class="column-title text-center">No. of Credentials</th>
-                                    <th class="column-title text-center">SA Status</th>
+                                    <th class="column-title">First Name</th>
+                                    <th class="column-title">Middle Name</th>
+                                    <th class="column-title">Last Name</th>
+                                    <th class="column-title text-center">Service Agreement</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
                             </thead>
@@ -56,17 +57,9 @@
                             <tbody>
                                 @foreach($instructors as $instructor)
                                 <tr class="even pointer">
-                                    <td>
-                                        <strong>
-                                            {{ $instructor->last_name }}, {{ $instructor->first_name }}
-                                            @if($instructor->middle_name)
-                                                {{ strtoupper(substr($instructor->middle_name, 0, 1)) }}.
-                                            @endif
-                                        </strong>
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-secondary">{{ $instructor->credentials->count() }}</span>
-                                    </td>
+                                    <td>{{ $instructor->first_name }}</td>
+                                    <td>{{ $instructor->middle_name }}</td>
+                                    <td>{{ $instructor->last_name }}</td>
                                     <td class="text-center">
                                         @php
                                             $saClass = match($instructor->status) {

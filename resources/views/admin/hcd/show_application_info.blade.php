@@ -50,7 +50,7 @@
 <div class="page-title d-flex justify-content-between align-items-center">
     <div class="title_left"><h3>Application Details</h3></div>
     <a href="{{ url()->previous() }}" class="btn btn-secondary btn-sm mt-3">
-        <i class="bi bi-arrow-left me-1"></i> Back
+        Back
     </a>
 </div>
 <div class="clearfix"></div>
@@ -267,6 +267,19 @@
                         <i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}
                     </div>
                     
+                    @if($instructor->update_request_status === 'requested')
+                    <div class="alert alert-warning m-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Update Requested</strong><br>
+                            <span style="font-size: 0.85rem;">Reason: {{ $instructor->update_request_reason }}</span>
+                        </div>
+                        <form action="{{ route('admin.hcd.instructors.allow_update', $instructor->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-success m-0">Allow Update</button>
+                        </form>
+                    </div>
+                    @endif
+                    
                     {{-- Credentials --}}
                     @foreach($instructor->credentials as $credential)
                     @php
@@ -452,7 +465,7 @@
         </div>
         <div>
             <h6 class="text-white mb-0 fw-bold">Application Result</h6>
-            <small class="text-white-50">Record the outcome of the interview session</small>
+            <small class="text-white-50">The outcome of the FATPro application is shown below.</small>
         </div>
     </div>
 
@@ -473,7 +486,7 @@
                    target="_blank"
                    class="btn btn-success btn-sm mt-2 fw-semibold"
                    style="border-radius:8px;font-size:.82rem;">
-                    <i class="bi bi-file-earmark-arrow-down me-1"></i> Download Certificate PDF
+                    <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
                 </a>
                 @endif
             </div>
@@ -688,7 +701,7 @@
             {{-- Footer --}}
             <div class="modal-footer border-0 pt-2" style="background:#fafafa; padding:16px 28px;">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
-                    <i class="bi bi-arrow-left me-1"></i> Go Back
+                    Go Back
                 </button>
                 <button type="button" id="btn-confirm-rejection"
                         class="btn btn-danger fw-bold px-5"
@@ -745,7 +758,7 @@
 
             <div class="modal-footer border-0" style="background:#f9fdf9;padding:16px 28px;">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
-                    <i class="bi bi-arrow-left me-1"></i> Cancel
+                    Cancel
                 </button>
                 <form method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
                     @csrf
@@ -804,7 +817,7 @@
 
             <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
-                    <i class="bi bi-arrow-left me-1"></i> Cancel
+                    Cancel
                 </button>
                 <form method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
                     @csrf

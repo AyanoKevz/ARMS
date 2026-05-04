@@ -82,7 +82,7 @@
 
                         <a href="{{ route('register') }}" class="btn w-100 fw-semibold"
                             style="background: var(--gold-light); color: var(--navy-deep); border-radius: 10px; padding: .85rem; font-size: 1rem;">
-                            <i class="bi bi-arrow-left me-2"></i> Back to Registration
+                            Back to Registration
                         </a>
                     @endif
 

@@ -33,7 +33,9 @@ class InstructorController extends Controller
 
         $instructor->load('credentials');
 
-        return view('applicant.instructor_show', compact('instructor'));
+        $isAccredited = auth()->user()->accreditations()->where('status', 'active')->exists();
+
+        return view('applicant.instructor_show', compact('instructor', 'isAccredited'));
     }
 
     /**
@@ -172,5 +174,24 @@ class InstructorController extends Controller
             'Pragma'              => 'no-cache',
             'Expires'             => '0',
         ]);
+    }
+
+    /**
+     * Handle the applicant's request to update instructor credentials.
+     */
+    public function requestUpdate(Request $request, Instructor $instructor)
+    {
+        abort_if($instructor->user_id !== auth()->id(), 403);
+
+        $request->validate([
+            'reason' => 'required|string|max:1000'
+        ]);
+
+        $instructor->update([
+            'update_request_status' => 'requested',
+            'update_request_reason' => $request->input('reason')
+        ]);
+
+        return back()->with('success', 'Your update request has been submitted to the admin for approval.');
     }
 }

@@ -58,23 +58,23 @@ class TestApplicationSeeder extends Seeder
                 'email' => "authrep{$i}@example.com",
             ]);
 
-            // 3. Create Application (FATPro - id 7)
+            // 3. Create Application (FATPro - New Registration Only)
             $year = date('Y');
-            $sequence = str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT);
+            $sequence = str_pad(mt_rand(1, 9999), 6, '0', STR_PAD_LEFT);
             $application = Application::create([
                 'user_id' => $user->id,
                 'accreditation_type_id' => 7, // FATPro
-                'application_type' => 'new',
+                'application_type' => 'new', // New Registration
                 'tracking_number' => "ARMS{$year}-{$sequence}",
                 'submitted_at' => Carbon::now(),
             ]);
 
-            // 4. Set Application Status to 'Submitted' (Assuming ID 1 is Submitted, checking ApplicationStatusSeeder would be good, but typically 1 or 2. Let's assume 2 is Submitted if 1 is Draft. We can check.)
-            // Actually let's just use firstOrCreate or assume ID 2 for "Submitted" or ID 1.
+            // 4. Set Application Status to 'Submitted' (Pending Evaluation)
+            // No accreditation record or number is created here as it is a new registration.
             ApplicationStatusLog::create([
                 'application_id' => $application->id,
-                'status_id' => 1, // 1 is Submitted. 
-                'remarks' => 'Test application auto-submitted by seeder',
+                'status_id' => 1, // ID 1 = 'Submitted'
+                'remarks' => 'New registration submitted and awaiting evaluation process.',
             ]);
 
             // 5. Create Documents

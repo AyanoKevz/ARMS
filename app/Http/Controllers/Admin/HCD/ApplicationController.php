@@ -840,4 +840,21 @@ class ApplicationController extends Controller
             'Expires'             => '0',
         ]);
     }
+
+    /**
+     * Allow an applicant to update instructor credentials (after they requested it).
+     */
+    public function allowInstructorUpdate(\App\Models\Instructor $instructor)
+    {
+        $instructor->update([
+            'update_request_status' => 'allowed'
+        ]);
+
+        if ($instructor->user && $instructor->user->email) {
+            \Illuminate\Support\Facades\Mail::to($instructor->user->email)
+                ->send(new \App\Mail\InstructorUpdateAllowedEmail($instructor));
+        }
+
+        return back()->with('success', 'Instructor update request approved. The applicant can now update their credentials.');
+    }
 }
