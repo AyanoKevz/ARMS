@@ -3,14 +3,12 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class InstructorUpdateAllowedEmail extends Mailable
+class InstructorUpdateRequestEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -30,7 +28,7 @@ class InstructorUpdateAllowedEmail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Instructor Credentials Update Request Approved',
+            subject: 'Action Required: Instructor Credentials Update Requested',
         );
     }
 
@@ -40,14 +38,12 @@ class InstructorUpdateAllowedEmail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.instructor_update_allowed',
+            view: 'emails.instructor_update_request',
         );
     }
 
     /**
      * Get the attachments for the message.
-     *
-     * @return array<int, Attachment>
      */
     public function attachments(): array
     {

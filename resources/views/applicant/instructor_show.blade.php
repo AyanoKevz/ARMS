@@ -32,6 +32,53 @@
         </div>
     @endif
 
+    {{-- ── Admin Update Request Banner ── --}}
+    @if($instructor->update_request_status === 'admin_requested')
+    <div class="alert alert-warning d-flex align-items-start gap-3 mb-3">
+        <i class="bi bi-exclamation-triangle-fill fs-4 mt-1 text-warning"></i>
+        <div>
+            <strong>Action Required: Credential Update Requested by Admin</strong><br>
+            <span style="font-size:0.88rem;">
+                <strong>Reason:</strong> {{ $instructor->update_request_reason }}<br>
+                @if($instructor->update_request_fields)
+                <strong>Fields to update:</strong>
+                @php
+                    $fieldLabels = [
+                        'service_agreement' => 'Service Agreement',
+                        'EMS'  => 'TESDA EMS NC II or III Certificate',
+                        'TM1'  => 'TESDA Trainers Methodology Certificate 1',
+                        'NTTC' => 'TESDA National TVET Trainer Certificate',
+                        'BOSH' => 'BOSH SO1 or SO2 Certificate',
+                    ];
+                @endphp
+                {{ implode(', ', array_map(fn($f) => $fieldLabels[$f] ?? $f, $instructor->update_request_fields)) }}
+                @endif
+            </span>
+        </div>
+    </div>
+    @elseif($instructor->update_request_status === 'pending_review')
+    <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-hourglass-split fs-5"></i>
+        <div>
+            <strong>Files Submitted — Awaiting Admin Review</strong><br>
+            <small>Your updated files have been submitted. The admin will review them shortly.</small>
+        </div>
+    </div>
+    @elseif($instructor->update_request_status === 'completed')
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+        <i class="bi bi-check-circle-fill fs-5"></i>
+        <div>
+            <strong>Update Approved</strong><br>
+            <small>Your instructor's updated credentials have been approved by the admin.</small>
+        </div>
+    </div>
+    @endif
+
+    @php
+        $requestedFields = $instructor->update_request_fields ?? [];
+        $isUpdateMode    = $instructor->update_request_status === 'admin_requested';
+    @endphp
+
     <div class="row pt-2">
         <div class="col-12">
 
@@ -77,6 +124,29 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Update form: only when admin requested AND service_agreement is in the fields list --}}
+                    @if($isUpdateMode && in_array('service_agreement', $requestedFields))
+                    <div class="update-section mt-2">
+                        <form action="{{ route('applicant.instructors.service_agreement.update', $instructor->id) }}"
+                              method="POST" enctype="multipart/form-data">
+                            @csrf
+                            <div class="d-flex align-items-end gap-2">
+                                <div class="flex-grow-1">
+                                    <label class="form-label">Replace Service Agreement PDF <span class="text-danger">*</span> (max 10MB)</label>
+                                    <input type="file" name="service_agreement" class="form-control form-control-sm" accept=".pdf" required>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-primary px-4">
+                                    <i class="bi bi-save me-1"></i> Submit
+                                </button>
+                            </div>
+                            <small class="text-muted mt-1 d-block">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Uploading will replace the existing file and submit for admin re-review.
+                            </small>
+                        </form>
+                    </div>
+                    @endif
                 </div>
             </div>
 
@@ -160,57 +230,57 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {{-- Update Form --}}
-                @if(!$isAccredited || $instructor->update_request_status === 'allowed')
-                <div class="update-section">
-                    <form action="{{ route('applicant.instructors.credentials.update', [$instructor->id, $credential->id]) }}"
-                          method="POST" enctype="multipart/form-data">
-                        @csrf
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label">Certificate Number</label>
-                                <input type="text" name="number" class="form-control form-control-sm"
-                                       value="{{ old('number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
+                    {{-- Update Form: only when admin requested AND this credential type is in the fields list --}}
+                    @if($isUpdateMode && in_array($credential->type, $requestedFields))
+                    <div class="update-section mt-2">
+                        <form action="{{ route('applicant.instructors.credentials.update', [$instructor->id, $credential->id]) }}"
+                              method="POST" enctype="multipart/form-data">
+                            @csrf
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Certificate Number</label>
+                                    <input type="text" name="number" class="form-control form-control-sm"
+                                           value="{{ old('number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
+                                </div>
+                                @if($credential->type !== 'BOSH')
+                                <div class="col-md-4">
+                                    <label class="form-label">Issued Date</label>
+                                    <input type="date" name="issued_date" class="form-control form-control-sm"
+                                           value="{{ old('issued_date', $credential->issued_date?->format('Y-m-d')) }}">
+                                </div>
+                                @endif
+                                <div class="col-md-4">
+                                    <label class="form-label">Valid Until</label>
+                                    <input type="date" name="validity_date" class="form-control form-control-sm"
+                                           value="{{ old('validity_date', $credential->validity_date?->format('Y-m-d')) }}">
+                                </div>
+                                @if($credential->type === 'BOSH')
+                                <div class="col-md-8">
+                                    <label class="form-label">Training Date(s)</label>
+                                    <input type="text" name="training_dates" class="form-control form-control-sm"
+                                           value="{{ old('training_dates', $credential->training_dates) }}"
+                                           placeholder="e.g. April 10-14, 2024">
+                                </div>
+                                @endif
                             </div>
-                            @if($credential->type !== 'BOSH')
-                            <div class="col-md-4">
-                                <label class="form-label">Issued Date</label>
-                                <input type="date" name="issued_date" class="form-control form-control-sm"
-                                       value="{{ old('issued_date', $credential->issued_date?->format('Y-m-d')) }}">
+                            <div class="d-flex align-items-end gap-2">
+                                <div class="flex-grow-1">
+                                    <label class="form-label">Replace Credential PDF (optional, max 10MB)</label>
+                                    <input type="file" name="pdf_file" class="form-control form-control-sm" accept=".pdf">
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-primary px-4">
+                                    <i class="bi bi-save me-1"></i> Save & Submit for Review
+                                </button>
                             </div>
-                            @endif
-                            <div class="col-md-4">
-                                <label class="form-label">Valid Until</label>
-                                <input type="date" name="validity_date" class="form-control form-control-sm"
-                                       value="{{ old('validity_date', $credential->validity_date?->format('Y-m-d')) }}">
-                            </div>
-                            @if($credential->type === 'BOSH')
-                            <div class="col-md-8">
-                                <label class="form-label">Training Date(s)</label>
-                                <input type="text" name="training_dates" class="form-control form-control-sm"
-                                       value="{{ old('training_dates', $credential->training_dates) }}"
-                                       placeholder="e.g. April 10-14, 2024">
-                            </div>
-                            @endif
-                        </div>
-                        <div class="d-flex align-items-end gap-2">
-                            <div class="flex-grow-1">
-                                <label class="form-label">Replace Credential PDF (optional, max 10MB)</label>
-                                <input type="file" name="pdf_file" class="form-control form-control-sm" accept=".pdf">
-                            </div>
-                            <button type="submit" class="btn btn-sm btn-primary px-4">
-                                <i class="bi bi-save me-1"></i> Save & Submit for Review
-                            </button>
-                        </div>
-                        <small class="text-muted mt-1 d-block">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Saving will reset the credential status to <strong>Pending</strong> for admin re-review. No interview will be required as you are an accredited FATPro.
-                        </small>
-                    </form>
+                            <small class="text-muted mt-1 d-block">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Saving will reset this credential to <strong>Pending</strong> for admin re-review.
+                            </small>
+                        </form>
+                    </div>
+                    @endif
                 </div>
-                @endif
             </div>
             @endforeach
 
@@ -221,55 +291,6 @@
             @endif
 
         </div>
-
-        @if($isAccredited)
-        <div class="col-12 mt-3">
-            @if($instructor->update_request_status === 'none')
-                <div class="alert alert-secondary d-flex align-items-center justify-content-between">
-                    <div>
-                        <strong><i class="bi bi-shield-lock me-1"></i> Credentials Locked</strong><br>
-                        <small>As an accredited FATPro, you must request permission from the admin to update this instructor's credentials.</small>
-                    </div>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#requestUpdateModal">
-                        Request Instructor Update
-                    </button>
-                </div>
-                
-                <!-- Request Update Modal -->
-                <div class="modal fade" id="requestUpdateModal" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <form action="{{ route('applicant.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content">
-                            @csrf
-                            <div class="modal-header">
-                                <h5 class="modal-title">Request Instructor Update</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Reason for Update</label>
-                                    <textarea name="reason" class="form-control" rows="3" required placeholder="e.g. Expired credentials, new certification acquired, etc."></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Submit Request</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            @elseif($instructor->update_request_status === 'requested')
-                <div class="alert alert-info">
-                    <i class="bi bi-hourglass-split me-1"></i> <strong>Update Requested</strong><br>
-                    <small>Your request to update this instructor's credentials is pending admin approval.</small>
-                </div>
-            @elseif($instructor->update_request_status === 'allowed')
-                <div class="alert alert-success">
-                    <i class="bi bi-unlock me-1"></i> <strong>Updates Allowed</strong><br>
-                    <small>The admin has unlocked these credentials for update. You can upload new files above.</small>
-                </div>
-            @endif
-        </div>
-        @endif
     </div>
 </div>
 @endsection

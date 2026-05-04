@@ -66,7 +66,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
         Route::post('/instructors/{instructor}/credentials/{credential}', [ApplicantInstructorController::class, 'updateCredential'])->name('instructors.credentials.update');
         Route::post('/instructors/{instructor}/service-agreement', [ApplicantInstructorController::class, 'updateServiceAgreement'])->name('instructors.service_agreement.update');
-        Route::post('/instructors/{instructor}/request-update', [ApplicantInstructorController::class, 'requestUpdate'])->name('instructors.request_update');
+        // Note: instructor update requests are now admin-initiated only
 
         // Renewal / Reinstatement
         Route::get('/renewal', [RenewalController::class, 'index'])->name('renewal.index');
@@ -89,7 +89,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/interviews/pending', [HCDApplicationController::class, 'pendingInterview'])->name('interviews.pending');
             Route::get('/interviews/scheduled', [HCDApplicationController::class, 'scheduledInterviews'])->name('interviews.scheduled');
             Route::post('/applications/{application}/interview-result', [HCDApplicationController::class, 'recordInterviewResult'])->name('applications.interview_result');
-            Route::post('/instructors/{instructor}/allow-update', [HCDApplicationController::class, 'allowInstructorUpdate'])->name('instructors.allow_update');
+            Route::post('/instructors/{instructor}/request-update', [HCDApplicationController::class, 'requestInstructorUpdate'])->name('instructors.request_update');
 
             // Directories (using main ApplicationController)
             Route::get('/directory/admins', [HCDApplicationController::class, 'adminsList'])->name('directory.admins');

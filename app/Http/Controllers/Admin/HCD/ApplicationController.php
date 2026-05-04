@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DocumentRejectionEmail;
 use App\Mail\InterviewResultEmail;
+use App\Mail\InstructorUpdateRequestEmail;
+use App\Mail\InstructorUpdateCompleteEmail;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ApplicationController extends Controller
@@ -402,6 +404,45 @@ class ApplicationController extends Controller
                     'message' => 'All documents approved! You can now schedule the interview.',
                     'new_status' => 'Scheduled for Interview'
                 ]);
+            }
+        }
+
+        // ── Check for instructor update completions ──────────────────────────
+        // If any instructor was in 'pending_review' and all their credentials are
+        // now approved, mark it completed and notify the applicant.
+        foreach ($application->user->instructors as $inst) {
+            if ($inst->update_request_status !== 'pending_review') {
+                continue;
+            }
+
+            $requestedFields = $inst->update_request_fields ?? [];
+
+            // Check service agreement (instructor status) if it was in the request
+            $saApproved = !in_array('service_agreement', $requestedFields)
+                || $inst->fresh()->status === 'approved';
+
+            // Check each requested credential type
+            $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
+            $credsApproved = true;
+            foreach ($credTypes as $type) {
+                $cred = $inst->credentials->firstWhere('type', $type);
+                if ($cred && $cred->fresh()->status !== 'approved') {
+                    $credsApproved = false;
+                    break;
+                }
+            }
+
+            if ($saApproved && $credsApproved) {
+                $inst->update([
+                    'update_request_status' => 'completed',
+                    'update_request_reason' => null,
+                    'update_request_fields' => null,
+                ]);
+
+                if ($inst->user && $inst->user->email) {
+                    Mail::to($inst->user->email)
+                        ->send(new InstructorUpdateCompleteEmail($inst));
+                }
             }
         }
 
@@ -842,19 +883,29 @@ class ApplicationController extends Controller
     }
 
     /**
-     * Allow an applicant to update instructor credentials (after they requested it).
+     * Admin initiates an instructor credentials update request.
+     * Sets update_request_status = 'admin_requested', saves the reason and fields,
+     * and sends an email notification to the applicant.
      */
-    public function allowInstructorUpdate(\App\Models\Instructor $instructor)
+    public function requestInstructorUpdate(Request $request, Instructor $instructor)
     {
+        $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'fields' => ['required', 'array', 'min:1'],
+            'fields.*' => ['in:service_agreement,EMS,TM1,NTTC,BOSH'],
+        ]);
+
         $instructor->update([
-            'update_request_status' => 'allowed'
+            'update_request_status' => 'admin_requested',
+            'update_request_reason' => $request->input('reason'),
+            'update_request_fields' => $request->input('fields'),
         ]);
 
         if ($instructor->user && $instructor->user->email) {
-            \Illuminate\Support\Facades\Mail::to($instructor->user->email)
-                ->send(new \App\Mail\InstructorUpdateAllowedEmail($instructor));
+            Mail::to($instructor->user->email)
+                ->send(new InstructorUpdateRequestEmail($instructor));
         }
 
-        return back()->with('success', 'Instructor update request approved. The applicant can now update their credentials.');
+        return back()->with('success', 'Update request sent to applicant for instructor ' . $instructor->first_name . ' ' . $instructor->last_name . '.');
     }
 }

@@ -267,20 +267,33 @@
                         <i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}
                     </div>
                     
-                    @if($instructor->update_request_status === 'requested')
-                    <div class="alert alert-warning m-3 d-flex align-items-center justify-content-between">
-                        <div>
-                            <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Update Requested</strong><br>
-                            <span style="font-size: 0.85rem;">Reason: {{ $instructor->update_request_reason }}</span>
-                        </div>
-                        <form action="{{ route('admin.hcd.instructors.allow_update', $instructor->id) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="btn btn-sm btn-success m-0">Allow Update</button>
-                        </form>
+                    {{-- Update request status banners (non-none states) --}}
+                    @if($instructor->update_request_status === 'admin_requested')
+                    <div class="alert alert-info m-3 mb-0">
+                        <i class="bi bi-hourglass-split me-1"></i>
+                        <strong>Awaiting Applicant Upload</strong><br>
+                        <span style="font-size:0.85rem;">
+                            Reason: {{ $instructor->update_request_reason }}<br>
+                            @if($instructor->update_request_fields)
+                            Fields: <em>{{ implode(', ', $instructor->update_request_fields) }}</em>
+                            @endif
+                        </span>
+                    </div>
+                    @elseif($instructor->update_request_status === 'pending_review')
+                    <div class="alert alert-warning m-3 mb-0">
+                        <i class="bi bi-upload me-1"></i>
+                        <strong>Applicant Uploaded — Pending Re-evaluation</strong><br>
+                        <span style="font-size:0.85rem;">Review the updated credentials below and approve or reject them.</span>
+                    </div>
+                    @elseif($instructor->update_request_status === 'completed')
+                    <div class="alert alert-success m-3 mb-0">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        <strong>Update Completed</strong><br>
+                        <span style="font-size:0.85rem;">All updated credentials have been approved and the applicant was notified.</span>
                     </div>
                     @endif
-                    
-                    {{-- Credentials --}}
+
+
                     @foreach($instructor->credentials as $credential)
                     @php
                         $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
@@ -339,11 +352,63 @@
                         
                         <span class="doc-badge {{ $badgeClassCred }}" id="badge-cred-{{ $credential->id }}">{{ $badgeLabelCred }}</span>
                         
-                        @if($credential->pdf_path)
+                        @if($credential->pdf_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                         <div class="doc-actions">
+                            @if($credential->pdf_path)
                             <a href="{{ route('admin.hcd.instructors.credentials.view', $credential->id) }}?v={{ $credential->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
                                 <i class="bi bi-eye me-1"></i>View
                             </a>
+                            @endif
+                            @if($isAccredited && $allApproved && $instructor->update_request_status === 'none')
+                            <button type="button"
+                                    class="btn btn-outline-warning btn-xs px-2 py-0"
+                                    style="font-size:.78rem;"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#reqModal-cred-{{ $credential->id }}">
+                                <i class="bi bi-pencil-square me-1"></i>Request Update
+                            </button>
+                            {{-- Per-row mini modal --}}
+                            <div class="modal fade" id="reqModal-cred-{{ $credential->id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-sm">
+                                    <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}"
+                                          method="POST" class="modal-content" style="border-radius:12px;overflow:hidden;">
+                                        @csrf
+                                        <input type="hidden" name="fields[]" value="{{ $credential->type }}">
+                                        <div class="modal-header py-2 px-3"
+                                             style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
+                                            <div>
+                                                <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">
+                                                    Request Update
+                                                </h6>
+                                                <small class="text-white-50" style="font-size:.75rem;">
+                                                    @if($credential->type === 'EMS') TESDA EMS NC II/III
+                                                    @elseif($credential->type === 'TM1') TESDA TM1
+                                                    @elseif($credential->type === 'NTTC') TESDA NTTC
+                                                    @elseif($credential->type === 'BOSH') BOSH SO1/SO2
+                                                    @else {{ $credential->type }}
+                                                    @endif
+                                                </small>
+                                            </div>
+                                            <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-3" style="background:#f8fafc;">
+                                            <label class="form-label fw-semibold" style="font-size:.82rem;color:#2A3F54;">
+                                                Reason <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea name="reason" class="form-control form-control-sm" rows="3" required
+                                                      placeholder="e.g. Certificate expired…"
+                                                      style="border-radius:6px;border-color:#d0d8e8;"></textarea>
+                                        </div>
+                                        <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
+                                            <button type="button" class="btn btn-outline-secondary btn-xs px-2" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary btn-xs px-3 fw-bold">
+                                                <i class="bi bi-send me-1"></i>Send
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @endif
                         
@@ -394,11 +459,56 @@
                         
                         <span class="doc-badge {{ $badgeClass }}" id="badge-inst-{{ $instructor->id }}">{{ $badgeLabel }}</span>
                         
-                        @if($instructor->service_agreement_path)
+                        @if($instructor->service_agreement_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                         <div class="doc-actions">
+                            @if($instructor->service_agreement_path)
                             <a href="{{ route('admin.hcd.instructors.service_agreement.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
                                 <i class="bi bi-eye me-1"></i>View
                             </a>
+                            @endif
+                            @if($isAccredited && $allApproved && $instructor->update_request_status === 'none')
+                            <button type="button"
+                                    class="btn btn-outline-warning btn-xs px-2 py-0"
+                                    style="font-size:.78rem;"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#reqModal-sa-{{ $instructor->id }}">
+                                <i class="bi bi-pencil-square me-1"></i>Request Update
+                            </button>
+                            {{-- Per-row mini modal for Service Agreement --}}
+                            <div class="modal fade" id="reqModal-sa-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-sm">
+                                    <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}"
+                                          method="POST" class="modal-content" style="border-radius:12px;overflow:hidden;">
+                                        @csrf
+                                        <input type="hidden" name="fields[]" value="service_agreement">
+                                        <div class="modal-header py-2 px-3"
+                                             style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
+                                            <div>
+                                                <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">
+                                                    Request Update
+                                                </h6>
+                                                <small class="text-white-50" style="font-size:.75rem;">Service Agreement</small>
+                                            </div>
+                                            <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-3" style="background:#f8fafc;">
+                                            <label class="form-label fw-semibold" style="font-size:.82rem;color:#2A3F54;">
+                                                Reason <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea name="reason" class="form-control form-control-sm" rows="3" required
+                                                      placeholder="e.g. Agreement needs updating…"
+                                                      style="border-radius:6px;border-color:#d0d8e8;"></textarea>
+                                        </div>
+                                        <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
+                                            <button type="button" class="btn btn-outline-secondary btn-xs px-2" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary btn-xs px-3 fw-bold">
+                                                <i class="bi bi-send me-1"></i>Send
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @endif
                         

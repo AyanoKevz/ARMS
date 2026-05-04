@@ -19,6 +19,11 @@ class Instructor extends Model
         'remarks',
         'update_request_status',
         'update_request_reason',
+        'update_request_fields',
+    ];
+
+    protected $casts = [
+        'update_request_fields' => 'array',
     ];
 
     /**

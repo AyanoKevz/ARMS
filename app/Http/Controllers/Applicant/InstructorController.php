@@ -94,6 +94,11 @@ class InstructorController extends Controller
 
         $credential->update($data);
 
+        // If this update was admin-requested, signal it's ready for re-evaluation
+        if ($instructor->update_request_status === 'admin_requested') {
+            $instructor->update(['update_request_status' => 'pending_review']);
+        }
+
         return redirect()->route('applicant.instructors.show', $instructor->id)
             ->with('success', 'Credential updated successfully. It has been submitted for admin review.');
     }
@@ -137,6 +142,11 @@ class InstructorController extends Controller
             'remarks'                => null,
         ]);
 
+        // If this update was admin-requested, signal it's ready for re-evaluation
+        if ($instructor->update_request_status === 'admin_requested') {
+            $instructor->update(['update_request_status' => 'pending_review']);
+        }
+
         return redirect()->route('applicant.instructors.show', $instructor->id)
             ->with('success', 'Service Agreement updated. It has been submitted for admin review.');
     }
@@ -174,24 +184,5 @@ class InstructorController extends Controller
             'Pragma'              => 'no-cache',
             'Expires'             => '0',
         ]);
-    }
-
-    /**
-     * Handle the applicant's request to update instructor credentials.
-     */
-    public function requestUpdate(Request $request, Instructor $instructor)
-    {
-        abort_if($instructor->user_id !== auth()->id(), 403);
-
-        $request->validate([
-            'reason' => 'required|string|max:1000'
-        ]);
-
-        $instructor->update([
-            'update_request_status' => 'requested',
-            'update_request_reason' => $request->input('reason')
-        ]);
-
-        return back()->with('success', 'Your update request has been submitted to the admin for approval.');
     }
 }
