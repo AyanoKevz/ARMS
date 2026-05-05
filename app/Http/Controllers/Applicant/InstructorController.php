@@ -39,86 +39,23 @@ class InstructorController extends Controller
     }
 
     /**
-     * Update a specific credential's text fields and/or PDF file.
-     * Resets the credential's status to 'pending' so the admin must re-review.
+     * Batch update for instructor's service agreement and credentials.
+     * Processes all submitted files/fields at once and sets the instructor's status to 'pending_review'.
      */
-    public function updateCredential(Request $request, Instructor $instructor, InstructorCredential $credential)
+    public function batchUpdate(Request $request, Instructor $instructor)
     {
         abort_if($instructor->user_id !== auth()->id(), 403);
-        abort_if($credential->instructor_id !== $instructor->id, 403);
 
         $rules = [
-            'number'         => 'nullable|string|max:255',
-            'issued_date'    => 'nullable|date',
-            'validity_date'  => 'nullable|date',
-            'training_dates' => 'nullable|string|max:500',
-            'pdf_file'       => 'nullable|file|mimes:pdf|max:10240',
+            'service_agreement' => 'nullable|file|mimes:pdf|max:10240',
+            'credentials.*.number' => 'nullable|string|max:255',
+            'credentials.*.issued_date' => 'nullable|date',
+            'credentials.*.validity_date' => 'nullable|date',
+            'credentials.*.training_dates' => 'nullable|string|max:500',
+            'credentials.*.pdf_file' => 'nullable|file|mimes:pdf|max:10240',
         ];
 
-        $validated = $request->validate($rules);
-
-        $data = [
-            'number'         => $validated['number'] ?? $credential->number,
-            'issued_date'    => $validated['issued_date'] ?? $credential->issued_date,
-            'validity_date'  => $validated['validity_date'] ?? $credential->validity_date,
-            'training_dates' => $validated['training_dates'] ?? $credential->training_dates,
-            'status'         => 'pending', // Reset for admin re-review
-            'remarks'        => null,
-        ];
-
-        // Handle new PDF upload
-        if ($request->hasFile('pdf_file')) {
-            // Delete old file
-            if ($credential->pdf_path && Storage::disk('local')->exists($credential->pdf_path)) {
-                Storage::disk('local')->delete($credential->pdf_path);
-            }
-
-            $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
-            $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
-            $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-
-            $fatProName = auth()->user()->name;
-            $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-
-            $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
-
-            $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
-            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
-            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
-            $timestamp = time();
-            $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
-
-            $path = $request->file('pdf_file')->storeAs($baseCredPath, $filename, 'local');
-            $data['pdf_path'] = $path;
-        }
-
-        $credential->update($data);
-
-        // If this update was admin-requested, signal it's ready for re-evaluation
-        if ($instructor->update_request_status === 'admin_requested') {
-            $instructor->update(['update_request_status' => 'pending_review']);
-        }
-
-        return redirect()->route('applicant.instructors.show', $instructor->id)
-            ->with('success', 'Credential updated successfully. It has been submitted for admin review.');
-    }
-
-    /**
-     * Replace the service agreement PDF for an instructor.
-     * Resets the instructor's status to 'pending'.
-     */
-    public function updateServiceAgreement(Request $request, Instructor $instructor)
-    {
-        abort_if($instructor->user_id !== auth()->id(), 403);
-
-        $request->validate([
-            'service_agreement' => 'required|file|mimes:pdf|max:10240',
-        ]);
-
-        // Delete old file
-        if ($instructor->service_agreement_path && Storage::disk('local')->exists($instructor->service_agreement_path)) {
-            Storage::disk('local')->delete($instructor->service_agreement_path);
-        }
+        $request->validate($rules);
 
         $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
         $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
@@ -128,19 +65,53 @@ class InstructorController extends Controller
         $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
 
         $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
-
         $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
         $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
         $timestamp = time();
-        $filename  = "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
 
-        $path = $request->file('service_agreement')->storeAs($baseCredPath, $filename, 'local');
+        // 1. Handle Service Agreement Update
+        if ($request->hasFile('service_agreement')) {
+            if ($instructor->service_agreement_path && Storage::disk('local')->exists($instructor->service_agreement_path)) {
+                Storage::disk('local')->delete($instructor->service_agreement_path);
+            }
+            $filename  = "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+            $path = $request->file('service_agreement')->storeAs($baseCredPath, $filename, 'local');
 
-        $instructor->update([
-            'service_agreement_path' => $path,
-            'status'                 => 'pending',
-            'remarks'                => null,
-        ]);
+            $instructor->update([
+                'service_agreement_path' => $path,
+                'status'                 => 'pending',
+                'remarks'                => null,
+            ]);
+        }
+
+        // 2. Handle Credentials Update
+        if ($request->has('credentials')) {
+            foreach ($request->input('credentials') as $credId => $credData) {
+                $credential = $instructor->credentials()->find($credId);
+                if (!$credential) continue;
+
+                $data = [
+                    'number'         => $credData['number'] ?? $credential->number,
+                    'issued_date'    => $credData['issued_date'] ?? $credential->issued_date,
+                    'validity_date'  => $credData['validity_date'] ?? $credential->validity_date,
+                    'training_dates' => $credData['training_dates'] ?? $credential->training_dates,
+                    'status'         => 'pending', // Reset for admin re-review
+                    'remarks'        => null,
+                ];
+
+                if ($request->hasFile("credentials.{$credId}.pdf_file")) {
+                    if ($credential->pdf_path && Storage::disk('local')->exists($credential->pdf_path)) {
+                        Storage::disk('local')->delete($credential->pdf_path);
+                    }
+                    $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
+                    $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}_{$credId}.pdf";
+                    $path = $request->file("credentials.{$credId}.pdf_file")->storeAs($baseCredPath, $filename, 'local');
+                    $data['pdf_path'] = $path;
+                }
+
+                $credential->update($data);
+            }
+        }
 
         // If this update was admin-requested, signal it's ready for re-evaluation
         if ($instructor->update_request_status === 'admin_requested') {
@@ -148,7 +119,7 @@ class InstructorController extends Controller
         }
 
         return redirect()->route('applicant.instructors.show', $instructor->id)
-            ->with('success', 'Service Agreement updated. It has been submitted for admin review.');
+            ->with('success', 'Updates submitted successfully for admin review.');
     }
 
     /**

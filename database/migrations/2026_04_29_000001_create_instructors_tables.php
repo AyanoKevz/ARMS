@@ -17,12 +17,13 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('middle_name')->nullable();
             $table->string('last_name');
-
             $table->string('service_agreement_path')->nullable();
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
-
             $table->enum('status', ['pending', 'approved', 'returned', 'rejected'])->default('pending');
             $table->text('remarks')->nullable();
+            $table->string('update_request_status')->default('none')->comment('none, admin_requested, pending_review, completed');
+            $table->text('update_request_reason')->nullable();
+            $table->json('update_request_fields')->nullable()->comment('JSON array of fields to update: service_agreement, EMS, TM1, NTTC, BOSH');
 
             $table->timestamps();
         });

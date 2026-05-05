@@ -98,7 +98,10 @@
             btn.removeAttribute('data-bs-target');
             btn.onclick = submitAllApproved;
             if (btnIcon) btnIcon.className = 'bi bi-save me-2 fs-5';
-            if (btnText) btnText.textContent = 'Save Approvals and Schedule Interview';
+            if (btnText) {
+                const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
+                btnText.textContent = isAccepted ? 'Save Approvals' : 'Save Approvals and Schedule Interview';
+            }
         }
     }
 
@@ -140,26 +143,35 @@
             document.querySelectorAll('.doc-eval-actions').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.reject-panel').forEach(el => el.style.display = 'none');
 
-            // Set up button to open modal now
-            mainBtn.innerHTML = '<i class="bi bi-calendar-check-fill me-2 fs-5"></i>Schedule Interview';
-            mainBtn.disabled = false;
-            mainBtn.onclick = null;
-            mainBtn.setAttribute('data-bs-toggle', 'modal');
-            mainBtn.setAttribute('data-bs-target', '#scheduleInterviewModal');
-            
-            // Auto-open modal
-            const modalEl = document.getElementById('scheduleInterviewModal');
-            if (window.bootstrap && window.bootstrap.Modal) {
-                new window.bootstrap.Modal(modalEl).show();
-            } else if (typeof $ !== 'undefined') {
-                $(modalEl).modal('show');
+            const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
+
+            if (isAccepted || data.action === 'update_accepted') {
+                // Instructor credential update accepted — just reload, no interview needed
+                mainBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2 fs-5"></i>Approvals Saved';
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                // Set up button to open modal now
+                mainBtn.innerHTML = '<i class="bi bi-calendar-check-fill me-2 fs-5"></i>Schedule Interview';
+                mainBtn.disabled = false;
+                mainBtn.onclick = null;
+                mainBtn.setAttribute('data-bs-toggle', 'modal');
+                mainBtn.setAttribute('data-bs-target', '#scheduleInterviewModal');
+                
+                // Auto-open modal
+                const modalEl = document.getElementById('scheduleInterviewModal');
+                if (window.bootstrap && window.bootstrap.Modal) {
+                    new window.bootstrap.Modal(modalEl).show();
+                } else if (typeof $ !== 'undefined') {
+                    $(modalEl).modal('show');
+                }
             }
 
         } catch (err) {
             console.error('Approval submission error:', err);
             alert('A network error occurred. Please try again.');
             mainBtn.disabled = false;
-            mainBtn.innerHTML = '<i class="bi bi-save me-2 fs-5"></i>Save Approvals and Schedule Interview';
+            const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
+            mainBtn.innerHTML = isAccepted ? '<i class="bi bi-save me-2 fs-5"></i>Save Approvals' : '<i class="bi bi-save me-2 fs-5"></i>Save Approvals and Schedule Interview';
         }
     }
 
@@ -328,7 +340,7 @@
     if (confirmBtn) confirmBtn.addEventListener('click', submitRejection);
 
     /* ─── Init ────────────────────────────────────────────── */
-    if (allApproved || isScheduled) {
+    if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate) {
         // Already all approved or scheduled — go straight to green button
         const btn     = document.getElementById('btn-open-schedule');
         const btnIcon = document.getElementById('btn-schedule-icon');

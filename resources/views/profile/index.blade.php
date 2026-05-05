@@ -167,9 +167,13 @@
                             {{-- Organization View --}}
                             @elseif($user->profile_type === 'Organization')
                                 <div class="row g-3">
-                                    <div class="col-md-12">
+                                    <div class="col-md-6">
                                         <label class="form-label">Organization Name</label>
                                         <input type="text" class="form-control" name="name" value="{{ old('name', $profile->name ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Organization Email</label>
+                                        <input type="email" class="form-control" name="email" value="{{ old('email', $profile->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Head of Organization</label>
@@ -179,17 +183,13 @@
                                         <label class="form-label">Designation</label>
                                         <input type="text" class="form-control" name="designation" value="{{ old('designation', $profile->designation ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label">Telephone Number</label>
                                         <input type="text" class="form-control" name="telephone" value="{{ old('telephone', $profile->telephone ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <label class="form-label">Fax Number</label>
                                         <input type="text" class="form-control" name="fax" value="{{ old('fax', $profile->fax ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Organization Email</label>
-                                        <input type="email" class="form-control" name="email" value="{{ old('email', $profile->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Office Address</label>

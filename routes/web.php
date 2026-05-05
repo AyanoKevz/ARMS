@@ -64,8 +64,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
-        Route::post('/instructors/{instructor}/credentials/{credential}', [ApplicantInstructorController::class, 'updateCredential'])->name('instructors.credentials.update');
-        Route::post('/instructors/{instructor}/service-agreement', [ApplicantInstructorController::class, 'updateServiceAgreement'])->name('instructors.service_agreement.update');
+        Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update');
         // Note: instructor update requests are now admin-initiated only
 
         // Renewal / Reinstatement

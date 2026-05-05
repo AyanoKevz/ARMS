@@ -309,6 +309,9 @@ class ApplicationController extends Controller
         $evaluations = $request->input('evaluations', []);
         $instructorEvals = $request->input('instructor_evaluations', []);
         $credentialEvals = $request->input('credential_evaluations', []);
+
+        $application->load('accreditation');
+        $isAccredited = (bool) $application->accreditation;
         
         $hasRejections = false;
 
@@ -354,6 +357,8 @@ class ApplicationController extends Controller
             }
         }
 
+
+
         if ($hasRejections) {
             // Status: For Update (ID 3)
             $forUpdateStatus = ApplicationStatus::where('name', 'For Update')->first();
@@ -380,70 +385,81 @@ class ApplicationController extends Controller
                 'message' => 'Rejection notice sent successfully.',
                 'new_status' => 'For Update'
             ]);
-        } else {
-            // Check if all are approved (secondary safety check)
-            $allApproved = $application->documents()->get()->every(fn($d) => $d->status === 'approved');
-            $allInstApproved = $application->user->instructors()->get()->every(fn($i) => $i->status === 'approved');
-            $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
-
-            if ($allApproved && $allInstApproved && $allCredApproved) {
-                // Status: Scheduled for Interview (ID 4)
-                $scheduledStatus = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
-                if ($scheduledStatus) {
-                    ApplicationStatusLog::create([
-                        'application_id' => $application->id,
-                        'status_id' => $scheduledStatus->id,
-                        'updated_by' => auth()->id(),
-                        'remarks' => 'All documents approved. Proceeding to interview schedule.',
-                    ]);
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'action' => 'proceed_to_interview',
-                    'message' => 'All documents approved! You can now schedule the interview.',
-                    'new_status' => 'Scheduled for Interview'
-                ]);
-            }
         }
 
-        // ── Check for instructor update completions ──────────────────────────
-        // If any instructor was in 'pending_review' and all their credentials are
-        // now approved, mark it completed and notify the applicant.
-        foreach ($application->user->instructors as $inst) {
-            if ($inst->update_request_status !== 'pending_review') {
-                continue;
-            }
+        // ── Already-accredited path: instructor credential updates only ──────
+        // For accredited FATPros, no interview step is needed.
+        // Check if any instructor had pending_review updates and mark them complete, then email.
+        if ($isAccredited) {
+            $emailsSent = 0;
+            foreach ($application->user->instructors as $inst) {
+                if ($inst->update_request_status !== 'pending_review') {
+                    continue;
+                }
 
-            $requestedFields = $inst->update_request_fields ?? [];
+                $requestedFields = $inst->update_request_fields ?? [];
 
-            // Check service agreement (instructor status) if it was in the request
-            $saApproved = !in_array('service_agreement', $requestedFields)
-                || $inst->fresh()->status === 'approved';
+                $saApproved = !in_array('service_agreement', $requestedFields)
+                    || $inst->fresh()->status === 'approved';
 
-            // Check each requested credential type
-            $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
-            $credsApproved = true;
-            foreach ($credTypes as $type) {
-                $cred = $inst->credentials->firstWhere('type', $type);
-                if ($cred && $cred->fresh()->status !== 'approved') {
-                    $credsApproved = false;
-                    break;
+                $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
+                $inst->load('credentials'); // refresh from DB after evaluations were saved
+                $credsApproved = true;
+                foreach ($credTypes as $type) {
+                    $cred = $inst->credentials->firstWhere('type', $type);
+                    if ($cred && $cred->status !== 'approved') {
+                        $credsApproved = false;
+                        break;
+                    }
+                }
+
+                if ($saApproved && $credsApproved) {
+                    $inst->update([
+                        'update_request_status' => 'completed',
+                        'update_request_reason' => null,
+                        'update_request_fields' => null,
+                    ]);
+
+                    try {
+                        Mail::to($application->user->email)->send(new InstructorUpdateCompleteEmail($inst));
+                        $emailsSent++;
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
+                    }
                 }
             }
 
-            if ($saApproved && $credsApproved) {
-                $inst->update([
-                    'update_request_status' => 'completed',
-                    'update_request_reason' => null,
-                    'update_request_fields' => null,
+            return response()->json([
+                'success' => true,
+                'action'  => 'update_accepted',
+                'message' => 'Instructor credentials approved' . ($emailsSent > 0 ? ' and applicant notified via email.' : '.'),
+            ]);
+        }
+
+        // ── New / Renewal / Reinstatement path ──────────────────────────────
+        // Check if all are approved (secondary safety check)
+        $allApproved = $application->documents()->get()->every(fn($d) => $d->status === 'approved');
+        $allInstApproved = $application->user->instructors()->get()->every(fn($i) => $i->status === 'approved');
+        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+
+        if ($allApproved && $allInstApproved && $allCredApproved) {
+            // Status: Scheduled for Interview (ID 4)
+            $scheduledStatus = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
+            if ($scheduledStatus) {
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id' => $scheduledStatus->id,
+                    'updated_by' => auth()->id(),
+                    'remarks' => 'All documents approved. Proceeding to interview schedule.',
                 ]);
-
-                if ($inst->user && $inst->user->email) {
-                    Mail::to($inst->user->email)
-                        ->send(new InstructorUpdateCompleteEmail($inst));
-                }
             }
+
+            return response()->json([
+                'success' => true,
+                'action' => 'proceed_to_interview',
+                'message' => 'All documents approved! You can now schedule the interview.',
+                'new_status' => 'Scheduled for Interview'
+            ]);
         }
 
         return response()->json(['success' => false, 'message' => 'Incomplete evaluation.']);
@@ -889,16 +905,26 @@ class ApplicationController extends Controller
      */
     public function requestInstructorUpdate(Request $request, Instructor $instructor)
     {
-        $request->validate([
-            'reason' => ['required', 'string', 'max:1000'],
-            'fields' => ['required', 'array', 'min:1'],
-            'fields.*' => ['in:service_agreement,EMS,TM1,NTTC,BOSH'],
-        ]);
+        $inputFields = $request->input('fields', []);
+        
+        $requestedFields = [];
+        $reasons = [];
+
+        foreach ($inputFields as $key => $data) {
+            if (!empty($data['requested'])) {
+                $requestedFields[] = $key;
+                $reasons[$key] = $data['reason'] ?? 'No specific reason provided';
+            }
+        }
+
+        if (empty($requestedFields)) {
+            return back()->with('error', 'Please select at least one document to update.');
+        }
 
         $instructor->update([
             'update_request_status' => 'admin_requested',
-            'update_request_reason' => $request->input('reason'),
-            'update_request_fields' => $request->input('fields'),
+            'update_request_fields' => $requestedFields,
+            'update_request_reason' => json_encode($reasons),
         ]);
 
         if ($instructor->user && $instructor->user->email) {

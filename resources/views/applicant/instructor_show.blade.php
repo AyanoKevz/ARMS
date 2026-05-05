@@ -39,10 +39,8 @@
         <div>
             <strong>Action Required: Credential Update Requested by Admin</strong><br>
             <span style="font-size:0.88rem;">
-                <strong>Reason:</strong> {{ $instructor->update_request_reason }}<br>
-                @if($instructor->update_request_fields)
-                <strong>Fields to update:</strong>
                 @php
+                    $reasons = json_decode($instructor->update_request_reason, true);
                     $fieldLabels = [
                         'service_agreement' => 'Service Agreement',
                         'EMS'  => 'TESDA EMS NC II or III Certificate',
@@ -51,7 +49,19 @@
                         'BOSH' => 'BOSH SO1 or SO2 Certificate',
                     ];
                 @endphp
-                {{ implode(', ', array_map(fn($f) => $fieldLabels[$f] ?? $f, $instructor->update_request_fields)) }}
+                @if(is_array($reasons))
+                    <strong>Documents to Update:</strong>
+                    <ul class="mb-0 mt-1">
+                    @foreach($instructor->update_request_fields as $f)
+                        <li><strong>{{ $fieldLabels[$f] ?? $f }}:</strong> <span class="text-muted">{{ $reasons[$f] ?? 'No reason provided' }}</span></li>
+                    @endforeach
+                    </ul>
+                @else
+                    <strong>Reason:</strong> {{ $instructor->update_request_reason }}<br>
+                    @if($instructor->update_request_fields)
+                    <strong>Fields to update:</strong>
+                    {{ implode(', ', array_map(fn($f) => $fieldLabels[$f] ?? $f, $instructor->update_request_fields)) }}
+                    @endif
                 @endif
             </span>
         </div>
@@ -81,6 +91,10 @@
 
     <div class="row pt-2">
         <div class="col-12">
+            @if($isUpdateMode)
+            <form action="{{ route('applicant.instructors.batch_update', $instructor->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+            @endif
 
             {{-- ── Service Agreement ── --}}
             <div class="cred-card">
@@ -128,23 +142,16 @@
                     {{-- Update form: only when admin requested AND service_agreement is in the fields list --}}
                     @if($isUpdateMode && in_array('service_agreement', $requestedFields))
                     <div class="update-section mt-2">
-                        <form action="{{ route('applicant.instructors.service_agreement.update', $instructor->id) }}"
-                              method="POST" enctype="multipart/form-data">
-                            @csrf
-                            <div class="d-flex align-items-end gap-2">
-                                <div class="flex-grow-1">
-                                    <label class="form-label">Replace Service Agreement PDF <span class="text-danger">*</span> (max 10MB)</label>
-                                    <input type="file" name="service_agreement" class="form-control form-control-sm" accept=".pdf" required>
-                                </div>
-                                <button type="submit" class="btn btn-sm btn-primary px-4">
-                                    <i class="bi bi-save me-1"></i> Submit
-                                </button>
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="flex-grow-1">
+                                <label class="form-label">Replace Service Agreement PDF <span class="text-danger">*</span> (max 10MB)</label>
+                                <input type="file" name="service_agreement" class="form-control form-control-sm" accept=".pdf" required>
                             </div>
-                            <small class="text-muted mt-1 d-block">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Uploading will replace the existing file and submit for admin re-review.
-                            </small>
-                        </form>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Uploading will replace the existing file and submit for admin re-review.
+                        </small>
                     </div>
                     @endif
                 </div>
@@ -234,50 +241,43 @@
                     {{-- Update Form: only when admin requested AND this credential type is in the fields list --}}
                     @if($isUpdateMode && in_array($credential->type, $requestedFields))
                     <div class="update-section mt-2">
-                        <form action="{{ route('applicant.instructors.credentials.update', [$instructor->id, $credential->id]) }}"
-                              method="POST" enctype="multipart/form-data">
-                            @csrf
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-4">
-                                    <label class="form-label">Certificate Number</label>
-                                    <input type="text" name="number" class="form-control form-control-sm"
-                                           value="{{ old('number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
-                                </div>
-                                @if($credential->type !== 'BOSH')
-                                <div class="col-md-4">
-                                    <label class="form-label">Issued Date</label>
-                                    <input type="date" name="issued_date" class="form-control form-control-sm"
-                                           value="{{ old('issued_date', $credential->issued_date?->format('Y-m-d')) }}">
-                                </div>
-                                @endif
-                                <div class="col-md-4">
-                                    <label class="form-label">Valid Until</label>
-                                    <input type="date" name="validity_date" class="form-control form-control-sm"
-                                           value="{{ old('validity_date', $credential->validity_date?->format('Y-m-d')) }}">
-                                </div>
-                                @if($credential->type === 'BOSH')
-                                <div class="col-md-8">
-                                    <label class="form-label">Training Date(s)</label>
-                                    <input type="text" name="training_dates" class="form-control form-control-sm"
-                                           value="{{ old('training_dates', $credential->training_dates) }}"
-                                           placeholder="e.g. April 10-14, 2024">
-                                </div>
-                                @endif
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label">Certificate Number</label>
+                                <input type="text" name="credentials[{{ $credential->id }}][number]" class="form-control form-control-sm"
+                                       value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
                             </div>
-                            <div class="d-flex align-items-end gap-2">
-                                <div class="flex-grow-1">
-                                    <label class="form-label">Replace Credential PDF (optional, max 10MB)</label>
-                                    <input type="file" name="pdf_file" class="form-control form-control-sm" accept=".pdf">
-                                </div>
-                                <button type="submit" class="btn btn-sm btn-primary px-4">
-                                    <i class="bi bi-save me-1"></i> Save & Submit for Review
-                                </button>
+                            @if($credential->type !== 'BOSH')
+                            <div class="col-md-4">
+                                <label class="form-label">Issued Date</label>
+                                <input type="date" name="credentials[{{ $credential->id }}][issued_date]" class="form-control form-control-sm"
+                                       value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}">
                             </div>
-                            <small class="text-muted mt-1 d-block">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Saving will reset this credential to <strong>Pending</strong> for admin re-review.
-                            </small>
-                        </form>
+                            @endif
+                            <div class="col-md-4">
+                                <label class="form-label">Valid Until</label>
+                                <input type="date" name="credentials[{{ $credential->id }}][validity_date]" class="form-control form-control-sm"
+                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}">
+                            </div>
+                            @if($credential->type === 'BOSH')
+                            <div class="col-md-8">
+                                <label class="form-label">Training Date(s)</label>
+                                <input type="text" name="credentials[{{ $credential->id }}][training_dates]" class="form-control form-control-sm"
+                                       value="{{ old('credentials.'.$credential->id.'.training_dates', $credential->training_dates) }}"
+                                       placeholder="e.g. April 10-14, 2024">
+                            </div>
+                            @endif
+                        </div>
+                        <div class="d-flex align-items-end gap-2">
+                            <div class="flex-grow-1">
+                                <label class="form-label">Replace Credential PDF (optional, max 10MB)</label>
+                                <input type="file" name="credentials[{{ $credential->id }}][pdf_file]" class="form-control form-control-sm" accept=".pdf">
+                            </div>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Saving will reset this credential to <strong>Pending</strong> for admin re-review.
+                        </small>
                     </div>
                     @endif
                 </div>
@@ -288,6 +288,15 @@
             <div class="alert alert-info">
                 <i class="bi bi-info-circle me-2"></i> No credentials are currently on file for this instructor.
             </div>
+            @endif
+
+            @if($isUpdateMode)
+            <div class="text-end mt-4 mb-4">
+                <button type="submit" class="btn btn-primary btn-lg px-5" style="border-radius:10px;">
+                    <i class="bi bi-send me-1"></i> Submit All Updates
+                </button>
+            </div>
+            </form>
             @endif
 
         </div>

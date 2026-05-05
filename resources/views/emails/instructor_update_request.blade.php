@@ -62,7 +62,7 @@
         .icon-circle {
             width: 72px;
             height: 72px;
-            background: linear-gradient(135deg, #e6f0ff, #c3d9ff);
+            background: linear-gradient(135deg, #fff8e1, #ffe082);
             border-radius: 50%;
             margin: 0 auto 24px;
             font-size: 2rem;
@@ -140,11 +140,7 @@
         .field-item:last-child { border-bottom: none; }
 
         .field-dot {
-            width: 8px;
             height: 8px;
-            border-radius: 50%;
-            background-color: #1a6fbd;
-            flex-shrink: 0;
         }
 
         .btn-wrap {
@@ -211,13 +207,7 @@
                 Please log in to your applicant portal to upload the requested documents.
             </p>
 
-            {{-- Admin's reason --}}
-            <div class="reason-box">
-                <div class="label">Reason for Update</div>
-                <div class="value">{{ $instructor->update_request_reason }}</div>
-            </div>
-
-            {{-- Fields to update --}}
+            {{-- Fields and Reasons to update --}}
             @php
                 $fieldLabels = [
                     'service_agreement' => 'Service Agreement between FATPro head and instructor',
@@ -227,15 +217,24 @@
                     'BOSH' => 'BOSH SO1 or SO2 Certificate',
                 ];
                 $fields = $instructor->update_request_fields ?? [];
+                $reasons = json_decode($instructor->update_request_reason, true);
             @endphp
 
             @if(count($fields) > 0)
             <div class="fields-box">
-                <div class="label">Documents to Update</div>
+                <div class="label" style="margin-bottom: 15px;">Documents to Update</div>
                 @foreach($fields as $field)
-                <div class="field-item">
-                    <div class="field-dot"></div>
-                    {{ $fieldLabels[$field] ?? $field }}
+                @php
+                    $reasonText = is_array($reasons) ? ($reasons[$field] ?? 'No reason provided') : $instructor->update_request_reason;
+                @endphp
+                <div class="field-item" style="margin-bottom: 12px;">
+                    <div style="font-weight: bold; margin-bottom: 4px;">
+                        <div class="field-dot"></div>
+                        {{ $fieldLabels[$field] ?? $field }}
+                    </div>
+                    <div style="margin-left: 18px; color: #555; font-size: 0.9em; background: #f8fafc; padding: 6px 10px; border-left: 2px solid #ccc;">
+                        Reason: {{ $reasonText }}
+                    </div>
                 </div>
                 @endforeach
             </div>

@@ -30,6 +30,11 @@
     $isAccredited   = (bool) $application->accreditation;
     $isApproved     = $currentStatus === 'Approved';
     $isRejected     = $currentStatus === 'Rejected';
+    
+    $hasPendingUpdate = false;
+    if ($application->user && $application->user->instructors) {
+        $hasPendingUpdate = $application->user->instructors->contains('update_request_status', 'pending_review');
+    }
 @endphp
 
 {{-- ── Flash Messages ── --}}
@@ -55,7 +60,32 @@
 </div>
 <div class="clearfix"></div>
 
-{{-- ── Tracking Strip ── --}}
+{{-- ── Tracking or Accreditation Strip ── --}}
+@if($isAccredited && $application->accreditation->status === 'active')
+<div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #bbf7d0;">
+    <div>
+        <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#166534;letter-spacing:.45px;"><i class="bi bi-patch-check-fill me-1"></i>Accreditation Number</div>
+        <h4 class="m-0 fw-bold" style="color:#14532d;">{{ $application->accreditation->accreditation_number }}</h4>
+        <small style="color:#166534;"><i class="bi bi-calendar-check me-1"></i>Valid Until: {{ \Carbon\Carbon::parse($application->accreditation->validity_date)->format('F d, Y') }}</small>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge fs-6 px-3 py-2 bg-success text-white">
+                <i class="bi bi-check-circle-fill me-1"></i> Active FATPro
+            </span>
+            <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
+               target="_blank"
+               class="btn btn-success btn-sm m-0 fw-semibold"
+               style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
+            </a>
+        </div>
+        <small style="color:#166534;">
+            {{ $application->accreditationType->name ?? 'N/A' }}
+        </small>
+    </div>
+</div>
+@else
 <div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
     <div>
         <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#999;letter-spacing:.45px;">Tracking Number</div>
@@ -81,6 +111,7 @@
         </small>
     </div>
 </div>
+@endif
 
 {{-- ══ Org / Reps Card ══ --}}
 <div class="ai-card mb-4">
@@ -210,7 +241,7 @@
                             @endif
 
                             {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
-                            @if(!$allApproved && !$isScheduled)
+                            @if(!$allApproved && !$isScheduled && !$isAccredited && !$isApproved)
                             <div class="doc-eval-actions">
                                 <button type="button"
                                         class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -263,8 +294,15 @@
             @foreach($application->user->instructors as $instructor)
             <div class="col-md-12">
                 <div class="doc-section">
-                    <div class="doc-section-header">
-                        <i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}
+                    <div class="doc-section-header d-flex justify-content-between align-items-center">
+                        <div><i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}</div>
+                        @if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
+                        <div>
+                            <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reqModal-inst-{{ $instructor->id }}">
+                                <i class="bi bi-pencil-square me-1"></i>Request Update
+                            </button>
+                        </div>
+                        @endif
                     </div>
                     
                     {{-- Update request status banners (non-none states) --}}
@@ -359,60 +397,17 @@
                                 <i class="bi bi-eye me-1"></i>View
                             </a>
                             @endif
-                            @if($isAccredited && $allApproved && $instructor->update_request_status === 'none')
-                            <button type="button"
-                                    class="btn btn-outline-warning btn-xs px-2 py-0"
-                                    style="font-size:.78rem;"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#reqModal-cred-{{ $credential->id }}">
-                                <i class="bi bi-pencil-square me-1"></i>Request Update
-                            </button>
-                            {{-- Per-row mini modal --}}
-                            <div class="modal fade" id="reqModal-cred-{{ $credential->id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-sm">
-                                    <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}"
-                                          method="POST" class="modal-content" style="border-radius:12px;overflow:hidden;">
-                                        @csrf
-                                        <input type="hidden" name="fields[]" value="{{ $credential->type }}">
-                                        <div class="modal-header py-2 px-3"
-                                             style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
-                                            <div>
-                                                <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">
-                                                    Request Update
-                                                </h6>
-                                                <small class="text-white-50" style="font-size:.75rem;">
-                                                    @if($credential->type === 'EMS') TESDA EMS NC II/III
-                                                    @elseif($credential->type === 'TM1') TESDA TM1
-                                                    @elseif($credential->type === 'NTTC') TESDA NTTC
-                                                    @elseif($credential->type === 'BOSH') BOSH SO1/SO2
-                                                    @else {{ $credential->type }}
-                                                    @endif
-                                                </small>
-                                            </div>
-                                            <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body p-3" style="background:#f8fafc;">
-                                            <label class="form-label fw-semibold" style="font-size:.82rem;color:#2A3F54;">
-                                                Reason <span class="text-danger">*</span>
-                                            </label>
-                                            <textarea name="reason" class="form-control form-control-sm" rows="3" required
-                                                      placeholder="e.g. Certificate expired…"
-                                                      style="border-radius:6px;border-color:#d0d8e8;"></textarea>
-                                        </div>
-                                        <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
-                                            <button type="button" class="btn btn-outline-secondary btn-xs px-2" data-bs-dismiss="modal">Cancel</button>
-                                            <button type="submit" class="btn btn-primary btn-xs px-3 fw-bold">
-                                                <i class="bi bi-send me-1"></i>Send
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                            @endif
                         </div>
                         @endif
                         
-                        @if(!$allApproved && !$isScheduled)
+                        @php
+                            $isRequested = $instructor->update_request_status === 'pending_review' && 
+                                           is_array($instructor->update_request_fields) && 
+                                           in_array($credential->type, $instructor->update_request_fields);
+                            $showEvalButtons = (!$isAccredited && !$isScheduled) || $isRequested;
+                        @endphp
+                        
+                        @if($showEvalButtons)
                         <div class="doc-eval-actions">
                             <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
                                 <i class="bi bi-check-circle-fill"></i> Approve
@@ -466,53 +461,17 @@
                                 <i class="bi bi-eye me-1"></i>View
                             </a>
                             @endif
-                            @if($isAccredited && $allApproved && $instructor->update_request_status === 'none')
-                            <button type="button"
-                                    class="btn btn-outline-warning btn-xs px-2 py-0"
-                                    style="font-size:.78rem;"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#reqModal-sa-{{ $instructor->id }}">
-                                <i class="bi bi-pencil-square me-1"></i>Request Update
-                            </button>
-                            {{-- Per-row mini modal for Service Agreement --}}
-                            <div class="modal fade" id="reqModal-sa-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-sm">
-                                    <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}"
-                                          method="POST" class="modal-content" style="border-radius:12px;overflow:hidden;">
-                                        @csrf
-                                        <input type="hidden" name="fields[]" value="service_agreement">
-                                        <div class="modal-header py-2 px-3"
-                                             style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
-                                            <div>
-                                                <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">
-                                                    Request Update
-                                                </h6>
-                                                <small class="text-white-50" style="font-size:.75rem;">Service Agreement</small>
-                                            </div>
-                                            <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body p-3" style="background:#f8fafc;">
-                                            <label class="form-label fw-semibold" style="font-size:.82rem;color:#2A3F54;">
-                                                Reason <span class="text-danger">*</span>
-                                            </label>
-                                            <textarea name="reason" class="form-control form-control-sm" rows="3" required
-                                                      placeholder="e.g. Agreement needs updating…"
-                                                      style="border-radius:6px;border-color:#d0d8e8;"></textarea>
-                                        </div>
-                                        <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
-                                            <button type="button" class="btn btn-outline-secondary btn-xs px-2" data-bs-dismiss="modal">Cancel</button>
-                                            <button type="submit" class="btn btn-primary btn-xs px-3 fw-bold">
-                                                <i class="bi bi-send me-1"></i>Send
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                            @endif
                         </div>
                         @endif
                         
-                        @if(!$allApproved && !$isScheduled)
+                        @php
+                            $isSaRequested = $instructor->update_request_status === 'pending_review' && 
+                                             is_array($instructor->update_request_fields) && 
+                                             in_array('service_agreement', $instructor->update_request_fields);
+                            $showSaEvalButtons = (!$isAccredited && !$isScheduled) || $isSaRequested;
+                        @endphp
+                        
+                        @if($showSaEvalButtons)
                         <div class="doc-eval-actions">
                             <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
                                 <i class="bi bi-check-circle-fill"></i> Approve
@@ -536,8 +495,8 @@
 
 </form>
 
-{{-- ══ Schedule Interview Button (always visible, enabled only when ALL docs approved) ══ --}}
-@if(!$isAccredited && !$isApproved)
+{{-- ══ Form Submit / Schedule Button (enabled only when ALL docs evaluated) ══ --}}
+@if(!$isAccredited && !$isApproved || $hasPendingUpdate)
 <div class="text-center mt-4 mb-3">
     <button type="button"
             id="btn-open-schedule"
@@ -547,7 +506,7 @@
         <i class="bi bi-hourglass-split me-2 fs-5" id="btn-schedule-icon"></i>
         <span id="btn-schedule-text">Pending Documents</span>
     </button>
-    @if($interview)
+    @if($interview && !$isApproved && !$isAccredited)
     <div class="mt-3 d-inline-flex align-items-center gap-3 flex-wrap justify-content-center"
          style="background:#f0faf4;border:1px solid #c3e6cb;border-radius:10px;padding:10px 22px;">
         <span class="text-success fw-semibold small"><i class="bi bi-calendar-event me-1"></i>{{ $interview->interview_date->format('F d, Y') }}</span>
@@ -562,7 +521,7 @@
 @endif
 
 {{-- ══ Interview Result Card ══ --}}
-@if($interview)
+@if($interview && !($isAccredited && $application->accreditation->status === 'active'))
 <div class="mt-3 mb-4"
      style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
 
@@ -617,7 +576,7 @@
         {{-- Awaiting result --}}
         <p class="text-muted mb-4" style="font-size:.9rem;">
             <i class="bi bi-info-circle me-1"></i>
-            Select the interview outcome below. This action is <strong>permanent</strong> and will immediately notify the applicant.
+            Interview result has been released and all requirements has been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
         </p>
         <div class="d-flex justify-content-center gap-3 flex-wrap">
             {{-- PASSED button --}}
@@ -625,14 +584,14 @@
                     class="btn btn-success btn-lg fw-bold px-5"
                     style="border-radius:10px;min-width:160px;"
                     data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
-                <i class="bi bi-check-circle-fill me-2"></i>Passed
+                <i class="bi bi-check-circle-fill me-2"></i>Accredited
             </button>
             {{-- NOT PASSED button --}}
             <button type="button"
                     class="btn btn-danger btn-lg fw-bold px-5"
                     style="border-radius:10px;min-width:160px;"
                     data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
-                <i class="bi bi-x-circle-fill me-2"></i>Not Passed
+                <i class="bi bi-x-circle-fill me-2"></i>Not Accredited
             </button>
         </div>
         @endif
@@ -941,6 +900,83 @@
     </div>
 </div>
 
+{{-- ══ Request Update Modals (outside main form to avoid nesting issues) ══ --}}
+@if($application->user && $application->user->instructors)
+    @foreach($application->user->instructors as $instructor)
+        @if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
+        <div class="modal fade" id="reqModal-inst-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content text-start" style="border-radius:12px;overflow:hidden;font-family:'Inter',sans-serif;">
+                    @csrf
+                    <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
+                        <div>
+                            <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">Request Update</h6>
+                            <small class="text-white-50" style="font-size:.75rem;">{{ $instructor->first_name }} {{ $instructor->last_name }}</small>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-3" style="background:#f8fafc;">
+                        <label class="form-label fw-semibold mb-2" style="font-size:.82rem;color:#2A3F54;">
+                            Select Documents &amp; Provide Reason Per Item <span class="text-danger">*</span>
+                        </label>
+                        <div class="px-2 py-2" style="background:#fff;border:1px solid #d0d8e8;border-radius:6px;">
+
+                            {{-- Service Agreement --}}
+                            <div class="mb-3 border-bottom pb-3">
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input req-chk" type="checkbox"
+                                           name="fields[service_agreement][requested]" value="1"
+                                           id="chk-sa-{{ $instructor->id }}"
+                                           data-target="reason-sa-{{ $instructor->id }}">
+                                    <label class="form-check-label fw-semibold" for="chk-sa-{{ $instructor->id }}" style="font-size:.85rem;">Service Agreement</label>
+                                </div>
+                                <div id="reason-sa-{{ $instructor->id }}" class="req-reason-box ps-4" style="display:none;">
+                                    <input type="text" name="fields[service_agreement][reason]"
+                                           class="form-control form-control-sm mt-1"
+                                           placeholder="Reason for this document..."
+                                           style="font-size:.8rem;border-radius:5px;">
+                                </div>
+                            </div>
+
+                            {{-- Credentials --}}
+                            @foreach($instructor->credentials as $cred)
+                            <div class="{{ $loop->last ? '' : 'mb-3 border-bottom pb-3' }}">
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input req-chk" type="checkbox"
+                                           name="fields[{{ $cred->type }}][requested]" value="1"
+                                           id="chk-{{ $instructor->id }}-{{ $cred->type }}"
+                                           data-target="reason-{{ $instructor->id }}-{{ $cred->type }}">
+                                    <label class="form-check-label fw-semibold" for="chk-{{ $instructor->id }}-{{ $cred->type }}" style="font-size:.85rem;">
+                                        @if($cred->type === 'EMS') TESDA EMS NC II/III
+                                        @elseif($cred->type === 'TM1') TESDA TM1
+                                        @elseif($cred->type === 'NTTC') TESDA NTTC
+                                        @elseif($cred->type === 'BOSH') BOSH SO1/SO2
+                                        @else {{ $cred->type }}
+                                        @endif
+                                    </label>
+                                </div>
+                                <div id="reason-{{ $instructor->id }}-{{ $cred->type }}" class="req-reason-box ps-4" style="display:none;">
+                                    <input type="text" name="fields[{{ $cred->type }}][reason]"
+                                           class="form-control form-control-sm mt-1"
+                                           placeholder="Reason for this document..."
+                                           style="font-size:.8rem;border-radius:5px;">
+                                </div>
+                            </div>
+                            @endforeach
+
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
+                        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold"><i class="bi bi-send me-1"></i>Send Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        @endif
+    @endforeach
+@endif
+
 @endsection
 
 @push('scripts')
@@ -949,6 +985,23 @@
     window.ARMS.csrfToken   = '{{ csrf_token() }}';
     window.ARMS.isScheduled = {{ $isScheduled ? 'true' : 'false' }};
     window.ARMS.allApproved = {{ $allApproved ? 'true' : 'false' }};
+    window.ARMS.isApproved  = {{ $isApproved ? 'true' : 'false' }};
+    window.ARMS.isAccredited = {{ $isAccredited ? 'true' : 'false' }};
+    window.ARMS.hasPendingUpdate = {{ $hasPendingUpdate ? 'true' : 'false' }};
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
+<script>
+// Request Update modal — show/hide reason input when checkbox is checked
+document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('req-chk')) {
+        const targetId = e.target.dataset.target;
+        const box = document.getElementById(targetId);
+        if (box) {
+            box.style.display = e.target.checked ? 'block' : 'none';
+            const input = box.querySelector('input, textarea');
+            if (input) input.required = e.target.checked;
+        }
+    }
+});
+</script>
 @endpush
