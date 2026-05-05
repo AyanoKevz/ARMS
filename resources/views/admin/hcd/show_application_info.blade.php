@@ -608,7 +608,7 @@
 
             {{-- Modal Header --}}
             <div class="modal-header"
-                 style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e); border:none; padding:22px 28px;">
+                 style="background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none; padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -633,7 +633,7 @@
 
                         {{-- Notice --}}
                     <div class="mb-3 p-2 d-flex align-items-center gap-2"
-                         style="background:#eef5ff;border-radius:8px;border-left:4px solid #1a6fbd;">
+                         style="background:#eef5ff;border-radius:8px;border-left:4px solid #1A4A8A;">
                         <i class="bi bi-info-circle-fill text-primary mt-1"></i>
                         <small class="text-muted">
                             An email notification with the interview schedule will be sent to the applicant upon saving.
@@ -700,7 +700,7 @@
                 </button>
                 <button type="submit" form="schedule-interview-form"
                         class="btn btn-primary fw-bold px-5"
-                        style="border-radius:8px; background:linear-gradient(135deg,#1a6fbd,#0d4f9e); border:none;">
+                        style="border-radius:8px; background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none;">
                     <i class="bi bi-calendar-check me-2"></i>
                     {{ $interview ? 'Update Schedule' : 'Save Schedule' }}
                 </button>

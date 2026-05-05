@@ -344,7 +344,7 @@ class RenewalController extends Controller
             });
 
             return redirect()
-                ->route('applicant.dashboard')
+                ->route('applicant.renewal')
                 ->with('success', 'Your ' . $request->input('application_type') . ' application has been submitted successfully!');
 
         } catch (\Throwable $e) {
