@@ -43,12 +43,19 @@ class RenewalController extends Controller
             ->orderBy('created_at', 'desc')
             ->first();
 
-        // Check if user already has a pending renewal/reinstatement application
+        // Check if user already has an unfinished renewal/reinstatement application.
+        // An application is only "finished" when it is Approved (accredited) or deleted (not passed).
+        // Every other active status must block a new submission.
         $pendingRenewal = Application::where('user_id', $user->id)
             ->whereIn('application_type', ['renewal', 'reinstatement'])
             ->whereHas('latestStatus', function ($q) {
                 $q->whereHas('status', function ($q2) {
-                    $q2->whereIn('name', ['Submitted', 'Under Evaluation', 'For Update']);
+                    $q2->whereIn('name', [
+                        'Submitted',
+                        'Under Evaluation',
+                        'For Update',
+                        'Scheduled for Interview',
+                    ]);
                 });
             })
             ->first();
@@ -74,6 +81,26 @@ class RenewalController extends Controller
     {
         $user = Auth::user();
         $user->load(['organizationProfile.authorizedRepresentatives', 'instructors.credentials']);
+
+        // ── Server-side guard: block duplicate renewal submission ──
+        $alreadyActive = Application::where('user_id', $user->id)
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($q) {
+                $q->whereHas('status', function ($q2) {
+                    $q2->whereIn('name', [
+                        'Submitted',
+                        'Under Evaluation',
+                        'For Update',
+                        'Scheduled for Interview',
+                    ]);
+                });
+            })
+            ->exists();
+
+        if ($alreadyActive) {
+            return redirect()->route('applicant.renewal')
+                ->with('error', 'You already have an active renewal or reinstatement application that is still being processed. Please wait for it to be completed before submitting a new one.');
+        }
 
         // ── Build document field validation rules ──────────────────
         $documentFields = DocumentField::all()->keyBy('code');

@@ -30,12 +30,27 @@
 
     {{-- Guard: already has pending renewal --}}
     @if($pendingRenewal)
+    @php
+        $renewalStatus = $pendingRenewal->latestStatus?->status?->name ?? 'Submitted';
+        $statusColor = match($renewalStatus) {
+            'Submitted'               => ['bg' => '#ffc107', 'text' => '#212529', 'icon' => 'fa-paper-plane'],
+            'Under Evaluation'        => ['bg' => '#0d6efd', 'text' => '#fff',    'icon' => 'fa-search'],
+            'For Update'              => ['bg' => '#dc3545', 'text' => '#fff',    'icon' => 'fa-exclamation-circle'],
+            'Scheduled for Interview' => ['bg' => '#0b3d91', 'text' => '#fff',    'icon' => 'fa-calendar-check'],
+            default                   => ['bg' => '#6c757d', 'text' => '#fff',    'icon' => 'fa-circle'],
+        };
+    @endphp
     <div class="x_panel" style="border-left:4px solid #ffc107;">
         <div class="x_content py-4 text-center">
             <i class="fas fa-info-circle fa-3x text-warning mb-3"></i>
             <h5 class="fw-bold">You already have a pending {{ ucfirst($pendingRenewal->application_type) }} application</h5>
-            <p class="text-muted">Tracking Number: <strong>{{ $pendingRenewal->tracking_number }}</strong></p>
-            <p class="text-muted mb-0">Please wait for admin evaluation before submitting another.</p>
+            <p class="text-muted mb-1">Tracking Number: <strong>{{ $pendingRenewal->tracking_number }}</strong></p>
+            <p class="mb-3">
+                <span class="badge px-3 py-2" style="background:{{ $statusColor['bg'] }}; color:{{ $statusColor['text'] }}; font-size:.85rem; border-radius:20px;">
+                    <i class="fas {{ $statusColor['icon'] }} me-1"></i>{{ $renewalStatus }}
+                </span>
+            </p>
+            <p class="text-muted mb-0">Finish the application process before submitting another.</p>
         </div>
     </div>
     @else

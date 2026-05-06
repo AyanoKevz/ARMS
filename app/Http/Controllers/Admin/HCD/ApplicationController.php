@@ -135,6 +135,7 @@ class ApplicationController extends Controller
             'accreditationType',
             'latestStatus.status',
         ])
+            ->where('application_type', 'new')
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {
                     $q->where('name', 'Submitted');
@@ -191,6 +192,7 @@ class ApplicationController extends Controller
             'accreditationType',
             'latestStatus.status',
         ])
+            ->where('application_type', 'new')
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {
                     $q->whereIn('name', ['Under Evaluation', 'For Update']);
