@@ -71,7 +71,7 @@
     <div class="d-flex flex-column align-items-end gap-2">
         <div class="d-flex align-items-center gap-2">
             <span class="badge fs-6 px-3 py-2 bg-success text-white">
-                <i class="bi bi-check-circle-fill me-1"></i> Active FATPro
+                <i class="bi bi-check-circle-fill me-1"></i> Active
             </span>
             <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
                target="_blank"
@@ -495,88 +495,124 @@
 
 </form>
 
-{{-- ══ Form Submit / Schedule Button (enabled only when ALL docs evaluated) ══ --}}
-@if(!$isAccredited && !$isApproved || $hasPendingUpdate)
-<div class="text-center mt-4 mb-3">
-    <button type="button"
-            id="btn-open-schedule"
-            class="btn btn-secondary btn-lg fw-bold px-5 py-3 shadow-sm"
-            disabled
-            style="border-radius:12px; font-size:1.05rem; letter-spacing:.3px; transition: all .3s ease;">
-        <i class="bi bi-hourglass-split me-2 fs-5" id="btn-schedule-icon"></i>
-        <span id="btn-schedule-text">Pending Documents</span>
-    </button>
-    @if($interview && !$isApproved && !$isAccredited)
-    <div class="mt-3 d-inline-flex align-items-center gap-3 flex-wrap justify-content-center"
-         style="background:#f0faf4;border:1px solid #c3e6cb;border-radius:10px;padding:10px 22px;">
-        <span class="text-success fw-semibold small"><i class="bi bi-calendar-event me-1"></i>{{ $interview->interview_date->format('F d, Y') }}</span>
-        <span class="text-success fw-semibold small"><i class="bi bi-clock me-1"></i>{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</span>
-        <span class="text-success fw-semibold small"><i class="bi bi-display me-1"></i>{{ strtoupper($interview->mode) }}</span>
-        @if($interview->venue)
-        <span class="text-success fw-semibold small"><i class="bi bi-geo-alt me-1"></i>{{ $interview->venue }}</span>
-        @endif
-    </div>
-    @endif
-</div>
-@endif
 
-{{-- ══ Interview Result Card ══ --}}
-@if($interview && !($isAccredited && $application->accreditation->status === 'active'))
-<div class="mt-3 mb-4"
+{{-- ══ Interview Schedule Card (shown when not yet accredited/approved) ══ --}}
+@if(!$isAccredited && !$isApproved)
+<div class="mt-3 mb-3"
      style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
 
     {{-- Card Header --}}
-    <div class="d-flex align-items-center gap-3 px-4 py-3"
-         style="background:linear-gradient(135deg,#1a2e5a,#0d1f42);">
+    <div class="d-flex align-items-center justify-content-center gap-3 px-4 py-3"
+         style="background:linear-gradient(135deg,#1A4A8A,#0D2B55);">
         <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:8px;
                     display:flex;align-items:center;justify-content:center;">
-            <i class="bi bi-flag-fill text-white fs-5"></i>
+            <i class="bi bi-calendar-check-fill text-white fs-5"></i>
         </div>
-        <div>
-            <h6 class="text-white mb-0 fw-bold">Application Result</h6>
-            <small class="text-white-50">The outcome of the FATPro application is shown below.</small>
+        <div class="text-start">
+            <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
+            <small class="text-white-50">{{ $interview ? 'Schedule has been set.' : 'No schedule set yet.' }}</small>
         </div>
     </div>
 
     {{-- Card Body --}}
-    <div class="px-4 py-4 text-center">
-
-        @if($isAccredited || $isApproved)
-        {{-- Already accredited --}}
-        <div class="d-inline-flex align-items-center gap-3 px-4 py-3"
-             style="background:#d4edda;border:1px solid #c3e6cb;border-radius:10px;">
-            <i class="bi bi-patch-check-fill text-success fs-3"></i>
-            <div class="text-start">
-                <div class="fw-bold text-success" style="font-size:1rem;">Application Approved</div>
-                @if($application->accreditation)
-                <small class="text-muted">Accreditation No: <strong>{{ $application->accreditation->accreditation_number }}</strong></small><br>
-                <small class="text-muted">Valid Until: <strong>{{ $application->accreditation->validity_date->format('F d, Y') }}</strong></small><br>
-                <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
-                   target="_blank"
-                   class="btn btn-success btn-sm mt-2 fw-semibold"
-                   style="border-radius:8px;font-size:.82rem;">
-                    <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
-                </a>
-                @endif
+    <div class="px-4 pt-3 pb-2 text-center">
+        @if($interview)
+        {{-- Info chips row — centered --}}
+        <div class="row g-2 mb-3 justify-content-center text-start">
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Date</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->interview_date->format('F d, Y') }}</div>
+                </div>
             </div>
-        </div>
-
-        @elseif($isRejected)
-        {{-- Already rejected --}}
-        <div class="d-inline-flex align-items-center gap-3 px-4 py-3"
-             style="background:#f8d7da;border:1px solid #f5c6cb;border-radius:10px;">
-            <i class="bi bi-x-circle-fill text-danger fs-3"></i>
-            <div class="text-start">
-                <div class="fw-bold text-danger" style="font-size:1rem;">Application Rejected</div>
-                <small class="text-muted">This application did not pass the interview.</small>
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Time</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</div>
+                </div>
             </div>
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Mode</div>
+                    <div>
+                        <span class="badge {{ $interview->mode === 'online' ? 'bg-info' : 'bg-secondary' }} text-white" style="font-size:.78rem;">
+                            {{ strtoupper($interview->mode) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            @if($interview->venue)
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Venue</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->venue }}</div>
+                </div>
+            </div>
+            @endif
         </div>
-
         @else
-        {{-- Awaiting result --}}
-        <p class="text-muted mb-4" style="font-size:.9rem;">
+        <p class="text-muted mb-3" style="font-size:.88rem;">No interview schedule has been set yet.</p>
+        @endif
+    </div>
+
+    {{-- Card Footer — centered button --}}
+    @if(!$isRejected)
+    <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
+        <button type="button"
+                id="btn-open-schedule"
+                class="btn btn-outline-primary btn-sm fw-semibold px-4"
+                disabled
+                data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
+                style="border-radius:6px;">
+            <span id="btn-schedule-icon"></span>
+            <span id="btn-schedule-text">{{ $interview ? 'Update Schedule' : 'Set Schedule' }}</span>
+        </button>
+    </div>
+    @endif
+
+</div>
+@endif
+
+{{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
+@if($interview && !($isAccredited && $application->accreditation->status === 'active'))
+
+    @if($isAccredited || $isApproved)
+    {{-- Already accredited --}}
+    <div class="d-flex align-items-center gap-3 mt-3 mb-4 p-3"
+         style="background:#d4edda;border:1px solid #c3e6cb;border-radius:12px;">
+        <i class="bi bi-patch-check-fill text-success fs-3"></i>
+        <div>
+            <div class="fw-bold text-success" style="font-size:1rem;">Application Approved</div>
+            @if($application->accreditation)
+            <small class="text-muted">Accreditation No: <strong>{{ $application->accreditation->accreditation_number }}</strong></small><br>
+            <small class="text-muted">Valid Until: <strong>{{ $application->accreditation->validity_date->format('F d, Y') }}</strong></small><br>
+            <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
+               target="_blank"
+               class="btn btn-success btn-sm mt-2 fw-semibold"
+               style="border-radius:8px;font-size:.82rem;">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
+            </a>
+            @endif
+        </div>
+    </div>
+
+    @elseif($isRejected)
+    {{-- Already rejected --}}
+    <div class="d-flex align-items-center gap-3 mt-3 mb-4 p-3"
+         style="background:#f8d7da;border:1px solid #f5c6cb;border-radius:12px;">
+        <i class="bi bi-x-circle-fill text-danger fs-3"></i>
+        <div>
+            <div class="fw-bold text-danger" style="font-size:1rem;">Application Rejected</div>
+            <small class="text-muted">This application did not pass the interview.</small>
+        </div>
+    </div>
+
+    @else
+    {{-- Awaiting result — centered buttons --}}
+    <div class="mt-3 mb-4 text-center">
+        <p class="text-muted mb-3" style="font-size:.88rem;">
             <i class="bi bi-info-circle me-1"></i>
-            Interview result has been released and all requirements has been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
+            Interview result has been released and all requirements have been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
         </p>
         <div class="d-flex justify-content-center gap-3 flex-wrap">
             {{-- PASSED button --}}
@@ -594,11 +630,11 @@
                 <i class="bi bi-x-circle-fill me-2"></i>Not Accredited
             </button>
         </div>
-        @endif
-
     </div>
-</div>
+    @endif
+
 @endif
+
 
 {{-- ══ Schedule Interview Modal ══ --}}
 <div class="modal fade" id="scheduleInterviewModal" tabindex="-1"

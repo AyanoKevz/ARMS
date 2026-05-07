@@ -52,10 +52,12 @@
                     <div class="table-responsive">
                         <table id="scheduled_interviews_table"
                                class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table"
+                               data-date-index="4"
                                style="width:100%">
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
+                                    <th class="column-title">Type</th>
                                     <th class="column-title">FATPro Name</th>
                                     <th class="column-title">Organization Email</th>
                                     <th class="column-title text-center">Interview Date</th>
@@ -76,6 +78,19 @@
                                     @endphp
                                     <tr class="even pointer">
                                         <td><strong>{{ $app->tracking_number }}</strong></td>
+                                        <td>
+                                            @php
+                                                $badgeClass = match($app->application_type) {
+                                                    'new' => 'bg-primary',
+                                                    'renewal' => 'bg-success',
+                                                    'reinstatement' => 'bg-warning text-dark',
+                                                    default => 'bg-secondary'
+                                                };
+                                            @endphp
+                                            <span class="badge {{ $badgeClass }}">
+                                                {{ ucfirst($app->application_type) }}
+                                            </span>
+                                        </td>
                                         <td>
                                             @if($isOrg && $org)
                                                 {{ $org->name ?? 'N/A' }}

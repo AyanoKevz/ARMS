@@ -472,8 +472,13 @@ class ApplicationController extends Controller
      */
     public function scheduleInterview(Request $request, Application $application)
     {
+        $isNewInterview = !$application->interview;
+
         $request->validate([
-            'interview_date' => ['required', 'date', 'after_or_equal:today'],
+            'interview_date' => array_merge(
+                ['required', 'date'],
+                $isNewInterview ? ['after_or_equal:today'] : []
+            ),
             'interview_time' => ['required', 'date_format:H:i'],
             'mode'           => ['required', 'in:online,f2f'],
             'venue'          => ['nullable', 'string', 'max:500'],
@@ -489,12 +494,13 @@ class ApplicationController extends Controller
             ]
         );
 
-        // Send email confirmation to the applicant
+        // Always send / re-send email confirmation to the applicant
         if ($application->user && $application->user->email) {
             Mail::to($application->user->email)->send(new \App\Mail\InterviewScheduleEmail($application, $interview));
         }
 
-        return back()->with('success', 'Interview schedule saved successfully.');
+        $action = $isNewInterview ? 'scheduled' : 'updated';
+        return back()->with('success', "Interview {$action} successfully. The applicant has been notified via email.");
     }
 
     /**

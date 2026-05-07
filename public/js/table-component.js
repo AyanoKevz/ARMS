@@ -65,6 +65,18 @@ window.initDynamicTable = function(selector, options = {}) {
     }
 
     const finalOptions = $.extend(true, {}, defaultOptions, options);
+    
+    // Support data-date-index attribute on the table element
+    const dataDateIndex = $(selector).data('date-index');
+    if (dataDateIndex !== undefined) {
+        finalOptions.dateColumnIndex = parseInt(dataDateIndex);
+        
+        // If sorting was using default index 3, update it to the new date index
+        if (options.order === undefined && finalOptions.order[0][0] === 3) {
+            finalOptions.order = [[finalOptions.dateColumnIndex, finalOptions.order[0][1]]];
+        }
+    }
+
     const table = $(selector).DataTable(finalOptions);
 
     // --- Date Range Custom Search Filter ---
@@ -79,7 +91,8 @@ window.initDynamicTable = function(selector, options = {}) {
         const rowNode = table.row(dataIndex).node();
         if (!rowNode) return true;
         
-        const dateCell = rowNode.cells[3]; // Assuming 4th column is date
+        const dateIndex = finalOptions.dateColumnIndex !== undefined ? finalOptions.dateColumnIndex : 3;
+        const dateCell = rowNode.cells[dateIndex]; 
         if (!dateCell) return true;
 
         const dateRaw = dateCell.getAttribute('data-order');
