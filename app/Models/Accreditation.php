@@ -17,11 +17,15 @@ class Accreditation extends Model
         'date_of_accreditation',
         'validity_date',
         'status',
+        'reminder_3mo_sent_at',
+        'reminder_1mo_sent_at',
     ];
 
     protected $casts = [
         'date_of_accreditation' => 'date',
         'validity_date'         => 'date',
+        'reminder_3mo_sent_at'  => 'datetime',
+        'reminder_1mo_sent_at'  => 'datetime',
     ];
 
     /**
