@@ -10,7 +10,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class InterviewResultEmail extends Mailable
+class ApplicationResultEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -36,7 +36,7 @@ class InterviewResultEmail extends Mailable
         $label = $this->result === 'passed' ? 'Passed' : 'Not Passed';
 
         return new Envelope(
-            subject: 'OSHC ARMS – Interview Result: ' . $label . ' (' . $this->application->tracking_number . ')',
+            subject: 'OSHC ARMS – Application Result: ' . $label . ' (' . $this->application->tracking_number . ')',
         );
     }
 
@@ -46,7 +46,7 @@ class InterviewResultEmail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.interview_result',
+            view: 'emails.application_result',
         );
     }
 

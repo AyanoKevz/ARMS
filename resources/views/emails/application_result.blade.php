@@ -1,6 +1,6 @@
 @extends('emails.layout')
 
-@section('title', 'Interview Result — ARMS')
+@section('title', 'Application Result — ARMS')
 
 @section('css')
         .icon-circle.passed {
@@ -18,13 +18,13 @@
     {{-- ════════════════ PASSED ════════════════ --}}
 
     <div class="icon-circle passed">🎉</div>
-    <h2>Congratulations! Interview Passed</h2>
+    <h2>Congratulations! Application Approved</h2>
     <p>
-        Dear <strong>{{ $application->user->name }}</strong>,
+        Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
     <p>
-        We are delighted to inform you that you have <strong>successfully passed</strong> the interview
-        for your accreditation application. Your accreditation has been officially approved.
+        We are delighted to inform you that you have <strong>successfully passed</strong> the application process
+        for your accreditation. You are now officially accredited.
     </p>
 
     <div class="tracking-card">
@@ -79,13 +79,13 @@
     {{-- ════════════════ NOT PASSED ════════════════ --}}
 
     <div class="icon-circle failed">❌</div>
-    <h2>Interview Result: Not Passed</h2>
+    <h2>Application Result: Not Passed</h2>
     <p>
-        Dear <strong>{{ $application->user->name }}</strong>,
+        Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
     <p>
-        Thank you for your time and effort in undergoing the interview process. After careful evaluation,
-        we regret to inform you that your application has <strong>not passed</strong> the interview stage
+        Thank you for your time and effort in completing the application process. After careful evaluation,
+        we regret to inform you that your application has <strong>not passed</strong> the requirements
         at this time.
     </p>
 

@@ -1,21 +1,25 @@
 @extends('emails.layout')
 
-@section('title', 'Interview Schedule Confirmation — ARMS')
+@section('title', $isUpdate ? 'Interview Schedule Updated — ARMS' : 'Interview Schedule Confirmation — ARMS')
 
 @section('css')
         .icon-circle {
-            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            background: linear-gradient(135deg, {{ $isUpdate ? '#e3f2fd, #bbdefb' : '#e8f5e9, #c8e6c9' }});
         }
 @endsection
 
 @section('content')
-    <div class="icon-circle">✅</div>
-    <h2>Interview Schedule Confirmed</h2>
+    <div class="icon-circle">{{ $isUpdate ? '🔄' : '✅' }}</div>
+    <h2>{{ $isUpdate ? 'Interview Schedule Updated' : 'Interview Schedule Confirmed' }}</h2>
     <p>
-        Dear <strong>{{ $application->user->name }}</strong>,
+        Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
     <p>
-        We are pleased to inform you that your application has successfully passed the document evaluation phase and you are now scheduled for an interview.
+        @if($isUpdate)
+            Please be informed that your interview schedule has been updated.
+        @else
+            We are pleased to inform you that your application has successfully passed the document evaluation phase and you are now scheduled for an interview.
+        @endif
     </p>
 
     <div class="tracking-card">

@@ -11,6 +11,7 @@
     'use strict';
 
     const isScheduled = window.ARMS?.isScheduled ?? false;
+    const hasInterviewRecord = window.ARMS?.hasInterviewRecord ?? false;
     const allApproved = window.ARMS?.allApproved ?? false;
 
     /* ─── Helpers ─────────────────────────────────────────── */
@@ -314,6 +315,7 @@
         if (venueInput) {
             venueInput.disabled    = isOnline;
             venueInput.placeholder = isOnline ? 'N/A – online interview' : 'Enter venue address';
+            if (isOnline) venueInput.value = '';
         }
 
         if (venueNote) {
@@ -353,7 +355,7 @@
             btn.setAttribute('data-bs-target', '#scheduleInterviewModal');
             btn.onclick = null;
         }
-        if (btnText) btnText.textContent = isScheduled ? 'Update Schedule' : 'Set Schedule';
+        if (btnText) btnText.textContent = hasInterviewRecord ? 'Update Schedule' : 'Set Schedule';
 
         // Hide eval buttons (belt-and-suspenders alongside blade guard)
         document.querySelectorAll('.doc-eval-actions').forEach(el => el.style.display = 'none');

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DocumentRejectionEmail;
-use App\Mail\InterviewResultEmail;
+use App\Mail\ApplicationResultEmail;
 use App\Mail\InstructorUpdateRequestEmail;
 use App\Mail\InstructorUpdateCompleteEmail;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -496,7 +496,8 @@ class ApplicationController extends Controller
 
         // Always send / re-send email confirmation to the applicant
         if ($application->user && $application->user->email) {
-            Mail::to($application->user->email)->send(new \App\Mail\InterviewScheduleEmail($application, $interview));
+            $isUpdate = !$isNewInterview;
+            Mail::to($application->user->email)->send(new \App\Mail\InterviewScheduleEmail($application, $interview, $isUpdate));
         }
 
         $action = $isNewInterview ? 'scheduled' : 'updated';
@@ -607,7 +608,7 @@ class ApplicationController extends Controller
             if ($application->user?->email) {
                 $application->load('accreditationType');
                 Mail::to($application->user->email)
-                    ->send(new InterviewResultEmail($application, 'passed', $accreditation));
+                    ->send(new ApplicationResultEmail($application, 'passed', $accreditation));
             }
 
             return back()->with('success', 'Application approved. Accreditation number ' . $accNumber . ' has been issued and the applicant has been notified.');
@@ -621,7 +622,7 @@ class ApplicationController extends Controller
             // Send email BEFORE deletion so relationships are still intact
             if ($applicantEmail) {
                 Mail::to($applicantEmail)
-                    ->send(new InterviewResultEmail($application, 'not_passed', null));
+                    ->send(new ApplicationResultEmail($application, 'not_passed', null));
             }
 
             // Delete application (cascade removes: documents, status_logs, interview, accreditation)

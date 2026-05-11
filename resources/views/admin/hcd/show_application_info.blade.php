@@ -38,6 +38,18 @@
 @endphp
 
 {{-- ── Flash Messages ── --}}
+@if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Please fix the following errors:</strong>
+        <ul class="mb-0 mt-1">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+@endif
+
 @if(session('success'))
     <div class="alert alert-success alert-dismissible fade show">
         <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
@@ -498,79 +510,92 @@
 
 {{-- ══ Interview Schedule Card (shown when not yet accredited/approved) ══ --}}
 @if(!$isAccredited && !$isApproved)
-<div class="mt-3 mb-3"
-     style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+    @if($interview)
+        <div class="mt-3 mb-3"
+             style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
 
-    {{-- Card Header --}}
-    <div class="d-flex align-items-center justify-content-center gap-3 px-4 py-3"
-         style="background:linear-gradient(135deg,#1A4A8A,#0D2B55);">
-        <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:8px;
-                    display:flex;align-items:center;justify-content:center;">
-            <i class="bi bi-calendar-check-fill text-white fs-5"></i>
-        </div>
-        <div class="text-start">
-            <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
-            <small class="text-white-50">{{ $interview ? 'Schedule has been set.' : 'No schedule set yet.' }}</small>
-        </div>
-    </div>
-
-    {{-- Card Body --}}
-    <div class="px-4 pt-3 pb-2 text-center">
-        @if($interview)
-        {{-- Info chips row — centered --}}
-        <div class="row g-2 mb-3 justify-content-center text-start">
-            <div class="col-auto">
-                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Date</div>
-                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->interview_date->format('F d, Y') }}</div>
+            {{-- Card Header --}}
+            <div class="d-flex align-items-center justify-content-center gap-3 px-4 py-3"
+                 style="background:linear-gradient(135deg,#1A4A8A,#0D2B55);">
+                <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:8px;
+                            display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-calendar-check-fill text-white fs-5"></i>
+                </div>
+                <div class="text-start">
+                    <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
+                    <small class="text-white-50">Schedule has been set.</small>
                 </div>
             </div>
-            <div class="col-auto">
-                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Time</div>
-                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</div>
-                </div>
-            </div>
-            <div class="col-auto">
-                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Mode</div>
-                    <div>
-                        <span class="badge {{ $interview->mode === 'online' ? 'bg-info' : 'bg-secondary' }} text-white" style="font-size:.78rem;">
-                            {{ strtoupper($interview->mode) }}
-                        </span>
+
+            {{-- Card Body --}}
+            <div class="px-4 pt-3 pb-2 text-center">
+                {{-- Info chips row — centered --}}
+                <div class="row g-2 mb-3 justify-content-center text-start">
+                    <div class="col-auto">
+                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Date</div>
+                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->interview_date->format('F d, Y') }}</div>
+                        </div>
                     </div>
+                    <div class="col-auto">
+                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Time</div>
+                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Mode</div>
+                            <div>
+                                <span class="badge {{ $interview->mode === 'online' ? 'bg-info' : 'bg-secondary' }} text-white" style="font-size:.78rem;">
+                                    {{ strtoupper($interview->mode) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    @if($interview->venue)
+                    <div class="col-auto">
+                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Venue</div>
+                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->venue }}</div>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
-            @if($interview->venue)
-            <div class="col-auto">
-                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Venue</div>
-                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->venue }}</div>
-                </div>
+
+            {{-- Card Footer — centered button --}}
+            @if(!$isRejected)
+            <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
+                <button type="button"
+                        id="btn-open-schedule"
+                        class="btn btn-outline-primary btn-sm fw-semibold px-4"
+                        disabled
+                        data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
+                        style="border-radius:6px;">
+                    <span id="btn-schedule-icon"></span>
+                    <span id="btn-schedule-text">Update Schedule</span>
+                </button>
             </div>
             @endif
+
         </div>
-        @else
-        <p class="text-muted mb-3" style="font-size:.88rem;">No interview schedule has been set yet.</p>
+    @else
+        {{-- Just the button if no schedule yet --}}
+        @if(!$isRejected)
+        <div class="mt-4 mb-4 text-center">
+            <button type="button"
+                    id="btn-open-schedule"
+                    class="btn btn-outline-primary btn-sm fw-semibold px-4"
+                    disabled
+                    data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
+                    style="border-radius:6px;">
+                <span id="btn-schedule-icon"></span>
+                <span id="btn-schedule-text">Set Schedule</span>
+            </button>
+        </div>
         @endif
-    </div>
-
-    {{-- Card Footer — centered button --}}
-    @if(!$isRejected)
-    <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
-        <button type="button"
-                id="btn-open-schedule"
-                class="btn btn-outline-primary btn-sm fw-semibold px-4"
-                disabled
-                data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
-                style="border-radius:6px;">
-            <span id="btn-schedule-icon"></span>
-            <span id="btn-schedule-text">{{ $interview ? 'Update Schedule' : 'Set Schedule' }}</span>
-        </button>
-    </div>
     @endif
-
-</div>
 @endif
 
 {{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
@@ -603,7 +628,7 @@
         <i class="bi bi-x-circle-fill text-danger fs-3"></i>
         <div>
             <div class="fw-bold text-danger" style="font-size:1rem;">Application Rejected</div>
-            <small class="text-muted">This application did not pass the interview.</small>
+            <small class="text-muted">This application did not pass the application process.</small>
         </div>
     </div>
 
@@ -612,7 +637,7 @@
     <div class="mt-3 mb-4 text-center">
         <p class="text-muted mb-3" style="font-size:.88rem;">
             <i class="bi bi-info-circle me-1"></i>
-            Interview result has been released and all requirements have been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
+            Application process has been finalized and all requirements have been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
         </p>
         <div class="d-flex justify-content-center gap-3 flex-wrap">
             {{-- PASSED button --}}
@@ -694,7 +719,7 @@
                                 <i class="bi bi-clock me-1 text-primary"></i>Interview Time
                             </label>
                             <input type="time" name="interview_time" class="form-control"
-                                   value="{{ $interview?->interview_time }}" required
+                                   value="{{ $interview ? \Carbon\Carbon::parse($interview->interview_time)->format('H:i') : '' }}" required
                                    style="border-radius:8px;border-color:#d0d8e8;">
                         </div>
 
@@ -709,9 +734,6 @@
                                 <option value="online" {{ ($interview?->mode === 'online') ? 'selected' : '' }}>Online</option>
                                 <option value="f2f"    {{ ($interview?->mode === 'f2f')    ? 'selected' : '' }}>Face-to-Face (F2F)</option>
                             </select>
-                            <div class="form-text mt-2 d-none" id="online-notice" style="font-size:0.75rem; color:#0d4f9e; padding:6px 10px; background:rgba(13,79,158,.08); border-radius:6px; border-left:3px solid #0d4f9e;">
-                                <i class="bi bi-info-circle-fill me-1"></i> If interview is online, a separate email will be sent with the online interview details.
-                            </div>
                         </div>
 
                         {{-- Venue --}}
@@ -724,6 +746,13 @@
                                    placeholder="Venue / meeting link"
                                    value="{{ $interview?->venue }}"
                                    style="border-radius:8px;border-color:#d0d8e8;">
+                        </div>
+
+                        {{-- Online Notice --}}
+                        <div class="col-12">
+                            <div class="form-text mt-2 d-none" id="online-notice" style="font-size:0.75rem; color:#0d4f9e; padding:6px 10px; background:rgba(13,79,158,.08); border-radius:6px; border-left:3px solid #0d4f9e;">
+                                <i class="bi bi-info-circle-fill me-1"></i> If interview is online, a separate email will be sent with the online interview details.
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -833,7 +862,7 @@
                         <i class="bi bi-patch-check-fill text-white fs-4"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title text-white mb-0 fw-bold" id="passedConfirmModalLabel">Confirm: Interview Passed</h5>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="passedConfirmModalLabel">Confirm: Application Approved</h5>
                         <small class="text-white-50">{{ $application->tracking_number }}</small>
                     </div>
                 </div>
@@ -869,7 +898,7 @@
                     @csrf
                     <input type="hidden" name="result" value="passed">
                     <button type="submit" class="btn btn-success fw-bold px-5" style="border-radius:8px;">
-                        <i class="bi bi-check-circle-fill me-2"></i>Confirm Passed
+                        <i class="bi bi-check-circle-fill me-2"></i>Confirm Approval
                     </button>
                 </form>
             </div>
@@ -891,7 +920,7 @@
                         <i class="bi bi-x-octagon-fill text-white fs-4"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title text-white mb-0 fw-bold" id="notPassedConfirmModalLabel">Confirm: Not Passed</h5>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="notPassedConfirmModalLabel">Confirm: Application Rejected</h5>
                         <small class="text-white-50">{{ $application->tracking_number }}</small>
                     </div>
                 </div>
@@ -928,7 +957,7 @@
                     @csrf
                     <input type="hidden" name="result" value="not_passed">
                     <button type="submit" class="btn btn-danger fw-bold px-5" style="border-radius:8px;">
-                        <i class="bi bi-trash-fill me-2"></i>Confirm Not Passed
+                        <i class="bi bi-trash-fill me-2"></i>Confirm Rejection
                     </button>
                 </form>
             </div>
@@ -1020,6 +1049,7 @@
     window.ARMS = window.ARMS || {};
     window.ARMS.csrfToken   = '{{ csrf_token() }}';
     window.ARMS.isScheduled = {{ $isScheduled ? 'true' : 'false' }};
+    window.ARMS.hasInterviewRecord = {{ $interview ? 'true' : 'false' }};
     window.ARMS.allApproved = {{ $allApproved ? 'true' : 'false' }};
     window.ARMS.isApproved  = {{ $isApproved ? 'true' : 'false' }};
     window.ARMS.isAccredited = {{ $isAccredited ? 'true' : 'false' }};

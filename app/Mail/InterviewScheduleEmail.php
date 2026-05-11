@@ -16,14 +16,16 @@ class InterviewScheduleEmail extends Mailable
 
     public $application;
     public $interview;
+    public $isUpdate;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Application $application, Interview $interview)
+    public function __construct(Application $application, Interview $interview, $isUpdate = false)
     {
         $this->application = $application;
         $this->interview = $interview;
+        $this->isUpdate = $isUpdate;
     }
 
     /**
@@ -31,8 +33,9 @@ class InterviewScheduleEmail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subjectPrefix = $this->isUpdate ? 'Interview Schedule Updated' : 'Interview Schedule Confirmation';
         return new Envelope(
-            subject: 'OSHC ARMS - Interview Schedule Confirmation (' . $this->application->tracking_number . ')',
+            subject: 'OSHC ARMS - ' . $subjectPrefix . ' (' . $this->application->tracking_number . ')',
         );
     }
 
