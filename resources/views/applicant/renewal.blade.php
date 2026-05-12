@@ -159,7 +159,7 @@
                     @foreach($instructors as $idx => $inst)
                     <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3" data-idx="{{ $idx }}">
                         <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i>Instructor #{{ $idx + 1 }}</h6>
+                            <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #{{ $idx + 1 }}</span></h6>
                             @if($idx > 0)<button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>@endif
                         </div>
                         <div class="row g-3 mb-3">
@@ -173,22 +173,22 @@
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
                             <div class="row g-2">
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number</label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][number]" value="{{ $cred?->number }}"></div>
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][number]" value="{{ $cred?->number }}" required></div>
                                 @if($type !== 'BOSH')
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date</label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][issued_date]" value="{{ $cred?->issued_date }}"></div>
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][issued_date]" value="{{ $cred?->issued_date }}" required></div>
                                 @endif
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date</label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][validity_date]" value="{{ $cred?->validity_date }}"></div>
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][validity_date]" value="{{ $cred?->validity_date }}" required></div>
                                 @if($type === 'BOSH')
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates</label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}"></div>
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}" required></div>
                                 @endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span>@endif</label><input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" accept=".pdf"></div>
+                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span>@endif</label><input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" accept=".pdf" @if(!$cred?->pdf_path) required @endif></div>
                             </div>
                         </div>
                         @endforeach
 
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
-                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span>@endif</p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][service_agreement]" accept=".pdf">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span>@endif</p>
+                            <input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][service_agreement]" accept=".pdf" @if(!$inst->service_agreement_path) required @endif>
                         </div>
                     </div>
                     @endforeach
@@ -196,7 +196,7 @@
                     @if($instructors->isEmpty())
                     <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3" data-idx="0">
                         <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i>Instructor #1</h6>
+                            <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #1</span></h6>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-4"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][first_name]" required></div>
@@ -207,21 +207,57 @@
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
                             <div class="row g-2">
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number</label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][number]"></div>
-                                @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date</label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][issued_date]"></div>@endif
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date</label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][validity_date]"></div>
-                                @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates</label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][training_dates]"></div>@endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF</label><input type="file" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][pdf]" accept=".pdf"></div>
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][number]" required></div>
+                                @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][issued_date]" required></div>@endif
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][validity_date]" required></div>
+                                @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][training_dates]" required></div>@endif
+                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label><input type="file" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
                             </div>
                         </div>
                         @endforeach
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
-                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement</p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[0][service_agreement]" accept=".pdf">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
+                            <input type="file" class="form-control form-control-sm" name="instructors[0][service_agreement]" accept=".pdf" required>
                         </div>
                     </div>
                     @endif
                 </div>
+
+                <div class="d-flex justify-content-end mt-3 mb-2">
+                    <button type="button" id="addInstructorBtn" class="btn btn-outline-primary btn-sm fw-semibold px-4" style="border-radius:8px;">
+                        <i class="fas fa-plus-circle me-1"></i>Add Instructor
+                    </button>
+                </div>
+
+                <template id="instructorTemplate" class="d-none" aria-hidden="true">
+                    <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #__IDX_DISPLAY__</span></h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][first_name]" required></div>
+                            <div class="col-md-4"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][middle_name]"></div>
+                            <div class="col-md-4"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][last_name]" required></div>
+                        </div>
+                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
+                        <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
+                            <div class="row g-2">
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][number]" required></div>
+                                @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][issued_date]" required></div>@endif
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][validity_date]" required></div>
+                                @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][training_dates]" required></div>@endif
+                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label><input type="file" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
+                            </div>
+                        </div>
+                        @endforeach
+                        <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
+                            <input type="file" class="form-control form-control-sm" name="instructors[__IDX__][service_agreement]" accept=".pdf" required>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
 
@@ -283,36 +319,36 @@
                     <div class="row g-3">
                         @if($section['badge'] == '4')
                         <div class="col-md-12 mb-2">
-                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Data Protection Officer Name</label>
+                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Data Protection Officer Name <span class="text-danger">*</span></label>
                             @php $existingDPO = $existingDocs->get('IP_DPO_NAME'); @endphp
                             @if($existingDPO && $existingDPO->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ Str::limit($existingDPO->value, 30) }}</div>
                             @endif
-                            <input type="text" class="form-control form-control-sm" name="documents[IP_DPO_NAME]" value="{{ $existingDPO?->value }}" placeholder="Full name of DPO">
+                            <input type="text" class="form-control form-control-sm" name="documents[IP_DPO_NAME]" value="{{ $existingDPO?->value }}" placeholder="Full name of DPO" required>
                         </div>
                         @endif
 
                         @foreach($section['docs'] as $f)
                         @php $existing = $existingDocs->get($f['code']); @endphp
                         <div class="col-md-6 mb-2">
-                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">{{ $f['title'] }}</label>
+                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                             @if($existing && $existing->file_path)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }}</div>
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif
-                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf">
+                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && (!$existing || (!$existing->file_path && !$existing->value))) required @endif>
                         </div>
                         @endforeach
 
                         @if($section['badge'] == '3')
                         <div class="col-md-6 mb-2">
-                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Certificate Validity Date</label>
+                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Certificate Validity Date <span class="text-danger">*</span></label>
                             @php $existingPremDate = $existingDocs->get('PREM_DATE'); @endphp
                             @if($existingPremDate && $existingPremDate->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ $existingPremDate->value }}</div>
                             @endif
-                            <input type="date" class="form-control form-control-sm" name="documents[PREM_DATE]" value="{{ $existingPremDate?->value }}">
+                            <input type="date" class="form-control form-control-sm" name="documents[PREM_DATE]" value="{{ $existingPremDate?->value }}" required>
                         </div>
                         @endif
                     </div>
@@ -335,3 +371,98 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('instructorCardsContainer');
+    if (!container) return;
+    
+    const template = document.getElementById('instructorTemplate');
+    const addBtn = document.getElementById('addInstructorBtn');
+    
+    let cardCount = container.querySelectorAll('.instructor-card').length;
+    
+    function relabelCards() {
+        const cards = container.querySelectorAll('.instructor-card');
+        cards.forEach((card, i) => {
+            const span = card.querySelector('.instructor-label');
+            if (span) {
+                span.textContent = 'Instructor #' + (i + 1);
+            }
+            
+            let removeBtn = card.querySelector('.remove-instructor-btn');
+            if (cards.length > 1) {
+                if (!removeBtn) {
+                    removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'btn btn-sm btn-outline-danger remove-instructor-btn';
+                    removeBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Remove';
+                    removeBtn.addEventListener('click', function() {
+                        card.remove();
+                        relabelCards();
+                    });
+                    const header = card.querySelector('.d-flex.align-items-center.justify-content-between');
+                    if(header) header.appendChild(removeBtn);
+                } else {
+                    removeBtn.classList.remove('d-none');
+                }
+            } else {
+                if (removeBtn) removeBtn.classList.add('d-none');
+            }
+        });
+    }
+
+    container.querySelectorAll('.remove-instructor-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.instructor-card').remove();
+            relabelCards();
+        });
+    });
+
+    relabelCards();
+
+    function reindexElement(el, idx) {
+        ['name', 'id', 'for'].forEach(attr => {
+            if (el.hasAttribute(attr)) {
+                el.setAttribute(attr, el.getAttribute(attr).replace(/__IDX__/g, idx));
+            }
+        });
+        el.querySelectorAll('[name],[id],[for]').forEach(child => {
+            ['name', 'id', 'for'].forEach(attr => {
+                if (child.hasAttribute(attr)) {
+                    child.setAttribute(attr, child.getAttribute(attr).replace(/__IDX__/g, idx));
+                }
+            });
+        });
+    }
+
+    if(addBtn) {
+        addBtn.addEventListener('click', function() {
+            const idx = cardCount++;
+            const sourceNode = template.content ? template.content : template;
+            const clone = sourceNode.querySelector('.instructor-card').cloneNode(true);
+
+            reindexElement(clone, idx);
+
+            clone.querySelector('.remove-instructor-btn').addEventListener('click', function() {
+                clone.remove();
+                relabelCards();
+            });
+
+            clone.style.opacity = '0';
+            clone.style.transform = 'translateY(-8px)';
+            clone.style.transition = 'opacity .25s ease, transform .25s ease';
+            container.appendChild(clone);
+            
+            requestAnimationFrame(() => {
+                clone.style.opacity = '1';
+                clone.style.transform = 'translateY(0)';
+            });
+
+            relabelCards();
+        });
+    }
+});
+</script>
+@endpush

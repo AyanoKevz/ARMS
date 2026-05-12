@@ -34,8 +34,8 @@
 
     {{-- ── Admin Update Request Banner ── --}}
     @if($instructor->update_request_status === 'admin_requested')
-    <div class="alert alert-warning d-flex align-items-start gap-3 mb-3">
-        <i class="bi bi-exclamation-triangle-fill fs-4 mt-1 text-warning"></i>
+    <div class="p-3 mb-3 rounded" style="background-color: #6c757d; color: #ffffff; display: flex; gap: 1rem; align-items: flex-start;">
+        <i class="bi bi-info-circle fs-4 mt-1"></i>
         <div>
             <strong>Action Required: Credential Update Requested by Admin</strong><br>
             <span style="font-size:0.88rem;">
@@ -53,7 +53,7 @@
                     <strong>Documents to Update:</strong>
                     <ul class="mb-0 mt-1">
                     @foreach($instructor->update_request_fields as $f)
-                        <li><strong>{{ $fieldLabels[$f] ?? $f }}:</strong> <span class="text-muted">{{ $reasons[$f] ?? 'No reason provided' }}</span></li>
+                        <li><strong>{{ $fieldLabels[$f] ?? $f }}:</strong> <span>{{ $reasons[$f] ?? 'No reason provided' }}</span></li>
                     @endforeach
                     </ul>
                 @else
@@ -101,14 +101,22 @@
                 <div class="cred-header">
                     <h6><i class="bi bi-file-earmark-pdf me-2"></i> Service Agreement</h6>
                     @php
-                        $saColor = match($instructor->status) {
+                        $saStatus = $instructor->status;
+                        if (in_array('service_agreement', $requestedFields)) {
+                            if ($instructor->update_request_status === 'admin_requested') {
+                                $saStatus = 'update requested';
+                            } elseif ($instructor->update_request_status === 'pending_review') {
+                                $saStatus = 'pending review';
+                            }
+                        }
+                        $saColor = match($saStatus) {
                             'approved' => 'badge-approved',
                             'returned' => 'badge-returned',
                             'rejected' => 'badge-rejected',
                             default    => 'badge-pending',
                         };
                     @endphp
-                    <span class="badge {{ $saColor }}">{{ ucfirst($instructor->status) }}</span>
+                    <span class="badge {{ $saColor }}">{{ ucwords($saStatus) }}</span>
                 </div>
                 <div class="cred-body">
                     @if($instructor->remarks)
@@ -170,7 +178,15 @@
 
             @foreach($instructor->credentials as $credential)
             @php
-                $credColor = match($credential->status) {
+                $credStatus = $credential->status;
+                if (in_array($credential->type, $requestedFields)) {
+                    if ($instructor->update_request_status === 'admin_requested') {
+                        $credStatus = 'update requested';
+                    } elseif ($instructor->update_request_status === 'pending_review') {
+                        $credStatus = 'pending review';
+                    }
+                }
+                $credColor = match($credStatus) {
                     'approved' => 'badge-approved',
                     'returned' => 'badge-returned',
                     'rejected' => 'badge-rejected',
@@ -181,7 +197,7 @@
             <div class="cred-card">
                 <div class="cred-header">
                     <h6><i class="bi bi-award me-2"></i> {{ $label }}</h6>
-                    <span class="badge {{ $credColor }}">{{ ucfirst($credential->status) }}</span>
+                    <span class="badge {{ $credColor }}">{{ ucwords($credStatus) }}</span>
                 </div>
                 <div class="cred-body">
                     @if($credential->remarks)
@@ -243,28 +259,28 @@
                     <div class="update-section mt-2">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
-                                <label class="form-label">Certificate Number</label>
+                                <label class="form-label">Certificate Number <span class="text-danger">*</span></label>
                                 <input type="text" name="credentials[{{ $credential->id }}][number]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
+                                       value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001" required>
                             </div>
                             @if($credential->type !== 'BOSH')
                             <div class="col-md-4">
-                                <label class="form-label">Issued Date</label>
+                                <label class="form-label">Issued Date <span class="text-danger">*</span></label>
                                 <input type="date" name="credentials[{{ $credential->id }}][issued_date]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}">
+                                       value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}" required>
                             </div>
                             @endif
                             <div class="col-md-4">
-                                <label class="form-label">Valid Until</label>
+                                <label class="form-label">Valid Until <span class="text-danger">*</span></label>
                                 <input type="date" name="credentials[{{ $credential->id }}][validity_date]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}">
+                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}" required>
                             </div>
                             @if($credential->type === 'BOSH')
                             <div class="col-md-8">
-                                <label class="form-label">Training Date(s)</label>
+                                <label class="form-label">Training Date(s) <span class="text-danger">*</span></label>
                                 <input type="text" name="credentials[{{ $credential->id }}][training_dates]" class="form-control form-control-sm"
                                        value="{{ old('credentials.'.$credential->id.'.training_dates', $credential->training_dates) }}"
-                                       placeholder="e.g. April 10-14, 2024">
+                                       placeholder="e.g. April 10-14, 2024" required>
                             </div>
                             @endif
                         </div>

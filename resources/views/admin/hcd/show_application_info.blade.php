@@ -319,24 +319,36 @@
                     
                     {{-- Update request status banners (non-none states) --}}
                     @if($instructor->update_request_status === 'admin_requested')
-                    <div class="alert alert-info m-3 mb-0">
+                    <div class="m-3 mb-0 p-3 rounded" style="background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2;">
                         <i class="bi bi-hourglass-split me-1"></i>
                         <strong>Awaiting Applicant Upload</strong><br>
-                        <span style="font-size:0.85rem;">
-                            Reason: {{ $instructor->update_request_reason }}<br>
-                            @if($instructor->update_request_fields)
-                            Fields: <em>{{ implode(', ', $instructor->update_request_fields) }}</em>
-                            @endif
-                        </span>
+                        @if($instructor->update_request_fields)
+                        <div class="mt-1" style="font-size:0.85rem;">
+                            <span class="fw-semibold">Fields:</span>
+                            <ul class="mb-0 mt-1" style="padding-left:1.2rem;">
+                                @foreach($instructor->update_request_fields as $field)
+                                    <li>
+                                        @if($field === 'service_agreement') Service Agreement between FATPro head and instructor
+                                        @elseif($field === 'EMS') TESDA EMS NC II/III
+                                        @elseif($field === 'TM1') TESDA TM1
+                                        @elseif($field === 'NTTC') TESDA NTTC
+                                        @elseif($field === 'BOSH') BOSH SO1/SO2
+                                        @else {{ $field }}
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                        @endif
                     </div>
                     @elseif($instructor->update_request_status === 'pending_review')
-                    <div class="alert alert-warning m-3 mb-0">
+                    <div class="m-3 mb-0 p-3 rounded" style="background-color: #fff8e1; color: #f57f17; border: 1px solid #ffecb3;">
                         <i class="bi bi-upload me-1"></i>
                         <strong>Applicant Uploaded — Pending Re-evaluation</strong><br>
                         <span style="font-size:0.85rem;">Review the updated credentials below and approve or reject them.</span>
                     </div>
                     @elseif($instructor->update_request_status === 'completed')
-                    <div class="alert alert-success m-3 mb-0">
+                    <div class="m-3 mb-0 p-3 rounded" style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">
                         <i class="bi bi-check-circle-fill me-1"></i>
                         <strong>Update Completed</strong><br>
                         <span style="font-size:0.85rem;">All updated credentials have been approved and the applicant was notified.</span>
@@ -347,18 +359,25 @@
                     @foreach($instructor->credentials as $credential)
                     @php
                         $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
-                        $badgeClassCred = match($credential->status) {
-                            'approved'     => 'doc-badge-approved',
-                            'rejected'     => 'doc-badge-rejected',
-                            'for_revision' => 'doc-badge-for_revision',
-                            default        => 'doc-badge-pending',
-                        };
-                        $badgeLabelCred = match($credential->status) {
-                            'approved'     => 'Approved',
-                            'rejected'     => 'Rejected',
-                            'for_revision' => 'For Revision',
-                            default        => 'Pending',
-                        };
+                        $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);
+
+                        if ($instructor->update_request_status === 'admin_requested' && $isRequestedCred) {
+                            $badgeClassCred = 'doc-badge-pending';
+                            $badgeLabelCred = 'Awaiting Upload';
+                        } else {
+                            $badgeClassCred = match($credential->status) {
+                                'approved'     => 'doc-badge-approved',
+                                'rejected'     => 'doc-badge-rejected',
+                                'for_revision' => 'doc-badge-for_revision',
+                                default        => 'doc-badge-pending',
+                            };
+                            $badgeLabelCred = match($credential->status) {
+                                'approved'     => 'Approved',
+                                'rejected'     => 'Rejected',
+                                'for_revision' => 'For Revision',
+                                default        => 'Pending',
+                            };
+                        }
                     @endphp
                     <div class="doc-row" id="doc-row-cred-{{ $credential->id }}">
                         <input type="hidden" name="credential_evaluations[{{ $credential->id }}][id]" value="{{ $credential->id }}">
@@ -439,18 +458,25 @@
                     {{-- Service Agreement --}}
                     @php
                         $evalStatus = in_array($instructor->status, ['approved','rejected']) ? $instructor->status : 'pending';
-                        $badgeClass = match($instructor->status) {
-                            'approved'     => 'doc-badge-approved',
-                            'rejected'     => 'doc-badge-rejected',
-                            'for_revision' => 'doc-badge-for_revision',
-                            default        => 'doc-badge-pending',
-                        };
-                        $badgeLabel = match($instructor->status) {
-                            'approved'     => 'Approved',
-                            'rejected'     => 'Rejected',
-                            'for_revision' => 'For Revision',
-                            default        => 'Pending',
-                        };
+                        $isSaRequested = is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields);
+
+                        if ($instructor->update_request_status === 'admin_requested' && $isSaRequested) {
+                            $badgeClass = 'doc-badge-pending';
+                            $badgeLabel = 'Awaiting Upload';
+                        } else {
+                            $badgeClass = match($instructor->status) {
+                                'approved'     => 'doc-badge-approved',
+                                'rejected'     => 'doc-badge-rejected',
+                                'for_revision' => 'doc-badge-for_revision',
+                                default        => 'doc-badge-pending',
+                            };
+                            $badgeLabel = match($instructor->status) {
+                                'approved'     => 'Approved',
+                                'rejected'     => 'Rejected',
+                                'for_revision' => 'For Revision',
+                                default        => 'Pending',
+                            };
+                        }
                     @endphp
                     <div class="doc-row" id="doc-row-inst-{{ $instructor->id }}">
                         <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][id]" value="{{ $instructor->id }}">
@@ -596,6 +622,17 @@
         </div>
         @endif
     @endif
+@elseif($hasPendingUpdate)
+    <div class="mt-4 mb-4 text-center">
+        <button type="button"
+                id="btn-open-schedule"
+                class="btn btn-outline-primary btn-sm fw-semibold px-4"
+                disabled
+                style="border-radius:6px;">
+            <span id="btn-schedule-icon"></span>
+            <span id="btn-schedule-text">Pending Documents</span>
+        </button>
+    </div>
 @endif
 
 {{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
@@ -973,7 +1010,7 @@
             <div class="modal-dialog modal-dialog-centered">
                 <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content text-start" style="border-radius:12px;overflow:hidden;font-family:'Inter',sans-serif;">
                     @csrf
-                    <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#1a6fbd,#0d4f9e);border:none;">
+                    <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0b3d91,#091e3e);border:none;">
                         <div>
                             <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">Request Update</h6>
                             <small class="text-white-50" style="font-size:.75rem;">{{ $instructor->first_name }} {{ $instructor->last_name }}</small>
@@ -1033,7 +1070,7 @@
                     </div>
                     <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
                         <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold"><i class="bi bi-send me-1"></i>Send Request</button>
+                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold" style="background-color:#0b3d91; border-color:#0b3d91;"><i class="bi bi-send me-1"></i>Send Request</button>
                     </div>
                 </form>
             </div>
