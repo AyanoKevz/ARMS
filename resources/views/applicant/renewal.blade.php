@@ -53,6 +53,19 @@
             <p class="text-muted mb-0">Finish the application process before submitting another.</p>
         </div>
     </div>
+    @elseif($pendingInstructorUpdate)
+
+    {{-- Guard: pending instructor update --}}
+    <div class="x_panel" style="border-left:4px solid #f39c12;">
+        <div class="x_content py-4 text-center">
+            <i class="fas fa-user-edit fa-3x text-warning mb-3"></i>
+            <h5 class="fw-bold">You have a pending instructor update request</h5>
+            <p class="text-muted mb-3">You cannot file for renewal or reinstatement until your instructor's credentials update is completed.</p>
+            <a href="{{ route('applicant.instructors.show', $pendingInstructorUpdate->id) }}" class="btn btn-warning fw-bold px-4" style="border-radius:20px; color:#fff;">
+                <i class="fas fa-arrow-right me-1"></i> View Update Request
+            </a>
+        </div>
+    </div>
     @else
 
     {{-- Guard: no accreditation --}}

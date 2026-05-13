@@ -165,6 +165,72 @@
     @endforelse
 </div>
 
+{{-- ══ Accreditation History Card ══ --}}
+@if($accreditationHistory->count() > 1)
+<div class="ai-card mb-4">
+    <div class="ai-card-header" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#accreditationHistoryBody" aria-expanded="false">
+        <i class="bi bi-clock-history fs-5 text-dark"></i>
+        <h5 class="mb-0">Accreditation History <span class="badge bg-secondary ms-2" style="font-size:.72rem;">{{ $accreditationHistory->count() }} records</span></h5>
+        <i class="bi bi-chevron-down ms-auto" id="historyChevron"></i>
+    </div>
+    <div id="accreditationHistoryBody" class="collapse">
+        <div class="table-responsive mt-3">
+            <table class="table table-sm table-bordered mb-0" style="font-size:.85rem;">
+                <thead style="background:#f0f4f8;">
+                    <tr>
+                        <th>Accreditation No.</th>
+                        <th>Type</th>
+                        <th class="text-center">Date Accredited</th>
+                        <th class="text-center">Valid Until</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center no-sort">Certificate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($accreditationHistory as $histAcc)
+                    <tr>
+                        <td class="fw-semibold">{{ $histAcc->accreditation_number ?? '—' }}</td>
+                        <td>{{ $histAcc->accreditationType->name ?? '—' }}</td>
+                        <td class="text-center">{{ $histAcc->date_of_accreditation ? \Carbon\Carbon::parse($histAcc->date_of_accreditation)->format('M d, Y') : '—' }}</td>
+                        <td class="text-center">{{ $histAcc->validity_date ? \Carbon\Carbon::parse($histAcc->validity_date)->format('M d, Y') : '—' }}</td>
+                        <td class="text-center">
+                            @php
+                                $histBadge = match($histAcc->status) {
+                                    'active'  => 'bg-success',
+                                    'expired' => 'bg-warning text-dark',
+                                    'revoked' => 'bg-danger',
+                                    default   => 'bg-secondary',
+                                };
+                            @endphp
+                            <span class="badge {{ $histBadge }}">{{ ucfirst($histAcc->status) }}</span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ route('admin.hcd.accreditations.certificate', $histAcc->id) }}"
+                               target="_blank"
+                               class="btn btn-xs btn-outline-success px-2 py-0"
+                               style="font-size:.78rem;">
+                                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const historyBody = document.getElementById('accreditationHistoryBody');
+        const chevron = document.getElementById('historyChevron');
+        if (historyBody && chevron) {
+            historyBody.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+            historyBody.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+        }
+    });
+</script>
+@endif
+
 {{-- ══ Evaluation Form ══ --}}
 <form id="evaluation-form"
       data-url="{{ route('admin.hcd.applications.finalize_evaluation', $application->id) }}">

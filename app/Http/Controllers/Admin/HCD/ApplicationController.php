@@ -198,6 +198,10 @@ class ApplicationController extends Controller
                     $q->whereIn('name', ['Under Evaluation', 'For Update']);
                 });
             })
+            // Exclude FATPros who are already accredited (active) — they don't belong here
+            ->whereDoesntHave('user.accreditations', function ($q) {
+                $q->where('status', 'active');
+            })
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -222,7 +226,13 @@ class ApplicationController extends Controller
             'user.instructors.credentials',
         ]);
 
-        return view('admin.hcd.show_application_info', compact('application'));
+        // Load all accreditations for this user (for history display)
+        $accreditationHistory = \App\Models\Accreditation::where('user_id', $application->user_id)
+            ->with('accreditationType')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.show_application_info', compact('application', 'accreditationHistory'));
     }
 
     /**
@@ -362,31 +372,79 @@ class ApplicationController extends Controller
 
 
         if ($hasRejections) {
-            // Status: For Update (ID 3)
-            $forUpdateStatus = ApplicationStatus::where('name', 'For Update')->first();
-            if ($forUpdateStatus) {
-                ApplicationStatusLog::create([
-                    'application_id' => $application->id,
-                    'status_id' => $forUpdateStatus->id,
-                    'updated_by' => auth()->id(),
-                    'remarks' => 'Application has rejected documents. Notification sent to applicant.',
+            if ($isAccredited) {
+                // If it's an accredited update, we only reset the pending_review fields to admin_requested
+                foreach ($application->user->instructors as $inst) {
+                    if ($inst->update_request_status === 'pending_review') {
+                        $requestedFields = $inst->update_request_fields ?? [];
+                        $newFields = [];
+                        
+                        if (in_array('service_agreement', $requestedFields) && $inst->status === 'rejected') {
+                            $newFields[] = 'service_agreement';
+                        }
+                        
+                        $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
+                        $inst->load('credentials');
+                        foreach ($credTypes as $type) {
+                            $cred = $inst->credentials->firstWhere('type', $type);
+                            if ($cred && $cred->status === 'rejected') {
+                                $newFields[] = $type;
+                            }
+                        }
+
+                        if (!empty($newFields)) {
+                            $inst->update([
+                                'update_request_status' => 'admin_requested',
+                                'update_request_fields' => $newFields,
+                            ]);
+                        } else {
+                            $inst->update([
+                                'update_request_status' => 'completed',
+                                'update_request_reason' => null,
+                                'update_request_fields' => null,
+                            ]);
+                        }
+                    }
+                }
+
+                $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                                        ->where('status', 'rejected')->get();
+                                        
+                Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+
+                return response()->json([
+                    'success' => true,
+                    'action' => 'rejection_sent',
+                    'message' => 'Instructor update rejected. Rejection notice sent successfully.',
+                ]);
+            } else {
+                // Status: For Update (ID 3)
+                $forUpdateStatus = ApplicationStatus::where('name', 'For Update')->first();
+                if ($forUpdateStatus) {
+                    ApplicationStatusLog::create([
+                        'application_id' => $application->id,
+                        'status_id' => $forUpdateStatus->id,
+                        'updated_by' => auth()->id(),
+                        'remarks' => 'Application has rejected documents. Notification sent to applicant.',
+                    ]);
+                }
+
+                // Send Email
+                $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
+                $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                                        ->where('status', 'rejected')->get();
+                                        
+                Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
+
+                return response()->json([
+                    'success' => true,
+                    'action' => 'rejection_sent',
+                    'message' => 'Rejection notice sent successfully.',
+                    'new_status' => 'For Update'
                 ]);
             }
-
-            // Send Email
-            $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
-            $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
-            $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
-                                    ->where('status', 'rejected')->get();
-                                    
-            Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
-
-            return response()->json([
-                'success' => true,
-                'action' => 'rejection_sent',
-                'message' => 'Rejection notice sent successfully.',
-                'new_status' => 'For Update'
-            ]);
         }
 
         // ── Already-accredited path: instructor credential updates only ──────
@@ -756,13 +814,16 @@ class ApplicationController extends Controller
      */
     public function activeFatprosList()
     {
+        // Load all active FATPro accreditations, then keep only the latest one per user.
         $accreditations = \App\Models\Accreditation::where('status', 'active')
             ->whereHas('accreditationType', function ($query) {
                 $query->where('name', 'like', '%FATPro%')
                       ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
             ->with(['user.organizationProfile', 'accreditationType', 'application'])
-            ->get();
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->unique('user_id'); // Keep only the latest (first, since ordered desc) per user
 
         return view('admin.hcd.active_fatpros', compact('accreditations'));
     }
@@ -923,6 +984,12 @@ class ApplicationController extends Controller
             if (!empty($data['requested'])) {
                 $requestedFields[] = $key;
                 $reasons[$key] = $data['reason'] ?? 'No specific reason provided';
+
+                if ($key === 'service_agreement') {
+                    $instructor->update(['status' => 'returned']);
+                } else {
+                    $instructor->credentials()->where('type', $key)->update(['status' => 'returned']);
+                }
             }
         }
 

@@ -40,7 +40,7 @@
     <p>
         We are pleased to inform you that the updated credentials for your instructor,
         <strong>{{ $instructor->first_name }} {{ $instructor->last_name }}</strong>,
-        have been reviewed and <strong>approved</strong> by the OSHC administration.
+        have been reviewed and <strong>approved</strong> by the OSHC evaluator.
     </p>
 
     <div class="info-box green">

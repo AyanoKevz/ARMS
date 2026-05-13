@@ -74,14 +74,6 @@
             <small>Your updated files have been submitted. The admin will review them shortly.</small>
         </div>
     </div>
-    @elseif($instructor->update_request_status === 'completed')
-    <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
-        <i class="bi bi-check-circle-fill fs-5"></i>
-        <div>
-            <strong>Update Approved</strong><br>
-            <small>Your instructor's updated credentials have been approved by the admin.</small>
-        </div>
-    </div>
     @endif
 
     @php

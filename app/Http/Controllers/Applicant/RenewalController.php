@@ -60,6 +60,11 @@ class RenewalController extends Controller
             })
             ->first();
 
+        // Check if user has a pending instructor update request
+        $pendingInstructorUpdate = $user->instructors()
+            ->whereIn('update_request_status', ['admin_requested', 'pending_review'])
+            ->first();
+
         // Get existing user documents grouped by document field code
         $existingDocs = $user->userDocuments->keyBy(function ($doc) {
             return $doc->documentField->code ?? null;
@@ -69,6 +74,7 @@ class RenewalController extends Controller
             'user',
             'accreditation',
             'pendingRenewal',
+            'pendingInstructorUpdate',
             'existingDocs'
         ));
     }
@@ -100,6 +106,16 @@ class RenewalController extends Controller
         if ($alreadyActive) {
             return redirect()->route('applicant.renewal')
                 ->with('error', 'You already have an active renewal or reinstatement application that is still being processed. Please wait for it to be completed before submitting a new one.');
+        }
+
+        // ── Server-side guard: block if pending instructor update ──
+        $pendingInstructorUpdate = $user->instructors()
+            ->whereIn('update_request_status', ['admin_requested', 'pending_review'])
+            ->exists();
+
+        if ($pendingInstructorUpdate) {
+            return redirect()->route('applicant.renewal')
+                ->with('error', 'You cannot submit a renewal application while you have a pending instructor update request.');
         }
 
         // ── Build document field validation rules ──────────────────
