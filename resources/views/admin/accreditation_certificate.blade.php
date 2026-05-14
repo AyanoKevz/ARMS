@@ -37,7 +37,7 @@
 
         .sig-name {
             font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
+            font-size: 15pt;
             font-weight: bold;
             color: #1a1a1a;
             letter-spacing: 0.3px;
@@ -45,14 +45,14 @@
 
         .sig-title {
             font-family: "Times New Roman", Times, serif;
-            font-size: 10pt;
+            font-size: 13pt;
             color: #1a1a1a;
             margin-top: 1mm;
         }
 
         .sig-org {
             font-family: "Times New Roman", Times, serif;
-            font-size: 9.5pt;
+            font-size: 13pt;
             color: #1a1a1a;
             margin-top: 0.5mm;
         }
@@ -65,19 +65,18 @@
 
         /* ─── "CERTIFICATE OF ACCREDITATION" – serif small-caps ──────────── */
         .cert-title {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 22pt;
+            font-family: "Copperplate Gothic Bold", "Copperplate", "Copperplate Gothic", serif;
+            font-size: 24pt;
             font-weight: bold;
             color: #1a1a1a;
             letter-spacing: 2px;
-            font-variant: small-caps;
             margin-bottom: 2mm;
         }
 
         /* ─── "as" ───────────────────────────────────────────────────────── */
         .cert-as {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
+            font-family: "Calibri", "Calibri (Body)", "Carlito", sans-serif;
+            font-size: 14pt;
             color: #1a1a1a;
             margin-bottom: 3mm;
         }
@@ -85,7 +84,7 @@
         /* ─── "FIRST AID TRAINING PROVIDER" – heavy black sans-serif ─────── */
         .cert-type {
             font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-            font-size: 24pt;
+            font-size: 27pt;
             font-weight: 900;
             color: #1a1a1a;
             letter-spacing: 1px;
@@ -101,7 +100,14 @@
 
         .info-row {
             font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
+            font-size: 18pt;
+            color: #1a1a1a;
+            margin: 1mm 0;
+        }
+
+        .info-row-valid {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 16pt;
             color: #1a1a1a;
             margin: 1mm 0;
         }
@@ -116,10 +122,12 @@
             margin-bottom: 8mm;
         }
 
+        /* Font size for certifies-line kept at default; no specific pt given – italicized per spec */
+
         /* ─── Company name (large bold serif, centered) ──────────────────── */
         .fatpro-name {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 24pt;
+            font-family: "Bodoni MT", "Bodoni 72", "Bodoni", "Didot", serif;
+            font-size: 36pt;
             font-weight: bold;
             color: #1a1a1a;
             text-transform: uppercase;
@@ -128,10 +136,10 @@
             text-align: center;
         }
 
-        /* ─── Body paragraphs – calligraphic handwriting font ────────────── */
+        /* ─── Body paragraphs – Script MT Bold ────────────────────────────── */
         .body-copy {
-            font-family: "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Monotype Corsiva", cursive;
-            font-size: 14pt;
+            font-family: "Script MT Bold", "Brush Script MT", cursive;
+            font-size: 16pt;
             font-weight: bold;
             line-height: 1.45;
             color: #1a1a1a;
@@ -143,8 +151,8 @@
         }
 
         .given-text {
-            font-family: "Segoe Script", "Lucida Handwriting", "Brush Script MT", "Monotype Corsiva", cursive;
-            font-size: 14pt;
+            font-family: "Script MT Bold", "Brush Script MT", cursive;
+            font-size: 16pt;
             font-weight: bold;
             color: #1a1a1a;
             margin-top: 5mm;
@@ -159,8 +167,8 @@
             left: 0;
             width: 100%;
             text-align: center;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 6.5pt;
+            font-family: "Arial Narrow", "Arial", Helvetica, sans-serif;
+            font-size: 7.5pt;
             color: #333;
             letter-spacing: 0.3px;
             text-transform: uppercase;
@@ -204,7 +212,7 @@
         {{-- Accreditation info --}}
         <div class="info-section">
             <div class="info-row">No. {{ $accNumber }}</div>
-            <div class="info-row">Valid until: {{ $validUntil }}</div>
+            <div class="info-row-valid">Valid until: {{ $validUntil }}</div>
         </div>
 
         {{-- Certifies body --}}

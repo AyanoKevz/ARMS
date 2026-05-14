@@ -1,0 +1,30 @@
+{
+    "copperplate gothic bold": {
+        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/copperplate_gothic_bold_normal_2241bdf0e19a10e2e594fa0e25a95d1b",
+        "bold": "copperplate_gothic_bold_bold_2241bdf0e19a10e2e594fa0e25a95d1b"
+    },
+    "bodoni mt": {
+        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_normal_ef61f8c4ea97b7614f2d38726d47061f",
+        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_bold_91d497729e9f0b592bc16ed1981a546f",
+        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_italic_19a5a24d9426c8c2eb28202d9812cc5d",
+        "bold_italic": "bodoni_mt_bold_italic_0ddbb7cd64fdfa306cf224bd6830c0a5"
+    },
+    "calibri": {
+        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_normal_8da8a6d403b9530b4dedb262e857ad65",
+        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_bold_41a38d81890317a114aff94e6fd9c289",
+        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_italic_927cbb7d22ab8dada76bcaff74ae4563",
+        "bold_italic": "calibri_bold_italic_725ac2ed62471dc878d8f7d7607d49d8"
+    },
+    "arial narrow": {
+        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_normal_1457005fd5d95be6a224b5771228d0ed",
+        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_bold_9eb52214f297a76acdf6128953c3129b",
+        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_italic_689ff6bf3938280b5fd0042cf4704a76",
+        "bold_italic": "arial_narrow_bold_italic_74900dae2b78f985db48666ed095b03f"
+    },
+    "script mt bold": {
+        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_normal_72034652fd0972d2458ef8a926838356",
+        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_bold_72034652fd0972d2458ef8a926838356",
+        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_italic_72034652fd0972d2458ef8a926838356",
+        "bold_italic": "script_mt_bold_bold_italic_72034652fd0972d2458ef8a926838356"
+    }
+}
