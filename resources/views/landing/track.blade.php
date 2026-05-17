@@ -127,6 +127,7 @@
                                 @php
                                     // Group documents by their document type (section)
                                     $grouped = $application->documents->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                                    $sectionCounter = 1;
                                 @endphp
 
                                 <div class="d-flex flex-column gap-4">
@@ -138,7 +139,7 @@
                                     {{-- Section / Type Label --}}
                                     <div class="border rounded-3 overflow-hidden">
                                         <div class="px-3 py-2 fw-bold" style="background:#f0f4ff; color:#0b3d91; font-size:.85rem; letter-spacing:.3px;">
-                                            <i class="bi bi-folder2-open me-2"></i>{{ $sectionName }}
+                                            <i class="bi bi-folder2-open me-2"></i>{{ $sectionCounter }}. {{ $sectionName }}
                                         </div>
 
                                         <div class="list-group list-group-flush">
@@ -190,6 +191,7 @@
                                         @endforeach
                                         </div>
                                     </div>
+                                    @php $sectionCounter++; @endphp
                                 @endforeach
                                 </div>
 
@@ -303,57 +305,74 @@
                                     <div class="d-flex flex-column gap-4">
                                         {{-- FATPro Documents Section --}}
                                         @if($rejectedDocs->count() > 0)
+                                        @php
+                                            $groupedRejected = $rejectedDocs->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                                            $resubmitCounter = 1;
+                                        @endphp
                                         <div>
                                             <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
                                                 <i class="bi bi-file-earmark-text me-1"></i> FATPro Documents
                                             </div>
-                                            <div class="d-flex flex-column gap-3">
-                                                @foreach($rejectedDocs as $rdoc)
-                                                <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
-                                                    <div class="flex-grow-1">
-                                                        <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
-                                                            @if($rdoc->documentField?->input_type === 'file')
-                                                                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                                            @else
-                                                                <i class="bi bi-input-cursor-text text-danger me-1"></i>
-                                                            @endif
-                                                            {{ $rdoc->documentField?->name ?? 'Document' }}
-                                                        </div>
-                                                        @if($rdoc->remarks)
-                                                        <div class="text-muted small mt-1">
-                                                            <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
-                                                        </div>
-                                                        @endif
-                                                    </div>
-                                                    <div style="min-width:260px;">
-                                                        @if($rdoc->documentField?->input_type === 'file')
-                                                            <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                                Upload Replacement (PDF) <span class="text-danger">*</span>
-                                                            </label>
-                                                            <div class="file-upload-wrapper mt-1">
-                                                                <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
-                                                                <div class="d-flex align-items-center gap-2">
-                                                                    <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
-                                                                        <i class="bi bi-cloud-upload me-1"></i> Choose File
-                                                                    </label>
-                                                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                            <div class="d-flex flex-column gap-4">
+                                                @foreach($groupedRejected as $typeId => $docs)
+                                                    @php
+                                                        $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'General Requirements';
+                                                    @endphp
+                                                    <div class="border rounded-3 p-3" style="background:#fcfcfc;">
+                                                        <h6 class="fw-bold mb-3" style="color:#0b3d91;">
+                                                            <i class="bi bi-folder2-open me-2"></i>{{ $resubmitCounter }}. {{ $sectionName }}
+                                                        </h6>
+                                                        <div class="d-flex flex-column gap-3">
+                                                            @foreach($docs as $rdoc)
+                                                            <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                                                                <div class="flex-grow-1">
+                                                                    <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                                        @if($rdoc->documentField?->input_type === 'file')
+                                                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                                        @else
+                                                                            <i class="bi bi-input-cursor-text text-danger me-1"></i>
+                                                                        @endif
+                                                                        {{ $rdoc->documentField?->name ?? 'Document' }}
+                                                                    </div>
+                                                                    @if($rdoc->remarks)
+                                                                    <div class="text-muted small mt-1">
+                                                                        <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
+                                                                    </div>
+                                                                    @endif
                                                                 </div>
-                                                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                                <div style="min-width:260px;">
+                                                                    @if($rdoc->documentField?->input_type === 'file')
+                                                                        <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                                            Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                                        </label>
+                                                                        <div class="file-upload-wrapper mt-1">
+                                                                            <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                                            <div class="d-flex align-items-center gap-2">
+                                                                                <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                                    <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                                                </label>
+                                                                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                                            </div>
+                                                                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                                        </div>
+                                                                        <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                                    @else
+                                                                        <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                                            Update Value <span class="text-danger">*</span>
+                                                                        </label>
+                                                                        <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
+                                                                               name="values[{{ $rdoc->id }}]" 
+                                                                               id="doc_{{ $rdoc->id }}" 
+                                                                               class="form-control form-control-sm" 
+                                                                               value="{{ $rdoc->userDocument?->value }}" 
+                                                                               required>
+                                                                    @endif
+                                                                </div>
                                                             </div>
-                                                            <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
-                                                        @else
-                                                            <label class="form-label small fw-semibold mb-1" style="color:#842029;">
-                                                                Update Value <span class="text-danger">*</span>
-                                                            </label>
-                                                            <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
-                                                                   name="values[{{ $rdoc->id }}]" 
-                                                                   id="doc_{{ $rdoc->id }}" 
-                                                                   class="form-control form-control-sm" 
-                                                                   value="{{ $rdoc->userDocument?->value }}" 
-                                                                   required>
-                                                        @endif
+                                                            @endforeach
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                    @php $resubmitCounter++; @endphp
                                                 @endforeach
                                             </div>
                                         </div>
@@ -475,11 +494,43 @@ document.addEventListener('DOMContentLoaded', function () {
     // Show filename next to each file input after selection
     document.querySelectorAll('.batch-file-input').forEach(function (input) {
         input.addEventListener('change', function () {
-            const hint = this.closest('div.file-upload-wrapper').querySelector('.file-name-text');
-            if (hint && this.files.length > 0) {
-                hint.textContent = this.files[0].name;
-            } else if (hint) {
-                hint.textContent = 'No file chosen';
+            const wrapper = this.closest('div.file-upload-wrapper');
+            const hint = wrapper.querySelector('.file-name-text');
+            const btn = wrapper.querySelector('.custom-file-btn');
+            const sectionLabel = wrapper.parentElement.querySelector('label.form-label');
+            
+            if (this.files.length > 0) {
+                if (hint) {
+                    hint.innerHTML = '<span class="text-dark fw-normal">File:</span> ' + this.files[0].name;
+                    hint.classList.remove('text-muted');
+                    hint.classList.add('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-success');
+                    btn.style.cssText = 'border-color: #198754 !important; background-color: #198754 !important; color: white !important;';
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> File Selected';
+                }
+                if (sectionLabel) {
+                    sectionLabel.innerHTML = 'Ready for Resubmission <i class="bi bi-check2-circle"></i>';
+                    sectionLabel.style.cssText = 'color: #198754 !important;';
+                }
+            } else {
+                if (hint) {
+                    hint.textContent = 'No file chosen';
+                    hint.classList.add('text-muted');
+                    hint.classList.remove('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.add('btn-outline-danger');
+                    btn.classList.remove('btn-success');
+                    btn.style.cssText = 'border-color:#842029; color:#842029; background-color: transparent;';
+                    btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Choose File';
+                }
+                if (sectionLabel) {
+                    sectionLabel.innerHTML = 'Upload Replacement (PDF) <span class="text-danger">*</span>';
+                    sectionLabel.style.cssText = 'color: #842029 !important;';
+                }
             }
         });
     });
@@ -511,9 +562,9 @@ document.addEventListener('DOMContentLoaded', function () {
         color: var(--bs-danger) !important;
         background-color: transparent !important;
     }
-    .was-validated .real-file-input:valid ~ div .custom-file-btn {
-        background-color: var(--bs-success) !important;
-        border-color: var(--bs-success) !important;
+    .real-file-input:valid ~ div .custom-file-btn {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
         color: white !important;
     }
 </style>

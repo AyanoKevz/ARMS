@@ -70,10 +70,11 @@ class TestApplicationSeeder extends Seeder
             ]);
 
             // 4. Set Application Status to 'Submitted' (Pending Evaluation)
-            // No accreditation record or number is created here as it is a new registration.
+            $submittedStatus = \App\Models\ApplicationStatus::where('name', 'Submitted')->first();
+
             ApplicationStatusLog::create([
                 'application_id' => $application->id,
-                'status_id' => 1, // ID 1 = 'Submitted'
+                'status_id' => $submittedStatus->id ?? 1,
                 'remarks' => 'New registration submitted and awaiting evaluation process.',
             ]);
 

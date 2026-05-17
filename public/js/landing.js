@@ -59,11 +59,13 @@
      * ───────────────────────────────────────────────────────── */
     const navbar = document.querySelector('.navbar-arms');
 
-    ScrollTrigger.create({
-        start:       'top -60',
-        onEnter:     () => navbar.classList.add('scrolled'),
-        onLeaveBack: () => navbar.classList.remove('scrolled'),
-    });
+    if (navbar) {
+        ScrollTrigger.create({
+            start:       'top -60',
+            onEnter:     () => navbar.classList.add('scrolled'),
+            onLeaveBack: () => navbar.classList.remove('scrolled'),
+        });
+    }
 
     /* ─────────────────────────────────────────────────────────
      * 2. SMOOTH HASH-LINK SCROLLING
@@ -75,7 +77,7 @@
             if (!target) return;
             e.preventDefault();
 
-            const offset = navbar.offsetHeight;
+            const offset = navbar ? navbar.offsetHeight : 0;
 
             if (smoother) {
                 smoother.scrollTo(target, true, 'top ' + offset + 'px');
@@ -87,42 +89,50 @@
     });
 
     /* ─────────────────────────────────────────────────────────
-     * 3. HERO — entrance animation (page load)
+     * 3. HERO — entrance animation (home page only)
      * ───────────────────────────────────────────────────────── */
-    const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-    heroTl
-        .from('.hero-eyebrow',  { opacity: 0, y: 28, duration: .7, delay: .2 })
-        .from('.hero-title',    { opacity: 0, y: 40, duration: .8 }, '-=.4')
-        .from('.hero-lead',     { opacity: 0, y: 28, duration: .7 }, '-=.5')
-        .from('.hero-btns > *', { opacity: 0, y: 22, duration: .6, stagger: .15 }, '-=.4');
+    if (document.querySelector('.hero-eyebrow')) {
+        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        heroTl
+            .from('.hero-eyebrow',  { opacity: 0, y: 28, duration: .7, delay: .2 })
+            .from('.hero-title',    { opacity: 0, y: 40, duration: .8 }, '-=.4')
+            .from('.hero-lead',     { opacity: 0, y: 28, duration: .7 }, '-=.5')
+            .from('.hero-btns > *', { opacity: 0, y: 22, duration: .6, stagger: .15 }, '-=.4');
+    }
 
     /* ─────────────────────────────────────────────────────────
-     * 4. STATS band — count-up feel
+     * 4. STATS band — count-up feel (home page only)
      * ───────────────────────────────────────────────────────── */
-    gsap.from('.stat-item', {
-        scrollTrigger: { trigger: '.stats-band', start: 'top 85%' },
-        opacity: 0, y: 30, duration: .6, stagger: .1, ease: 'power2.out',
-    });
+    if (document.querySelector('.stats-band')) {
+        gsap.from('.stat-item', {
+            scrollTrigger: { trigger: '.stats-band', start: 'top 85%' },
+            opacity: 0, y: 30, duration: .6, stagger: .1, ease: 'power2.out',
+        });
+    }
 
     /* ─────────────────────────────────────────────────────────
-     * 5. PORTAL cards — cascade in
+     * 5. PORTAL cards — cascade in (home page only)
      * ───────────────────────────────────────────────────────── */
-    gsap.from('.portal-card', {
-        scrollTrigger: { trigger: '#portals', start: 'top 80%' },
-        opacity: 0, y: 50, duration: .75, stagger: .18, ease: 'power3.out',
-    });
+    if (document.querySelector('#portals')) {
+        gsap.from('.portal-card', {
+            scrollTrigger: { trigger: '#portals', start: 'top 80%' },
+            opacity: 0, y: 50, duration: .75, stagger: .18, ease: 'power3.out',
+        });
+    }
 
     /* ─────────────────────────────────────────────────────────
-     * 6. CTA band — slide in from sides
+     * 6. CTA band — slide in from sides (home page only)
      * ───────────────────────────────────────────────────────── */
-    gsap.from('.cta-band .col-lg-7', {
-        scrollTrigger: { trigger: '.cta-band', start: 'top 80%' },
-        opacity: 0, x: -50, duration: .8, ease: 'power3.out',
-    });
-    gsap.from('.cta-band .col-lg-5', {
-        scrollTrigger: { trigger: '.cta-band', start: 'top 80%' },
-        opacity: 0, x: 50, duration: .8, ease: 'power3.out',
-    });
+    if (document.querySelector('.cta-band')) {
+        gsap.from('.cta-band .col-lg-7', {
+            scrollTrigger: { trigger: '.cta-band', start: 'top 80%' },
+            opacity: 0, x: -50, duration: .8, ease: 'power3.out',
+        });
+        gsap.from('.cta-band .col-lg-5', {
+            scrollTrigger: { trigger: '.cta-band', start: 'top 80%' },
+            opacity: 0, x: 50, duration: .8, ease: 'power3.out',
+        });
+    }
 
 })();
 

@@ -542,6 +542,30 @@ class ApplicationController extends Controller
             'venue'          => ['nullable', 'string', 'max:500'],
         ]);
 
+        // ── 2-hour interval check ──────────────────────────────────────────
+        $requestedTime = \Carbon\Carbon::createFromFormat('H:i', $request->input('interview_time'));
+
+        $sameDayInterviews = Interview::where('interview_date', $request->input('interview_date'))
+            ->where('application_id', '!=', $application->id)
+            ->get();
+
+        $conflict = null;
+        foreach ($sameDayInterviews as $existing) {
+            $existingTime = \Carbon\Carbon::createFromFormat('H:i:s', $existing->interview_time);
+            $diffMinutes  = abs($requestedTime->diffInMinutes($existingTime));
+            if ($diffMinutes < 120) {
+                $conflict = $existing;
+                break;
+            }
+        }
+
+        if ($conflict) {
+            $conflictTime = \Carbon\Carbon::parse($conflict->interview_time)->format('h:i A');
+            return back()->withErrors([
+                'interview_time' => "Another interview is scheduled at {$conflictTime} on this date. Please allow at least a 2-hour gap between interviews.",
+            ])->withInput();
+        }
+
         $interview = Interview::updateOrCreate(
             ['application_id' => $application->id],
             [
@@ -560,6 +584,59 @@ class ApplicationController extends Controller
 
         $action = $isNewInterview ? 'scheduled' : 'updated';
         return back()->with('success', "Interview {$action} successfully. The applicant has been notified via email.");
+    }
+
+    /**
+     * API: Check if an interview slot conflicts with existing interviews (2-hour interval).
+     */
+    public function checkInterviewSlot(Request $request)
+    {
+        $request->validate([
+            'date'           => ['required', 'date'],
+            'time'           => ['required', 'date_format:H:i'],
+            'application_id' => ['nullable', 'integer'],
+        ]);
+
+        $requestedTime = \Carbon\Carbon::createFromFormat('H:i', $request->input('time'));
+
+        $query = Interview::where('interview_date', $request->input('date'));
+
+        if ($request->filled('application_id')) {
+            $query->where('application_id', '!=', $request->input('application_id'));
+        }
+
+        $sameDayInterviews = $query->with('application.user.organizationProfile', 'application.user.individualProfile')->get();
+
+        $conflict = null;
+        foreach ($sameDayInterviews as $existing) {
+            $existingTime = \Carbon\Carbon::createFromFormat('H:i:s', $existing->interview_time);
+            $diffMinutes  = abs($requestedTime->diffInMinutes($existingTime));
+            if ($diffMinutes < 120) {
+                $conflict = $existing;
+                break;
+            }
+        }
+
+        if ($conflict) {
+            $app = $conflict->application;
+            $user = $app?->user;
+            $name = 'Another applicant';
+            if ($user) {
+                if ($user->profile_type === 'Organization' && $user->organizationProfile) {
+                    $name = $user->organizationProfile->name;
+                } elseif ($user->individualProfile) {
+                    $name = trim(($user->individualProfile->first_name ?? '') . ' ' . ($user->individualProfile->last_name ?? ''));
+                }
+            }
+
+            $conflictTime = \Carbon\Carbon::parse($conflict->interview_time)->format('h:i A');
+            return response()->json([
+                'available' => false,
+                'message'   => "{$name} ({$app->tracking_number}) has an interview at {$conflictTime}. Please allow at least a 2-hour gap.",
+            ]);
+        }
+
+        return response()->json(['available' => true]);
     }
 
     /**
@@ -883,6 +960,20 @@ class ApplicationController extends Controller
         $filename = 'Accreditation_Certificate_' . $accreditation->accreditation_number . '.pdf';
 
         return $pdf->stream($filename);
+    }
+
+    /**
+     * Revoke an active accreditation.
+     */
+    public function revokeAccreditation(\App\Models\Accreditation $accreditation)
+    {
+        if ($accreditation->status !== 'active') {
+            return back()->with('error', 'Only active accreditations can be revoked.');
+        }
+
+        $accreditation->update(['status' => 'revoked']);
+
+        return back()->with('success', 'Accreditation ' . $accreditation->accreditation_number . ' has been revoked successfully.');
     }
 
     /**

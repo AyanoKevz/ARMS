@@ -101,7 +101,7 @@
                         {{-- Left Col: Photo --}}
                         <div class="col-md-4 border-end pe-md-4">
                             <div class="profile-avatar-wrapper">
-                                <img src="{{ asset($user->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="Profile Photo" id="photoPreview" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
+                                <img src="{{ asset($user->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="Profile Photo" id="photoPreview" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">
                                 <h5 class="fw-bold mb-1">{{ $user->name }}</h5>
                                 <p class="text-muted small mb-3">{{ $user->email }}</p>
                                 

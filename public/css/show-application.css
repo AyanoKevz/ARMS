@@ -245,5 +245,35 @@
     margin-bottom: 5px;
 }
 
+/* ── Theme Blue Button Styling Overrides ──────── */
+.btn-outline-primary {
+    color: #0b3d91 !important;
+    border-color: #0b3d91 !important;
+}
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active,
+.btn-outline-primary.active {
+    background-color: #0b3d91 !important;
+    border-color: #0b3d91 !important;
+    color: #fff !important;
+}
+
+.btn-primary {
+    background-color: #0b3d91 !important;
+    border-color: #0b3d91 !important;
+    color: #fff !important;
+    border: none !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active {
+    background-color: #082d6b !important;
+    border-color: #082d6b !important;
+    color: #fff !important;
+}
+
+
 
 

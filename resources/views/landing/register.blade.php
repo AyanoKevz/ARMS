@@ -19,7 +19,10 @@
                             </div>
                             <div>
                                 <h1>Create an Account</h1>
-                                <p>OSHC Accreditation Reporting and Monitoring System</p>
+                                <p class="mb-0">OSHC Accreditation Reporting and Monitoring System</p>
+                                <p class="mt-1 small" style="opacity: 0.8;">
+                                    Already have an account? <a href="{{ route('login') }}" class="text-white fw-bold text-decoration-underline">Sign In</a>
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -91,6 +91,12 @@
                style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
             </a>
+            <button type="button"
+                    class="btn btn-danger btn-sm m-0 fw-semibold"
+                    style="border-radius:8px;font-size:.82rem;"
+                    data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
+                <i class="bi bi-shield-x me-1"></i> Revoke
+            </button>
         </div>
         <small style="color:#166534;">
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -810,7 +816,7 @@
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
                                 <i class="bi bi-calendar3 me-1 text-primary"></i>Interview Date
                             </label>
-                            <input type="date" name="interview_date" class="form-control"
+                            <input type="date" name="interview_date" id="interview-date" class="form-control"
                                    value="{{ $interview?->interview_date?->format('Y-m-d') }}"
                                    min="{{ now()->format('Y-m-d') }}" required
                                    style="border-radius:8px;border-color:#d0d8e8;">
@@ -821,7 +827,7 @@
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
                                 <i class="bi bi-clock me-1 text-primary"></i>Interview Time
                             </label>
-                            <input type="time" name="interview_time" class="form-control"
+                            <input type="time" name="interview_time" id="interview-time" class="form-control"
                                    value="{{ $interview ? \Carbon\Carbon::parse($interview->interview_time)->format('H:i') : '' }}" required
                                    style="border-radius:8px;border-color:#d0d8e8;">
                         </div>
@@ -855,6 +861,15 @@
                         <div class="col-12">
                             <div class="form-text mt-2 d-none" id="online-notice" style="font-size:0.75rem; color:#0d4f9e; padding:6px 10px; background:rgba(13,79,158,.08); border-radius:6px; border-left:3px solid #0d4f9e;">
                                 <i class="bi bi-info-circle-fill me-1"></i> If interview is online, a separate email will be sent with the online interview details.
+                            </div>
+                        </div>
+
+                        {{-- Slot Conflict Warning (hidden by default) --}}
+                        <div class="col-12">
+                            <div id="slot-conflict-warning" class="d-none mt-2 p-2 d-flex align-items-center gap-2"
+                                 style="background:#fee2e2;border-radius:8px;border-left:4px solid #dc2626;font-size:0.82rem;color:#991b1b;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="slot-conflict-msg">This slot is already taken.</span>
                             </div>
                         </div>
                     </div>
@@ -1068,6 +1083,66 @@
     </div>
 </div>
 
+{{-- ══ Revoke Accreditation Confirmation Modal ══ --}}
+@if($isAccredited && $application->accreditation->status === 'active')
+<div class="modal fade" id="revokeAccreditationModal" tabindex="-1"
+     aria-labelledby="revokeAccreditationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+
+            <div class="modal-header border-0"
+                 style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-shield-x text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="revokeAccreditationModalLabel">Revoke Accreditation</h5>
+                        <small class="text-white-50">{{ $application->accreditation->accreditation_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3"
+                     style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-circle fs-2 text-danger"></i>
+                    <div>
+                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
+                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
+                        </div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+                     style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
+                    <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
+                    <small class="text-dark">
+                        <strong>Warning — this action will revoke the FATPro's active accreditation.</strong><br>
+                        The accreditation status will be changed to <strong>Revoked</strong>. The FATPro will no longer
+                        appear in the active directory. This action can only be reversed by issuing a new accreditation.
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form method="POST" action="{{ route('admin.hcd.accreditations.revoke', $application->accreditation->id) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-danger fw-bold px-5" style="border-radius:8px;">
+                        <i class="bi bi-shield-x me-2"></i>Confirm Revoke
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- ══ Request Update Modals (outside main form to avoid nesting issues) ══ --}}
 @if($application->user && $application->user->instructors)
     @foreach($application->user->instructors as $instructor)
@@ -1157,8 +1232,89 @@
     window.ARMS.isApproved  = {{ $isApproved ? 'true' : 'false' }};
     window.ARMS.isAccredited = {{ $isAccredited ? 'true' : 'false' }};
     window.ARMS.hasPendingUpdate = {{ $hasPendingUpdate ? 'true' : 'false' }};
+    window.ARMS.checkSlotUrl = '{{ route("admin.hcd.interviews.check_slot") }}';
+    window.ARMS.applicationId = {{ $application->id }};
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
+<script>
+// ── Interview Slot Conflict Checker ──────────────────────────────────────
+(function () {
+    'use strict';
+
+    const dateInput   = document.getElementById('interview-date');
+    const timeInput   = document.getElementById('interview-time');
+    const warningBox  = document.getElementById('slot-conflict-warning');
+    const warningMsg  = document.getElementById('slot-conflict-msg');
+    const submitBtn   = document.querySelector('#schedule-interview-form button[type="submit"], button[form="schedule-interview-form"]');
+
+    if (!dateInput || !timeInput) return;
+
+    let checkTimeout = null;
+
+    function checkSlot() {
+        const date = dateInput.value;
+        const time = timeInput.value;
+
+        // Only check when both fields are filled
+        if (!date || !time) {
+            hideWarning();
+            return;
+        }
+
+        clearTimeout(checkTimeout);
+        checkTimeout = setTimeout(async function () {
+            try {
+                const url = new URL(window.ARMS.checkSlotUrl, window.location.origin);
+                url.searchParams.set('date', date);
+                url.searchParams.set('time', time);
+                url.searchParams.set('application_id', window.ARMS.applicationId);
+
+                const res = await fetch(url.toString(), {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+
+                if (!data.available) {
+                    showWarning(data.message);
+                } else {
+                    hideWarning();
+                }
+            } catch (err) {
+                console.error('Slot check failed:', err);
+                hideWarning();
+            }
+        }, 350); // debounce 350ms
+    }
+
+    function showWarning(msg) {
+        if (warningBox) {
+            warningMsg.textContent = msg;
+            warningBox.classList.remove('d-none');
+            warningBox.classList.add('d-flex');
+        }
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    function hideWarning() {
+        if (warningBox) {
+            warningBox.classList.add('d-none');
+            warningBox.classList.remove('d-flex');
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }
+    }
+
+    dateInput.addEventListener('change', checkSlot);
+    timeInput.addEventListener('change', checkSlot);
+})();
+</script>
 <script>
 // Request Update modal — show/hide reason input when checkbox is checked
 document.addEventListener('change', function (e) {

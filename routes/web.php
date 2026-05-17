@@ -82,6 +82,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/applications/under-review', [HCDApplicationController::class, 'underReview'])->name('applications.under_review');
             Route::post('/applications/{application}/update-evaluation', [HCDApplicationController::class, 'updateToEvaluation'])->name('applications.update_evaluation');
             Route::post('/applications/{application}/schedule-interview', [HCDApplicationController::class, 'scheduleInterview'])->name('applications.schedule_interview');
+            Route::get('/interviews/check-slot', [HCDApplicationController::class, 'checkInterviewSlot'])->name('interviews.check_slot');
             Route::post('/applications/{application}/finalize-evaluation', [HCDApplicationController::class, 'finalizeEvaluation'])->name('applications.finalize_evaluation');
             Route::post('/documents/{document}/evaluate', [HCDApplicationController::class, 'evaluateDocument'])->name('documents.evaluate');
             Route::get('/applications/{application}', [HCDApplicationController::class, 'show'])->name('applications.show');
@@ -98,6 +99,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Accreditation Certificate PDF
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
+            Route::post('/accreditations/{accreditation}/revoke', [HCDApplicationController::class, 'revokeAccreditation'])->name('accreditations.revoke');
 
             // Renewal / Reinstatement
             Route::get('/renewal/pending', [HCDApplicationController::class, 'renewalPending'])->name('renewal.pending');

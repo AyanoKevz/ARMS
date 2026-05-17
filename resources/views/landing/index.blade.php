@@ -6,7 +6,7 @@
 {{-- ══ HERO ══ --}}
 <section class="hero">
     <img src="{{ asset('images/OSHC hero-bg.jpg') }}" class="hero-bg-img" alt=""
-        aria-hidden="true">
+        aria-hidden="true" fetchpriority="high">
     <div class="hero-overlay"></div>
 
     <div class="container">
