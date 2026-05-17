@@ -56,11 +56,6 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             return view('applicant.dashboard');
         })->name('dashboard');
 
-        // Example of multi-portal support by accreditation type
-        Route::get('/practitioners/dashboard', function () {
-            return view('applicant.practitioners.dashboard');
-        })->name('practitioners.dashboard');
-
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
@@ -72,7 +67,6 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/renewal', [RenewalController::class, 'store'])->name('renewal.store');
         Route::get('/renewal/reupload', [RenewalController::class, 'reupload'])->name('renewal.reupload');
         Route::post('/renewal/reupload', [RenewalController::class, 'submitReupload'])->name('renewal.reupload.store');
-
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -104,15 +98,6 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             // Renewal / Reinstatement
             Route::get('/renewal/pending', [HCDApplicationController::class, 'renewalPending'])->name('renewal.pending');
             Route::get('/renewal/under-review', [HCDApplicationController::class, 'renewalUnderReview'])->name('renewal.under_review');
-
-        });
-
-
-        // Example of multi-portal support by division
-        Route::prefix('scd')->name('scd.')->group(function () {
-            Route::get('/dashboard', function () {
-                return view('admin.scd.dashboard');
-            })->name('dashboard');
         });
     });
 });
@@ -120,8 +105,6 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 // Track Registration
 Route::get('/track-application', [TrackingController::class, 'index'])->name('track');
 Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all');
-
-
 
 // Document and Instructor file viewers (auth required, but NO prevent-back-history to avoid PDF header errors)
 Route::middleware(['auth'])->group(function () {
