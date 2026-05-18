@@ -40,7 +40,7 @@ class RenewalController extends Controller
 
         // Get latest accreditation (may be active, expired, or revoked)
         $accreditation = $user->accreditations()
-            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         // Check if user already has an unfinished renewal/reinstatement application.

@@ -6,7 +6,7 @@
 @php
 $myAccreditation = \App\Models\Accreditation::where('user_id', auth()->id())
 ->whereIn('status', ['active', 'expired', 'revoked'])
-->orderBy('created_at', 'desc')
+->orderBy('id', 'desc')
 ->first();
 @endphp
 
