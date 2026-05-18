@@ -49,6 +49,9 @@
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">FATPro Name</th>
+                                    <th class="column-title">Accreditation No.</th>
+                                    <th class="column-title">Valid Until</th>
+                                    <th class="column-title">Revoked/Expired Date</th>
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Organization Email</th>
                                     <th class="column-title text-center">Status</th>
@@ -64,6 +67,9 @@
                                     @endphp
                                     <tr class="even pointer">
                                         <td><strong>{{ $user->name }}</strong></td>
+                                        <td>{{ $acc->accreditation_number }}</td>
+                                        <td>{{ $acc->validity_date ? \Carbon\Carbon::parse($acc->validity_date)->format('M d, Y') : '—' }}</td>
+                                        <td>{{ $acc->updated_at ? $acc->updated_at->format('M d, Y') : '—' }}</td>
                                         <td>{{ $org->head_name ?? '—' }}</td>
                                         <td>{{ $user->email }}</td>
                                         <td class="text-center">

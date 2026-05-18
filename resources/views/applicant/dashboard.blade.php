@@ -31,23 +31,31 @@ $myAccreditation = \App\Models\Accreditation::where('user_id', auth()->id())
                 </div>
                 <div class="x_content mt-2">
                     <div class="row text-center text-md-start">
-                        <div class="col-md-3 mb-2 mb-md-0 border-end">
+                        <div class="col-md mb-2 mb-md-0 border-end">
                             <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Accreditation Number</p>
                             <p class="fw-bold fs-5 mb-0" style="color: #0b3d91;">{{ $myAccreditation->accreditation_number ?? 'N/A' }}</p>
                         </div>
-                        <div class="col-md-3 mb-2 mb-md-0 border-end">
+                        <div class="col-md mb-2 mb-md-0 border-end">
                             <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Date Accredited</p>
                             <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
                                 {{ $myAccreditation->date_of_accreditation ? \Carbon\Carbon::parse($myAccreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}
                             </p>
                         </div>
-                        <div class="col-md-3 mb-2 mb-md-0 border-end">
+                        <div class="col-md mb-2 mb-md-0 border-end">
                             <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Validity Period</p>
                             <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
                                 {{ $myAccreditation->validity_date ? \Carbon\Carbon::parse($myAccreditation->validity_date)->format('F d, Y') : 'N/A' }}
                             </p>
                         </div>
-                        <div class="col-md-3">
+                        @if($myAccreditation->status === 'revoked')
+                        <div class="col-md mb-2 mb-md-0 border-end">
+                            <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Revoked Date</p>
+                            <p class="fw-bold fs-5 mb-0 text-danger">
+                                {{ $myAccreditation->updated_at ? $myAccreditation->updated_at->format('F d, Y') : 'N/A' }}
+                            </p>
+                        </div>
+                        @endif
+                        <div class="col-md">
                             <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Status</p>
                             <p class="mb-0 mt-1">
                                 @if($myAccreditation->status === 'active')

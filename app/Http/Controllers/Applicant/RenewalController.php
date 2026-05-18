@@ -118,6 +118,21 @@ class RenewalController extends Controller
                 ->with('error', 'You cannot submit a renewal application while you have a pending instructor update request.');
         }
 
+        // ── Server-side guard: block invalid application type based on accreditation status ──
+        $accreditation = $user->accreditations()->orderBy('created_at', 'desc')->first();
+        if (!$accreditation) {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'You must have an existing accreditation to apply for renewal or reinstatement.');
+        }
+
+        if ($accreditation->status !== 'revoked' && $request->input('application_type') === 'reinstatement') {
+            return back()->with('error', 'Reinstatement is only allowed if your current accreditation is revoked. Please submit a renewal application instead.')->withInput();
+        }
+
+        if ($accreditation->status === 'revoked' && $request->input('application_type') === 'renewal') {
+            return back()->with('error', 'Renewal is not allowed since your current accreditation is revoked. Please submit a reinstatement application instead.')->withInput();
+        }
+
         // ── Build document field validation rules ──────────────────
         $documentFields = DocumentField::all()->keyBy('code');
         $documentRules = [];

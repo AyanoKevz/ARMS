@@ -87,19 +87,25 @@
         </div>
         <div class="x_content mt-2">
             <div class="row text-center text-md-start">
-                <div class="col-md-3 mb-2 border-end">
+                <div class="col-md mb-2 border-end">
                     <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Accreditation Number</p>
                     <p class="fw-bold fs-5 mb-0" style="color:#0b3d91;">{{ $accreditation->accreditation_number ?? 'N/A' }}</p>
                 </div>
-                <div class="col-md-3 mb-2 border-end">
+                <div class="col-md mb-2 border-end">
                     <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Date Accredited</p>
                     <p class="fw-bold fs-5 mb-0" style="color:#2A3F54;">{{ $accreditation->date_of_accreditation ? \Carbon\Carbon::parse($accreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}</p>
                 </div>
-                <div class="col-md-3 mb-2 border-end">
+                <div class="col-md mb-2 border-end">
                     <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Validity Period</p>
                     <p class="fw-bold fs-5 mb-0" style="color:#2A3F54;">{{ $accreditation->validity_date ? \Carbon\Carbon::parse($accreditation->validity_date)->format('F d, Y') : 'N/A' }}</p>
                 </div>
-                <div class="col-md-3">
+                @if($accreditation->status === 'revoked')
+                <div class="col-md mb-2 border-end">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Revoked Date</p>
+                    <p class="fw-bold fs-5 mb-0 text-danger">{{ $accreditation->updated_at ? $accreditation->updated_at->format('F d, Y') : 'N/A' }}</p>
+                </div>
+                @endif
+                <div class="col-md">
                     <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Status</p>
                     @if($accreditation->status === 'active')
                         <span class="badge bg-success" style="font-size:.9rem;padding:6px 12px;">Active</span>
@@ -122,14 +128,36 @@
             <div class="x_title"><h2><i class="fas fa-exchange-alt me-2"></i>Application Type</h2><div class="clearfix"></div></div>
             <div class="x_content">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="application_type" id="type_renewal" value="renewal" required checked>
-                            <label class="form-check-label fw-semibold" for="type_renewal"><i class="fas fa-sync-alt text-info me-1"></i> Renewal</label>
+                    <div class="col-md-12">
+                        <div class="form-check form-check-inline"
+                             @if($accreditation->status === 'revoked')
+                                 data-bs-toggle="tooltip" 
+                                 data-bs-placement="top" 
+                                 title="Renewal is disabled because your current accreditation is revoked. Please use Reinstatement instead."
+                             @endif>
+                            <input class="form-check-input" type="radio" name="application_type" id="type_renewal" value="renewal" required 
+                                {{ $accreditation->status === 'revoked' ? 'disabled' : 'checked' }}
+                                style="{{ $accreditation->status === 'revoked' ? 'cursor: not-allowed;' : '' }}">
+                            <label class="form-check-label fw-semibold {{ $accreditation->status === 'revoked' ? 'text-muted text-decoration-line-through' : '' }}" 
+                                   for="type_renewal"
+                                   style="{{ $accreditation->status === 'revoked' ? 'cursor: not-allowed;' : '' }}">
+                                <i class="fas fa-sync-alt text-info me-1"></i> Renewal
+                            </label>
                         </div>
-                        <div class="form-check form-check-inline ms-4">
-                            <input class="form-check-input" type="radio" name="application_type" id="type_reinstatement" value="reinstatement">
-                            <label class="form-check-label fw-semibold" for="type_reinstatement"><i class="fas fa-redo text-secondary me-1"></i> Reinstatement</label>
+                        <div class="form-check form-check-inline ms-4"
+                             @if($accreditation->status !== 'revoked')
+                                 data-bs-toggle="tooltip" 
+                                 data-bs-placement="top" 
+                                 title="Reinstatement is disabled because your current accreditation is active or expired. Please use Renewal instead."
+                             @endif>
+                            <input class="form-check-input" type="radio" name="application_type" id="type_reinstatement" value="reinstatement"
+                                {{ $accreditation->status !== 'revoked' ? 'disabled' : 'checked' }}
+                                style="{{ $accreditation->status !== 'revoked' ? 'cursor: not-allowed;' : '' }}">
+                            <label class="form-check-label fw-semibold {{ $accreditation->status !== 'revoked' ? 'text-muted text-decoration-line-through' : '' }}" 
+                                   for="type_reinstatement"
+                                   style="{{ $accreditation->status !== 'revoked' ? 'cursor: not-allowed;' : '' }}">
+                                <i class="fas fa-redo text-secondary me-1"></i> Reinstatement
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -388,6 +416,14 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap Tooltips
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    }
+
     const container = document.getElementById('instructorCardsContainer');
     if (!container) return;
     

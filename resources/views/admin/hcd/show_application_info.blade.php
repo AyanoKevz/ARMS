@@ -103,6 +103,41 @@
         </small>
     </div>
 </div>
+@elseif($isAccredited && $application->accreditation->status === 'revoked')
+<div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca;">
+    <div>
+        <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#991b1b;letter-spacing:.45px;"><i class="bi bi-shield-x me-1"></i>Accreditation Number</div>
+        <h4 class="m-0 fw-bold" style="color:#7f1d1d; text-decoration: line-through;">{{ $application->accreditation->accreditation_number }}</h4>
+        <small style="color:#991b1b; display: block;"><i class="bi bi-calendar-check me-1"></i>Date Accredited: {{ \Carbon\Carbon::parse($application->accreditation->date_of_accreditation)->format('F d, Y') }}</small>
+        <small style="color:#991b1b; display: block;"><i class="bi bi-calendar-x me-1"></i>Valid Until: {{ \Carbon\Carbon::parse($application->accreditation->validity_date)->format('F d, Y') }}</small>
+        <small style="color:#991b1b; display: block;"><i class="bi bi-calendar-minus me-1"></i>Revoked Date: {{ $application->accreditation->updated_at->format('F d, Y') }}</small>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <span class="badge fs-6 px-3 py-2 bg-danger text-white">
+            <i class="bi bi-x-circle-fill me-1"></i> Revoked
+        </span>
+        <small style="color:#991b1b;">
+            {{ $application->accreditationType->name ?? 'N/A' }}
+        </small>
+    </div>
+</div>
+@elseif($isAccredited && $application->accreditation->status === 'expired')
+<div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a;">
+    <div>
+        <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#92400e;letter-spacing:.45px;"><i class="bi bi-clock-history me-1"></i>Accreditation Number</div>
+        <h4 class="m-0 fw-bold" style="color:#78350f;">{{ $application->accreditation->accreditation_number }}</h4>
+        <small style="color:#92400e; display: block;"><i class="bi bi-calendar-check me-1"></i>Date Accredited: {{ \Carbon\Carbon::parse($application->accreditation->date_of_accreditation)->format('F d, Y') }}</small>
+        <small style="color:#92400e; display: block;"><i class="bi bi-calendar-x me-1"></i>Valid Until: {{ \Carbon\Carbon::parse($application->accreditation->validity_date)->format('F d, Y') }}</small>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <span class="badge fs-6 px-3 py-2 bg-warning text-dark">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Expired
+        </span>
+        <small style="color:#92400e;">
+            {{ $application->accreditationType->name ?? 'N/A' }}
+        </small>
+    </div>
+</div>
 @else
 <div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
     <div>
@@ -189,7 +224,7 @@
                         <th class="text-center">Date Accredited</th>
                         <th class="text-center">Valid Until</th>
                         <th class="text-center">Status</th>
-                        <th class="text-center no-sort">Certificate</th>
+                        <th class="text-center no-sort" style="width: 80px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -210,12 +245,12 @@
                             @endphp
                             <span class="badge {{ $histBadge }}">{{ ucfirst($histAcc->status) }}</span>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center" style="white-space: nowrap;">
                             <a href="{{ route('admin.hcd.accreditations.certificate', $histAcc->id) }}"
                                target="_blank"
-                               class="btn btn-xs btn-outline-success px-2 py-0"
-                               style="font-size:.78rem;">
-                                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                               class="btn btn-xs btn-outline-success m-0 px-2 py-0"
+                               style="font-size:.72rem;" title="View Certificate">
+                                <i class="bi bi-file-earmark-pdf"></i> PDF
                             </a>
                         </td>
                     </tr>
@@ -380,7 +415,7 @@
                 <div class="doc-section">
                     <div class="doc-section-header d-flex justify-content-between align-items-center">
                         <div><i class="bi bi-person-badge-fill"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}</div>
-                        @if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
+                        @if($isAccredited && $application->accreditation->status === 'active' && in_array($instructor->update_request_status, ['none', 'completed']))
                         <div>
                             <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#reqModal-inst-{{ $instructor->id }}">
                                 <i class="bi bi-pencil-square me-1"></i>Request Update
@@ -708,29 +743,9 @@
 @endif
 
 {{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
-@if($interview && !($isAccredited && $application->accreditation->status === 'active'))
+@if($interview && !$isAccredited && !$isApproved)
 
-    @if($isAccredited || $isApproved)
-    {{-- Already accredited --}}
-    <div class="d-flex align-items-center gap-3 mt-3 mb-4 p-3"
-         style="background:#d4edda;border:1px solid #c3e6cb;border-radius:12px;">
-        <i class="bi bi-patch-check-fill text-success fs-3"></i>
-        <div>
-            <div class="fw-bold text-success" style="font-size:1rem;">Application Approved</div>
-            @if($application->accreditation)
-            <small class="text-muted">Accreditation No: <strong>{{ $application->accreditation->accreditation_number }}</strong></small><br>
-            <small class="text-muted">Valid Until: <strong>{{ $application->accreditation->validity_date->format('F d, Y') }}</strong></small><br>
-            <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
-               target="_blank"
-               class="btn btn-success btn-sm mt-2 fw-semibold"
-               style="border-radius:8px;font-size:.82rem;">
-                <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
-            </a>
-            @endif
-        </div>
-    </div>
-
-    @elseif($isRejected)
+    @if($isRejected)
     {{-- Already rejected --}}
     <div class="d-flex align-items-center gap-3 mt-3 mb-4 p-3"
          style="background:#f8d7da;border:1px solid #f5c6cb;border-radius:12px;">

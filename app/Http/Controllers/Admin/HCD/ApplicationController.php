@@ -891,16 +891,20 @@ class ApplicationController extends Controller
      */
     public function activeFatprosList()
     {
-        // Load all active FATPro accreditations, then keep only the latest one per user.
-        $accreditations = \App\Models\Accreditation::where('status', 'active')
+        // Load the absolute latest accreditation per user, and check if it is active.
+        $accreditations = \App\Models\Accreditation::whereIn('id', function ($query) {
+                $query->selectRaw('MAX(id)')
+                      ->from('accreditations')
+                      ->groupBy('user_id');
+            })
+            ->where('status', 'active')
             ->whereHas('accreditationType', function ($query) {
                 $query->where('name', 'like', '%FATPro%')
                       ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
             ->with(['user.organizationProfile', 'accreditationType', 'application'])
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->unique('user_id'); // Keep only the latest (first, since ordered desc) per user
+            ->get();
 
         return view('admin.hcd.active_fatpros', compact('accreditations'));
     }
