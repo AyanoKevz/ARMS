@@ -28,8 +28,12 @@ class AdminUserSeeder extends Seeder
         // Get HCD Division
         $hcdDivision = Division::where('name', 'HCD')->first();
 
-        // Create Admin User
-        $admin = User::firstOrCreate(
+        // Get Admin Roles
+        $evaluatorRole = \App\Models\AdminRole::where('name', 'Evaluator')->first();
+        $verifierRole  = \App\Models\AdminRole::where('name', 'Verifier')->first();
+
+        // Create Admin 1: Evaluator
+        $evaluator = User::updateOrCreate(
             ['email' => 'hcd@oshc.com'],
             [
                 'password'   => Hash::make('Hcd@2026'),
@@ -38,14 +42,33 @@ class AdminUserSeeder extends Seeder
             ]
         );
 
-        // Create Admin Profile with Division
-        AdminProfile::firstOrCreate(
-            ['user_id' => $admin->id],
+        AdminProfile::updateOrCreate(
+            ['user_id' => $evaluator->id],
             [
-                'division_id' => $hcdDivision->id,
-                'first_name' => 'HCD',
-                'last_name'  => 'Admin',
-                'position'   => 'Evaluator',
+                'division_id'   => $hcdDivision->id,
+                'first_name'    => 'HCD',
+                'last_name'     => 'Evaluator',
+                'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
+            ]
+        );
+
+        // Create Admin 2: Verifier
+        $verifier = User::updateOrCreate(
+            ['email' => 'verifier@oshc.com'],
+            [
+                'password'   => Hash::make('Hcd@2026'),
+                'role_id'    => $adminRole->id,
+                'user_photo' => 'images/profile_picture/default_photo.jpg',
+            ]
+        );
+
+        AdminProfile::updateOrCreate(
+            ['user_id' => $verifier->id],
+            [
+                'division_id'   => $hcdDivision->id,
+                'first_name'    => 'HCD',
+                'last_name'     => 'Verifier',
+                'admin_role_id' => $verifierRole ? $verifierRole->id : null,
             ]
         );
     }

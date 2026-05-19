@@ -19,6 +19,8 @@ use App\Mail\DocumentRejectionEmail;
 use App\Mail\ApplicationResultEmail;
 use App\Mail\InstructorUpdateRequestEmail;
 use App\Mail\InstructorUpdateCompleteEmail;
+use App\Mail\AccreditationRevokedEmail;
+use App\Mail\DocumentsApprovedEmail;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ApplicationController extends Controller
@@ -279,6 +281,14 @@ class ApplicationController extends Controller
                     ]);
                     $statusChanged = true;
                     $newStatusName = 'Scheduled for Interview';
+
+                    if ($application->user && $application->user->email) {
+                        try {
+                            Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
+                        }
+                    }
                 }
             }
         }
@@ -512,6 +522,14 @@ class ApplicationController extends Controller
                     'updated_by' => auth()->id(),
                     'remarks' => 'All documents approved. Proceeding to interview schedule.',
                 ]);
+            }
+
+            if ($application->user && $application->user->email) {
+                try {
+                    Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
+                }
             }
 
             return response()->json([
@@ -777,7 +795,7 @@ class ApplicationController extends Controller
             'email' => ['required', 'email', 'unique:users,email', 'unique:pending_admins,email'],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
+            'admin_role_id' => ['required', 'exists:admin_roles,id'],
         ]);
 
         $token = \Illuminate\Support\Str::random(64);
@@ -790,7 +808,7 @@ class ApplicationController extends Controller
             'email' => $request->email,
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
-            'position' => $request->position,
+            'admin_role_id' => $request->admin_role_id,
             'division_id' => $divisionId,
             'expires_at' => now()->addDays(7),
         ]);
@@ -832,10 +850,12 @@ class ApplicationController extends Controller
                     $query->where('division_id', $divisionId);
                 }
             })
-            ->with('adminProfile.division')
+            ->with(['adminProfile.division', 'adminProfile.adminRole'])
             ->get();
 
-        return view('admin.hcd.admins_list', compact('admins'));
+        $adminRoles = \App\Models\AdminRole::all();
+
+        return view('admin.hcd.admins_list', compact('admins', 'adminRoles'));
     }
 
     /**
@@ -976,6 +996,14 @@ class ApplicationController extends Controller
         }
 
         $accreditation->update(['status' => 'revoked']);
+
+        if ($accreditation->user && $accreditation->user->email) {
+            try {
+                Mail::to($accreditation->user->email)->send(new AccreditationRevokedEmail($accreditation));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send accreditation revoked email: ' . $e->getMessage());
+            }
+        }
 
         return back()->with('success', 'Accreditation ' . $accreditation->accreditation_number . ' has been revoked successfully.');
     }

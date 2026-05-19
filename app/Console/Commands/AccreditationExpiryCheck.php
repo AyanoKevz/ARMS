@@ -20,7 +20,7 @@ class AccreditationExpiryCheck extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Auto-expire past-due accreditations and send email reminders at 3 months and 1 month before expiration.';
+    protected $description = 'Auto-expire past-due accreditations and send email reminders at 3 months, 2 months, and 1 month before expiration.';
 
     /**
      * Execute the console command.
@@ -74,6 +74,7 @@ class AccreditationExpiryCheck extends Command
     private function sendReminders(Carbon $today): void
     {
         $threeMonthsFromNow = $today->copy()->addMonths(3);
+        $twoMonthsFromNow   = $today->copy()->addMonths(2);
         $oneMonthFromNow    = $today->copy()->addMonth();
 
         // ── 3-month reminders ────────────────────────────────────────────
@@ -95,6 +96,29 @@ class AccreditationExpiryCheck extends Command
                     $sent3++;
                 } catch (\Exception $e) {
                     Log::error('Failed to send 3-month reminder for #' . $accreditation->accreditation_number . ': ' . $e->getMessage());
+                }
+            }
+        }
+
+        // ── 2-month reminders ────────────────────────────────────────────
+        $twoMonthCandidates = Accreditation::where('status', 'active')
+            ->whereNull('reminder_2mo_sent_at')
+            ->whereDate('validity_date', '<=', $twoMonthsFromNow)
+            ->whereDate('validity_date', '>', $oneMonthFromNow)
+            ->with('user')
+            ->get();
+
+        $sent2 = 0;
+        foreach ($twoMonthCandidates as $accreditation) {
+            if ($accreditation->user && $accreditation->user->email) {
+                try {
+                    Mail::to($accreditation->user->email)
+                        ->send(new AccreditationExpiryReminderEmail($accreditation, '2 months'));
+
+                    $accreditation->update(['reminder_2mo_sent_at' => now()]);
+                    $sent2++;
+                } catch (\Exception $e) {
+                    Log::error('Failed to send 2-month reminder for #' . $accreditation->accreditation_number . ': ' . $e->getMessage());
                 }
             }
         }
@@ -122,6 +146,6 @@ class AccreditationExpiryCheck extends Command
             }
         }
 
-        $this->info("Sent {$sent3} three-month reminder(s) and {$sent1} one-month reminder(s).");
+        $this->info("Sent {$sent3} three-month reminder(s), {$sent2} two-month reminder(s), and {$sent1} one-month reminder(s).");
     }
 }

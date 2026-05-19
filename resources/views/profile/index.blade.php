@@ -156,7 +156,18 @@
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Position/Title</label>
-                                        <input type="text" class="form-control" name="position" value="{{ old('position', $profile->position ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
+                                        @if($readOnly)
+                                            <input type="text" class="form-control" value="{{ $profile->adminRole->name ?? '—' }}" disabled>
+                                        @else
+                                            <select class="form-control" name="admin_role_id" required>
+                                                <option value="">Select Role</option>
+                                                @foreach(\App\Models\AdminRole::all() as $role)
+                                                    <option value="{{ $role->id }}" {{ old('admin_role_id', $profile->admin_role_id ?? '') == $role->id ? 'selected' : '' }}>
+                                                        {{ $role->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        @endif
                                     </div>
                                     <div class="col-md-12">
                                         <label class="form-label">Division</label>

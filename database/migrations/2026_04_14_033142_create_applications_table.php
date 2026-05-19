@@ -127,6 +127,7 @@ return new class extends Migration
 
             // Reminder tracking columns
             $table->timestamp('reminder_3mo_sent_at')->nullable();
+            $table->timestamp('reminder_2mo_sent_at')->nullable();
             $table->timestamp('reminder_1mo_sent_at')->nullable();
 
             $table->timestamps();

@@ -21,6 +21,10 @@
             background-color: #f59e0b;
         }
 
+        .urgency-2-months {
+            background-color: #f97316;
+        }
+
         .urgency-1-month {
             background-color: #ef4444;
         }
@@ -41,7 +45,7 @@
         <p><strong>Validity Date:</strong> {{ $accreditation->validity_date->format('F d, Y') }}</p>
         <p>
             <strong>Urgency:</strong>
-            <span class="urgency-badge {{ $period === '1 month' ? 'urgency-1-month' : 'urgency-3-months' }}">
+            <span class="urgency-badge {{ $period === '1 month' ? 'urgency-1-month' : ($period === '2 months' ? 'urgency-2-months' : 'urgency-3-months') }}">
                 Expires in {{ $period }}
             </span>
         </p>

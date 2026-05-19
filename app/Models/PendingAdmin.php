@@ -11,7 +11,7 @@ class PendingAdmin extends Model
         'email',
         'first_name',
         'last_name',
-        'position',
+        'admin_role_id',
         'division_id',
         'expires_at',
     ];
@@ -29,5 +29,13 @@ class PendingAdmin extends Model
     public function isExpired(): bool
     {
         return now()->greaterThan($this->expires_at);
+    }
+
+    /**
+     * Get the role for this pending admin.
+     */
+    public function adminRole()
+    {
+        return $this->belongsTo(AdminRole::class, 'admin_role_id');
     }
 }

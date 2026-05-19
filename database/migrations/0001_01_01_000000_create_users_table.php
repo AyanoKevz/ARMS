@@ -22,7 +22,12 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             // Example: HCD, SCD, ECD, TPID
+            $table->timestamps();
+        });
 
+        Schema::create('admin_roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
             $table->timestamps();
         });
 
@@ -48,10 +53,9 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('first_name');
             $table->string('last_name');
+            $table->foreignId('admin_role_id')->nullable()->constrained('admin_roles')->onDelete('set null');
             $table->foreignId('division_id')->constrained()->cascadeOnDelete();
             // Example: 1 = HCD;
-            $table->string('position');
-            // Example: Evaluator
             $table->timestamps();
         });
 
@@ -61,7 +65,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('first_name');
             $table->string('last_name');
-            $table->string('position')->nullable();
+            $table->foreignId('admin_role_id')->nullable()->constrained('admin_roles')->onDelete('set null');
             $table->foreignId('division_id')->nullable()->constrained('divisions')->onDelete('cascade');
             $table->timestamp('expires_at');
             $table->timestamps();
@@ -93,6 +97,7 @@ return new class extends Migration
         Schema::dropIfExists('divisions');
         Schema::dropIfExists('admin_profiles');
         Schema::dropIfExists('pending_admins');
+        Schema::dropIfExists('admin_roles');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }

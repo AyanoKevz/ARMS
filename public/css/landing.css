@@ -1,4 +1,3 @@
-/* ── ROOT TOKENS ── */
 :root {
     --blue-deep:   #0D2B55;
     --blue-mid:    #1A4A8A;
@@ -16,11 +15,10 @@ body {
     font-family: 'Poppins', sans-serif;
     background: var(--off-white);
     color: var(--blue-deep);
-    overflow: hidden; /* ScrollSmoother takes over — JS restores if unavailable */
+    overflow: hidden; 
     margin: 0;
 }
 
-/* Fallback: when ScrollSmoother is not available/fails, JS adds this class */
 html.no-smoother body           { overflow: auto; }
 html.no-smoother #smooth-wrapper {
     position: relative !important;

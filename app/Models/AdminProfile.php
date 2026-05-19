@@ -13,7 +13,7 @@ class AdminProfile extends Model
         'user_id',
         'first_name',
         'last_name',
-        'position',
+        'admin_role_id',
         'division_id',
     ];
 
@@ -31,5 +31,13 @@ class AdminProfile extends Model
     public function division()
     {
         return $this->belongsTo(Division::class);
+    }
+
+    /**
+     * Get the role for this admin profile.
+     */
+    public function adminRole()
+    {
+        return $this->belongsTo(AdminRole::class, 'admin_role_id');
     }
 }

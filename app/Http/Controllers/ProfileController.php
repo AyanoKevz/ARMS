@@ -17,7 +17,7 @@ class ProfileController extends Controller
 
         // Load the relationship based on profile type
         if ($user->role && strtolower($user->role->name) === 'admin') {
-            $user->load('adminProfile.division');
+            $user->load(['adminProfile.division', 'adminProfile.adminRole']);
             $profile = $user->adminProfile;
             $layout = 'layouts.admin';
         } elseif ($user->profile_type === 'Organization') {
@@ -54,7 +54,7 @@ class ProfileController extends Controller
 
         // Load the target user's profile relationship
         if ($user->role && strtolower($user->role->name) === 'admin') {
-            $user->load('adminProfile.division');
+            $user->load(['adminProfile.division', 'adminProfile.adminRole']);
             $profile = $user->adminProfile;
         } elseif ($user->profile_type === 'Organization') {
             $user->load('organizationProfile.authorizedRepresentatives');
@@ -85,7 +85,7 @@ class ProfileController extends Controller
         if ($isAdmin) {
             $rules['first_name'] = 'required|string|max:100';
             $rules['last_name']  = 'required|string|max:100';
-            $rules['position']   = 'nullable|string|max:100';
+            $rules['admin_role_id'] = 'required|exists:admin_roles,id';
         } elseif ($user->profile_type === 'Organization') {
             $rules['name']        = 'required|string|max:255';
             $rules['head_name']   = 'required|string|max:255';
@@ -144,7 +144,7 @@ class ProfileController extends Controller
             $user->adminProfile->update([
                 'first_name' => $validated['first_name'],
                 'last_name'  => $validated['last_name'],
-                'position'   => $validated['position'] ?? $user->adminProfile->position,
+                'admin_role_id' => $validated['admin_role_id'],
             ]);
         } elseif ($user->profile_type === 'Organization' && $user->organizationProfile) {
             $user->organizationProfile->update([
