@@ -46,8 +46,8 @@
                                     aria-label="Show/hide password">
                                     <i class="bi bi-eye" id="togglePassIcon"></i>
                                 </button>
+                                <div class="invalid-feedback">Password is required.</div>
                             </div>
-                            <div class="invalid-feedback">Password is required.</div>
                         </div>
 
                         {{-- Confirm Password --}}
@@ -60,8 +60,8 @@
                                     aria-label="Show/hide password">
                                     <i class="bi bi-eye" id="togglePassConfirmIcon"></i>
                                 </button>
+                                <div class="invalid-feedback" id="confirmPasswordFeedback">Please confirm your password.</div>
                             </div>
-                            <div class="invalid-feedback">Please confirm your password.</div>
                         </div>
 
                         <button type="submit" class="btn-login" style="margin-top: 0;">
@@ -115,6 +115,53 @@
                     confirmInput.type = 'password';
                     confirmIcon.classList.remove('bi-eye-slash');
                     confirmIcon.classList.add('bi-eye');
+                }
+            });
+        }
+
+        // Real-time confirm password matching validation
+        const setupPasswordForm = document.getElementById('setupPasswordForm');
+        const confirmFeedback = document.getElementById('confirmPasswordFeedback');
+
+        function validatePasswordMatch() {
+            if (confirmInput.value) {
+                const matches = confirmInput.value === passInput.value;
+                confirmInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
+                if (matches) {
+                    confirmInput.classList.remove('is-invalid');
+                    confirmInput.classList.add('is-valid');
+                    if (confirmFeedback) confirmFeedback.textContent = '';
+                } else {
+                    confirmInput.classList.remove('is-valid');
+                    confirmInput.classList.add('is-invalid');
+                    if (confirmFeedback) confirmFeedback.textContent = 'Passwords do not match.';
+                }
+            } else {
+                confirmInput.setCustomValidity('');
+                confirmInput.classList.remove('is-invalid', 'is-valid');
+                if (confirmFeedback) confirmFeedback.textContent = 'Please confirm your password.';
+            }
+        }
+
+        if (passInput && confirmInput) {
+            passInput.addEventListener('input', validatePasswordMatch);
+            confirmInput.addEventListener('input', validatePasswordMatch);
+        }
+
+        if (setupPasswordForm) {
+            setupPasswordForm.addEventListener('submit', function(e) {
+                validatePasswordMatch();
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                    const firstInvalid = this.querySelector(':invalid');
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstInvalid.focus();
+                    }
+                } else {
+                    this.classList.add('was-validated');
                 }
             });
         }

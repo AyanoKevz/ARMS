@@ -722,17 +722,44 @@ class ApplicationController extends Controller
         if ($request->input('result') === 'passed') {
             // ── PASSED: Create accreditation record ──────────────────────────
 
-            // Build accreditation number: e.g. 235-251222-006
             $datePrefix = now()->format('ymd'); // YYMMDD
-            $today = now()->toDateString();
             
-            $countToday = Accreditation::whereDate('date_of_accreditation', $today)->count();
+            // Check if this is a Renewal or Reinstatement application for an existing accredited FATPro
+            $isRenewalOrReinstatement = in_array($application->application_type, ['renewal', 'reinstatement']);
             
-            do {
-                $countToday++;
-                $incrementStr = str_pad($countToday, 3, '0', STR_PAD_LEFT);
-                $accNumber = "235-{$datePrefix}-{$incrementStr}";
-            } while (Accreditation::where('accreditation_number', $accNumber)->exists());
+            $suffixStr = null;
+            if ($isRenewalOrReinstatement) {
+                // Find previous accreditation of the same FATPro (user)
+                $prevAccreditation = Accreditation::where('user_id', $application->user_id)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                
+                if ($prevAccreditation) {
+                    $parts = explode('-', $prevAccreditation->accreditation_number);
+                    $suffixStr = str_pad(end($parts), 3, '0', STR_PAD_LEFT);
+                }
+            }
+            
+            // If it is a new application, or we couldn't find a previous suffix, generate a new increment starting at 47
+            if (! $suffixStr) {
+                $maxIncrement = 46;
+                $allAccreditations = Accreditation::all();
+                foreach ($allAccreditations as $acc) {
+                    $parts = explode('-', $acc->accreditation_number);
+                    $suffixVal = (int) end($parts);
+                    if ($suffixVal > $maxIncrement) {
+                        $maxIncrement = $suffixVal;
+                    }
+                }
+                
+                do {
+                    $maxIncrement++;
+                    $suffixStr = str_pad($maxIncrement, 3, '0', STR_PAD_LEFT);
+                    $accNumber = "235-{$datePrefix}-{$suffixStr}";
+                } while (Accreditation::where('accreditation_number', $accNumber)->exists());
+            } else {
+                $accNumber = "235-{$datePrefix}-{$suffixStr}";
+            }
 
             $today = now()->toDateString();
 

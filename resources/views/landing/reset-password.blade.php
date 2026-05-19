@@ -17,7 +17,7 @@
                     <div class="gold-divider"></div>
                     <p class="login-sub">Please enter your new password below.</p>
 
-                    <form method="POST" action="{{ route('password.update') }}">
+                    <form id="resetPasswordForm" method="POST" action="{{ route('password.update') }}" novalidate>
                         @csrf
                         <input type="hidden" name="token" value="{{ $token }}">
 
@@ -46,6 +46,7 @@
                             <label for="password_confirmation" class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
                             <input type="password" class="form-control" id="password_confirmation"
                                 name="password_confirmation" placeholder="Re-enter new password" required>
+                            <div class="invalid-feedback" id="confirmPasswordFeedback">Passwords do not match.</div>
                         </div>
 
                         <button type="submit" class="btn-login mt-2">
@@ -60,3 +61,54 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById('resetPasswordForm');
+        const passInput = document.getElementById('password');
+        const confirmInput = document.getElementById('password_confirmation');
+        const confirmFeedback = document.getElementById('confirmPasswordFeedback');
+
+        function validatePasswordMatch() {
+            if (confirmInput.value) {
+                const matches = confirmInput.value === passInput.value;
+                confirmInput.setCustomValidity(matches ? '' : 'Passwords do not match.');
+                if (matches) {
+                    confirmInput.classList.remove('is-invalid');
+                    confirmInput.classList.add('is-valid');
+                } else {
+                    confirmInput.classList.remove('is-valid');
+                    confirmInput.classList.add('is-invalid');
+                }
+            } else {
+                confirmInput.setCustomValidity('');
+                confirmInput.classList.remove('is-invalid', 'is-valid');
+            }
+        }
+
+        if (passInput && confirmInput) {
+            passInput.addEventListener('input', validatePasswordMatch);
+            confirmInput.addEventListener('input', validatePasswordMatch);
+        }
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                validatePasswordMatch();
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                    const firstInvalid = this.querySelector(':invalid');
+                    if (firstInvalid) {
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstInvalid.focus();
+                    }
+                } else {
+                    this.classList.add('was-validated');
+                }
+            });
+        }
+    });
+</script>
+@endpush

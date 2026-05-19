@@ -119,7 +119,7 @@
                                             <label for="password" class="form-label fw-semibold">
                                                 Password <span class="text-danger">*</span>
                                             </label>
-                                            <div class="input-group">
+                                            <div class="input-group has-validation">
                                                 <input type="password" class="form-control" id="password"
                                                     name="password" placeholder="Min. 8 characters, letters & numbers"
                                                     minlength="8" required>
@@ -127,27 +127,27 @@
                                                     id="toggleRegPass" title="Show/hide password">
                                                     <i class="bi bi-eye" id="toggleRegPassIcon"></i>
                                                 </button>
+                                                <div class="invalid-feedback">Please enter a valid password.</div>
                                             </div>
                                             <div id="passwordStrengthFeedback" class="mt-2" style="font-size: 0.85rem; line-height: 1.4;">
                                                 <div class="text-secondary" id="rule-length"><i class="bi bi-circle me-2"></i>At least 8 characters</div>
                                                 <div class="text-secondary" id="rule-letter"><i class="bi bi-circle me-2"></i>Contains letters</div>
                                                 <div class="text-secondary" id="rule-number"><i class="bi bi-circle me-2"></i>Contains numbers</div>
                                             </div>
-                                            <div class="invalid-feedback">Please enter a valid password.</div>
                                         </div>
                                         <div class="col-12">
                                             <label for="password_confirmation" class="form-label fw-semibold">
                                                 Confirm Password <span class="text-danger">*</span>
                                             </label>
-                                            <div class="input-group">
+                                            <div class="input-group has-validation">
                                                 <input type="password" class="form-control" id="password_confirmation"
                                                     name="password_confirmation" placeholder="Re-enter password" required>
                                                 <button class="btn btn-outline-secondary" type="button"
                                                     id="toggleRegPassConfirm" title="Show/hide password">
                                                     <i class="bi bi-eye" id="toggleRegPassConfirmIcon"></i>
                                                 </button>
+                                                <div class="invalid-feedback" id="confirmPasswordFeedback">Passwords do not match.</div>
                                             </div>
-                                            <div class="invalid-feedback">Passwords do not match.</div>
                                         </div>
                                     </div>
 

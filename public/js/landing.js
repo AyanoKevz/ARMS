@@ -277,7 +277,15 @@
             // Re-trigger confirm match
             const mainConf = document.getElementById('password_confirmation');
             if (mainConf && mainConf.value) {
-                mainConf.setCustomValidity(mainConf.value !== val ? 'Passwords do not match.' : '');
+                const matches = mainConf.value === val;
+                mainConf.setCustomValidity(matches ? '' : 'Passwords do not match.');
+                if (matches) {
+                    mainConf.classList.remove('is-invalid');
+                    mainConf.classList.add('is-valid');
+                } else {
+                    mainConf.classList.remove('is-valid');
+                    mainConf.classList.add('is-invalid');
+                }
             }
         });
     }
@@ -300,7 +308,20 @@
     if (pwConfirm) {
         pwConfirm.addEventListener('input', function () {
             const main = document.getElementById('password');
-            this.setCustomValidity(this.value !== main.value ? 'Passwords do not match.' : '');
+            if (this.value) {
+                const matches = this.value === main.value;
+                this.setCustomValidity(matches ? '' : 'Passwords do not match.');
+                if (matches) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.remove('is-valid');
+                    this.classList.add('is-invalid');
+                }
+            } else {
+                this.setCustomValidity('');
+                this.classList.remove('is-invalid', 'is-valid');
+            }
         });
     }
 

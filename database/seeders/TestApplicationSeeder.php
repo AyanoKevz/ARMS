@@ -134,5 +134,133 @@ class TestApplicationSeeder extends Seeder
                 ]);
             }
         }
+
+        // --- SEED ACCREDITED FATPRO WITH NEAR-EXPIRING ACCREDITATION (3 MONTHS FROM NOW) ---
+        $accEmail = "kevin25.cloudspace@gmail.com";
+        User::where('email', $accEmail)->delete();
+
+        // 1. Create User
+        $accUser = User::create([
+            'email' => $accEmail,
+            'password' => Hash::make('Password123!'),
+            'role_id' => 1,
+            'profile_type' => 'Organization',
+        ]);
+
+        // 2. Create Organization Profile
+        $accOrgProfile = OrganizationProfile::create([
+            'user_id' => $accUser->id,
+            'name' => "Accredited Provider Training Center",
+            'address' => "456 Excellence Blvd, Safety City",
+            'head_name' => "Dr. Safety Doe",
+            'designation' => 'Director',
+            'telephone' => '09123456789',
+            'email' => $accEmail,
+        ]);
+
+        // 2.5 Create Authorized Representative
+        \App\Models\AuthorizedRepresentative::create([
+            'organization_profile_id' => $accOrgProfile->id,
+            'full_name' => "Safety Officer Doe",
+            'position' => 'Safety Head',
+            'contact_number' => '09987654321',
+            'email' => "safetyhead@example.com",
+        ]);
+
+        // 3. Create Application
+        $accYear = date('Y') - 3;
+        $accApplication = Application::create([
+            'user_id' => $accUser->id,
+            'accreditation_type_id' => 7, // FATPro
+            'application_type' => 'new',
+            'tracking_number' => "ARMS{$accYear}-000470",
+            'submitted_at' => Carbon::now()->subYears(2)->subMonths(9),
+        ]);
+
+        // 4. Set Application Status logs up to Approved
+        $statusNames = ['Submitted', 'Under Evaluation', 'Scheduled for Interview', 'Approved'];
+        foreach ($statusNames as $sName) {
+            $statusModel = \App\Models\ApplicationStatus::where('name', $sName)->first();
+            if ($statusModel) {
+                ApplicationStatusLog::create([
+                    'application_id' => $accApplication->id,
+                    'status_id' => $statusModel->id,
+                    'remarks' => "Application reached {$sName} stage.",
+                ]);
+            }
+        }
+
+        // 5. Create Approved Documents
+        $documentFields = DocumentField::all();
+        foreach ($documentFields as $field) {
+            $value = null;
+            $filePath = null;
+
+            if ($field->input_type === 'file') {
+                $filePath = "dummy_files/test_document_{$field->code}.pdf";
+            } elseif ($field->input_type === 'date') {
+                $value = Carbon::now()->addYears(1)->format('Y-m-d');
+            } else {
+                $value = "Approved dummy text for {$field->name}";
+            }
+
+            $userDoc = UserDocument::create([
+                'user_id' => $accUser->id,
+                'document_field_id' => $field->id,
+                'file_path' => $filePath,
+                'value' => $value,
+            ]);
+
+            ApplicationDocument::create([
+                'application_id' => $accApplication->id,
+                'document_field_id' => $field->id,
+                'user_document_id' => $userDoc->id,
+                'status' => 'approved',
+            ]);
+        }
+
+        // 6. Create Approved Instructor
+        $accInstructor = Instructor::create([
+            'user_id' => $accUser->id,
+            'first_name' => "Safety",
+            'middle_name' => 'Instructor',
+            'last_name' => 'John',
+            'service_agreement_path' => "dummy_files/service_agreement_acc.pdf",
+            'status' => 'approved',
+        ]);
+
+        // 7. Create Approved Instructor Credentials
+        $credentialTypes = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+        foreach ($credentialTypes as $type) {
+            InstructorCredential::create([
+                'instructor_id' => $accInstructor->id,
+                'type' => $type,
+                'number' => strtoupper(Str::random(8)),
+                'issued_date' => Carbon::now()->subMonths(30),
+                'validity_date' => Carbon::now()->addMonths(6),
+                'training_dates' => 'Jan 1-5, 2024',
+                'pdf_path' => "dummy_files/instructor_{$type}_acc.pdf",
+                'status' => 'approved',
+            ]);
+        }
+
+        // 8. Create Interview Record
+        $accInterview = new \App\Models\Interview();
+        $accInterview->application_id = $accApplication->id;
+        $accInterview->interview_date = Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->toDateString();
+        $accInterview->interview_time = '10:00:00';
+        $accInterview->mode = 'online';
+        $accInterview->save();
+
+        // 9. Create Accreditation (Expires in 3 months)
+        \App\Models\Accreditation::create([
+            'user_id' => $accUser->id,
+            'application_id' => $accApplication->id,
+            'accreditation_type_id' => 7, // FATPro
+            'accreditation_number' => '235-' . Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->format('ymd') . '-047',
+            'date_of_accreditation' => Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->toDateString(),
+            'validity_date' => Carbon::now()->addMonths(3)->toDateString(),
+            'status' => 'active',
+        ]);
     }
 }
