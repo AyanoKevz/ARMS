@@ -176,12 +176,12 @@
                     <div class="col-md-6"><label class="form-label fw-semibold">Designation</label><input type="text" class="form-control" name="designation" value="{{ old('designation', $org->designation) }}"></div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Telephone</label>
-                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', $org->telephone) }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10">
+                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $org->telephone)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
                         <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Fax</label>
-                        <input type="text" class="form-control" name="fax" value="{{ old('fax', $org->fax) }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10">
+                        <input type="text" class="form-control" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $org->fax)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
                         <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
                     </div>
                     <div class="col-md-12"><label class="form-label fw-semibold">Organization Email <span class="text-danger">*</span></label><input type="email" class="form-control" name="org_email" value="{{ old('org_email', $org->email) }}" required></div>

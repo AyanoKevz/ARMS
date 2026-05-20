@@ -113,8 +113,8 @@ class RegistrationController extends Controller
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
         ], $documentRules, $instructorRules), [
-            'telephone.regex' => 'The telephone number must be exactly 10 digits.',
-            'fax.regex'       => 'The facsimile number must be exactly 10 digits.',
+            'telephone.regex' => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
+            'fax.regex'       => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
         ]);
 
         // ── Generate token ─────────────────────────────────────────

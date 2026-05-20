@@ -235,4 +235,15 @@ body.nav-sm footer {
      margin-bottom: 12px;
  }
 
-
+ 
+ /* ══ Global Fix for Theme Validation CSS ══ */
+ /* The compiled theme CSS incorrectly sets .invalid-feedback to display: block unconditionally */
+ .invalid-feedback {
+     display: none !important;
+ }
+ .was-validated :invalid ~ .invalid-feedback, 
+ .was-validated :invalid ~ .invalid-tooltip, 
+ .is-invalid ~ .invalid-feedback, 
+ .is-invalid ~ .invalid-tooltip {
+     display: block !important;
+ }

@@ -12,8 +12,6 @@
 
     <!-- Gentelella CSS Base -->
     <link rel="stylesheet" href="{{ asset('gentelella/assets/init-Cvid-qA8.css') }}">
-    <link rel="stylesheet" href="{{ asset('gentelella/assets/leaflet-CIGW-MKW.css') }}">
-    <link rel="stylesheet" href="{{ asset('gentelella/assets/choices-CINgOKWX.css') }}">
 
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

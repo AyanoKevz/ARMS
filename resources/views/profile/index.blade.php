@@ -196,12 +196,12 @@
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Telephone Number</label>
-                                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', $profile->telephone ?? '') }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10" required {{ $readOnly ? 'disabled' : '' }}>
+                                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $profile->telephone ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" required {{ $readOnly ? 'disabled' : '' }}>
                                         <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Fax Number</label>
-                                        <input type="text" class="form-control" name="fax" value="{{ old('fax', $profile->fax ?? '') }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10" {{ $readOnly ? 'disabled' : '' }}>
+                                        <input type="text" class="form-control" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $profile->fax ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" {{ $readOnly ? 'disabled' : '' }}>
                                         <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
                                     </div>
                                     <div class="col-md-12">

@@ -258,20 +258,20 @@
                                                 <div class="invalid-feedback">Designation is required.</div>
                                             </div>
 
-                                            <div class="col-md-6">
-                                                <label for="telephone" class="form-label fw-semibold">Telephone Number</label>
-                                                <input type="text" class="form-control" id="telephone"
-                                                    name="telephone" placeholder="0281234567"
-                                                    pattern="^\d{10}$" maxlength="10">
-                                                <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="fax" class="form-label fw-semibold">Facsimile Number</label>
-                                                <input type="text" class="form-control" id="fax"
-                                                    name="fax" placeholder="0281234567"
-                                                    pattern="^\d{10}$" maxlength="10">
-                                                <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
-                                            </div>
+                                             <div class="col-md-6">
+                                                 <label for="telephone" class="form-label fw-semibold">Telephone Number</label>
+                                                 <input type="text" class="form-control" id="telephone"
+                                                     name="telephone" value="{{ old('telephone') }}" placeholder="e.g. 0281234567"
+                                                     pattern="[0-9]{10}" maxlength="10">
+                                                 <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
+                                             </div>
+                                             <div class="col-md-6">
+                                                 <label for="fax" class="form-label fw-semibold">Facsimile Number</label>
+                                                 <input type="text" class="form-control" id="fax"
+                                                     name="fax" value="{{ old('fax') }}" placeholder="e.g. 0281234567"
+                                                     pattern="[0-9]{10}" maxlength="10">
+                                                 <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
+                                             </div>
                                             <div class="col-12">
                                                 <label for="org_email" class="form-label fw-semibold">
                                                     Email Address <span class="text-danger">*</span>

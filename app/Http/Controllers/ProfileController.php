@@ -105,8 +105,8 @@ class ProfileController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'telephone.regex' => 'The telephone number must be exactly 10 digits.',
-            'fax.regex'       => 'The facsimile number must be exactly 10 digits.',
+            'telephone.regex' => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
+            'fax.regex'       => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
         ]);
 
         // 1. Handle Photo Upload
