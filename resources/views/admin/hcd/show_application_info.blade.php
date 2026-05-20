@@ -91,12 +91,18 @@
                style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
             </a>
-            <button type="button"
-                    class="btn btn-danger btn-sm m-0 fw-semibold"
-                    style="border-radius:8px;font-size:.82rem;"
-                    data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
-                <i class="bi bi-shield-x me-1"></i> Revoke
-            </button>
+            <div class="dropdown">
+                <button class="btn btn-light btn-sm m-0 px-2" type="button" data-bs-toggle="dropdown" style="border-radius:8px; border: 1px solid #bbf7d0; color: #166534;">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="border-radius:8px; font-size:.85rem;">
+                    <li>
+                        <a class="dropdown-item text-danger fw-semibold" href="#" data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
+                            <i class="bi bi-shield-x me-2"></i> Revoke Accreditation
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
         <small style="color:#166534;">
             {{ $application->accreditationType->name ?? 'N/A' }}

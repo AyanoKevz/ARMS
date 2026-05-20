@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\VerifyRegistrationEmail;
 use App\Mail\ApplicationSubmittedEmail;
+use App\Mail\AdminApplicationSubmittedEmail;
 use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\ApplicationStatus;
@@ -99,8 +100,8 @@ class RegistrationController extends Controller
             'org_address'  => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:500'],
             'head_name'    => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'designation'  => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
-            'telephone'    => ['nullable', 'string', 'max:50'],
-            'fax'          => ['nullable', 'string', 'max:50'],
+            'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
+            'fax'          => ['nullable', 'regex:/^\d{10}$/'],
             'org_email'    => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
             // Representative fields
@@ -111,7 +112,10 @@ class RegistrationController extends Controller
 
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
-        ], $documentRules, $instructorRules));
+        ], $documentRules, $instructorRules), [
+            'telephone.regex' => 'The telephone number must be exactly 10 digits.',
+            'fax.regex'       => 'The facsimile number must be exactly 10 digits.',
+        ]);
 
         // ── Generate token ─────────────────────────────────────────
         $token = Str::random(64);
@@ -273,8 +277,9 @@ class RegistrationController extends Controller
         try {
             $trackingNumber = null;
             $applicantEmail = $pending->email;
+            $application = null;
 
-            DB::transaction(function () use ($pending, &$trackingNumber) {
+            DB::transaction(function () use ($pending, &$trackingNumber, &$application) {
                 $form = $pending->form_data;
 
                 // 1. Create User
@@ -441,6 +446,20 @@ class RegistrationController extends Controller
                 Mail::to($applicantEmail)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $applicantEmail));
             } catch (\Exception $mailEx) {
                 Log::warning('Verification success email failed to send: ' . $mailEx->getMessage());
+            }
+
+            // 11. Notify Admin Evaluators
+            try {
+                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                    $q->where('name', 'Evaluator');
+                })->pluck('email');
+
+                if ($evaluatorEmails->isNotEmpty() && $application) {
+                    $application->load(['user', 'accreditationType']);
+                    Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                }
+            } catch (\Exception $mailEx) {
+                Log::warning('Admin application submission notification failed: ' . $mailEx->getMessage());
             }
 
             return view('landing.verify-result', [

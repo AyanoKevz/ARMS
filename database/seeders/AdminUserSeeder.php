@@ -34,11 +34,12 @@ class AdminUserSeeder extends Seeder
 
         // Create Admin 1: Evaluator
         $evaluator = User::updateOrCreate(
-            ['email' => 'hcd@oshc.com'],
+            ['email' => 'data@oshc.dole.gov.ph'],
             [
-                'password'   => Hash::make('Hcd@2026'),
-                'role_id'    => $adminRole->id,
-                'user_photo' => 'images/profile_picture/default_photo.jpg',
+                'password'          => Hash::make('Hcd@2026'),
+                'role_id'           => $adminRole->id,
+                'user_photo'        => 'images/profile_picture/default_photo.jpg',
+                'email_verified_at' => now(),
             ]
         );
 
@@ -56,9 +57,10 @@ class AdminUserSeeder extends Seeder
         $verifier = User::updateOrCreate(
             ['email' => 'verifier@oshc.com'],
             [
-                'password'   => Hash::make('Hcd@2026'),
-                'role_id'    => $adminRole->id,
-                'user_photo' => 'images/profile_picture/default_photo.jpg',
+                'password'          => Hash::make('Hcd@2026'),
+                'role_id'           => $adminRole->id,
+                'user_photo'        => 'images/profile_picture/default_photo.jpg',
+                'email_verified_at' => now(),
             ]
         );
 

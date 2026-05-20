@@ -174,8 +174,16 @@
                     <div class="col-md-12"><label class="form-label fw-semibold">Complete Address <span class="text-danger">*</span></label><input type="text" class="form-control" name="org_address" value="{{ old('org_address', $org->address) }}" required></div>
                     <div class="col-md-6"><label class="form-label fw-semibold">Head / Director <span class="text-danger">*</span></label><input type="text" class="form-control" name="head_name" value="{{ old('head_name', $org->head_name) }}" required></div>
                     <div class="col-md-6"><label class="form-label fw-semibold">Designation</label><input type="text" class="form-control" name="designation" value="{{ old('designation', $org->designation) }}"></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Telephone</label><input type="text" class="form-control" name="telephone" value="{{ old('telephone', $org->telephone) }}"></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Fax</label><input type="text" class="form-control" name="fax" value="{{ old('fax', $org->fax) }}"></div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Telephone</label>
+                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', $org->telephone) }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10">
+                        <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Fax</label>
+                        <input type="text" class="form-control" name="fax" value="{{ old('fax', $org->fax) }}" placeholder="0281234567" pattern="^\d{10}$" maxlength="10">
+                        <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
+                    </div>
                     <div class="col-md-12"><label class="form-label fw-semibold">Organization Email <span class="text-danger">*</span></label><input type="email" class="form-control" name="org_email" value="{{ old('org_email', $org->email) }}" required></div>
                 </div>
 

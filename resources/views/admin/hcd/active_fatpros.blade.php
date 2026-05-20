@@ -67,12 +67,6 @@
                                                title="View Application">
                                                 <i class="fas fa-eye me-1"></i> View
                                             </a>
-                                            <a href="{{ route('admin.hcd.accreditations.certificate', $acc->id) }}"
-                                               target="_blank"
-                                               class="btn btn-success btn-xs m-0"
-                                               title="Download Certificate PDF">
-                                                <i class="fas fa-file-alt me-1"></i> Certificate
-                                            </a>
                                         </td>
                                     </tr>
                                 @endforeach

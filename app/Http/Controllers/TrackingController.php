@@ -9,6 +9,9 @@ use App\Models\UserDocument;
 use App\Models\Accreditation;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\AdminDocumentsUploadedEmail;
 
 class TrackingController extends Controller
 {
@@ -224,6 +227,20 @@ class TrackingController extends Controller
 
         if ($resubmitted === 0) {
             return back()->with('error', 'No valid documents were resubmitted. Please ensure you are uploading PDF files for rejected items.');
+        }
+
+        // Notify Admin Evaluators about resubmitted documents
+        try {
+            $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $q->where('name', 'Evaluator');
+            })->pluck('email');
+
+            if ($evaluatorEmails->isNotEmpty()) {
+                $application->load(['user', 'accreditationType']);
+                Mail::to($evaluatorEmails)->send(new AdminDocumentsUploadedEmail($application, $resubmitted));
+            }
+        } catch (\Exception $mailEx) {
+            Log::warning('Admin resubmitted documents notification failed: ' . $mailEx->getMessage());
         }
 
         return back()->with('success',

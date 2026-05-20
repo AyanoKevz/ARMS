@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AdminApplicationSubmittedEmail;
+use App\Mail\AdminDocumentsUploadedEmail;
 
 class RenewalController extends Controller
 {
@@ -180,8 +183,8 @@ class RenewalController extends Controller
             'org_address'  => ['nullable', 'string', 'max:500'],
             'head_name'    => ['nullable', 'string', 'max:255'],
             'designation'  => ['nullable', 'string', 'max:255'],
-            'telephone'    => ['nullable', 'string', 'max:50'],
-            'fax'          => ['nullable', 'string', 'max:50'],
+            'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
+            'fax'          => ['nullable', 'regex:/^\d{10}$/'],
             'org_email'    => ['nullable', 'email', 'max:255'],
 
             // Representative fields
@@ -192,10 +195,14 @@ class RenewalController extends Controller
 
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
-        ], $documentRules, $instructorRules));
+        ], $documentRules, $instructorRules), [
+            'telephone.regex' => 'The telephone number must be exactly 10 digits.',
+            'fax.regex'       => 'The facsimile number must be exactly 10 digits.',
+        ]);
 
         try {
-            DB::transaction(function () use ($request, $user, $documentFields) {
+            $application = null;
+            DB::transaction(function () use ($request, $user, $documentFields, &$application) {
                 $timestamp = time();
                 $isOrg = $user->profile_type === 'Organization';
 
@@ -400,6 +407,20 @@ class RenewalController extends Controller
                     ]);
                 }
             });
+
+            // Notify Admin Evaluators
+            try {
+                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                    $q->where('name', 'Evaluator');
+                })->pluck('email');
+
+                if ($evaluatorEmails->isNotEmpty() && $application) {
+                    $application->load(['user', 'accreditationType']);
+                    Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                }
+            } catch (\Exception $mailEx) {
+                Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());
+            }
 
             return redirect()
                 ->route('applicant.renewal')
@@ -642,6 +663,20 @@ class RenewalController extends Controller
 
         if ($resubmitted === 0) {
             return back()->with('error', 'No valid documents were resubmitted. Please ensure you are uploading PDF files for rejected items.');
+        }
+
+        // Notify Admin Evaluators about resubmitted documents
+        try {
+            $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $q->where('name', 'Evaluator');
+            })->pluck('email');
+
+            if ($evaluatorEmails->isNotEmpty()) {
+                $application->load(['user', 'accreditationType']);
+                Mail::to($evaluatorEmails)->send(new AdminDocumentsUploadedEmail($application, $resubmitted));
+            }
+        } catch (\Exception $mailEx) {
+            Log::warning('Admin resubmitted documents notification failed: ' . $mailEx->getMessage());
         }
 
         return redirect()

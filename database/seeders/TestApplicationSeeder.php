@@ -33,6 +33,7 @@ class TestApplicationSeeder extends Seeder
             // 1. Create User
             $user = User::create([
                 'email' => $email,
+                'email_verified_at' => Carbon::now(),
                 'password' => Hash::make('Password123!'),
                 'role_id' => 1, // Applicant role
                 'profile_type' => 'Organization',
@@ -45,7 +46,7 @@ class TestApplicationSeeder extends Seeder
                 'address' => "123 Test Street, Dummy City {$i}",
                 'head_name' => "Head Name {$i}",
                 'designation' => 'President',
-                'telephone' => '09123456789',
+                'telephone' => '0281234567',
                 'email' => "testprovider{$i}@example.com",
             ]);
 
@@ -142,6 +143,7 @@ class TestApplicationSeeder extends Seeder
         // 1. Create User
         $accUser = User::create([
             'email' => $accEmail,
+            'email_verified_at' => Carbon::now(),
             'password' => Hash::make('Password123!'),
             'role_id' => 1,
             'profile_type' => 'Organization',
@@ -154,7 +156,7 @@ class TestApplicationSeeder extends Seeder
             'address' => "456 Excellence Blvd, Safety City",
             'head_name' => "Dr. Safety Doe",
             'designation' => 'Director',
-            'telephone' => '09123456789',
+            'telephone' => '0281234567',
             'email' => $accEmail,
         ]);
 

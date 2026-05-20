@@ -90,9 +90,9 @@ class ProfileController extends Controller
             $rules['name']        = 'required|string|max:255';
             $rules['head_name']   = 'required|string|max:255';
             $rules['address']     = 'required|string|max:500';
-            $rules['telephone']   = 'required|string|max:50';
+            $rules['telephone']   = ['required', 'regex:/^\d{10}$/'];
             $rules['designation'] = 'nullable|string|max:100';
-            $rules['fax']         = 'nullable|string|max:50';
+            $rules['fax']         = ['nullable', 'regex:/^\d{10}$/'];
             $rules['email']       = 'required|email|max:255';
             $rules['rep_full_name'] = 'required|string|max:255';
             $rules['rep_position']  = 'required|string|max:100';
@@ -104,7 +104,10 @@ class ProfileController extends Controller
             $rules['address']     = 'nullable|string|max:500';
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'telephone.regex' => 'The telephone number must be exactly 10 digits.',
+            'fax.regex'       => 'The facsimile number must be exactly 10 digits.',
+        ]);
 
         // 1. Handle Photo Upload
         if ($request->hasFile('photo')) {
