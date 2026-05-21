@@ -53,6 +53,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('first_name');
             $table->string('last_name');
+            $table->string('position')->nullable();
             $table->foreignId('admin_role_id')->nullable()->constrained('admin_roles')->onDelete('set null');
             $table->foreignId('division_id')->constrained()->cascadeOnDelete();
             // Example: 1 = HCD;
@@ -65,6 +66,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('first_name');
             $table->string('last_name');
+            $table->string('position')->nullable();
             $table->foreignId('admin_role_id')->nullable()->constrained('admin_roles')->onDelete('set null');
             $table->foreignId('division_id')->nullable()->constrained('divisions')->onDelete('cascade');
             $table->timestamp('expires_at');

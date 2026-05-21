@@ -13,6 +13,7 @@ class AdminProfile extends Model
         'user_id',
         'first_name',
         'last_name',
+        'position',
         'admin_role_id',
         'division_id',
     ];

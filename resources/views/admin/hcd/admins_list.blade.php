@@ -43,6 +43,7 @@
                                 <tr class="headings">
                                     <th class="column-title">Name</th>
                                     <th class="column-title">Position</th>
+                                    <th class="column-title">Role</th>
                                     <th class="column-title">Division</th>
                                     <th class="column-title">Email</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
@@ -56,6 +57,7 @@
                                     @endphp
                                     <tr class="even pointer">
                                         <td><strong>{{ $adminUser->name }}</strong></td>
+                                        <td>{{ $profile->position ?? '—' }}</td>
                                         <td>{{ $profile->adminRole->name ?? '—' }}</td>
                                         <td>{{ $profile->division->name ?? '—' }}</td>
                                         <td>{{ $adminUser->email }}</td>
@@ -105,7 +107,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="admin_role_id" class="form-label">Position <span class="text-danger">*</span></label>
+                        <label for="admin_position" class="form-label">Position <span class="text-muted">(Optional)</span></label>
+                        <input type="text" class="form-control" id="admin_position" name="position">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="admin_role_id" class="form-label">Role <span class="text-danger">*</span></label>
                         <select class="form-control" id="admin_role_id" name="admin_role_id" required>
                             <option value="">Select Role</option>
                             @foreach($adminRoles as $role)

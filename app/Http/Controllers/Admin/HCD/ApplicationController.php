@@ -822,6 +822,7 @@ class ApplicationController extends Controller
             'email' => ['required', 'email', 'unique:users,email', 'unique:pending_admins,email'],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
+            'position' => ['nullable', 'string', 'max:255'],
             'admin_role_id' => ['required', 'exists:admin_roles,id'],
         ]);
 
@@ -835,6 +836,7 @@ class ApplicationController extends Controller
             'email' => $request->email,
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
+            'position' => $request->position,
             'admin_role_id' => $request->admin_role_id,
             'division_id' => $divisionId,
             'expires_at' => now()->addDays(7),
@@ -877,7 +879,7 @@ class ApplicationController extends Controller
                     $query->where('division_id', $divisionId);
                 }
             })
-            ->with(['adminProfile.division', 'adminProfile.adminRole'])
+            ->with(['role', 'adminProfile.division', 'adminProfile.adminRole'])
             ->get();
 
         $adminRoles = \App\Models\AdminRole::all();

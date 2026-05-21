@@ -70,6 +70,7 @@ class AdminInvitationController extends Controller
                 'user_id' => $user->id,
                 'first_name' => $pendingAdmin->first_name,
                 'last_name' => $pendingAdmin->last_name,
+                'position' => $pendingAdmin->position,
                 'admin_role_id' => $pendingAdmin->admin_role_id,
                 'division_id' => $pendingAdmin->division_id,
             ]);

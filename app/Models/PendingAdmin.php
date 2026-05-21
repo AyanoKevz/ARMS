@@ -11,6 +11,7 @@ class PendingAdmin extends Model
         'email',
         'first_name',
         'last_name',
+        'position',
         'admin_role_id',
         'division_id',
         'expires_at',

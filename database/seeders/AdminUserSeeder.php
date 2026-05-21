@@ -49,6 +49,7 @@ class AdminUserSeeder extends Seeder
                 'division_id'   => $hcdDivision->id,
                 'first_name'    => 'HCD',
                 'last_name'     => 'Evaluator',
+                'position'      => 'LSO III',
                 'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
             ]
         );
@@ -70,6 +71,7 @@ class AdminUserSeeder extends Seeder
                 'division_id'   => $hcdDivision->id,
                 'first_name'    => 'HCD',
                 'last_name'     => 'Verifier',
+                'position'      => 'LSO VI',
                 'admin_role_id' => $verifierRole ? $verifierRole->id : null,
             ]
         );
