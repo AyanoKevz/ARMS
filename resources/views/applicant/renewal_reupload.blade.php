@@ -107,11 +107,39 @@
 
         <div class="x_panel">
             <div class="x_content text-center py-4">
-                <button type="submit" class="btn btn-primary btn-lg fw-bold px-5" style="border-radius:10px;">
-                    <i class="fas fa-upload me-2"></i>Re-submit Documents
+                <button type="submit" class="btn btn-primary btn-lg fw-bold px-5" id="reuploadSubmitBtn" style="border-radius:10px;">
+                    <span id="reuploadSubmitText"><i class="fas fa-upload me-2"></i>Re-submit Documents</span>
+                    <span id="reuploadSubmitSpinner" class="d-none">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
+                    </span>
                 </button>
             </div>
         </div>
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.querySelector('form[action="{{ route("applicant.renewal.reupload.store") }}"]');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                } else {
+                    this.classList.add('was-validated');
+                    const btn = document.getElementById('reuploadSubmitBtn');
+                    const text = document.getElementById('reuploadSubmitText');
+                    const spinner = document.getElementById('reuploadSubmitSpinner');
+                    if(btn) btn.disabled = true;
+                    if(text) text.classList.add('d-none');
+                    if(spinner) spinner.classList.remove('d-none');
+                }
+            });
+        }
+    });
+</script>
+@endpush

@@ -171,6 +171,12 @@
 
         this.classList.add('was-validated');
         // Let normal submission proceed
+        const submitBtn = document.getElementById('loginSubmitBtn');
+        const submitText = document.getElementById('loginSubmitText');
+        const submitSpinner = document.getElementById('loginSubmitSpinner');
+        if (submitBtn) submitBtn.disabled = true;
+        if (submitText) submitText.classList.add('d-none');
+        if (submitSpinner) submitSpinner.classList.remove('d-none');
     });
 
 })();
@@ -322,6 +328,79 @@
                 this.setCustomValidity('');
                 this.classList.remove('is-invalid', 'is-valid');
             }
+        });
+    }
+
+    /* ── Live Validation for Telephone, Fax, and Rep Contact ── */
+    const telInput = document.getElementById('telephone');
+    const faxInput = document.getElementById('fax');
+    const repContactInput = document.getElementById('rep_contact');
+
+    function validateLandline(input, typeName) {
+        let val = input.value.replace(/[^0-9]/g, '');
+        input.value = val;
+        
+        if (val.length === 10) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            input.setCustomValidity('');
+        } else if (val.length === 0) {
+            input.classList.remove('is-invalid', 'is-valid');
+            input.setCustomValidity('');
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            input.setCustomValidity(`Enter a valid 10-digit ${typeName} number`);
+        }
+    }
+
+    function validateRepContact(input) {
+        let val = input.value.replace(/[^\d+]/g, '');
+        if (val.startsWith('+')) {
+            val = '+' + val.slice(1).replace(/\+/g, '');
+        } else {
+            val = val.replace(/\+/g, '');
+        }
+        input.value = val;
+
+        const pattern = /^(09|\+639)\d{9}$/;
+        if (val.length === 0) {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                input.setCustomValidity('Contact number is required.');
+            } else {
+                input.classList.remove('is-invalid', 'is-valid');
+                input.setCustomValidity('');
+            }
+        } else {
+            if (pattern.test(val)) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                input.setCustomValidity('');
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                input.setCustomValidity('Enter a valid PH mobile number (e.g. 09171234567).');
+            }
+        }
+    }
+
+    if (telInput) {
+        telInput.addEventListener('input', function() {
+            validateLandline(this, 'telephone');
+        });
+    }
+
+    if (faxInput) {
+        faxInput.addEventListener('input', function() {
+            validateLandline(this, 'facsimile');
+        });
+    }
+
+    if (repContactInput) {
+        repContactInput.addEventListener('input', function() {
+            validateRepContact(this);
         });
     }
 

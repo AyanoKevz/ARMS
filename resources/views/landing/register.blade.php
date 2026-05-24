@@ -263,14 +263,14 @@
                                                  <input type="text" class="form-control" id="telephone"
                                                      name="telephone" value="{{ old('telephone') }}" placeholder="e.g. 0281234567"
                                                      pattern="[0-9]{10}" maxlength="10">
-                                                 <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
+                                                 <div class="invalid-feedback">Enter a valid 10-digit telephone number.</div>
                                              </div>
                                              <div class="col-md-6">
                                                  <label for="fax" class="form-label fw-semibold">Facsimile Number</label>
                                                  <input type="text" class="form-control" id="fax"
                                                      name="fax" value="{{ old('fax') }}" placeholder="e.g. 0281234567"
                                                      pattern="[0-9]{10}" maxlength="10">
-                                                 <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
+                                                 <div class="invalid-feedback">Enter a valid 10-digit facsimile number.</div>
                                              </div>
                                             <div class="col-12">
                                                 <label for="org_email" class="form-label fw-semibold">
@@ -306,8 +306,8 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="rep_contact"
                                                     name="rep_contact_number" placeholder="09171234567"
-                                                    pattern="^(09|\+639)\d{9}$" maxlength="11">
-                                                <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
+                                                    pattern="^(09|\+639)\d{9}$" maxlength="13">
+                                                <div class="invalid-feedback">Enter a valid PH mobile number.</div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="rep_email" class="form-label fw-semibold">

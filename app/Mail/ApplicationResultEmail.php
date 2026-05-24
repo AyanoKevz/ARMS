@@ -24,6 +24,7 @@ class ApplicationResultEmail extends Mailable
     public function __construct(Application $application, string $result, ?Accreditation $accreditation = null)
     {
         $this->application    = $application;
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         $this->result         = $result;
         $this->accreditation  = $accreditation;
     }

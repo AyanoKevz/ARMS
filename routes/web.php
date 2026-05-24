@@ -29,7 +29,7 @@ Route::get('/register', function () {
 })->name('register')->middleware('prevent-back-history');
 
 // Registration — process form & send verification email
-Route::post('/register', [RegistrationController::class, 'store'])->name('register.store');
+Route::post('/register', [RegistrationController::class, 'store'])->name('register.store')->middleware('throttle:5,1');
 
 // Email verification link
 Route::get('/verify-email/{token}', [RegistrationController::class, 'verify'])->name('register.verify');
@@ -41,7 +41,7 @@ Route::get('/login', function () {
     return view('landing.login');
 })->name('login')->middleware('prevent-back-history');
 
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('throttle:5,1');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Dashboard placeholders
@@ -59,14 +59,14 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
-        Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update');
+        Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update')->middleware('throttle:5,1');
         // Note: instructor update requests are now admin-initiated only
 
         // Renewal / Reinstatement
         Route::get('/renewal', [RenewalController::class, 'index'])->name('renewal.index');
-        Route::post('/renewal', [RenewalController::class, 'store'])->name('renewal.store');
+        Route::post('/renewal', [RenewalController::class, 'store'])->name('renewal.store')->middleware('throttle:5,1');
         Route::get('/renewal/reupload', [RenewalController::class, 'reupload'])->name('renewal.reupload');
-        Route::post('/renewal/reupload', [RenewalController::class, 'submitReupload'])->name('renewal.reupload.store');
+        Route::post('/renewal/reupload', [RenewalController::class, 'submitReupload'])->name('renewal.reupload.store')->middleware('throttle:5,1');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -74,6 +74,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/dashboard', [HCDApplicationController::class, 'dashboard'])->name('dashboard');
             Route::get('/applications/pending', [HCDApplicationController::class, 'pending'])->name('applications.pending');
             Route::get('/applications/under-review', [HCDApplicationController::class, 'underReview'])->name('applications.under_review');
+            Route::get('/applications/archived', [HCDApplicationController::class, 'archived'])->name('applications.archived');
             Route::post('/applications/{application}/update-evaluation', [HCDApplicationController::class, 'updateToEvaluation'])->name('applications.update_evaluation');
             Route::post('/applications/{application}/schedule-interview', [HCDApplicationController::class, 'scheduleInterview'])->name('applications.schedule_interview');
             Route::get('/interviews/check-slot', [HCDApplicationController::class, 'checkInterviewSlot'])->name('interviews.check_slot');
@@ -104,7 +105,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
 // Track Registration
 Route::get('/track-application', [TrackingController::class, 'index'])->name('track');
-Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all');
+Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all')->middleware('throttle:5,1');
 
 // Document and Instructor file viewers (auth required, but NO prevent-back-history to avoid PDF header errors)
 Route::middleware(['auth'])->group(function () {
@@ -119,9 +120,9 @@ Route::middleware(['auth'])->group(function () {
 
 // Password Reset Routes
 Route::get('/forgot-password', [PasswordResetController::class, 'showLinkRequestForm'])->name('password.request');
-Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLinkEmail'])->name('password.email')->middleware('throttle:3,1');
 Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
-Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
 
 // Admin Invitation Routes
 Route::get('/admin/setup-password/{token}', [AdminInvitationController::class, 'setupPassword'])->name('admin.setup_password');

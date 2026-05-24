@@ -107,14 +107,15 @@ class RegistrationController extends Controller
             // Representative fields
             'rep_full_name'      => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'rep_position'       => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
-            'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:11'],
+            'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
         ], $documentRules, $instructorRules), [
-            'telephone.regex' => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
-            'fax.regex'       => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
+            'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'rep_contact_number.regex' => 'The representative contact number must be a valid PH mobile number (e.g. 09171234567 or +639171234567).',
         ]);
 
         // ── Generate token ─────────────────────────────────────────

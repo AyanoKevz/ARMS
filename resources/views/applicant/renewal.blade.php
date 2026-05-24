@@ -50,7 +50,210 @@
                     <i class="fas {{ $statusColor['icon'] }} me-1"></i>{{ $renewalStatus }}
                 </span>
             </p>
-            <p class="text-muted mb-0">Finish the application process before submitting another.</p>
+            @if($renewalStatus === 'For Update')
+                <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
+        </div>
+    </div>
+    
+    {{-- ── Batch Resubmission Form (shown only when there are rejected file docs) ── --}}
+    @php
+        $application = $pendingRenewal;
+        $rejectedDocs = $application->documents->filter(
+            fn($d) => in_array($d->status, ['rejected','returned'])
+        );
+        $rejectedInstructors = $application->user ? $application->user->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
+        $rejectedCredentials = collect();
+        if ($application->user) {
+            foreach ($application->user->instructors as $inst) {
+                foreach ($inst->credentials as $cred) {
+                    if (in_array($cred->status, ['rejected','returned'])) {
+                        $rejectedCredentials->push($cred);
+                    }
+                }
+            }
+        }
+        $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
+    @endphp
+    @if($totalRejected > 0)
+    <div class="mt-4 p-4 border rounded-3 text-start" style="background:#fff8f8; border-color:#f5c6cb !important;">
+        <h6 class="fw-bold mb-3" style="color:#842029;">
+            <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents
+        </h6>
+
+        <form action="{{ route('applicant.renewal.reupload.store') }}" method="POST" enctype="multipart/form-data" id="batch-resubmit-form">
+            @csrf
+            <input type="hidden" name="application_id" value="{{ $application->id }}">
+
+            <div class="d-flex flex-column gap-4">
+                {{-- FATPro Documents Section --}}
+                @if($rejectedDocs->count() > 0)
+                @php
+                    $groupedRejected = $rejectedDocs->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                    $resubmitCounter = 1;
+                @endphp
+                <div>
+                    <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                        <i class="bi bi-file-earmark-text me-1"></i> FATPro Documents
+                    </div>
+                    <div class="d-flex flex-column gap-4">
+                        @foreach($groupedRejected as $typeId => $docs)
+                            @php
+                                $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'General Requirements';
+                            @endphp
+                            <div class="border rounded-3 p-3" style="background:#fcfcfc;">
+                                <h6 class="fw-bold mb-3" style="color:#0b3d91;">
+                                    <i class="bi bi-folder2-open me-2"></i>{{ $resubmitCounter }}. {{ $sectionName }}
+                                </h6>
+                                <div class="d-flex flex-column gap-3">
+                                    @foreach($docs as $rdoc)
+                                    <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                                @if($rdoc->documentField?->input_type === 'file')
+                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                                @else
+                                                    <i class="bi bi-input-cursor-text text-danger me-1"></i>
+                                                @endif
+                                                {{ $rdoc->documentField?->name ?? 'Document' }}
+                                            </div>
+                                            @if($rdoc->remarks)
+                                            <div class="text-muted small mt-1">
+                                                <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
+                                            </div>
+                                            @endif
+                                        </div>
+                                        <div style="min-width:260px;">
+                                            @if($rdoc->documentField?->input_type === 'file')
+                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                                </label>
+                                                <div class="file-upload-wrapper mt-1">
+                                                    <input type="file" name="files[{{ $rdoc->id }}]" id="doc_{{ $rdoc->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="doc_{{ $rdoc->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                        </label>
+                                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                </div>
+                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                            @else
+                                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                    Update Value <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
+                                                       name="values[{{ $rdoc->id }}]" 
+                                                       id="doc_{{ $rdoc->id }}" 
+                                                       class="form-control form-control-sm" 
+                                                       value="{{ $rdoc->userDocument?->value }}" 
+                                                       required>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @php $resubmitCounter++; @endphp
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                {{-- Instructor Credentials Section --}}
+                @if($rejectedInstructors->count() > 0 || $rejectedCredentials->count() > 0)
+                <div>
+                    <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                        <i class="bi bi-person-badge me-1"></i> Instructor Credentials
+                    </div>
+                    <div class="d-flex flex-column gap-3">
+                        {{-- Instructor Service Agreements --}}
+                        @foreach($rejectedInstructors as $rInst)
+                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                    Service Agreement - {{ $rInst->first_name }} {{ $rInst->last_name }}
+                                </div>
+                                @if($rInst->remarks)
+                                <div class="text-muted small mt-1">
+                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rInst->remarks }}
+                                </div>
+                                @endif
+                            </div>
+                            <div style="min-width:260px;">
+                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                </label>
+                                <div class="file-upload-wrapper mt-1">
+                                    <input type="file" name="instructor_files[{{ $rInst->id }}]" id="inst_{{ $rInst->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="inst_{{ $rInst->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                        </label>
+                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                    </div>
+                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                </div>
+                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                            </div>
+                        </div>
+                        @endforeach
+
+                        {{-- Instructor Credentials --}}
+                        @foreach($rejectedCredentials as $rCred)
+                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                    {{ $rCred->type }} Credential - {{ $rCred->instructor->first_name }} {{ $rCred->instructor->last_name }}
+                                </div>
+                                @if($rCred->remarks)
+                                <div class="text-muted small mt-1">
+                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rCred->remarks }}
+                                </div>
+                                @endif
+                            </div>
+                            <div style="min-width:260px;">
+                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                </label>
+                                <div class="file-upload-wrapper mt-1">
+                                    <input type="file" name="credential_files[{{ $rCred->id }}]" id="cred_{{ $rCred->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="cred_{{ $rCred->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                        </label>
+                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                    </div>
+                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                </div>
+                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            </div>
+
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-danger fw-bold px-5" id="btn-resubmit-all">
+                    <i class="bi bi-send-fill me-2"></i>
+                    Resubmit All Documents ({{ $totalRejected }})
+                </button>
+            </div>
+        </form>
+    </div>
+    @endif
+    
+    <div class="d-none">
+        <div>
+            @else
+                <p class="text-muted mb-0">Finish the application process before submitting another.</p>
+        </div>
+    </div>
+            @endif
         </div>
     </div>
     @elseif($pendingInstructorUpdate)
@@ -176,12 +379,12 @@
                     <div class="col-md-6"><label class="form-label fw-semibold">Designation</label><input type="text" class="form-control" name="designation" value="{{ old('designation', $org->designation) }}"></div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Telephone</label>
-                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $org->telephone)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
+                        <input type="text" class="form-control" id="telephone" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $org->telephone)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
                         <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Fax</label>
-                        <input type="text" class="form-control" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $org->fax)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
+                        <input type="text" class="form-control" id="fax" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $org->fax)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
                         <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
                     </div>
                     <div class="col-md-12"><label class="form-label fw-semibold">Organization Email <span class="text-danger">*</span></label><input type="email" class="form-control" name="org_email" value="{{ old('org_email', $org->email) }}" required></div>
@@ -192,7 +395,11 @@
                 <div class="row g-3">
                     <div class="col-md-6"><label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_full_name" value="{{ old('rep_full_name', $rep?->full_name) }}" required></div>
                     <div class="col-md-6"><label class="form-label fw-semibold">Position <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_position" value="{{ old('rep_position', $rep?->position) }}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Contact Number <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_contact_number" value="{{ old('rep_contact_number', $rep?->contact_number) }}" required maxlength="11"></div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Contact Number <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="rep_contact" name="rep_contact_number" value="{{ old('rep_contact_number', $rep?->contact_number) }}" required pattern="^(09|\+639)\d{9}$" maxlength="13">
+                        <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
+                    </div>
                     <div class="col-md-6"><label class="form-label fw-semibold">Email <span class="text-danger">*</span></label><input type="email" class="form-control" name="rep_email" value="{{ old('rep_email', $rep?->email) }}" required></div>
                 </div>
             </div>
@@ -408,10 +615,12 @@
             </div>
         </div>
 
-        {{-- Submit --}}
         <div class="text-center py-4 mb-4">
-            <button type="submit" class="btn btn-primary btn-lg fw-bold px-5" style="border-radius:10px; box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);">
-                <i class="fas fa-paper-plane me-2"></i>Submit Application
+            <button type="submit" class="btn btn-primary btn-lg fw-bold px-5" id="renewalSubmitBtn" style="border-radius:10px; box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);">
+                <span id="renewalSubmitText"><i class="fas fa-paper-plane me-2"></i>Submit Application</span>
+                <span id="renewalSubmitSpinner" class="d-none">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
+                </span>
             </button>
             <p class="text-muted mt-2 mb-0" style="font-size:.85rem;">By submitting, your old files will be replaced with the newly uploaded ones.</p>
         </div>
@@ -520,6 +729,178 @@ document.addEventListener('DOMContentLoaded', function() {
             relabelCards();
         });
     }
+
+    /* ── Live Validation for Telephone, Fax, and Rep Contact ── */
+    const telInput = document.getElementById('telephone');
+    const faxInput = document.getElementById('fax');
+    const repContactInput = document.getElementById('rep_contact');
+
+    function validateLandline(input, typeName) {
+        let val = input.value.replace(/[^0-9]/g, '');
+        input.value = val;
+        
+        if (val.length === 10) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+            input.setCustomValidity('');
+        } else if (val.length === 0) {
+            input.classList.remove('is-invalid', 'is-valid');
+            input.setCustomValidity('');
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+            input.setCustomValidity(`Enter a valid 10-digit ${typeName} number (e.g. 0281234567).`);
+        }
+    }
+
+    function validateRepContact(input) {
+        let val = input.value.replace(/[^\d+]/g, '');
+        if (val.startsWith('+')) {
+            val = '+' + val.slice(1).replace(/\+/g, '');
+        } else {
+            val = val.replace(/\+/g, '');
+        }
+        input.value = val;
+
+        const pattern = /^(09|\+639)\d{9}$/;
+        if (val.length === 0) {
+            if (input.hasAttribute('required')) {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                input.setCustomValidity('Contact number is required.');
+            } else {
+                input.classList.remove('is-invalid', 'is-valid');
+                input.setCustomValidity('');
+            }
+        } else {
+            if (pattern.test(val)) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                input.setCustomValidity('');
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                input.setCustomValidity('Enter a valid PH mobile number (e.g. 09171234567).');
+            }
+        }
+    }
+
+    if (telInput) {
+        // Run once on load to show current state if pre-filled
+        if (telInput.value) validateLandline(telInput, 'telephone');
+        telInput.addEventListener('input', function() {
+            validateLandline(this, 'telephone');
+        });
+    }
+
+    if (faxInput) {
+        if (faxInput.value) validateLandline(faxInput, 'facsimile');
+        faxInput.addEventListener('input', function() {
+            validateLandline(this, 'facsimile');
+        });
+    }
+
+    if (repContactInput) {
+        if (repContactInput.value) validateRepContact(repContactInput);
+        repContactInput.addEventListener('input', function() {
+            validateRepContact(this);
+        });
+    }
+
+    // Form submission loading state
+    const renewalForm = document.getElementById('renewalForm');
+    if (renewalForm) {
+        renewalForm.addEventListener('submit', function(e) {
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.classList.add('was-validated');
+            } else {
+                this.classList.add('was-validated');
+                const btn = document.getElementById('renewalSubmitBtn');
+                const text = document.getElementById('renewalSubmitText');
+                const spinner = document.getElementById('renewalSubmitSpinner');
+                if (btn) btn.disabled = true;
+                if (text) text.classList.add('d-none');
+                if (spinner) spinner.classList.remove('d-none');
+            }
+        });
+    }
+
+    // Batch Resubmit Form Handling
+    document.querySelectorAll('.batch-file-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            const wrapper = this.closest('div.file-upload-wrapper');
+            const hint = wrapper.querySelector('.file-name-text');
+            const btn = wrapper.querySelector('.custom-file-btn');
+            const sectionLabel = wrapper.parentElement.querySelector('label.form-label');
+            
+            if (this.files.length > 0) {
+                if (hint) {
+                    hint.innerHTML = '<span class="text-dark fw-normal">File:</span> ' + this.files[0].name;
+                    hint.classList.remove('text-muted');
+                    hint.classList.add('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-success');
+                    btn.style.cssText = 'border-color: #198754 !important; background-color: #198754 !important; color: white !important;';
+                    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> File Selected';
+                }
+                if (sectionLabel) {
+                    sectionLabel.innerHTML = 'Ready for Resubmission <i class="bi bi-check2-circle"></i>';
+                    sectionLabel.style.cssText = 'color: #198754 !important;';
+                }
+            } else {
+                if (hint) {
+                    hint.textContent = 'No file chosen';
+                    hint.classList.add('text-muted');
+                    hint.classList.remove('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.add('btn-outline-danger');
+                    btn.classList.remove('btn-success');
+                    btn.style.cssText = 'border-color:#842029; color:#842029; background-color: transparent;';
+                    btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Choose File';
+                }
+                if (sectionLabel) {
+                    sectionLabel.innerHTML = 'Upload Replacement (PDF) <span class="text-danger">*</span>';
+                    sectionLabel.style.cssText = 'color: #842029 !important;';
+                }
+            }
+        });
+    });
+
+    const batchForm = document.getElementById('batch-resubmit-form');
+    const batchBtn  = document.getElementById('btn-resubmit-all');
+    if (batchForm && batchBtn) {
+        batchForm.addEventListener('submit', function () {
+            batchBtn.disabled = true;
+            batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
+        });
+    }
 });
 </script>
+
+<style>
+    .file-upload-wrapper .custom-file-btn {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+    .real-file-input.is-invalid ~ .file-invalid-feedback {
+        display: block !important;
+    }
+    .was-validated .real-file-input:invalid ~ div .custom-file-btn,
+    .real-file-input.is-invalid ~ div .custom-file-btn {
+        border-color: var(--bs-danger) !important;
+        color: var(--bs-danger) !important;
+        background-color: transparent !important;
+    }
+    .real-file-input:valid ~ div .custom-file-btn {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: white !important;
+    }
+</style>
 @endpush

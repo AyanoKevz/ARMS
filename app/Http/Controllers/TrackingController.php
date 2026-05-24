@@ -29,7 +29,7 @@ class TrackingController extends Controller
                 'documents.documentField.documentType',
                 'documents.userDocument',
                 'interview',
-                'user',
+                'user.instructors.credentials.instructor',
             ])->where('tracking_number', $request->input('tracking_number'))->first();
         }
 

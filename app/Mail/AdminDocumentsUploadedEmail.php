@@ -22,6 +22,7 @@ class AdminDocumentsUploadedEmail extends Mailable
     public function __construct(Application $application, int $resubmittedCount)
     {
         $this->application = $application;
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         $this->resubmittedCount = $resubmittedCount;
     }
 

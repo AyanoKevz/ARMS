@@ -695,8 +695,14 @@
                     @if($interview->venue)
                     <div class="col-auto">
                         <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Venue</div>
-                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->venue }}</div>
+                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">{{ $interview->mode === 'online' ? 'Meeting Link' : 'Venue' }}</div>
+                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">
+                                @if($interview->mode === 'online')
+                                    <a href="{{ $interview->venue }}" target="_blank" style="text-decoration:underline;">Open Link</a>
+                                @else
+                                    {{ $interview->venue }}
+                                @endif
+                            </div>
                         </div>
                     </div>
                     @endif
@@ -868,20 +874,20 @@
 
                         {{-- Venue --}}
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
+                            <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;" id="interview-venue-label">
                                 <i class="bi bi-geo-alt me-1 text-primary"></i>Venue
                                 <span class="text-muted fw-normal fst-italic" id="venue-note">(F2F only)</span>
                             </label>
                             <input type="text" name="venue" id="interview-venue" class="form-control"
                                    placeholder="Venue / meeting link"
                                    value="{{ $interview?->venue }}"
-                                   style="border-radius:8px;border-color:#d0d8e8;">
+                                   style="border-radius:8px;border-color:#d0d8e8;" required>
                         </div>
 
                         {{-- Online Notice --}}
                         <div class="col-12">
                             <div class="form-text mt-2 d-none" id="online-notice" style="font-size:0.75rem; color:#0d4f9e; padding:6px 10px; background:rgba(13,79,158,.08); border-radius:6px; border-left:3px solid #0d4f9e;">
-                                <i class="bi bi-info-circle-fill me-1"></i> If interview is online, a separate email will be sent with the online interview details.
+                                <i class="bi bi-info-circle-fill me-1"></i> The meeting link entered above will be included directly in the confirmation email.
                             </div>
                         </div>
 
@@ -903,10 +909,16 @@
                     <i class="bi bi-x me-1"></i>Cancel
                 </button>
                 <button type="submit" form="schedule-interview-form"
+                        id="submit-schedule-btn"
                         class="btn btn-primary fw-bold px-5"
                         style="border-radius:8px; background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none;">
-                    <i class="bi bi-calendar-check me-2"></i>
-                    {{ $interview ? 'Update Schedule' : 'Save Schedule' }}
+                    <span id="submit-schedule-text">
+                        <i class="bi bi-calendar-check me-2"></i>
+                        {{ $interview ? 'Update Schedule' : 'Save Schedule' }}
+                    </span>
+                    <span id="submit-schedule-spinner" class="d-none">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Saving...
+                    </span>
                 </button>
             </div>
 
@@ -1033,11 +1045,14 @@
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
                     Cancel
                 </button>
-                <form method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
+                <form id="confirm-approval-form" method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
                     @csrf
                     <input type="hidden" name="result" value="passed">
                     <button type="submit" class="btn btn-success fw-bold px-5" style="border-radius:8px;">
-                        <i class="bi bi-check-circle-fill me-2"></i>Confirm Approval
+                        <span class="btn-text"><i class="bi bi-check-circle-fill me-2"></i>Confirm Approval</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Approving...
+                        </span>
                     </button>
                 </form>
             </div>
@@ -1082,8 +1097,7 @@
                     <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
                     <small class="text-dark">
                         <strong>Warning — this action is permanent and cannot be undone.</strong><br>
-                        The application and all its records (documents, status logs, interview) will be
-                        <strong>permanently deleted</strong>. The applicant will be notified by email.
+                        The application status will be changed to <strong>Rejected</strong> and it will be moved to the <strong>Archived Applications</strong> directory. The applicant will be notified by email.
                     </small>
                 </div>
             </div>
@@ -1092,11 +1106,14 @@
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
                     Cancel
                 </button>
-                <form method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
+                <form id="confirm-reject-form" method="POST" action="{{ route('admin.hcd.applications.interview_result', $application->id) }}">
                     @csrf
                     <input type="hidden" name="result" value="not_passed">
                     <button type="submit" class="btn btn-danger fw-bold px-5" style="border-radius:8px;">
-                        <i class="bi bi-trash-fill me-2"></i>Confirm Rejection
+                        <span class="btn-text"><i class="bi bi-archive-fill me-2"></i>Confirm & Archive</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Archiving...
+                        </span>
                     </button>
                 </form>
             </div>
@@ -1349,5 +1366,28 @@ document.addEventListener('change', function (e) {
         }
     }
 });
+
+// Approval and Rejection modal submission loaders
+(function () {
+    'use strict';
+    const forms = ['confirm-approval-form', 'confirm-reject-form'];
+    forms.forEach(function (formId) {
+        const form = document.getElementById(formId);
+        if (form) {
+            form.addEventListener('submit', function () {
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.85';
+                    btn.style.cursor = 'not-allowed';
+                    const textSpan = btn.querySelector('.btn-text');
+                    const spinnerSpan = btn.querySelector('.btn-spinner');
+                    if (textSpan) textSpan.classList.add('d-none');
+                    if (spinnerSpan) spinnerSpan.classList.remove('d-none');
+                }
+            });
+        }
+    });
+})();
 </script>
 @endpush

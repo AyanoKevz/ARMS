@@ -311,15 +311,31 @@
         if (!modeSelect) return;
 
         const isOnline = modeSelect.value === 'online';
+        const isF2F = modeSelect.value === 'f2f';
         
         if (venueInput) {
-            venueInput.disabled    = isOnline;
-            venueInput.placeholder = isOnline ? 'N/A – online interview' : 'Enter venue address';
-            if (isOnline) venueInput.value = '';
+            venueInput.disabled = false; // Always enabled now
+            if (isF2F) {
+                venueInput.placeholder = 'Enter venue address';
+                venueInput.value = 'Occupational Safety And Health Center';
+            } else if (isOnline) {
+                venueInput.placeholder = 'Enter meeting link (e.g. Zoom, Google Meet)';
+                if (venueInput.value === 'Occupational Safety And Health Center') {
+                    venueInput.value = '';
+                }
+            } else {
+                venueInput.placeholder = 'Venue / meeting link';
+            }
         }
 
         if (venueNote) {
-            venueNote.textContent = isOnline ? '(not required)' : '(F2F only)';
+            if (isOnline) {
+                venueNote.textContent = '(Meeting Link)';
+            } else if (isF2F) {
+                venueNote.textContent = '(F2F Venue)';
+            } else {
+                venueNote.textContent = '';
+            }
         }
 
         if (onlineNotice) {
@@ -341,6 +357,19 @@
     // Wire the modal confirm button
     const confirmBtn = document.getElementById('btn-confirm-rejection');
     if (confirmBtn) confirmBtn.addEventListener('click', submitRejection);
+
+    // Wire the schedule interview form submit spinner
+    const scheduleForm = document.getElementById('schedule-interview-form');
+    if (scheduleForm) {
+        scheduleForm.addEventListener('submit', function () {
+            const btn = document.getElementById('submit-schedule-btn');
+            const text = document.getElementById('submit-schedule-text');
+            const spinner = document.getElementById('submit-schedule-spinner');
+            if (btn) btn.disabled = true;
+            if (text) text.classList.add('d-none');
+            if (spinner) spinner.classList.remove('d-none');
+        });
+    }
 
     /* ─── Init ────────────────────────────────────────────── */
     if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate) {

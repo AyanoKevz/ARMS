@@ -96,7 +96,7 @@ class ProfileController extends Controller
             $rules['email']       = 'required|email|max:255';
             $rules['rep_full_name'] = 'required|string|max:255';
             $rules['rep_position']  = 'required|string|max:100';
-            $rules['rep_contact_number'] = 'required|string|max:50';
+            $rules['rep_contact_number'] = ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'];
             $rules['rep_email']     = 'required|email|max:255';
         } else {
             $rules['first_name']  = 'required|string|max:100';
@@ -105,8 +105,9 @@ class ProfileController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'telephone.regex' => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
-            'fax.regex'       => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
+            'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'rep_contact_number.regex' => 'The representative contact number must be a valid PH mobile number (e.g. 09171234567 or +639171234567).',
         ]);
 
         // 1. Handle Photo Upload

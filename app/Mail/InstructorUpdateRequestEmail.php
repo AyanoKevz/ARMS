@@ -20,6 +20,7 @@ class InstructorUpdateRequestEmail extends Mailable
     public function __construct(\App\Models\Instructor $instructor)
     {
         $this->instructor = $instructor;
+        $this->instructor->loadMissing(['user.organizationProfile', 'user.individualProfile', 'credentials']);
     }
 
     /**

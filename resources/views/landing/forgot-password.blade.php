@@ -23,7 +23,7 @@
                     </div>
                     @endif
 
-                    <form method="POST" action="{{ route('password.email') }}">
+                    <form id="forgotPasswordForm" method="POST" action="{{ route('password.email') }}" novalidate>
                         @csrf
                         {{-- Email --}}
                         <div class="mb-4">
@@ -35,8 +35,14 @@
                             @enderror
                         </div>
 
-                        <button type="submit" class="btn-login mt-2">
-                            <i class="bi bi-envelope-fill me-1"></i> Send Reset Link
+                        <button type="submit" class="btn-login mt-2" id="forgotSubmitBtn">
+                            <span id="forgotSubmitText">
+                                <i class="bi bi-envelope-fill me-1"></i> Send Reset Link
+                            </span>
+                            <span id="forgotSubmitSpinner" class="d-none">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Sending link...
+                            </span>
                         </button>
                     </form>
 
@@ -52,3 +58,28 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById('forgotPasswordForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                } else {
+                    this.classList.add('was-validated');
+                    const btn = document.getElementById('forgotSubmitBtn');
+                    const text = document.getElementById('forgotSubmitText');
+                    const spinner = document.getElementById('forgotSubmitSpinner');
+                    if(btn) btn.disabled = true;
+                    if(text) text.classList.add('d-none');
+                    if(spinner) spinner.classList.remove('d-none');
+                }
+            });
+        }
+    });
+</script>
+@endpush

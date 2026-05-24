@@ -39,11 +39,16 @@
                         <h2 class="mt-3 mb-4">Track Your Application</h2>
                         <p class="text-muted mb-4">Enter your application tracking number below to check the current status of your accreditation.</p>
 
-                        <form action="{{ route('track') }}" method="GET">
+                        <form id="trackSearchForm" action="{{ route('track') }}" method="GET" novalidate>
                             <div class="input-group input-group-lg mb-3">
                                 <span class="input-group-text bg-white"><i class="bi bi-hash fw-bold" style="color: #0b3d91;"></i></span>
                                 <input type="text" class="form-control" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS-2026-000001)" value="{{ request('tracking_number') }}" required>
-                                <button class="btn btn-primary px-4 fw-semibold" type="submit" style="background-color: #0b3d91; border-color: #0b3d91;">Track Status</button>
+                                <button class="btn btn-primary px-4 fw-semibold" type="submit" id="trackSearchBtn" style="background-color: #0b3d91; border-color: #0b3d91;">
+                                    <span id="trackSearchText">Track Status</span>
+                                    <span id="trackSearchSpinner" class="d-none">
+                                        <span class="spinner-border spinner-border-sm me-1" role="status"></span> Loading...
+                                    </span>
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -293,6 +298,7 @@
                                 $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
                             @endphp
                             @if($totalRejected > 0)
+                                @if($application->application_type === 'new')
                             <div class="mt-4 p-4 border rounded-3" style="background:#fff8f8; border-color:#f5c6cb !important;">
                                 <h6 class="fw-bold mb-3" style="color:#842029;">
                                     <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents
@@ -463,6 +469,19 @@
                                     </div>
                                 </form>
                             </div>
+                                @else
+                                <div class="mt-4 p-4 border rounded-3 text-center" style="background:#fff8f8; border-color:#f5c6cb !important;">
+                                    <h6 class="fw-bold mb-2" style="color:#842029;">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Action Required: Document Resubmission
+                                    </h6>
+                                    <p class="text-muted mb-3" style="font-size: 0.95rem;">
+                                        Some of your submitted documents require revisions. Since this is a <strong>{{ ucfirst($application->application_type) }}</strong> application, you must log in to your Applicant Portal to upload the replacements.
+                                    </p>
+                                    <a href="{{ route('login') }}" class="btn btn-danger fw-bold px-4 rounded-pill shadow-sm">
+                                        Log in to Applicant Portal
+                                    </a>
+                                </div>
+                                @endif
                             @endif
 
                             </div>
@@ -542,6 +561,26 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('submit', function () {
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
+        });
+    }
+
+    // Loading state for track search
+    const trackForm = document.getElementById('trackSearchForm');
+    if (trackForm) {
+        trackForm.addEventListener('submit', function(e) {
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.classList.add('was-validated');
+            } else {
+                this.classList.add('was-validated');
+                const tBtn = document.getElementById('trackSearchBtn');
+                const tText = document.getElementById('trackSearchText');
+                const tSpinner = document.getElementById('trackSearchSpinner');
+                if (tBtn) tBtn.disabled = true;
+                if (tText) tText.classList.add('d-none');
+                if (tSpinner) tSpinner.classList.remove('d-none');
+            }
         });
     }
 });

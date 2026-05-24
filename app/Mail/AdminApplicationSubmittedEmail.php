@@ -21,6 +21,7 @@ class AdminApplicationSubmittedEmail extends Mailable
     public function __construct(Application $application)
     {
         $this->application = $application;
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
     }
 
     /**

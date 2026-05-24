@@ -180,7 +180,7 @@ class ApplicationController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation.');
+        return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation.');
     }
 
     /**
@@ -557,7 +557,7 @@ class ApplicationController extends Controller
             ),
             'interview_time' => ['required', 'date_format:H:i'],
             'mode'           => ['required', 'in:online,f2f'],
-            'venue'          => ['nullable', 'string', 'max:500'],
+            'venue'          => ['required', 'string', 'max:500'],
         ]);
 
         // ── 2-hour interval check ──────────────────────────────────────────
@@ -590,7 +590,7 @@ class ApplicationController extends Controller
                 'interview_date' => $request->input('interview_date'),
                 'interview_time' => $request->input('interview_time'),
                 'mode'           => $request->input('mode'),
-                'venue'          => $request->input('mode') === 'f2f' ? $request->input('venue') : null,
+                'venue'          => $request->input('venue'),
             ]
         );
 
@@ -693,6 +693,11 @@ class ApplicationController extends Controller
             'latestStatus.status',
             'interview',
         ])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->where('name', 'Scheduled for Interview');
+                });
+            })
             ->whereHas('interview')
             ->orderBy('updated_at', 'desc')
             ->get();
@@ -794,22 +799,30 @@ class ApplicationController extends Controller
             return back()->with('success', 'Application approved. Accreditation number ' . $accNumber . ' has been issued and the applicant has been notified.');
 
         } else {
-            // ── NOT PASSED: Send email then delete application ───────────────
+            // ── NOT PASSED: Send email then archive application ───────────────
 
             $applicantEmail = $application->user?->email;
             $trackingNumber = $application->tracking_number;
 
-            // Send email BEFORE deletion so relationships are still intact
+            // Send email BEFORE archiving so relationships are still intact
             if ($applicantEmail) {
                 Mail::to($applicantEmail)
                     ->send(new ApplicationResultEmail($application, 'not_passed', null));
             }
 
-            // Delete application (cascade removes: documents, status_logs, interview, accreditation)
-            $application->delete();
+            // Log status: Rejected (Archived)
+            $rejectedStatus = ApplicationStatus::where('name', 'Rejected')->first();
+            if ($rejectedStatus) {
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $rejectedStatus->id,
+                    'updated_by'     => auth()->id(),
+                    'remarks'        => 'Interview not passed. Application marked as Rejected/Archived.',
+                ]);
+            }
 
             return redirect()->route('admin.hcd.interviews.scheduled')
-                ->with('success', 'Application ' . $trackingNumber . ' has been rejected and removed. The applicant has been notified.');
+                ->with('success', 'Application ' . $trackingNumber . ' has been rejected and archived. The applicant has been notified.');
         }
     }
 
@@ -1161,5 +1174,27 @@ class ApplicationController extends Controller
         }
 
         return back()->with('success', 'Update request sent to applicant for instructor ' . $instructor->first_name . ' ' . $instructor->last_name . '.');
+    }
+
+    /**
+     * Display a listing of archived/rejected applications.
+     */
+    public function archived()
+    {
+        $applications = Application::with([
+            'user.organizationProfile',
+            'user.individualProfile',
+            'accreditationType',
+            'latestStatus.status',
+        ])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->where('name', 'Rejected');
+                });
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.archived', compact('applications'));
     }
 }

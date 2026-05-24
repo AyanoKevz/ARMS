@@ -37,7 +37,7 @@ class RenewalController extends Controller
             'accreditations.accreditationType',
             'organizationProfile.authorizedRepresentatives',
             'individualProfile',
-            'instructors.credentials',
+            'instructors.credentials.instructor',
             'userDocuments.documentField.documentType',
         ]);
 
@@ -61,6 +61,10 @@ class RenewalController extends Controller
                     ]);
                 });
             })
+            ->with([
+                'documents.documentField.documentType',
+                'user.instructors.credentials.instructor'
+            ])
             ->first();
 
         // Check if user has a pending instructor update request
@@ -107,7 +111,7 @@ class RenewalController extends Controller
             ->exists();
 
         if ($alreadyActive) {
-            return redirect()->route('applicant.renewal')
+            return redirect()->route('applicant.renewal.index')
                 ->with('error', 'You already have an active renewal or reinstatement application that is still being processed. Please wait for it to be completed before submitting a new one.');
         }
 
@@ -117,7 +121,7 @@ class RenewalController extends Controller
             ->exists();
 
         if ($pendingInstructorUpdate) {
-            return redirect()->route('applicant.renewal')
+            return redirect()->route('applicant.renewal.index')
                 ->with('error', 'You cannot submit a renewal application while you have a pending instructor update request.');
         }
 
@@ -190,14 +194,15 @@ class RenewalController extends Controller
             // Representative fields
             'rep_full_name'      => ['nullable', 'string', 'max:255'],
             'rep_position'       => ['nullable', 'string', 'max:255'],
-            'rep_contact_number' => ['nullable', 'string', 'max:11'],
+            'rep_contact_number' => ['nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
             'rep_email'          => ['nullable', 'email', 'max:255'],
 
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
         ], $documentRules, $instructorRules), [
-            'telephone.regex' => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
-            'fax.regex'       => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
+            'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
+            'rep_contact_number.regex' => 'The representative contact number must be a PH mobile number (e.g. 09171234567 or +639171234567).',
         ]);
 
         try {
@@ -423,7 +428,7 @@ class RenewalController extends Controller
             }
 
             return redirect()
-                ->route('applicant.renewal')
+                ->route('applicant.renewal.index')
                 ->with('success', 'Your ' . $request->input('application_type') . ' application has been submitted successfully!');
 
         } catch (\Throwable $e) {

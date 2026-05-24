@@ -196,12 +196,12 @@
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Telephone Number</label>
-                                        <input type="text" class="form-control" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $profile->telephone ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" required {{ $readOnly ? 'disabled' : '' }}>
+                                        <input type="text" class="form-control" id="telephone" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $profile->telephone ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" required {{ $readOnly ? 'disabled' : '' }}>
                                         <div class="invalid-feedback">Enter a valid 10-digit telephone number (e.g. 0281234567).</div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Fax Number</label>
-                                        <input type="text" class="form-control" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $profile->fax ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" {{ $readOnly ? 'disabled' : '' }}>
+                                        <input type="text" class="form-control" id="fax" name="fax" value="{{ old('fax', preg_replace('/[^0-9]/', '', $profile->fax ?? '')) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10" {{ $readOnly ? 'disabled' : '' }}>
                                         <div class="invalid-feedback">Enter a valid 10-digit facsimile number (e.g. 0281234567).</div>
                                     </div>
                                     <div class="col-md-12">
@@ -226,7 +226,8 @@
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Contact Number</label>
-                                        <input type="text" class="form-control" name="rep_contact_number" value="{{ old('rep_contact_number', $rep->contact_number ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                        <input type="text" class="form-control" id="rep_contact" name="rep_contact_number" value="{{ old('rep_contact_number', $rep->contact_number ?? '') }}" required pattern="^(09|\+639)\d{9}$" maxlength="13" {{ $readOnly ? 'disabled' : '' }}>
+                                        <div class="invalid-feedback">Enter a valid PH mobile number (e.g. 09171234567).</div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Email Address</label>
@@ -285,6 +286,82 @@
                     }
                     reader.readAsDataURL(file);
                 }
+            });
+        }
+
+        /* ── Live Validation for Telephone, Fax, and Rep Contact ── */
+        const telInput = document.getElementById('telephone');
+        const faxInput = document.getElementById('fax');
+        const repContactInput = document.getElementById('rep_contact');
+
+        function validateLandline(input, typeName) {
+            let val = input.value.replace(/[^0-9]/g, '');
+            input.value = val;
+            
+            if (val.length === 10) {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                input.setCustomValidity('');
+            } else if (val.length === 0) {
+                input.classList.remove('is-invalid', 'is-valid');
+                input.setCustomValidity('');
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                input.setCustomValidity(`Enter a valid 10-digit ${typeName} number (e.g. 0281234567).`);
+            }
+        }
+
+        function validateRepContact(input) {
+            let val = input.value.replace(/[^\d+]/g, '');
+            if (val.startsWith('+')) {
+                val = '+' + val.slice(1).replace(/\+/g, '');
+            } else {
+                val = val.replace(/\+/g, '');
+            }
+            input.value = val;
+
+            const pattern = /^(09|\+639)\d{9}$/;
+            if (val.length === 0) {
+                if (input.hasAttribute('required')) {
+                    input.classList.remove('is-valid');
+                    input.classList.add('is-invalid');
+                    input.setCustomValidity('Contact number is required.');
+                } else {
+                    input.classList.remove('is-invalid', 'is-valid');
+                    input.setCustomValidity('');
+                }
+            } else {
+                if (pattern.test(val)) {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                    input.setCustomValidity('');
+                } else {
+                    input.classList.remove('is-valid');
+                    input.classList.add('is-invalid');
+                    input.setCustomValidity('Enter a valid PH mobile number (e.g. 09171234567).');
+                }
+            }
+        }
+
+        if (telInput) {
+            if (telInput.value) validateLandline(telInput, 'telephone');
+            telInput.addEventListener('input', function() {
+                validateLandline(this, 'telephone');
+            });
+        }
+
+        if (faxInput) {
+            if (faxInput.value) validateLandline(faxInput, 'facsimile');
+            faxInput.addEventListener('input', function() {
+                validateLandline(this, 'facsimile');
+            });
+        }
+
+        if (repContactInput) {
+            if (repContactInput.value) validateRepContact(repContactInput);
+            repContactInput.addEventListener('input', function() {
+                validateRepContact(this);
             });
         }
     });

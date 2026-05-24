@@ -29,9 +29,19 @@ class DocumentRejectionEmail extends Mailable
     public function __construct(Application $application, $rejectedDocuments, $rejectedInstructors = null, $rejectedCredentials = null)
     {
         $this->application = $application;
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
+        
         $this->rejectedDocuments = $rejectedDocuments;
+        if ($this->rejectedDocuments && $this->rejectedDocuments->isNotEmpty()) {
+            $this->rejectedDocuments->loadMissing(['documentField.documentType']);
+        }
+
         $this->rejectedInstructors = $rejectedInstructors ?? collect();
+        
         $this->rejectedCredentials = $rejectedCredentials ?? collect();
+        if ($this->rejectedCredentials && $this->rejectedCredentials->isNotEmpty()) {
+            $this->rejectedCredentials->loadMissing(['instructor']);
+        }
     }
 
     /**

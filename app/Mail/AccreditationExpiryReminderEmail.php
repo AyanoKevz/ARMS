@@ -22,6 +22,7 @@ class AccreditationExpiryReminderEmail extends Mailable
     public function __construct(Accreditation $accreditation, string $period)
     {
         $this->accreditation = $accreditation;
+        $this->accreditation->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         $this->period = $period;
     }
 

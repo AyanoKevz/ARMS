@@ -21,6 +21,7 @@ class AccreditationExpiredEmail extends Mailable
     public function __construct(Accreditation $accreditation)
     {
         $this->accreditation = $accreditation;
+        $this->accreditation->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
     }
 
     /**

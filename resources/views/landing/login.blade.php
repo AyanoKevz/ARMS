@@ -63,8 +63,14 @@
                             <a href="{{ route('password.request') }}">Forgot password?</a>
                         </span>
 
-                        <button type="submit" class="btn-login">
-                            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                        <button type="submit" class="btn-login" id="loginSubmitBtn">
+                            <span id="loginSubmitText">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                            </span>
+                            <span id="loginSubmitSpinner" class="d-none">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Signing in...
+                            </span>
                         </button>
 
                         <div class="text-center mt-3">

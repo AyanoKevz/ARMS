@@ -300,8 +300,11 @@
 
             @if($isUpdateMode)
             <div class="text-end mt-4 mb-4">
-                <button type="submit" class="btn btn-primary btn-lg px-5" style="border-radius:10px;">
-                    <i class="bi bi-send me-1"></i> Submit All Updates
+                <button type="submit" class="btn btn-primary btn-lg px-5" id="batchUpdateBtn" style="border-radius:10px;">
+                    <span id="batchUpdateText"><i class="bi bi-send me-1"></i> Submit All Updates</span>
+                    <span id="batchUpdateSpinner" class="d-none">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
+                    </span>
                 </button>
             </div>
             </form>
@@ -311,3 +314,28 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.querySelector('form[action="{{ route("applicant.instructors.batch_update", $instructor->id) }}"]');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                if (!this.checkValidity()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.classList.add('was-validated');
+                } else {
+                    this.classList.add('was-validated');
+                    const btn = document.getElementById('batchUpdateBtn');
+                    const text = document.getElementById('batchUpdateText');
+                    const spinner = document.getElementById('batchUpdateSpinner');
+                    if(btn) btn.disabled = true;
+                    if(text) text.classList.add('d-none');
+                    if(spinner) spinner.classList.remove('d-none');
+                }
+            });
+        }
+    });
+</script>
+@endpush

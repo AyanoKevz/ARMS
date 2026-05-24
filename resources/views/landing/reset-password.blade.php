@@ -49,8 +49,14 @@
                             <div class="invalid-feedback" id="confirmPasswordFeedback">Passwords do not match.</div>
                         </div>
 
-                        <button type="submit" class="btn-login mt-2">
-                            <i class="bi bi-key-fill me-1"></i> Reset Password
+                        <button type="submit" class="btn-login mt-2" id="resetSubmitBtn">
+                            <span id="resetSubmitText">
+                                <i class="bi bi-key-fill me-1"></i> Reset Password
+                            </span>
+                            <span id="resetSubmitSpinner" class="d-none">
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Resetting...
+                            </span>
                         </button>
                     </form>
 
@@ -106,6 +112,12 @@
                     }
                 } else {
                     this.classList.add('was-validated');
+                    const btn = document.getElementById('resetSubmitBtn');
+                    const text = document.getElementById('resetSubmitText');
+                    const spinner = document.getElementById('resetSubmitSpinner');
+                    if(btn) btn.disabled = true;
+                    if(text) text.classList.add('d-none');
+                    if(spinner) spinner.classList.remove('d-none');
                 }
             });
         }

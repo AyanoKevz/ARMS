@@ -24,6 +24,7 @@ class InterviewScheduleEmail extends Mailable
     public function __construct(Application $application, Interview $interview, $isUpdate = false)
     {
         $this->application = $application;
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         $this->interview = $interview;
         $this->isUpdate = $isUpdate;
     }

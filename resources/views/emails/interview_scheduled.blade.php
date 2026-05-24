@@ -48,8 +48,10 @@
             <div class="doc-item-name">Mode & Venue</div>
             <div class="doc-item-remark">
                 <span>Mode:</span> {{ $interview->mode === 'online' ? 'Online Interview' : 'Face-to-Face' }}<br>
-                @if($interview->mode === 'f2f' && $interview->venue)
+                @if($interview->mode === 'f2f')
                 <span>Venue:</span> {{ $interview->venue }}
+                @else
+                <span>Meeting Link:</span> <a href="{{ $interview->venue }}" target="_blank">{{ $interview->venue }}</a>
                 @endif
             </div>
         </div>
@@ -57,7 +59,7 @@
 
     @if($interview->mode === 'online')
     <p style="font-size:0.85rem; color:#1a6fbd; background-color:#e6f2ff; padding:12px; border-radius:8px; border:1px solid #b3d7ff;">
-        <strong>Note:</strong> As your interview is scheduled online, a separate email containing the meeting link and precise instructions will be sent to you shortly.
+        <strong>Meeting Link:</strong> Please join the interview using the link: <a href="{{ $interview->venue }}" target="_blank">{{ $interview->venue }}</a>. Please ensure you are logged in and ready 10 minutes before the schedule.
     </p>
     @else
     <p style="font-size:0.85rem; color:#555;">
