@@ -52,6 +52,9 @@
             </p>
             @if($renewalStatus === 'For Update')
                 <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
+            @else
+                <p class="text-muted mb-0">Finish the application process before submitting another.</p>
+            @endif
         </div>
     </div>
     
@@ -246,16 +249,6 @@
         </form>
     </div>
     @endif
-    
-    <div class="d-none">
-        <div>
-            @else
-                <p class="text-muted mb-0">Finish the application process before submitting another.</p>
-        </div>
-    </div>
-            @endif
-        </div>
-    </div>
     @elseif($pendingInstructorUpdate)
 
     {{-- Guard: pending instructor update --}}
@@ -901,6 +894,21 @@ document.addEventListener('DOMContentLoaded', function() {
         background-color: #198754 !important;
         border-color: #198754 !important;
         color: white !important;
+    }
+
+    /* Fix for Bootstrap 5 file input validation huge space bug */
+    input[type="file"]:valid,
+    input[type="file"].is-valid,
+    input[type="file"]:invalid,
+    input[type="file"].is-invalid {
+        background-image: none !important;
+        padding-right: 0 !important;
+    }
+
+    /* Fix for file name truncation */
+    .file-name-text.text-truncate {
+        display: inline-block;
+        vertical-align: middle;
     }
 </style>
 @endpush

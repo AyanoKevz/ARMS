@@ -4,7 +4,8 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <!-- Meta, title, CSS, favicons, etc. -->
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'ARMS') | Portal</title>
@@ -69,9 +70,9 @@
                     <!-- /sidebar menu -->
 
                     <!-- /menu footer buttons -->
-                    <div class="sidebar-footer hidden-small d-flex flex-column align-items-center justify-content-center py-2" style="background: #091e3e; border-top: 1px solid var(--portal-gold);">
-                        <div id="real-time-date" style="font-size: 0.7rem; font-weight: 500; color: var(--portal-gold); text-transform: uppercase; letter-spacing: 0.05em;"></div>
-                        <div id="real-time-clock" style="font-size: 0.85rem; font-weight: 700; color: #fff; line-height: 1.2;"></div>
+                    <div class="sidebar-footer hidden-small d-flex flex-column align-items-center justify-content-center" style="background: #091e3e; border-top: 1px solid var(--portal-gold);">
+                        <div id="real-time-date" style="font-size: 0.65rem; font-weight: 500; color: var(--portal-gold); text-transform: uppercase; letter-spacing: 0.05em; line-height: 1;"></div>
+                        <div id="real-time-clock" style="font-size: 0.8rem; font-weight: 700; color: #fff; line-height: 1.2;"></div>
                     </div>
                     <!-- /menu footer buttons -->
                 </div>
@@ -145,6 +146,52 @@
     <script type="module" src="{{ asset('gentelella/js/main-minimal-Ba_GM_Ws.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Prevent Gentelella's JS height calculation feedback loop from stretching the page
+            const rightCol = document.querySelector('.right_col');
+            if (rightCol) {
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.attributeName === 'style') {
+                            if (rightCol.style.minHeight && rightCol.style.minHeight !== 'auto') {
+                                observer.disconnect();
+                                rightCol.style.minHeight = 'auto';
+                                observer.observe(rightCol, { attributes: true, attributeFilter: ['style'] });
+                            }
+                        }
+                    });
+                });
+                observer.observe(rightCol, { attributes: true, attributeFilter: ['style'] });
+                rightCol.style.minHeight = 'auto';
+            }
+
+            // Prevent Gentelella from overriding the fixed sidebar height
+            const leftCol = document.querySelector('.col-md-3.left_col');
+            if (leftCol) {
+                leftCol.style.height = '100vh';
+                leftCol.style.minHeight = '100vh';
+                const scrollView = leftCol.querySelector('.left_col.scroll-view');
+                if (scrollView) {
+                    scrollView.style.height = '100%';
+                    scrollView.style.minHeight = '0';
+                }
+                const sidebarObserver = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.attributeName === 'style') {
+                            sidebarObserver.disconnect();
+                            leftCol.style.height = '100vh';
+                            leftCol.style.minHeight = '100vh';
+                            leftCol.style.position = 'fixed';
+                            if (scrollView) {
+                                scrollView.style.height = '100%';
+                                scrollView.style.minHeight = '0';
+                            }
+                            sidebarObserver.observe(leftCol, { attributes: true, attributeFilter: ['style'] });
+                        }
+                    });
+                });
+                sidebarObserver.observe(leftCol, { attributes: true, attributeFilter: ['style'] });
+            }
+
             // Auto-dismiss alerts after 5 seconds
             setTimeout(function() {
                 const alerts = document.querySelectorAll('.alert:not(.alert-important)');
