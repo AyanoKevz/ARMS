@@ -37,12 +37,13 @@
             'Under Evaluation'        => ['bg' => '#0d6efd', 'text' => '#fff',    'icon' => 'fa-search'],
             'For Update'              => ['bg' => '#dc3545', 'text' => '#fff',    'icon' => 'fa-exclamation-circle'],
             'Scheduled for Interview' => ['bg' => '#0b3d91', 'text' => '#fff',    'icon' => 'fa-calendar-check'],
+            'Awaiting Payment'        => ['bg' => '#17a2b8', 'text' => '#fff',    'icon' => 'fa-credit-card'],
             default                   => ['bg' => '#6c757d', 'text' => '#fff',    'icon' => 'fa-circle'],
         };
     @endphp
-    <div class="x_panel" style="border-left:4px solid #ffc107;">
+    <div class="x_panel" style="border-left:4px solid {{ $statusColor['bg'] }};">
         <div class="x_content py-4 text-center">
-            <i class="fas fa-info-circle fa-3x text-warning mb-3"></i>
+            <i class="fas fa-info-circle fa-3x text-warning mb-3" style="color: {{ $statusColor['bg'] }} !important;"></i>
             <h5 class="fw-bold">You already have a pending {{ ucfirst($pendingRenewal->application_type) }} application</h5>
             <p class="text-muted mb-1">Tracking Number: <strong>{{ $pendingRenewal->tracking_number }}</strong></p>
             <p class="mb-3">
@@ -52,6 +53,8 @@
             </p>
             @if($renewalStatus === 'For Update')
                 <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
+            @elseif($renewalStatus === 'Awaiting Payment')
+                <p class="text-muted mb-0">Congratulations! Your interview has passed. Please submit the payment details and signatures below to finalize your accreditation.</p>
             @else
                 <p class="text-muted mb-0">Finish the application process before submitting another.</p>
             @endif
@@ -247,6 +250,127 @@
                 </button>
             </div>
         </form>
+    </div>
+    @endif
+
+    {{-- ── Payment Requirements Upload Section (shown when status is Awaiting Payment) ── --}}
+    @if($renewalStatus === 'Awaiting Payment')
+    @php
+        $payment = $pendingRenewal->payment;
+        $reqs = [
+            'proof_of_payment' => [
+                'label' => 'Proof of Payment',
+                'desc' => 'Attach clear copy of your payment receipt or deposit slip (PDF/JPG/PNG)',
+                'accept' => '.pdf,.jpg,.jpeg,.png'
+            ],
+            'e_signature'      => [
+                'label' => 'E-Signature',
+                'desc' => 'Attach clear copy of your digital signature (JPG/PNG only)',
+                'accept' => '.jpg,.jpeg,.png'
+            ],
+            'id_photo'         => [
+                'label' => 'ID Photo',
+                'desc' => 'Attach clear 2x2 ID photo with white background (JPG/PNG only)',
+                'accept' => '.jpg,.jpeg,.png'
+            ],
+        ];
+        $needsUpload = false;
+    @endphp
+
+    <div class="x_panel mt-4" style="border-left: 4px solid #17a2b8;">
+        <div class="x_title">
+            <h2 class="fw-bold text-info" style="color: #17a2b8 !important;"><i class="fas fa-credit-card me-2"></i>Submit Payment & Signatures</h2>
+            <div class="clearfix"></div>
+        </div>
+        <div class="x_content py-3">
+            <p class="text-muted mb-4" style="font-size: 0.95rem;">
+                Congratulations on passing your interview! To proceed with issuing your renewal/reinstatement accreditation certificate, please upload the required documents below. You may upload them individually or all at once.
+            </p>
+
+            <form action="{{ route('applicant.renewal.submit_payment') }}" method="POST" enctype="multipart/form-data" id="payment-upload-form">
+                @csrf
+                <input type="hidden" name="application_id" value="{{ $pendingRenewal->id }}">
+
+                <div class="d-flex flex-column gap-3 mb-4">
+                    @foreach($reqs as $key => $info)
+                        @php
+                            $status = $payment ? $payment->{"{$key}_status"} : 'missing';
+                            $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
+                            $filePath = $payment ? $payment->$key : null;
+                        @endphp
+                        <div class="p-3 border rounded shadow-sm" style="background: #fafafa; border-color: #e5e5e5 !important;">
+                            <div class="row align-items-center">
+                                <div class="col-md-7">
+                                    <h5 class="fw-bold mb-1" style="color: #2A3F54; font-size: 1rem;">{{ $info['label'] }}</h5>
+                                    <p class="text-muted mb-2" style="font-size: 0.85rem;">{{ $info['desc'] }}</p>
+
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if($status === 'approved')
+                                            <span class="badge bg-success" style="font-size: 0.8rem; padding: 5px 10px;">
+                                                <i class="fas fa-check-circle me-1"></i> Approved
+                                            </span>
+                                        @elseif($status === 'rejected')
+                                            <span class="badge bg-danger" style="font-size: 0.8rem; padding: 5px 10px;">
+                                                <i class="fas fa-times-circle me-1"></i> Requires Revision
+                                            </span>
+                                        @elseif($status === 'pending')
+                                            <span class="badge bg-warning text-dark" style="font-size: 0.8rem; padding: 5px 10px;">
+                                                <i class="fas fa-hourglass-half me-1"></i> Pending Review
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary" style="font-size: 0.8rem; padding: 5px 10px;">
+                                                <i class="fas fa-arrow-up me-1"></i> Not Uploaded
+                                            </span>
+                                        @endif
+
+                                        @if($filePath)
+                                            <span class="text-muted small ms-2" style="font-size: 0.8rem;">
+                                                <i class="fas fa-file-alt me-1"></i> {{ basename($filePath) }}
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    @if($status === 'rejected' && $remarks)
+                                        <div class="alert alert-danger py-1 px-3 border-0 rounded mt-3 mb-0" style="font-size: 0.85rem;">
+                                            <strong>Verifier Remarks:</strong> {{ $remarks }}
+                                        </div>
+                                    @endif
+                                </div>
+
+                                <div class="col-md-5 text-md-end mt-3 mt-md-0">
+                                    @if($status === 'missing' || $status === 'rejected')
+                                        @php $needsUpload = true; @endphp
+                                        <div class="file-upload-wrapper mt-1">
+                                            <input type="file" name="{{ $key }}" id="input-{{ $key }}" class="real-file-input payment-file-input visually-hidden" accept="{{ $info['accept'] }}" required>
+                                            <div class="d-flex align-items-center justify-content-md-end gap-2">
+                                                <label for="input-{{ $key }}" class="btn btn-outline-info btn-sm mb-0 px-3 fw-bold custom-file-btn" style="border-color: #17a2b8; color: #17a2b8;">
+                                                    <i class="fas fa-cloud-upload-alt me-1"></i> Choose File
+                                                </label>
+                                                <span class="file-name-text text-muted text-truncate text-start" style="font-size: .8rem; max-width: 180px;">No file chosen</span>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-success fw-bold small"><i class="fas fa-check me-1"></i> Under Review / Complete</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                @if($needsUpload)
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-info fw-bold px-5" style="border-radius: 8px; background-color: #17a2b8; border-color: #17a2b8; color: white;">
+                            <i class="fas fa-cloud-upload-alt me-2"></i> Upload Payment Files
+                        </button>
+                    </div>
+                @else
+                    <div class="alert alert-success mb-0 text-center fw-semibold py-3">
+                        <i class="fas fa-check-double me-2"></i> All payment documents have been uploaded successfully. The HCD verifier is currently reviewing your payment details.
+                    </div>
+                @endif
+            </form>
+        </div>
     </div>
     @endif
     @elseif($pendingInstructorUpdate)
@@ -870,6 +994,52 @@ document.addEventListener('DOMContentLoaded', function() {
         batchForm.addEventListener('submit', function () {
             batchBtn.disabled = true;
             batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
+        });
+    }
+
+    // Payment Upload File Input Handling
+    document.querySelectorAll('.payment-file-input').forEach(function (input) {
+        input.addEventListener('change', function () {
+            const wrapper = this.closest('div.file-upload-wrapper');
+            const hint = wrapper.querySelector('.file-name-text');
+            const btn = wrapper.querySelector('.custom-file-btn');
+            
+            if (this.files.length > 0) {
+                if (hint) {
+                    hint.innerHTML = '<span class="text-dark fw-normal">File:</span> ' + this.files[0].name;
+                    hint.classList.remove('text-muted');
+                    hint.classList.add('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.remove('btn-outline-info');
+                    btn.classList.add('btn-success');
+                    btn.style.cssText = 'border-color: #198754 !important; background-color: #198754 !important; color: white !important;';
+                    btn.innerHTML = '<i class="fas fa-check me-1"></i> File Selected';
+                }
+            } else {
+                if (hint) {
+                    hint.textContent = 'No file chosen';
+                    hint.classList.add('text-muted');
+                    hint.classList.remove('text-success', 'fw-bold');
+                }
+                if (btn) {
+                    btn.classList.add('btn-outline-info');
+                    btn.classList.remove('btn-success');
+                    btn.style.cssText = 'border-color: #17a2b8; color: #17a2b8; background-color: transparent;';
+                    btn.innerHTML = '<i class="fas fa-cloud-upload-alt me-1"></i> Choose File';
+                }
+            }
+        });
+    });
+
+    const paymentForm = document.getElementById('payment-upload-form');
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function (e) {
+            const btn = this.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
+            }
         });
     }
 });

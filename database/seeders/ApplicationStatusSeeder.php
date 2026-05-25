@@ -14,6 +14,7 @@ class ApplicationStatusSeeder extends Seeder
             'Under Evaluation',
             'For Update',
             'Scheduled for Interview',
+            'Awaiting Payment',
             'Approved',
             'Rejected',
         ];

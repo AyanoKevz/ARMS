@@ -75,6 +75,95 @@
                                     </div>
                                 </div>
 
+                                {{-- ── Payment Requirements Upload Section ── --}}
+                                @if($application->latestStatus?->status?->name === 'Awaiting Payment')
+                                <div class="rounded-3 border mb-4 overflow-hidden" style="border-color:#fbbf24 !important; border-width: 1px !important;">
+                                    <div class="px-4 py-2 fw-bold d-flex align-items-center gap-2"
+                                         style="background:#f59e0b; color:#fff; font-size:.9rem;">
+                                        <i class="bi bi-credit-card-2-back-fill"></i> Interview Passed! Submit Payment & Signatures
+                                    </div>
+                                    <div class="px-4 py-3" style="background:#fffbeb;">
+                                        <p class="small text-muted mb-3">
+                                            Congratulations on passing your interview! To proceed with your accreditation certificate, please submit the following files. You can upload them individually.
+                                        </p>
+                                        
+                                        @php
+                                            $payment = $application->payment;
+                                            $reqs = [
+                                                'proof_of_payment' => ['label' => 'Proof of Payment', 'desc' => 'Attach clear copy of your payment receipt or deposit slip (PDF/JPG/PNG)', 'accept' => '.pdf,.jpg,.jpeg,.png'],
+                                                'e_signature'      => ['label' => 'E-Signature', 'desc' => 'Attach clear copy of your digital signature (JPG/PNG only)', 'accept' => '.jpg,.jpeg,.png'],
+                                                'id_photo'         => ['label' => 'ID Photo', 'desc' => 'Attach clear 2x2 ID photo with white background (JPG/PNG only)', 'accept' => '.jpg,.jpeg,.png'],
+                                            ];
+                                            $needsUpload = false;
+                                        @endphp
+                                        
+                                        <form action="{{ route('track.submit_payment') }}" method="POST" enctype="multipart/form-data" id="payment-submit-form" class="mt-2">
+                                            @csrf
+                                            <input type="hidden" name="application_id" value="{{ $application->id }}">
+                                            
+                                            <div class="d-flex flex-column gap-3">
+                                                @foreach($reqs as $key => $info)
+                                                @php
+                                                    $status = $payment ? $payment->{"{$key}_status"} : 'missing';
+                                                    $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
+                                                    $filePath = $payment ? $payment->$key : null;
+                                                @endphp
+                                                <div class="p-3 bg-white border rounded shadow-sm" style="border-color: #f1f3f5 !important;">
+                                                    <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+                                                        <div class="flex-grow-1">
+                                                            <h6 class="mb-1 fw-bold text-dark" style="font-size: .92rem;">{{ $info['label'] }}</h6>
+                                                            <small class="text-muted d-block" style="font-size: .8rem;">{{ $info['desc'] }}</small>
+                                                            
+                                                            <div class="mt-2 d-flex align-items-center gap-2">
+                                                                @if($status === 'approved')
+                                                                    <span class="badge text-success bg-success-subtle border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i>Approved</span>
+                                                                @elseif($status === 'rejected')
+                                                                    <span class="badge text-danger bg-danger-subtle border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle-fill me-1"></i>Requires Revision</span>
+                                                                @elseif($status === 'pending')
+                                                                    <span class="badge text-warning bg-warning-subtle border border-warning-subtle px-2 py-1"><i class="bi bi-hourglass-split me-1"></i>Pending Review</span>
+                                                                @else
+                                                                    <span class="badge text-secondary bg-secondary-subtle border border-secondary-subtle px-2 py-1"><i class="bi bi-file-earmark-arrow-up me-1"></i>Not Uploaded</span>
+                                                                @endif
+                                                                
+                                                                @if($filePath)
+                                                                    <span class="text-muted small" style="font-size: .78rem;"><i class="bi bi-file-earmark-check-fill"></i> {{ basename($filePath) }}</span>
+                                                                @endif
+                                                            </div>
+                                                            
+                                                            @if($status === 'rejected' && $remarks)
+                                                            <div class="alert alert-danger py-1 px-2 border-0 rounded mt-2 mb-0" style="font-size:.8rem;">
+                                                                <strong>Verifier Remarks:</strong> {{ $remarks }}
+                                                            </div>
+                                                            @endif
+                                                        </div>
+                                                        
+                                                        @if($status === 'missing' || $status === 'rejected')
+                                                        @php $needsUpload = true; @endphp
+                                                        <div style="min-width: 250px;">
+                                                            <input type="file" name="{{ $key }}" id="input-{{ $key }}" class="form-control form-control-sm" accept="{{ $info['accept'] }}" required>
+                                                        </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                @endforeach
+                                            </div>
+                                            
+                                            @if($needsUpload)
+                                            <div class="mt-3 text-end">
+                                                <button type="submit" class="btn btn-warning fw-bold px-4" style="background:#d97706; border-color:#d97706; color:#fff; border-radius: 8px;">
+                                                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Selected Files
+                                                </button>
+                                            </div>
+                                            @else
+                                            <div class="alert alert-success mt-3 mb-0 small text-center fw-semibold">
+                                                <i class="bi bi-check-circle-fill me-1"></i> All payment requirements have been uploaded. Awaiting HCD verifier evaluation.
+                                            </div>
+                                            @endif
+                                        </form>
+                                    </div>
+                                </div>
+                                @endif
+
                                 {{-- ── Interview Schedule Banner ── --}}
                                 @php $interview = $application->interview; @endphp
                                 @if($interview && $application->latestStatus?->status?->name === 'Scheduled for Interview')

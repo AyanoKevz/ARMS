@@ -58,12 +58,14 @@ class RenewalController extends Controller
                         'Under Evaluation',
                         'For Update',
                         'Scheduled for Interview',
+                        'Awaiting Payment',
                     ]);
                 });
             })
             ->with([
                 'documents.documentField.documentType',
-                'user.instructors.credentials.instructor'
+                'user.instructors.credentials.instructor',
+                'payment',
             ])
             ->first();
 
@@ -105,6 +107,7 @@ class RenewalController extends Controller
                         'Under Evaluation',
                         'For Update',
                         'Scheduled for Interview',
+                        'Awaiting Payment',
                     ]);
                 });
             })
@@ -687,5 +690,101 @@ class RenewalController extends Controller
         return redirect()
             ->route('applicant.dashboard')
             ->with('success', "{$resubmitted} document" . ($resubmitted > 1 ? 's' : '') . " successfully resubmitted. Your application is now back under review.");
+    }
+
+    /**
+     * Handle portal submission of payment requirements.
+     */
+    public function submitPaymentPortal(Request $request)
+    {
+        $request->validate([
+            'application_id'   => ['required', 'exists:applications,id'],
+            'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'e_signature'      => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'id_photo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $user = Auth::user();
+        $application = Application::where('id', $request->input('application_id'))
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
+
+        $accreditationType = $application->accreditationType;
+        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $fatProName = $user->name;
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+        
+        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+
+        $changed = false;
+
+        // Process proof_of_payment
+        if ($request->hasFile('proof_of_payment')) {
+            if ($payment->proof_of_payment && Storage::disk('local')->exists($payment->proof_of_payment)) {
+                Storage::disk('local')->delete($payment->proof_of_payment);
+            }
+            $ext = $request->file('proof_of_payment')->getClientOriginalExtension();
+            $filename = "proof_of_payment_" . time() . ".{$ext}";
+            $path = $request->file('proof_of_payment')->storeAs($baseDocPath, $filename, 'local');
+            $payment->proof_of_payment = $path;
+            $payment->proof_of_payment_status = 'pending';
+            $payment->proof_of_payment_remarks = null;
+            $changed = true;
+        }
+
+        // Process e_signature
+        if ($request->hasFile('e_signature')) {
+            if ($payment->e_signature && Storage::disk('local')->exists($payment->e_signature)) {
+                Storage::disk('local')->delete($payment->e_signature);
+            }
+            $ext = $request->file('e_signature')->getClientOriginalExtension();
+            $filename = "e_signature_" . time() . ".{$ext}";
+            $path = $request->file('e_signature')->storeAs($baseDocPath, $filename, 'local');
+            $payment->e_signature = $path;
+            $payment->e_signature_status = 'pending';
+            $payment->e_signature_remarks = null;
+            $changed = true;
+        }
+
+        // Process id_photo
+        if ($request->hasFile('id_photo')) {
+            if ($payment->id_photo && Storage::disk('local')->exists($payment->id_photo)) {
+                Storage::disk('local')->delete($payment->id_photo);
+            }
+            $ext = $request->file('id_photo')->getClientOriginalExtension();
+            $filename = "id_photo_" . time() . ".{$ext}";
+            $path = $request->file('id_photo')->storeAs($baseDocPath, $filename, 'local');
+            $payment->id_photo = $path;
+            $payment->id_photo_status = 'pending';
+            $payment->id_photo_remarks = null;
+            $changed = true;
+        }
+
+        if ($changed) {
+            $payment->save();
+
+            // Notify Verifiers via email
+            try {
+                $verifierEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                    $q->where('name', 'Verifier');
+                })->pluck('email');
+
+                if ($verifierEmails->isNotEmpty()) {
+                    Mail::send('emails.admin_payment_submitted', ['application' => $application], function ($message) use ($verifierEmails, $application) {
+                        $message->to($verifierEmails)
+                            ->subject('Notification: Payment Details Submitted - ' . $application->tracking_number);
+                    });
+                }
+            } catch (\Exception $e) {
+                Log::warning('Verifier notification email failed: ' . $e->getMessage());
+            }
+
+            return back()->with('success', 'Payment details uploaded successfully. Your submission is now pending verifier evaluation.');
+        }
+
+        return back()->with('error', 'No new payment files were selected.');
     }
 }

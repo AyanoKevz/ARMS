@@ -85,4 +85,12 @@ class Application extends Model
     {
         return $this->hasOne(Accreditation::class);
     }
+
+    /**
+     * Get the payment requirements associated with this application.
+     */
+    public function payment()
+    {
+        return $this->hasOne(ApplicationPayment::class);
+    }
 }

@@ -754,8 +754,219 @@
     </div>
 @endif
 
+@php
+    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+    $isEvaluator = strtolower($isAdminRole) === 'evaluator';
+    $isVerifier  = strtolower($isAdminRole) === 'verifier';
+@endphp
+
+{{-- ══ Awaiting Payment Panels (Evaluator vs Verifier) ══ --}}
+@if($currentStatus === 'Awaiting Payment')
+    @if($isEvaluator)
+    <div class="ai-card mb-4" style="border-left: 4px solid var(--portal-gold, #d4ac4b); background-color: #fbfcf8;">
+        <div class="ai-card-header">
+            <i class="bi bi-file-earmark-pdf fs-5 text-dark"></i>
+            <h5 class="fw-bold text-dark mb-0">Evaluator Action: Recommendation Form & Payment Request</h5>
+        </div>
+        <div class="x_content p-3 mt-2">
+            <p class="text-muted small">This application has passed the interview stage. As an Evaluator, you can fill out the recommendation form details, download the generated PDF to print, and send the payment upload instructions to the applicant.</p>
+            
+            <form action="{{ route('admin.hcd.applications.generate_recommendation', $application->id) }}" method="POST" target="_blank" class="mb-3">
+                @csrf
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small">Form Date</label>
+                        <input type="date" name="date" class="form-control form-control-sm" value="{{ now()->format('Y-m-d') }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small">From Division</label>
+                        <input type="text" name="from" class="form-control form-control-sm" value="Health Control Division (HCD)" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold small">To Office</label>
+                        <input type="text" name="to" class="form-control form-control-sm" value="Office of the Executive Director (OED)" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Specialization/Industry</label>
+                        <input type="text" name="specialization" class="form-control form-control-sm" placeholder="e.g. Construction, General Manufacturing">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Evaluator Name</label>
+                        <input type="text" name="evaluator" class="form-control form-control-sm" value="{{ auth()->user()->name }}" required>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold small">Interviewers (One per line)</label>
+                        <textarea name="interviewers" class="form-control form-control-sm" rows="3" placeholder="Dr. Porkyl Lucian Bautista&#10;Dr. Reynold Sta. Ana">Dr. Porkyl Lucian Bautista&#10;Dr. Reynold Sta. Ana&#10;Dr. Jehremias Florante</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Recommended By</label>
+                        <input type="text" name="recommended_by" class="form-control form-control-sm" value="MARIA BEATRIZ G. VILLANUEVA, MD, Division Chief" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold small">Approved By</label>
+                        <input type="text" name="approved_by" class="form-control form-control-sm" value="ENGR. JOSE MARIA S. BATINO, Executive Director" required>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary fw-semibold text-white px-4">
+                        <i class="fas fa-file-pdf me-1"></i> Generate & Print Recommendation Form
+                    </button>
+                </div>
+            </form>
+
+            <div class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top">
+                <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-success fw-semibold px-4">
+                        <i class="fas fa-paper-plane me-1"></i> Send Payment Request to Applicant
+                    </button>
+                </form>
+
+                <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
+                    <i class="fas fa-archive me-1"></i> Archive Application
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if($isVerifier)
+    <div class="ai-card mb-4" style="border-left: 4px solid #1A4A8A; background-color: #f7f9fc;">
+        <div class="ai-card-header">
+            <i class="bi bi-shield-check fs-5 text-dark"></i>
+            <h5 class="fw-bold text-dark mb-0">Verifier Action: Signed Recommendation & Payment Verification</h5>
+        </div>
+        <div class="x_content p-3 mt-2">
+            <p class="text-muted small">This application is awaiting final verification. As a Verifier, you must upload the signed recommendation letter (signed offline by OED/Division Chief) and evaluate the payment requirements uploaded by the applicant.</p>
+            
+            <form action="{{ route('admin.hcd.applications.evaluate_payment', $application->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                
+                <div class="row g-3">
+                    {{-- Signed recommendation letter upload --}}
+                    <div class="col-md-12">
+                        <div class="p-3 border rounded mb-3 bg-white" style="border-color: #d0ddf7 !important;">
+                            <h6 class="fw-bold" style="color: #1A3A6A;"><i class="fas fa-file-signature me-1"></i> Signed Recommendation Letter (PDF) <span class="text-danger">*</span></h6>
+                            <div class="mt-2">
+                                <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf">
+                                @if($application->payment && $application->payment->signed_recommendation_letter)
+                                    <div class="mt-2 text-success fw-semibold small">
+                                        <i class="fas fa-check-circle"></i> Already uploaded: 
+                                        <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="text-decoration-underline text-success">
+                                            {{ basename($application->payment->signed_recommendation_letter) }}
+                                        </a>
+                                    </div>
+                                @else
+                                    <div class="mt-2 text-danger small"><i class="fas fa-exclamation-circle"></i> Missing: Please upload the signed recommendation letter to finalize accreditation.</div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Payment Requirements evaluation list --}}
+                    @php
+                        $payment = $application->payment;
+                        $requirements = [
+                            'proof_of_payment' => 'Proof of Payment',
+                            'e_signature'      => 'E-Signature',
+                            'id_photo'         => 'ID Photo'
+                        ];
+                    @endphp
+
+                    @foreach($requirements as $key => $label)
+                    @php
+                        $filePath = $payment ? $payment->$key : null;
+                        $status   = $payment ? $payment->{"{$key}_status"} : 'pending';
+                        $remarks  = $payment ? $payment->{"{$key}_remarks"} : '';
+                    @endphp
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6;">
+                            <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
+                            <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
+                                @if($filePath)
+                                    <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" target="_blank" class="btn btn-outline-primary btn-xs mt-2 px-3 py-1 fw-semibold">
+                                        <i class="fas fa-eye me-1"></i> View {{ $label }}
+                                    </a>
+                                    <div class="text-muted small mt-2" style="font-size: 0.72rem; word-break: break-all;">
+                                        {{ basename($filePath) }}
+                                    </div>
+                                @else
+                                    <span class="badge bg-secondary mt-3">Not Uploaded Yet</span>
+                                @endif
+                            </div>
+                            
+                            <div class="mt-3 pt-3 border-top">
+                                <label class="form-label small fw-semibold d-block mb-2">Status</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
+                                        <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
+                                        <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">
+                                    <label class="form-label small text-muted">Rejection Remarks</label>
+                                    <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary fw-semibold px-4">
+                        <i class="fas fa-save me-1"></i> Submit Evaluation
+                    </button>
+            </form>
+
+            <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
+                <i class="fas fa-archive me-1"></i> Archive Application
+            </button>
+        </div>
+    </div>
+    @endif
+@endif
+
+{{-- ══ Archive Payment Modal ══ --}}
+<div class="modal fade" id="archivePaymentModal" tabindex="-1" aria-labelledby="archivePaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px; overflow:hidden;">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="archivePaymentModalLabel"><i class="fas fa-exclamation-triangle me-1"></i> Confirm Archive Application</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-start">
+                <p>Are you sure you want to archive/reject this application? This action is <strong>permanent</strong> and will notify the applicant that they did not pass the requirements.</p>
+                <ul class="mb-0">
+                    <li><strong>Tracking Number:</strong> {{ $application->tracking_number }}</li>
+                    <li><strong>FATPro Name:</strong> 
+                        @if($isOrg)
+                            {{ $org->name ?? 'N/A' }}
+                        @else
+                            {{ ($ind->first_name ?? '') . ' ' . ($ind->last_name ?? '') }}
+                        @endif
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ route('admin.hcd.applications.archive_payment', $application->id) }}" method="POST" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-danger btn-sm px-3 fw-bold">Archive Application</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
-@if($interview && !$isAccredited && !$isApproved)
+@if($interview && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
 
     @if($isRejected)
     {{-- Already rejected --}}
@@ -1013,7 +1224,7 @@
                         <i class="bi bi-patch-check-fill text-white fs-4"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title text-white mb-0 fw-bold" id="passedConfirmModalLabel">Confirm: Application Approved</h5>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="passedConfirmModalLabel">Confirm: Interview Passed</h5>
                         <small class="text-white-50">{{ $application->tracking_number }}</small>
                     </div>
                 </div>
@@ -1035,8 +1246,7 @@
                      style="background:#d4edda;border-radius:8px;border-left:4px solid #28a745;">
                     <i class="bi bi-check-circle-fill text-success mt-1"></i>
                     <small class="text-dark">
-                        The application will be marked as <strong>Approved</strong>, an accreditation record will be
-                        created with a <strong>3-year validity</strong>, and the applicant will be notified by email.
+                        The application will be marked as having <strong>Passed the Interview</strong>. The status will be updated to <strong>Awaiting Payment</strong>, allowing the Evaluator to generate the recommendation form and request payment from the applicant.
                     </small>
                 </div>
             </div>
@@ -1049,9 +1259,9 @@
                     @csrf
                     <input type="hidden" name="result" value="passed">
                     <button type="submit" class="btn btn-success fw-bold px-5" style="border-radius:8px;">
-                        <span class="btn-text"><i class="bi bi-check-circle-fill me-2"></i>Confirm Approval</span>
+                        <span class="btn-text"><i class="bi bi-check-circle-fill me-2"></i>Confirm Passed</span>
                         <span class="btn-spinner d-none">
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Approving...
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Updating...
                         </span>
                     </button>
                 </form>

@@ -1,8 +1,14 @@
+@php
+    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+    $isVerifier = strtolower($isAdminRole) === 'verifier';
+@endphp
+
 <!-- HCD Admin Sidebar -->
 <li><a href="{{ route('admin.hcd.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
 <li><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
 <li><a href="{{ route('admin.hcd.directory.admins') }}"><i class="fas fa-users-cog"></i> HCD Admin List </a></li>
 
+@if(!$isVerifier)
 <li><a><i class="fas fa-folder-plus"></i>New Applications <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu">
         <li><a href="{{ route('admin.hcd.applications.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
@@ -23,6 +29,9 @@
         <li><a href="{{ route('admin.hcd.interviews.scheduled') }}"><i class="fas fa-calendar-check"></i> Scheduled Interviews</a></li>
     </ul>
 </li>
+@endif
+
+<li><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
 <li><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
 <li><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
 <li><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>

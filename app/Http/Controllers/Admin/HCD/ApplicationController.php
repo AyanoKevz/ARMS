@@ -725,78 +725,18 @@ class ApplicationController extends Controller
         }
 
         if ($request->input('result') === 'passed') {
-            // ── PASSED: Create accreditation record ──────────────────────────
-
-            $datePrefix = now()->format('ymd'); // YYMMDD
-            
-            // Check if this is a Renewal or Reinstatement application for an existing accredited FATPro
-            $isRenewalOrReinstatement = in_array($application->application_type, ['renewal', 'reinstatement']);
-            
-            $suffixStr = null;
-            if ($isRenewalOrReinstatement) {
-                // Find previous accreditation of the same FATPro (user)
-                $prevAccreditation = Accreditation::where('user_id', $application->user_id)
-                    ->orderBy('id', 'desc')
-                    ->first();
-                
-                if ($prevAccreditation) {
-                    $parts = explode('-', $prevAccreditation->accreditation_number);
-                    $suffixStr = str_pad(end($parts), 3, '0', STR_PAD_LEFT);
-                }
-            }
-            
-            // If it is a new application, or we couldn't find a previous suffix, generate a new increment starting at 47
-            if (! $suffixStr) {
-                $maxIncrement = 46;
-                $allAccreditations = Accreditation::all();
-                foreach ($allAccreditations as $acc) {
-                    $parts = explode('-', $acc->accreditation_number);
-                    $suffixVal = (int) end($parts);
-                    if ($suffixVal > $maxIncrement) {
-                        $maxIncrement = $suffixVal;
-                    }
-                }
-                
-                do {
-                    $maxIncrement++;
-                    $suffixStr = str_pad($maxIncrement, 3, '0', STR_PAD_LEFT);
-                    $accNumber = "235-{$datePrefix}-{$suffixStr}";
-                } while (Accreditation::where('accreditation_number', $accNumber)->exists());
-            } else {
-                $accNumber = "235-{$datePrefix}-{$suffixStr}";
-            }
-
-            $today = now()->toDateString();
-
-            $accreditation = Accreditation::create([
-                'user_id'               => $application->user_id,
-                'application_id'        => $application->id,
-                'accreditation_type_id' => $application->accreditation_type_id,
-                'accreditation_number'  => $accNumber,
-                'date_of_accreditation' => $today,
-                'validity_date'         => now()->addYears(3)->toDateString(),
-                'status'                => 'active',
-            ]);
-
-            // Log status: Approved
-            $approvedStatus = ApplicationStatus::where('name', 'Approved')->first();
-            if ($approvedStatus) {
+            // Log status: Awaiting Payment
+            $awaitingPaymentStatus = ApplicationStatus::where('name', 'Awaiting Payment')->first();
+            if ($awaitingPaymentStatus) {
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
-                    'status_id'      => $approvedStatus->id,
+                    'status_id'      => $awaitingPaymentStatus->id,
                     'updated_by'     => auth()->id(),
-                    'remarks'        => 'Interview passed. Application approved and accreditation issued: ' . $accNumber,
+                    'remarks'        => 'Interview passed. Application is now awaiting recommendation form and payment verification.',
                 ]);
             }
 
-            // Send email
-            if ($application->user?->email) {
-                $application->load('accreditationType');
-                Mail::to($application->user->email)
-                    ->send(new ApplicationResultEmail($application, 'passed', $accreditation));
-            }
-
-            return back()->with('success', 'Application approved. Accreditation number ' . $accNumber . ' has been issued and the applicant has been notified.');
+            return back()->with('success', 'Interview passed. Application status updated to Awaiting Payment.');
 
         } else {
             // ── NOT PASSED: Send email then archive application ───────────────
@@ -1196,5 +1136,328 @@ class ApplicationController extends Controller
             ->get();
 
         return view('admin.hcd.archived', compact('applications'));
+    }
+
+    /**
+     * Display a listing of applications awaiting payment.
+     */
+    public function awaitingPaymentList()
+    {
+        $applications = Application::with([
+            'user.organizationProfile',
+            'user.individualProfile',
+            'accreditationType',
+            'latestStatus.status',
+            'payment',
+        ])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->where('name', 'Awaiting Payment');
+                });
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.awaiting_payment', compact('applications'));
+    }
+
+    /**
+     * Generate dynamic OSHC recommendation form PDF.
+     */
+    public function generateRecommendationPDF(Request $request, Application $application)
+    {
+        $request->validate([
+            'date'           => 'required|date',
+            'from'           => 'required|string',
+            'to'             => 'required|string',
+            'specialization' => 'nullable|string',
+            'evaluator'      => 'required|string',
+            'interviewers'   => 'nullable|string',
+            'recommended_by' => 'required|string',
+            'approved_by'    => 'required|string',
+        ]);
+
+        $application->load(['user.organizationProfile', 'user.individualProfile', 'accreditationType', 'interview']);
+
+        // Resolve applicant display name
+        $user = $application->user;
+        if ($user->profile_type === 'Organization' && $user->organizationProfile) {
+            $applicantName = $user->organizationProfile->name ?? $user->name;
+        } elseif ($user->individualProfile) {
+            $applicantName = $user->individualProfile->full_name ?? $user->name;
+        } else {
+            $applicantName = $user->name;
+        }
+
+        // Split interviewers list
+        $interviewers = array_filter(array_map('trim', explode("\n", $request->input('interviewers'))));
+
+        $pdf = Pdf::loadView('admin.hcd.recommendation_pdf', [
+            'application'    => $application,
+            'applicantName'  => $applicantName,
+            'date'           => $request->input('date'),
+            'from'           => $request->input('from'),
+            'to'             => $request->input('to'),
+            'specialization' => $request->input('specialization'),
+            'evaluator'      => $request->input('evaluator'),
+            'interviewers'   => $interviewers,
+            'recommended_by' => $request->input('recommended_by'),
+            'approved_by'    => $request->input('approved_by'),
+        ])->setPaper('a4', 'portrait');
+
+        $filename = 'Recommendation_Form_' . $application->tracking_number . '.pdf';
+        return $pdf->stream($filename);
+    }
+
+    /**
+     * Send payment instruction request notice to applicant.
+     */
+    public function requestPayment(Request $request, Application $application)
+    {
+        $application->load('user');
+
+        if ($application->user && $application->user->email) {
+            try {
+                Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
+                    $message->to($application->user->email)
+                        ->subject('Action Required: Submit Recommendation and Payment - ' . $application->tracking_number);
+                });
+
+                // Add log entry
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $application->latestStatus->status_id,
+                    'updated_by'     => auth()->id(),
+                    'remarks'        => 'Recommendation form generated. Payment instructions requested and emailed to applicant.',
+                ]);
+
+                return back()->with('success', 'Payment request successfully sent to the applicant.');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send payment request email: ' . $e->getMessage());
+                return back()->with('error', 'Failed to send email. Make sure SMTP is configured correctly.');
+            }
+        }
+
+        return back()->with('error', 'Applicant email address not found.');
+    }
+
+    /**
+     * Verifier payment evaluation.
+     */
+    public function evaluatePayment(Request $request, Application $application)
+    {
+        $request->validate([
+            'signed_recommendation_letter' => 'nullable|file|mimes:pdf|max:10240',
+            'proof_of_payment_status'      => 'required|in:pending,approved,rejected',
+            'proof_of_payment_remarks'     => 'nullable|string|max:1000',
+            'e_signature_status'           => 'required|in:pending,approved,rejected',
+            'e_signature_remarks'          => 'nullable|string|max:1000',
+            'id_photo_status'              => 'required|in:pending,approved,rejected',
+            'id_photo_remarks'             => 'nullable|string|max:1000',
+        ]);
+
+        $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
+
+        $accreditationType = $application->accreditationType;
+        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $fatProName = $application->user->name;
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+
+        // Upload signed recommendation letter if provided
+        if ($request->hasFile('signed_recommendation_letter')) {
+            if ($payment->signed_recommendation_letter && Storage::disk('local')->exists($payment->signed_recommendation_letter)) {
+                Storage::disk('local')->delete($payment->signed_recommendation_letter);
+            }
+            $filename = "signed_recommendation_" . time() . ".pdf";
+            $path = $request->file('signed_recommendation_letter')->storeAs($baseDocPath, $filename, 'local');
+            $payment->signed_recommendation_letter = $path;
+        }
+
+        $payment->proof_of_payment_status  = $request->input('proof_of_payment_status');
+        $payment->proof_of_payment_remarks = $request->input('proof_of_payment_remarks');
+
+        $payment->e_signature_status  = $request->input('e_signature_status');
+        $payment->e_signature_remarks = $request->input('e_signature_remarks');
+
+        $payment->id_photo_status  = $request->input('id_photo_status');
+        $payment->id_photo_remarks = $request->input('id_photo_remarks');
+
+        $payment->save();
+
+        $allApproved = ($payment->proof_of_payment_status === 'approved') &&
+                       ($payment->e_signature_status === 'approved') &&
+                       ($payment->id_photo_status === 'approved');
+
+        if ($allApproved) {
+            if (!$payment->signed_recommendation_letter) {
+                return back()->with('error', 'You must upload the signed recommendation letter before final approval.')->withInput();
+            }
+
+            // Create accreditation record
+            $datePrefix = now()->format('ymd'); // YYMMDD
+            $isRenewalOrReinstatement = in_array($application->application_type, ['renewal', 'reinstatement']);
+            $suffixStr = null;
+
+            if ($isRenewalOrReinstatement) {
+                $prevAccreditation = Accreditation::where('user_id', $application->user_id)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                if ($prevAccreditation) {
+                    $parts = explode('-', $prevAccreditation->accreditation_number);
+                    $suffixStr = str_pad(end($parts), 3, '0', STR_PAD_LEFT);
+                }
+            }
+
+            if (!$suffixStr) {
+                $maxIncrement = 46;
+                $allAccreditations = Accreditation::all();
+                foreach ($allAccreditations as $acc) {
+                    $parts = explode('-', $acc->accreditation_number);
+                    $suffixVal = (int) end($parts);
+                    if ($suffixVal > $maxIncrement) {
+                        $maxIncrement = $suffixVal;
+                    }
+                }
+
+                do {
+                    $maxIncrement++;
+                    $suffixStr = str_pad($maxIncrement, 3, '0', STR_PAD_LEFT);
+                    $accNumber = "235-{$datePrefix}-{$suffixStr}";
+                } while (Accreditation::where('accreditation_number', $accNumber)->exists());
+            } else {
+                $accNumber = "235-{$datePrefix}-{$suffixStr}";
+            }
+
+            $today = now()->toDateString();
+            $accreditation = Accreditation::create([
+                'user_id'               => $application->user_id,
+                'application_id'        => $application->id,
+                'accreditation_type_id' => $application->accreditation_type_id,
+                'accreditation_number'  => $accNumber,
+                'date_of_accreditation' => $today,
+                'validity_date'         => now()->addYears(3)->toDateString(),
+                'status'                => 'active',
+            ]);
+
+            // Log status: Approved
+            $approvedStatus = ApplicationStatus::where('name', 'Approved')->first();
+            if ($approvedStatus) {
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $approvedStatus->id,
+                    'updated_by'     => auth()->id(),
+                    'remarks'        => 'Recommendation form and payments evaluated and approved. Accreditation number ' . $accNumber . ' issued.',
+                ]);
+            }
+
+            // Send success email
+            if ($application->user?->email) {
+                try {
+                    $application->load('accreditationType');
+                    Mail::to($application->user->email)
+                        ->send(new ApplicationResultEmail($application, 'passed', $accreditation));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Accreditation success email failed: ' . $e->getMessage());
+                }
+            }
+
+            return redirect()->route('admin.hcd.applications.awaiting_payment')->with('success', 'Application ' . $application->tracking_number . ' successfully approved and accredited! Number: ' . $accNumber);
+        } else {
+            // Rejections made: Notify applicant to resubmit
+            $hasRejections = ($payment->proof_of_payment_status === 'rejected') ||
+                             ($payment->e_signature_status === 'rejected') ||
+                             ($payment->id_photo_status === 'rejected');
+
+            if ($hasRejections) {
+                if ($application->user && $application->user->email) {
+                    try {
+                        Mail::send('emails.payment_rejection', ['application' => $application, 'payment' => $payment], function ($message) use ($application) {
+                            $message->to($application->user->email)
+                                ->subject('Action Required: Correct Your Payment Requirements - ' . $application->tracking_number);
+                        });
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Payment rejection email failed: ' . $e->getMessage());
+                    }
+                }
+
+                // Add log entry
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $application->latestStatus->status_id,
+                    'updated_by'     => auth()->id(),
+                    'remarks'        => 'Payment evaluation complete. Rejected items were identified, and applicant has been requested to resubmit.',
+                ]);
+
+                return redirect()->route('admin.hcd.applications.awaiting_payment')->with('success', 'Payment evaluation submitted. Rejections were recorded and applicant has been notified.');
+            }
+        }
+
+        return back()->with('success', 'Payment evaluation updated successfully.');
+    }
+
+    /**
+     * Manually archive/reject application if it will not proceed from payment stage.
+     */
+    public function archiveFromPayment(Request $request, Application $application)
+    {
+        $trackingNumber = $application->tracking_number;
+        $rejectedStatus = ApplicationStatus::where('name', 'Rejected')->first();
+        if ($rejectedStatus) {
+            ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $rejectedStatus->id,
+                'updated_by'     => auth()->id(),
+                'remarks'        => 'Application will not proceed. Manually archived/rejected from payment verification stage.',
+            ]);
+        }
+
+        if ($application->user?->email) {
+            try {
+                Mail::to($application->user->email)
+                    ->send(new ApplicationResultEmail($application, 'not_passed', null));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Archived email failed: ' . $e->getMessage());
+            }
+        }
+
+        return redirect()->route('admin.hcd.applications.awaiting_payment')
+            ->with('success', 'Application ' . $trackingNumber . ' has been successfully archived/rejected.');
+    }
+
+    /**
+     * Securely serve payment files to authenticated admin users.
+     */
+    public function servePaymentFile(\App\Models\ApplicationPayment $payment, $fileType)
+    {
+        $allowedTypes = ['proof_of_payment', 'e_signature', 'id_photo', 'signed_recommendation_letter'];
+        if (!in_array($fileType, $allowedTypes)) {
+            abort(404, 'Invalid file type requested.');
+        }
+
+        $path = $payment->$fileType;
+        if (!$path || !Storage::disk('local')->exists($path)) {
+            abort(404, 'File not found.');
+        }
+
+        $fullPath = Storage::disk('local')->path($path);
+        $filename = basename($path);
+
+        $mime = 'application/pdf';
+        $ext  = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if ($ext === 'jpg' || $ext === 'jpeg') {
+            $mime = 'image/jpeg';
+        } elseif ($ext === 'png') {
+            $mime = 'image/png';
+        }
+
+        return response()->file($fullPath, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
     }
 }
