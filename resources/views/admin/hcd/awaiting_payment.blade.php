@@ -62,15 +62,15 @@
                 
                 <div class="x_content">
                     <div class="table-responsive">
-                        <table id="awaiting_payment_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
+                        <table id="awaiting_payment_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-date-index="4">
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
                                     <th class="column-title">FATPro Name</th>
-                                    <th class="column-title">Type</th>
-                                    <th class="column-title">Passed Date</th>
-                                    <th class="column-title text-center">Payment Requirements</th>
-                                    <th class="column-title text-center">Recommendation Letter</th>
+                                    <th class="column-title">Head Name</th>
+                                    <th class="column-title">Email</th>
+                                    <th class="column-title text-center">Passed Date</th>
+                                    <th class="column-title text-center no-sort">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
                             </thead>
@@ -95,31 +95,31 @@
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
                                         </td>
-                                        <td>
-                                            <span class="badge bg-secondary">{{ ucfirst($app->application_type) }}</span>
-                                        </td>
-                                        <td data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
+                                        <td>{{ $org->head_name ?? '—' }}</td>
+                                        <td>{{ $app->user->email }}</td>
+                                        <td class="text-center" data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
                                         <td class="text-center">
-                                            <span class="payment-badge badge-{{ $proofStatus }}">
-                                                Proof: {{ ucfirst($proofStatus) }}
-                                            </span>
-                                            <span class="payment-badge badge-{{ $sigStatus }}">
-                                                E-Sig: {{ ucfirst($sigStatus) }}
-                                            </span>
-                                            <span class="payment-badge badge-{{ $photoStatus }}">
-                                                ID Photo: {{ ucfirst($photoStatus) }}
+                                            @php
+                                                $statusName = $app->latestStatus->status->name ?? 'Awaiting Payment';
+                                                if ($statusName === 'Awaiting Payment') {
+                                                    $statusName = 'Recommendation/Payment';
+                                                }
+                                                $badgeClass = 'bg-warning text-dark';
+                                                if ($statusName === 'Approved') {
+                                                    $badgeClass = 'bg-success text-white';
+                                                } elseif ($statusName === 'Rejected') {
+                                                    $badgeClass = 'bg-danger text-white';
+                                                }
+                                            @endphp
+                                            <span class="badge {{ $badgeClass }} fw-bold" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 12px;">
+                                                {{ $statusName }}
                                             </span>
                                         </td>
-                                        <td class="text-center">
-                                            @if($payment && $payment->signed_recommendation_letter)
-                                                <span class="badge bg-success"><i class="fas fa-check-circle"></i> Uploaded</span>
-                                            @else
-                                                <span class="badge bg-danger"><i class="fas fa-times-circle"></i> Missing</span>
-                                            @endif
-                                        </td>
-                                        <td class="last text-center">
-                                            <a href="{{ route('admin.hcd.applications.show', $app->id) }}" class="btn btn-primary btn-xs m-0">
-                                                <i class="fas fa-search me-1"></i> View & Evaluate
+                                        <td class="last text-center" style="white-space:nowrap;">
+                                            <a href="{{ route('admin.hcd.applications.show', $app->id) }}"
+                                               class="btn btn-info btn-xs m-0"
+                                               title="View Application">
+                                                <i class="fas fa-eye me-1"></i> View
                                             </a>
                                         </td>
                                     </tr>
@@ -153,15 +153,4 @@
 
 {{-- Reusable Table Component JS --}}
 <script src="{{ asset('js/table-component.js') }}"></script>
-<script>
-    $(document).ready(function() {
-        $('#awaiting_payment_table').DataTable({
-            responsive: true,
-            order: [[3, 'desc']], // Order by Passed Date descending
-            columnDefs: [
-                { orderable: false, targets: [4, 5, 6] } // Disable ordering on status and actions
-            ]
-        });
-    });
-</script>
 @endpush

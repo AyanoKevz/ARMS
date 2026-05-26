@@ -258,20 +258,26 @@ class RegistrationController extends Controller
             ]);
         }
 
+        // ── Check if already verified (Idempotency check for email scanners) ──
+        $existingUser = User::where('email', $pending->email)->first();
+        if ($existingUser) {
+            // Already processed by an email scanner's prefetch or a previous click.
+            $app = \App\Models\Application::where('user_id', $existingUser->id)->first();
+            
+            // Clean up the pending record now that the user actually clicked it
+            $pending->delete();
+            
+            return view('landing.verify-result', [
+                'status'         => 'success',
+                'trackingNumber' => $app ? $app->tracking_number : null,
+            ]);
+        }
+
         if ($pending->isExpired()) {
             $pending->delete();
             return view('landing.verify-result', [
                 'status'  => 'error',
                 'message' => 'This verification link has expired. Please register again.',
-            ]);
-        }
-
-        // ── Double-check email isn't taken yet ─────────────────────
-        if (User::where('email', $pending->email)->exists()) {
-            $pending->delete();
-            return view('landing.verify-result', [
-                'status'  => 'error',
-                'message' => 'This email address is already registered. Please log in.',
             ]);
         }
 
@@ -438,8 +444,6 @@ class RegistrationController extends Controller
                         'remarks'        => 'Application submitted by applicant after email verification.',
                     ]);
                 }
-
-                $pending->delete();
             });
 
             // 10. Send confirmation email (non-fatal on failure)

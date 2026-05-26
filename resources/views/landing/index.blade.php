@@ -36,6 +36,9 @@
                     <a href="{{ route('track') }}" class="btn-hero-primary fw-bold fs-5">
                         <i class="bi bi-search"></i> Track Your Application
                     </a>
+                    <a href="{{ route('login') }}" class="btn-hero-outline">
+                        <i class="bi bi-box-arrow-in-right"></i> Login to Portal
+                    </a>
                 </div>
             </div>
         </div>

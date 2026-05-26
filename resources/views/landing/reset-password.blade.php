@@ -34,8 +34,14 @@
                         {{-- Password --}}
                         <div class="mb-3">
                             <label for="password" class="form-label fw-semibold">New Password <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control @error('password') is-invalid @enderror" id="password"
-                                name="password" placeholder="Min. 8 characters, letters & numbers" required>
+                            <div class="pw-wrap">
+                                <input type="password" class="form-control @error('password') is-invalid @enderror" id="password"
+                                    name="password" placeholder="Min. 8 characters, letters & numbers" required>
+                                <button type="button" class="pw-toggle" id="toggleResetPass"
+                                    aria-label="Show/hide password">
+                                    <i class="bi bi-eye" id="toggleResetPassIcon"></i>
+                                </button>
+                            </div>
                             @error('password')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -44,8 +50,14 @@
                         {{-- Confirm Password --}}
                         <div class="mb-4">
                             <label for="password_confirmation" class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control" id="password_confirmation"
-                                name="password_confirmation" placeholder="Re-enter new password" required>
+                            <div class="pw-wrap">
+                                <input type="password" class="form-control" id="password_confirmation"
+                                    name="password_confirmation" placeholder="Re-enter new password" required>
+                                <button type="button" class="pw-toggle" id="toggleResetPassConfirm"
+                                    aria-label="Show/hide password">
+                                    <i class="bi bi-eye" id="toggleResetPassConfirmIcon"></i>
+                                </button>
+                            </div>
                             <div class="invalid-feedback" id="confirmPasswordFeedback">Passwords do not match.</div>
                         </div>
 
@@ -75,6 +87,28 @@
         const passInput = document.getElementById('password');
         const confirmInput = document.getElementById('password_confirmation');
         const confirmFeedback = document.getElementById('confirmPasswordFeedback');
+
+        // New Password Toggle
+        const toggleBtn = document.getElementById('toggleResetPass');
+        const toggleIcon = document.getElementById('toggleResetPassIcon');
+        if (toggleBtn && toggleIcon && passInput) {
+            toggleBtn.addEventListener('click', function () {
+                const isText = passInput.type === 'text';
+                passInput.type = isText ? 'password' : 'text';
+                toggleIcon.className = isText ? 'bi bi-eye' : 'bi bi-eye-slash';
+            });
+        }
+
+        // Confirm Password Toggle
+        const toggleConfirmBtn = document.getElementById('toggleResetPassConfirm');
+        const toggleConfirmIcon = document.getElementById('toggleResetPassConfirmIcon');
+        if (toggleConfirmBtn && toggleConfirmIcon && confirmInput) {
+            toggleConfirmBtn.addEventListener('click', function () {
+                const isText = confirmInput.type === 'text';
+                confirmInput.type = isText ? 'password' : 'text';
+                toggleConfirmIcon.className = isText ? 'bi bi-eye' : 'bi bi-eye-slash';
+            });
+        }
 
         function validatePasswordMatch() {
             if (confirmInput.value) {

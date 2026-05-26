@@ -3,7 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
+
 
 return new class extends Migration
 {
@@ -42,12 +42,6 @@ return new class extends Migration
             $table->index('e_signature_status');
             $table->index('id_photo_status');
         });
-
-        // Insert new application status
-        DB::table('application_statuses')->updateOrInsert(
-            ['name' => 'Awaiting Payment'],
-            ['created_at' => now(), 'updated_at' => now()]
-        );
     }
 
     /**
@@ -56,9 +50,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('application_payments');
-        
-        DB::table('application_statuses')
-            ->where('name', 'Awaiting Payment')
-            ->delete();
     }
 };

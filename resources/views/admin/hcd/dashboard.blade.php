@@ -3,6 +3,10 @@
 @section('title', 'HCD Dashboard')
 
 @section('content')
+@php
+    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+    $isVerifier = strtolower($isAdminRole) === 'verifier';
+@endphp
 <div class="">
 
     {{-- ── Page Header ── --}}
@@ -17,7 +21,7 @@
     {{-- ── Stat Cards ── --}}
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6">
-            <a href="#" class="stat-card stat-card-blue">
+            <a href="#" class="stat-card stat-card-blue" style="cursor: default;">
                 <div class="stat-card-icon blue"><i class="bi bi-patch-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalActiveFATPro }}</div>
@@ -28,6 +32,16 @@
         </div>
 
         <div class="col-xl-3 col-md-6">
+            @if($isVerifier)
+            <div class="stat-card stat-card-green" style="cursor: default;">
+                <div class="stat-card-icon green"><i class="bi bi-file-earmark-plus-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $newPending + $newUnderReview }}</div>
+                    <div class="stat-card-label">New Applications</div>
+                    <div class="stat-card-sub">{{ $newPending }} Pending · {{ $newUnderReview }} Under Review</div>
+                </div>
+            </div>
+            @else
             <a href="{{ route('admin.hcd.applications.pending') }}" class="stat-card stat-card-green">
                 <div class="stat-card-icon green"><i class="bi bi-file-earmark-plus-fill"></i></div>
                 <div class="stat-card-body">
@@ -36,9 +50,20 @@
                     <div class="stat-card-sub">{{ $newPending }} Pending · {{ $newUnderReview }} Under Review</div>
                 </div>
             </a>
+            @endif
         </div>
 
         <div class="col-xl-3 col-md-6">
+            @if($isVerifier)
+            <div class="stat-card stat-card-amber" style="cursor: default;">
+                <div class="stat-card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $renewalPending + $renewalUnderReview }}</div>
+                    <div class="stat-card-label">Renewal Applications</div>
+                    <div class="stat-card-sub">{{ $renewalPending }} Pending · {{ $renewalUnderReview }} Under Review</div>
+                </div>
+            </div>
+            @else
             <a href="{{ route('admin.hcd.applications.under_review') }}" class="stat-card stat-card-amber">
                 <div class="stat-card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
                 <div class="stat-card-body">
@@ -47,9 +72,20 @@
                     <div class="stat-card-sub">{{ $renewalPending }} Pending · {{ $renewalUnderReview }} Under Review</div>
                 </div>
             </a>
+            @endif
         </div>
 
         <div class="col-xl-3 col-md-6">
+            @if($isVerifier)
+            <div class="stat-card stat-card-violet" style="cursor: default;">
+                <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $scheduledInterviews }}</div>
+                    <div class="stat-card-label">Scheduled Interviews</div>
+                    <div class="stat-card-sub">Pending interview clearance</div>
+                </div>
+            </div>
+            @else
             <a href="{{ route('admin.hcd.interviews.scheduled') }}" class="stat-card stat-card-violet">
                 <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
                 <div class="stat-card-body">
@@ -58,6 +94,7 @@
                     <div class="stat-card-sub">Pending interview clearance</div>
                 </div>
             </a>
+            @endif
         </div>
     </div>
 

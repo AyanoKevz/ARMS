@@ -26,6 +26,28 @@ use Barryvdh\DomPDF\Facade\Pdf;
 class ApplicationController extends Controller
 {
     /**
+     * Helper to block Verifier role from accessing evaluator-specific actions.
+     */
+    private function checkVerifierAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) === 'verifier') {
+            abort(403, 'Unauthorized action. Verifiers do not have access to this page.');
+        }
+    }
+
+    /**
+     * Helper to block Evaluator role from accessing verifier-specific actions (e.g. Recommendation/Payment).
+     */
+    private function checkEvaluatorAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) === 'evaluator') {
+            abort(403, 'Unauthorized action. Evaluators do not have access to this page.');
+        }
+    }
+
+    /**
      * Admin Dashboard — summary stats, monthly table, chart data.
      */
     public function dashboard(Request $request)
@@ -129,6 +151,7 @@ class ApplicationController extends Controller
      */
     public function pending()
     {
+        $this->checkVerifierAccess();
         // Get applications that haven't been evaluated yet
         // Get applications that are still 'Submitted' based on their latest status log
         $applications = Application::with([
@@ -154,6 +177,7 @@ class ApplicationController extends Controller
      */
     public function updateToEvaluation(Request $request, Application $application)
     {
+        $this->checkVerifierAccess();
         // Use relationship logic for status with null-safe operators
         $latestStatusName = $application->latestStatus?->status?->name;
         
@@ -188,6 +212,7 @@ class ApplicationController extends Controller
      */
     public function underReview()
     {
+        $this->checkVerifierAccess();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -215,6 +240,19 @@ class ApplicationController extends Controller
      */
     public function show(Application $application)
     {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isVerifier  = strtolower($isAdminRole) === 'verifier';
+        $isEvaluator = strtolower($isAdminRole) === 'evaluator';
+        
+        if ($isVerifier) {
+            $statusName = $application->latestStatus?->status?->name;
+            if (!in_array($statusName, ['Awaiting Payment', 'Approved', 'Rejected'])) {
+                abort(403, 'Unauthorized action. Verifiers can only view applications awaiting payment or completed/archived applications.');
+            }
+        }
+
+
+
         $application->load([
             'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
@@ -244,6 +282,7 @@ class ApplicationController extends Controller
      */
     public function evaluateDocument(Request $request, ApplicationDocument $document)
     {
+        $this->checkVerifierAccess();
         $request->validate([
             'action'  => ['required', 'in:approve,reject'],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -313,6 +352,7 @@ class ApplicationController extends Controller
      */
     public function finalizeEvaluation(Request $request, Application $application)
     {
+        $this->checkVerifierAccess();
         $request->validate([
             'evaluations' => ['nullable', 'array'],
             'evaluations.*.id' => ['required', 'exists:application_documents,id'],
@@ -548,6 +588,7 @@ class ApplicationController extends Controller
      */
     public function scheduleInterview(Request $request, Application $application)
     {
+        $this->checkVerifierAccess();
         $isNewInterview = !$application->interview;
 
         $request->validate([
@@ -609,6 +650,7 @@ class ApplicationController extends Controller
      */
     public function checkInterviewSlot(Request $request)
     {
+        $this->checkVerifierAccess();
         $request->validate([
             'date'           => ['required', 'date'],
             'time'           => ['required', 'date_format:H:i'],
@@ -662,6 +704,7 @@ class ApplicationController extends Controller
      */
     public function pendingInterview()
     {
+        $this->checkVerifierAccess();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -686,6 +729,7 @@ class ApplicationController extends Controller
      */
     public function scheduledInterviews()
     {
+        $this->checkVerifierAccess();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -710,6 +754,7 @@ class ApplicationController extends Controller
      */
     public function recordInterviewResult(Request $request, Application $application)
     {
+        $this->checkVerifierAccess();
         $request->validate([
             'result' => ['required', 'in:passed,not_passed'],
         ]);
@@ -845,6 +890,7 @@ class ApplicationController extends Controller
      */
     public function renewalPending()
     {
+        $this->checkVerifierAccess();
         $applications = Application::with([
             'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
@@ -869,6 +915,7 @@ class ApplicationController extends Controller
      */
     public function renewalUnderReview()
     {
+        $this->checkVerifierAccess();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -973,6 +1020,7 @@ class ApplicationController extends Controller
      */
     public function revokeAccreditation(\App\Models\Accreditation $accreditation)
     {
+        $this->checkVerifierAccess();
         if ($accreditation->status !== 'active') {
             return back()->with('error', 'Only active accreditations can be revoked.');
         }
@@ -1080,6 +1128,7 @@ class ApplicationController extends Controller
      */
     public function requestInstructorUpdate(Request $request, Instructor $instructor)
     {
+        $this->checkVerifierAccess();
         $inputFields = $request->input('fields', []);
         
         $requestedFields = [];
@@ -1143,6 +1192,7 @@ class ApplicationController extends Controller
      */
     public function awaitingPaymentList()
     {
+        // Allow both Verifiers and Evaluators to access the list so they can view and print the recommendation form.
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -1166,6 +1216,7 @@ class ApplicationController extends Controller
      */
     public function generateRecommendationPDF(Request $request, Application $application)
     {
+        // Recommendation PDF can be generated by both Evaluators and Verifiers
         $request->validate([
             'date'           => 'required|date',
             'from'           => 'required|string',
@@ -1214,6 +1265,7 @@ class ApplicationController extends Controller
      */
     public function requestPayment(Request $request, Application $application)
     {
+        $this->checkEvaluatorAccess();
         $application->load('user');
 
         if ($application->user && $application->user->email) {
@@ -1246,6 +1298,7 @@ class ApplicationController extends Controller
      */
     public function evaluatePayment(Request $request, Application $application)
     {
+        $this->checkEvaluatorAccess();
         $request->validate([
             'signed_recommendation_letter' => 'nullable|file|mimes:pdf|max:10240',
             'proof_of_payment_status'      => 'required|in:pending,approved,rejected',
@@ -1402,6 +1455,7 @@ class ApplicationController extends Controller
      */
     public function archiveFromPayment(Request $request, Application $application)
     {
+        $this->checkEvaluatorAccess();
         $trackingNumber = $application->tracking_number;
         $rejectedStatus = ApplicationStatus::where('name', 'Rejected')->first();
         if ($rejectedStatus) {

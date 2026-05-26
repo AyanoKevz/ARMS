@@ -81,7 +81,6 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/interviews/check-slot', [HCDApplicationController::class, 'checkInterviewSlot'])->name('interviews.check_slot');
             Route::post('/applications/{application}/finalize-evaluation', [HCDApplicationController::class, 'finalizeEvaluation'])->name('applications.finalize_evaluation');
             Route::post('/documents/{document}/evaluate', [HCDApplicationController::class, 'evaluateDocument'])->name('documents.evaluate');
-            Route::get('/applications/{application}', [HCDApplicationController::class, 'show'])->name('applications.show');
             Route::get('/interviews/pending', [HCDApplicationController::class, 'pendingInterview'])->name('interviews.pending');
             Route::get('/interviews/scheduled', [HCDApplicationController::class, 'scheduledInterviews'])->name('interviews.scheduled');
             Route::post('/applications/{application}/interview-result', [HCDApplicationController::class, 'recordInterviewResult'])->name('applications.interview_result');
@@ -89,6 +88,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Payment and Recommendation
             Route::get('/applications/awaiting-payment', [HCDApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');
+
+            Route::get('/applications/{application}', [HCDApplicationController::class, 'show'])->name('applications.show');
             Route::post('/applications/{application}/generate-recommendation', [HCDApplicationController::class, 'generateRecommendationPDF'])->name('applications.generate_recommendation');
             Route::post('/applications/{application}/request-payment', [HCDApplicationController::class, 'requestPayment'])->name('applications.request_payment');
             Route::post('/applications/{application}/evaluate-payment', [HCDApplicationController::class, 'evaluatePayment'])->name('applications.evaluate_payment');

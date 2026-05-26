@@ -20,6 +20,7 @@
         <h3>Security Details</h3>
         <p><strong>Account:</strong> {{ $user->email }}</p>
         <p><strong>Action:</strong> Password Change</p>
+        <p><strong>Date & Time:</strong> {{ now()->setTimezone('Asia/Manila')->format('F d, Y \a\t h:i A') }}</p>
         <p><strong>Status:</strong> Completed Successfully</p>
     </div>
 

@@ -152,17 +152,18 @@
         <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Submitted: {{ $application->created_at->format('F d, Y h:i A') }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-        @php
+         @php
             $statusColor = match($currentStatus) {
                 'Scheduled for Interview' => 'bg-primary',
                 'For Update'              => 'bg-warning text-dark',
                 'Approved'                => 'bg-success',
                 'Rejected'                => 'bg-danger',
+                'Awaiting Payment'        => 'bg-warning text-dark',
                 default                   => 'bg-info',
             };
         @endphp
         <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
-            {{ $currentStatus }}
+            {{ $currentStatus === 'Awaiting Payment' ? 'Recommendation/Payment' : $currentStatus }}
         </span>
         <small class="text-muted">
             {{ ucfirst($application->application_type) }} Application &mdash;
@@ -760,16 +761,16 @@
     $isVerifier  = strtolower($isAdminRole) === 'verifier';
 @endphp
 
-{{-- ══ Awaiting Payment Panels (Evaluator vs Verifier) ══ --}}
+{{-- ══ Awaiting Payment Panels ══ --}}
 @if($currentStatus === 'Awaiting Payment')
-    @if($isEvaluator)
-    <div class="ai-card mb-4" style="border-left: 4px solid var(--portal-gold, #d4ac4b); background-color: #fbfcf8;">
+    @if($isVerifier || $isEvaluator)
+    <div class="ai-card mt-4">
         <div class="ai-card-header">
             <i class="bi bi-file-earmark-pdf fs-5 text-dark"></i>
-            <h5 class="fw-bold text-dark mb-0">Evaluator Action: Recommendation Form & Payment Request</h5>
+            <h5>Recommendation Form</h5>
         </div>
         <div class="x_content p-3 mt-2">
-            <p class="text-muted small">This application has passed the interview stage. As an Evaluator, you can fill out the recommendation form details, download the generated PDF to print, and send the payment upload instructions to the applicant.</p>
+            <p class="text-muted small">This application has passed the interview stage. Fill out the recommendation form details and generate the PDF to print.</p>
             
             <form action="{{ route('admin.hcd.applications.generate_recommendation', $application->id) }}" method="POST" target="_blank" class="mb-3">
                 @csrf
@@ -795,26 +796,30 @@
                         <input type="text" name="evaluator" class="form-control form-control-sm" value="{{ auth()->user()->name }}" required>
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label fw-semibold small">Interviewers (One per line)</label>
-                        <textarea name="interviewers" class="form-control form-control-sm" rows="3" placeholder="Dr. Porkyl Lucian Bautista&#10;Dr. Reynold Sta. Ana">Dr. Porkyl Lucian Bautista&#10;Dr. Reynold Sta. Ana&#10;Dr. Jehremias Florante</textarea>
+                        <label class="form-label fw-semibold small">
+                            Interviewers (One per line) <span class="text-muted fw-normal" style="font-size: 0.72rem;">— Press Enter after each name to add each interviewer on a new line.</span>
+                        </label>
+                        <textarea name="interviewers" class="form-control form-control-sm" rows="3" placeholder="Enter interviewer names, one per line"></textarea>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small">Recommended By</label>
-                        <input type="text" name="recommended_by" class="form-control form-control-sm" value="MARIA BEATRIZ G. VILLANUEVA, MD, Division Chief" required>
+                        <input type="text" name="recommended_by" class="form-control form-control-sm" value="MARIA BEATRIZ G. VILLANUEVA, MD" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small">Approved By</label>
-                        <input type="text" name="approved_by" class="form-control form-control-sm" value="ENGR. JOSE MARIA S. BATINO, Executive Director" required>
+                        <input type="text" name="approved_by" class="form-control form-control-sm" value="ENGR. JOSE MARIA S. BATINO" required>
                     </div>
                 </div>
                 
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary fw-semibold text-white px-4">
-                        <i class="fas fa-file-pdf me-1"></i> Generate & Print Recommendation Form
+                <div class="mt-4 text-center">
+                    <button type="submit" class="btn btn-primary fw-semibold text-white px-5 py-2" style="border-radius: 8px; font-size: 0.95rem;">
+                        <i class="fas fa-file-pdf me-2"></i>Generate Recommendation Form
                     </button>
                 </div>
             </form>
 
+            {{-- Payment actions - Verifier only --}}
+            @if($isVerifier)
             <div class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top">
                 <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
                     @csrf
@@ -827,6 +832,7 @@
                     <i class="fas fa-archive me-1"></i> Archive Application
                 </button>
             </div>
+            @endif
         </div>
     </div>
     @endif
@@ -992,14 +998,14 @@
                     class="btn btn-success btn-lg fw-bold px-5"
                     style="border-radius:10px;min-width:160px;"
                     data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
-                <i class="bi bi-check-circle-fill me-2"></i>Accredited
+                <i class="bi bi-check-circle-fill me-2"></i>Passed
             </button>
             {{-- NOT PASSED button --}}
             <button type="button"
                     class="btn btn-danger btn-lg fw-bold px-5"
                     style="border-radius:10px;min-width:160px;"
                     data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
-                <i class="bi bi-x-circle-fill me-2"></i>Not Accredited
+                <i class="bi bi-x-circle-fill me-2"></i>Not Passed
             </button>
         </div>
     </div>
@@ -1210,10 +1216,18 @@
     </div>
 </div>
 
+{{-- ══ Shared variables for modal applicant details partial ══ --}}
+@php
+    $modalInstructors = $user->instructors ?? collect();
+    $applicantName = $isOrg ? ($org->name ?? 'N/A') : ($user->name ?? 'N/A');
+    $applicantEmail = $isOrg ? ($org->email ?? $user->email) : $user->email;
+    $accTypeName = $application->accreditationType->name ?? '—';
+@endphp
+
 {{-- ══ Passed Confirmation Modal ══ --}}
 <div class="modal fade" id="passedConfirmModal" tabindex="-1"
      aria-labelledby="passedConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.18);">
 
             <div class="modal-header border-0"
@@ -1231,18 +1245,11 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body p-4" style="background:#f9fdf9;">
-                <div class="d-flex align-items-center gap-3 mb-3 p-3"
-                     style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
-                    <i class="bi bi-person-circle fs-2 text-success"></i>
-                    <div>
-                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
-                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
-                        </div>
-                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
-                    </div>
-                </div>
-                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+            <div class="modal-body p-4" style="background:#f9fdf9; max-height:65vh; overflow-y:auto;">
+                @include('admin.hcd.partials.modal_applicant_details', ['accentColor' => 'text-success'])
+
+                {{-- Action Notice --}}
+                <div class="d-flex align-items-start gap-2 p-3"
                      style="background:#d4edda;border-radius:8px;border-left:4px solid #28a745;">
                     <i class="bi bi-check-circle-fill text-success mt-1"></i>
                     <small class="text-dark">
@@ -1273,7 +1280,7 @@
 {{-- ══ Not Passed Confirmation Modal ══ --}}
 <div class="modal fade" id="notPassedConfirmModal" tabindex="-1"
      aria-labelledby="notPassedConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
 
             <div class="modal-header border-0"
@@ -1291,18 +1298,11 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body p-4" style="background:#fafafa;">
-                <div class="d-flex align-items-center gap-3 mb-3 p-3"
-                     style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
-                    <i class="bi bi-person-circle fs-2 text-danger"></i>
-                    <div>
-                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
-                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
-                        </div>
-                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
-                    </div>
-                </div>
-                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+            <div class="modal-body p-4" style="background:#fafafa; max-height:65vh; overflow-y:auto;">
+                @include('admin.hcd.partials.modal_applicant_details', ['accentColor' => 'text-danger'])
+
+                {{-- Warning Notice --}}
+                <div class="d-flex align-items-start gap-2 p-3"
                      style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
                     <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
                     <small class="text-dark">
