@@ -86,6 +86,7 @@ class ProfileController extends Controller
             $rules['first_name'] = 'required|string|max:100';
             $rules['last_name']  = 'required|string|max:100';
             $rules['admin_role_id'] = 'required|exists:admin_roles,id';
+            $rules['email'] = 'required|email|max:255|unique:users,email,' . $user->id;
         } elseif ($user->profile_type === 'Organization') {
             $rules['name']        = 'required|string|max:255';
             $rules['head_name']   = 'required|string|max:255';
@@ -145,6 +146,7 @@ class ProfileController extends Controller
 
         // 2. Update specific profile fields
         if ($isAdmin && $user->adminProfile) {
+            $user->update(['email' => $validated['email']]);
             $user->adminProfile->update([
                 'first_name' => $validated['first_name'],
                 'last_name'  => $validated['last_name'],

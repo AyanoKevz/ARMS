@@ -59,6 +59,16 @@ class DocumentRejectionEmail extends Mailable
      */
     public function content(): Content
     {
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
+        
+        if ($this->rejectedDocuments && $this->rejectedDocuments->isNotEmpty()) {
+            $this->rejectedDocuments->loadMissing(['documentField.documentType']);
+        }
+        
+        if ($this->rejectedCredentials && $this->rejectedCredentials->isNotEmpty()) {
+            $this->rejectedCredentials->loadMissing(['instructor']);
+        }
+
         return new Content(
             view: 'emails.document_rejection',
         );

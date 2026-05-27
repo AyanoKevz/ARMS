@@ -32,8 +32,10 @@
 </li>
 @endif
 
-@if($isVerifier || $isEvaluator)
+@if($isVerifier)
 <li><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
+@elseif($isEvaluator)
+<li><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
 @endif
 <li><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
 <li><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>

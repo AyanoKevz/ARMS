@@ -55,12 +55,195 @@
                 <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
             @elseif($renewalStatus === 'Awaiting Payment')
                 <p class="text-muted mb-0">Congratulations! Your interview has passed. Please submit the payment details and signatures below to finalize your accreditation.</p>
+            @elseif($renewalStatus === 'Scheduled for Interview' && $pendingRenewal->interview)
+                <p class="text-muted mb-3">Your evaluation interview has been scheduled. Please find the details below:</p>
+                <div class="d-inline-block text-start p-4 rounded mb-0" style="background: #f8f9fa; border: 1px solid #e9ecef !important; max-width: 600px; width: 100%; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border-radius: 8px;">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <small class="text-uppercase text-muted fw-bold d-block mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">Date</small>
+                            <span class="text-dark fw-bold" style="font-size: 0.95rem;">
+                                <i class="far fa-calendar-alt text-primary me-2"></i>
+                                {{ $pendingRenewal->interview->interview_date->format('F d, Y') }}
+                            </span>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-uppercase text-muted fw-bold d-block mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">Time</small>
+                            <span class="text-dark fw-bold" style="font-size: 0.95rem;">
+                                <i class="far fa-clock text-primary me-2"></i>
+                                {{ \Carbon\Carbon::parse($pendingRenewal->interview->interview_time)->format('h:i A') }}
+                            </span>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-uppercase text-muted fw-bold d-block mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">Interview Mode</small>
+                            <span class="text-dark fw-bold" style="font-size: 0.95rem;">
+                                @if($pendingRenewal->interview->mode === 'online')
+                                    <i class="fas fa-video text-primary me-2"></i> Online Interview
+                                @else
+                                    <i class="fas fa-users text-primary me-2"></i> Face-to-Face
+                                @endif
+                            </span>
+                        </div>
+                        @if($pendingRenewal->interview->venue)
+                            <div class="col-sm-6">
+                                <small class="text-uppercase text-muted fw-bold d-block mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                    {{ $pendingRenewal->interview->mode === 'online' ? 'Meeting Link' : 'Venue' }}
+                                </small>
+                                <span class="text-dark fw-bold" style="font-size: 0.95rem; word-break: break-all;">
+                                    @if($pendingRenewal->interview->mode === 'online')
+                                        <a href="{{ $pendingRenewal->interview->venue }}" target="_blank" class="text-primary text-decoration-none fw-bold">
+                                            <i class="fas fa-external-link-alt me-1"></i> Join Meeting
+                                        </a>
+                                    @else
+                                        <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                        {{ $pendingRenewal->interview->venue }}
+                                    @endif
+                                </span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
             @else
                 <p class="text-muted mb-0">Finish the application process before submitting another.</p>
             @endif
         </div>
     </div>
-    
+
+    {{-- Submitted Documents & Credentials Summary Panel --}}
+    <div class="x_panel mt-4" style="border-left: 4px solid #2a3f54; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff;">
+        <div class="x_title d-flex justify-content-between align-items-center pb-2 border-bottom">
+            <h2 class="fw-bold mb-0 text-primary" style="color: #2a3f54 !important; font-size: 1.15rem; border: none; float: none; padding: 0; margin: 0;">
+                Submitted Documents & Instructor Credentials
+            </h2>
+            <button type="button" class="btn btn-sm btn-outline-dark px-3" data-bs-toggle="collapse" data-bs-target="#submittedDocsCollapse" aria-expanded="true" aria-controls="submittedDocsCollapse">
+                View Submitted Files
+            </button>
+            <div class="clearfix"></div>
+        </div>
+        <div class="x_content collapse show mt-3" id="submittedDocsCollapse">
+            <div class="row g-4">
+                {{-- FATPro Documents Column --}}
+                <div class="col-md-6 border-end">
+                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
+                        1. FATPro General & Legal Documents
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr class="table-light">
+                                    <th>Document / Field Name</th>
+                                    <th>Value / PDF</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($pendingRenewal->documents as $doc)
+                                    @php
+                                        $field = $doc->documentField;
+                                        $isPdf = $field?->input_type === 'file';
+                                        $statusClass = match($doc->status) {
+                                            'approved' => 'bg-success text-white',
+                                            'rejected', 'returned' => 'bg-danger text-white',
+                                            default => 'bg-warning text-dark'
+                                        };
+                                    @endphp
+                                    <tr>
+                                        <td class="fw-semibold text-secondary" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            {{ $field?->name ?? 'Document' }}
+                                        </td>
+                                        <td>
+                                            @if($isPdf)
+                                                @if($doc->userDocument?->file_path)
+                                                    <a href="{{ route('applicant.documents.view', $doc->id) }}" target="_blank" class="btn btn-sm btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                                        View PDF
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted small">No file</span>
+                                                @endif
+                                            @else
+                                                <span class="text-dark fw-normal" title="{{ $doc->userDocument?->value }}">
+                                                    {{ Str::limit($doc->userDocument?->value, 20) }}
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge {{ $statusClass }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 12px;">
+                                                {{ ucfirst($doc->status) }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-3">No documents submitted.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Instructor Credentials Column --}}
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
+                        2. Instructor Credentials & Agreements
+                    </h6>
+                    
+                    @php $appInstructors = $pendingRenewal->user ? $pendingRenewal->user->instructors : collect(); @endphp
+                    
+                    @forelse($appInstructors as $inst)
+                        <div class="card mb-3 border rounded shadow-sm bg-white" style="border-color: #eee !important;">
+                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center border-bottom" style="background-color: #fcfcfc !important; border-bottom: 1px solid #eee !important;">
+                                <span class="fw-bold text-dark" style="font-size: 0.85rem;">
+                                    {{ $inst->first_name }} {{ $inst->last_name }}
+                                </span>
+                                @if($inst->service_agreement_path)
+                                    <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem;">
+                                        Service Agreement
+                                    </a>
+                                @else
+                                    <span class="text-danger small" style="font-size: 0.72rem;">No Service Agreement</span>
+                                @endif
+                            </div>
+                            <div class="card-body p-2" style="font-size: 0.8rem;">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless align-middle mb-0">
+                                        <thead>
+                                            <tr class="text-muted" style="font-size: 0.75rem; border-bottom: 1px solid #eee;">
+                                                <th>Type</th>
+                                                <th>Cert #</th>
+                                                <th>Validity</th>
+                                                <th class="text-end">Certificate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($inst->credentials as $cred)
+                                                <tr>
+                                                    <td><span class="badge bg-secondary text-white">{{ $cred->type }}</span></td>
+                                                    <td class="fw-semibold text-secondary">{{ $cred->number }}</td>
+                                                    <td>{{ $cred->validity_date ? \Carbon\Carbon::parse($cred->validity_date)->format('m/d/Y') : 'N/A' }}</td>
+                                                    <td class="text-end">
+                                                        @if($cred->pdf_path)
+                                                            <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem;">
+                                                                View
+                                                            </a>
+                                                        @else
+                                                            <span class="text-muted" style="font-size: 0.7rem;">No File</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-muted text-center py-3 mb-0" style="font-size: 0.85rem;">No instructors submitted.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- ── Batch Resubmission Form (shown only when there are rejected file docs) ── --}}
     @php
         $application = $pendingRenewal;
@@ -253,8 +436,8 @@
     </div>
     @endif
 
-    {{-- ── Payment Requirements Upload Section (shown when status is Awaiting Payment) ── --}}
-    @if($renewalStatus === 'Awaiting Payment')
+    {{-- ── Payment Requirements Upload Section ── --}}
+    @if($renewalStatus === 'Awaiting Payment' || ($pendingRenewal && $pendingRenewal->payment))
     @php
         $payment = $pendingRenewal->payment;
         $reqs = [
@@ -283,6 +466,17 @@
             <div class="clearfix"></div>
         </div>
         <div class="x_content py-3">
+            <div class="alert alert-warning border border-warning-subtle d-flex align-items-start gap-3 p-3 mb-3 bg-white" style="border-radius: 10px; color: #856404;">
+                <i class="fas fa-info-circle fs-5 mt-1 text-warning"></i>
+                <div>
+                    <h5 class="fw-bold mb-1" style="color: #856404; font-size: 0.95rem;">Accreditation Fees Breakdown</h5>
+                    <p class="mb-2 text-muted small" style="font-size: 0.85rem;">Please pay a total of <strong>PHP 900.00</strong> to complete your accreditation process. The breakdown is as follows:</p>
+                    <ul class="mb-0 small text-muted pl-3" style="font-size: 0.85rem; list-style-type: disc;">
+                        <li>Application Fee: <strong>PHP 600.00</strong></li>
+                        <li>Accreditation Certification Fee: <strong>PHP 300.00</strong></li>
+                    </ul>
+                </div>
+            </div>
             <p class="text-muted mb-4" style="font-size: 0.95rem;">
                 Congratulations on passing your interview! To proceed with issuing your renewal/reinstatement accreditation certificate, please upload the required documents below. You may upload them individually or all at once.
             </p>
@@ -338,7 +532,7 @@
                                 </div>
 
                                 <div class="col-md-5 text-md-end mt-3 mt-md-0">
-                                    @if($status === 'missing' || $status === 'rejected')
+                                    @if(($status === 'missing' || $status === 'rejected') && $renewalStatus === 'Awaiting Payment')
                                         @php $needsUpload = true; @endphp
                                         <div class="file-upload-wrapper mt-1">
                                             <input type="file" name="{{ $key }}" id="input-{{ $key }}" class="real-file-input payment-file-input visually-hidden" accept="{{ $info['accept'] }}" required>
@@ -350,7 +544,11 @@
                                             </div>
                                         </div>
                                     @else
-                                        <span class="text-success fw-bold small"><i class="fas fa-check me-1"></i> Under Review / Complete</span>
+                                        @if($status === 'approved' || $status === 'pending')
+                                            <span class="text-success fw-bold small"><i class="fas fa-check me-1"></i> Under Review / Complete</span>
+                                        @else
+                                            <span class="text-muted fw-bold small"><i class="fas fa-ban me-1"></i> Not Available / Locked</span>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -531,6 +729,7 @@
                 <div id="instructorCardsContainer">
                     @foreach($instructors as $idx => $inst)
                     <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3" data-idx="{{ $idx }}">
+                        <input type="hidden" name="instructors[{{ $idx }}][id]" value="{{ $inst->id }}">
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #{{ $idx + 1 }}</span></h6>
                             @if($idx > 0)<button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>@endif
@@ -604,6 +803,7 @@
 
                 <template id="instructorTemplate" class="d-none" aria-hidden="true">
                     <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3">
+                        <input type="hidden" name="instructors[__IDX__][id]" value="">
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #__IDX_DISPLAY__</span></h6>
                             <button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>
@@ -710,7 +910,7 @@
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif
-                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && (!$existing || (!$existing->file_path && !$existing->value))) required @endif>
+                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && (!$existing || !$existing->file_path)) required @endif>
                         </div>
                         @endforeach
 

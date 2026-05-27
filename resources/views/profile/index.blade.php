@@ -155,6 +155,10 @@
                                         <input type="text" class="form-control" name="last_name" value="{{ old('last_name', $profile->last_name ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
                                     <div class="col-md-12">
+                                        <label class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" name="email" value="{{ old('email', $user->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-12">
                                         <label class="form-label">Position/Title</label>
                                         @if($readOnly)
                                             <input type="text" class="form-control" value="{{ $profile->adminRole->name ?? '—' }}" disabled>

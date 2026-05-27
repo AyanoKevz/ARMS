@@ -41,6 +41,7 @@ class AdminDocumentsUploadedEmail extends Mailable
      */
     public function content(): Content
     {
+        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         return new Content(
             view: 'emails.admin_documents_uploaded',
         );

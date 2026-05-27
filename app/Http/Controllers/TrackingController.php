@@ -193,10 +193,12 @@ class TrackingController extends Controller
 
         foreach ($credentialFiles as $credentialId => $file) {
             $credential = null;
+            $instModel = null;
             foreach ($application->user->instructors as $inst) {
                 $cred = $inst->credentials->firstWhere('id', $credentialId);
                 if ($cred) {
                     $credential = $cred;
+                    $instModel = $inst;
                     break;
                 }
             }
@@ -204,8 +206,8 @@ class TrackingController extends Controller
 
             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
             $timestamp = time();
-            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->first_name));
-            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->last_name));
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instModel->first_name));
+            $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instModel->last_name));
             $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
             $subFolder = $baseCredPath;
             $finalPath = "{$subFolder}/{$filename}";
@@ -227,6 +229,17 @@ class TrackingController extends Controller
 
         if ($resubmitted === 0) {
             return back()->with('error', 'No valid documents were resubmitted. Please ensure you are uploading PDF files for rejected items.');
+        }
+
+        // Progress application status back to "Under Evaluation"
+        $underEvaluationStatus = ApplicationStatus::where('name', 'Under Evaluation')->first();
+        if ($underEvaluationStatus) {
+            ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $underEvaluationStatus->id,
+                'updated_by'     => null,
+                'remarks'        => 'Documents resubmitted by applicant. Application is back under evaluation.',
+            ]);
         }
 
         // Notify Admin Evaluators about resubmitted documents
@@ -319,17 +332,14 @@ class TrackingController extends Controller
         if ($changed) {
             $payment->save();
 
-            // Notify Verifiers via email that a payment submission has been made!
+            // Notify Verifiers via Notification system (Email + DB)
             try {
-                $verifierEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
                     $q->where('name', 'Verifier');
-                })->pluck('email');
+                })->get();
 
-                if ($verifierEmails->isNotEmpty()) {
-                    Mail::send('emails.admin_payment_submitted', ['application' => $application], function ($message) use ($verifierEmails, $application) {
-                        $message->to($verifierEmails)
-                            ->subject('Notification: Payment Details Submitted - ' . $application->tracking_number);
-                    });
+                if ($verifiers->isNotEmpty()) {
+                    \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\PaymentSubmittedNotification($application));
                 }
             } catch (\Exception $e) {
                 Log::warning('Verifier notification email failed: ' . $e->getMessage());

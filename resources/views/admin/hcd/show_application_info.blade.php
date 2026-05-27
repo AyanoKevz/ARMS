@@ -214,7 +214,7 @@
 </div>
 
 {{-- ══ Accreditation History Card ══ --}}
-@if($accreditationHistory->count() > 1)
+@if($accreditationHistory->count() > 0)
 <div class="ai-card mb-4">
     <div class="ai-card-header" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#accreditationHistoryBody" aria-expanded="false">
         <i class="bi bi-clock-history fs-5 text-dark"></i>
@@ -649,7 +649,7 @@
 
 
 {{-- ══ Interview Schedule Card (shown when not yet accredited/approved) ══ --}}
-@if(!$isAccredited && !$isApproved)
+@if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
     @if($interview)
         <div class="mt-3 mb-3"
              style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
@@ -711,7 +711,7 @@
             </div>
 
             {{-- Card Footer — centered button --}}
-            @if(!$isRejected)
+            @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']))
             <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
                 <button type="button"
                         id="btn-open-schedule"
@@ -723,6 +723,42 @@
                     <span id="btn-schedule-text">Update Schedule</span>
                 </button>
             </div>
+            @endif
+
+            {{-- Interview Result Actions / Status inside Card --}}
+            @if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
+                @if($isRejected)
+                    <div class="d-flex align-items-center justify-content-center gap-3 p-3 bg-light border-top" style="color: #dc3545;">
+                        <i class="bi bi-x-circle-fill fs-4 text-danger"></i>
+                        <div class="text-start">
+                            <div class="fw-bold" style="font-size:0.95rem;">Interview Result: Failed / Rejected</div>
+                            <small class="text-muted">This application did not pass the interview process.</small>
+                        </div>
+                    </div>
+                @else
+                    <div class="px-4 py-3 bg-light border-top text-center">
+                        <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
+                            <i class="bi bi-question-circle-fill me-1 text-primary"></i>
+                            Please record the outcome of the scheduled interview:
+                        </p>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2">
+                            {{-- PASSED button --}}
+                            <button type="button"
+                                    class="btn btn-success btn-sm fw-bold px-4"
+                                    style="border-radius:8px;"
+                                    data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
+                                <i class="bi bi-check-circle-fill me-1"></i>Passed
+                            </button>
+                            {{-- NOT PASSED button --}}
+                            <button type="button"
+                                    class="btn btn-danger btn-sm fw-bold px-4"
+                                    style="border-radius:8px;"
+                                    data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
+                                <i class="bi bi-x-circle-fill me-1"></i>Not Passed
+                            </button>
+                        </div>
+                    </div>
+                @endif
             @endif
 
         </div>
@@ -763,7 +799,7 @@
 
 {{-- ══ Awaiting Payment Panels ══ --}}
 @if($currentStatus === 'Awaiting Payment')
-    @if($isVerifier || $isEvaluator)
+    @if($isEvaluator && (!$application->payment || !$application->payment->signed_recommendation_letter))
     <div class="ai-card mt-4">
         <div class="ai-card-header">
             <i class="bi bi-file-earmark-pdf fs-5 text-dark"></i>
@@ -818,21 +854,7 @@
                 </div>
             </form>
 
-            {{-- Payment actions - Verifier only --}}
-            @if($isVerifier)
-            <div class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top">
-                <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-success fw-semibold px-4">
-                        <i class="fas fa-paper-plane me-1"></i> Send Payment Request to Applicant
-                    </button>
-                </form>
-
-                <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
-                    <i class="fas fa-archive me-1"></i> Archive Application
-                </button>
-            </div>
-            @endif
+            {{-- Payment actions removed from Evaluator view --}}
         </div>
     </div>
     @endif
@@ -846,7 +868,7 @@
         <div class="x_content p-3 mt-2">
             <p class="text-muted small">This application is awaiting final verification. As a Verifier, you must upload the signed recommendation letter (signed offline by OED/Division Chief) and evaluate the payment requirements uploaded by the applicant.</p>
             
-            <form action="{{ route('admin.hcd.applications.evaluate_payment', $application->id) }}" method="POST" enctype="multipart/form-data">
+            <form id="evaluate-payment-form" action="{{ route('admin.hcd.applications.evaluate_payment', $application->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 
                 <div class="row g-3">
@@ -855,7 +877,7 @@
                         <div class="p-3 border rounded mb-3 bg-white" style="border-color: #d0ddf7 !important;">
                             <h6 class="fw-bold" style="color: #1A3A6A;"><i class="fas fa-file-signature me-1"></i> Signed Recommendation Letter (PDF) <span class="text-danger">*</span></h6>
                             <div class="mt-2">
-                                <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf">
+                                <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
                                 @if($application->payment && $application->payment->signed_recommendation_letter)
                                     <div class="mt-2 text-success fw-semibold small">
                                         <i class="fas fa-check-circle"></i> Already uploaded: 
@@ -902,6 +924,7 @@
                                 @endif
                             </div>
                             
+                            @if($filePath)
                             <div class="mt-3 pt-3 border-top">
                                 <label class="form-label small fw-semibold d-block mb-2">Status</label>
                                 <div>
@@ -920,6 +943,9 @@
                                     <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
                                 </div>
                             </div>
+                            @else
+                                <input type="hidden" name="{{ $key }}_status" value="pending">
+                            @endif
                         </div>
                     </div>
                     @endforeach
@@ -927,9 +953,34 @@
 
                 <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
                     <button type="submit" class="btn btn-primary fw-semibold px-4">
-                        <i class="fas fa-save me-1"></i> Submit Evaluation
+                        <span class="btn-text"><i class="fas fa-save me-1"></i> Submit Evaluation</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
+                        </span>
                     </button>
             </form>
+
+            @php
+                $hasUploadedAny = $payment && (
+                    $payment->proof_of_payment || 
+                    $payment->e_signature || 
+                    $payment->id_photo ||
+                    $payment->proof_of_payment_status === 'rejected' ||
+                    $payment->e_signature_status === 'rejected' ||
+                    $payment->id_photo_status === 'rejected' ||
+                    $payment->proof_of_payment_status === 'approved' ||
+                    $payment->e_signature_status === 'approved' ||
+                    $payment->id_photo_status === 'approved'
+                );
+            @endphp
+            @if(!$hasUploadedAny)
+            <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-success fw-semibold px-4">
+                    <i class="fas fa-paper-plane me-1"></i> Send Payment Request to Applicant
+                </button>
+            </form>
+            @endif
 
             <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
                 <i class="fas fa-archive me-1"></i> Archive Application
@@ -970,48 +1021,6 @@
         </div>
     </div>
 </div>
-
-{{-- ══ Application Result: Accredited / Not Accredited buttons (centered) ══ --}}
-@if($interview && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
-
-    @if($isRejected)
-    {{-- Already rejected --}}
-    <div class="d-flex align-items-center gap-3 mt-3 mb-4 p-3"
-         style="background:#f8d7da;border:1px solid #f5c6cb;border-radius:12px;">
-        <i class="bi bi-x-circle-fill text-danger fs-3"></i>
-        <div>
-            <div class="fw-bold text-danger" style="font-size:1rem;">Application Rejected</div>
-            <small class="text-muted">This application did not pass the application process.</small>
-        </div>
-    </div>
-
-    @else
-    {{-- Awaiting result — centered buttons --}}
-    <div class="mt-3 mb-4 text-center">
-        <p class="text-muted mb-3" style="font-size:.88rem;">
-            <i class="bi bi-info-circle me-1"></i>
-            Application process has been finalized and all requirements have been settled? This action is <strong>permanent</strong> and will immediately notify the applicant.
-        </p>
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-            {{-- PASSED button --}}
-            <button type="button"
-                    class="btn btn-success btn-lg fw-bold px-5"
-                    style="border-radius:10px;min-width:160px;"
-                    data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
-                <i class="bi bi-check-circle-fill me-2"></i>Passed
-            </button>
-            {{-- NOT PASSED button --}}
-            <button type="button"
-                    class="btn btn-danger btn-lg fw-bold px-5"
-                    style="border-radius:10px;min-width:160px;"
-                    data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
-                <i class="bi bi-x-circle-fill me-2"></i>Not Passed
-            </button>
-        </div>
-    </div>
-    @endif
-
-@endif
 
 
 {{-- ══ Schedule Interview Modal ══ --}}
@@ -1580,7 +1589,7 @@ document.addEventListener('change', function (e) {
 // Approval and Rejection modal submission loaders
 (function () {
     'use strict';
-    const forms = ['confirm-approval-form', 'confirm-reject-form'];
+    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form'];
     forms.forEach(function (formId) {
         const form = document.getElementById(formId);
         if (form) {

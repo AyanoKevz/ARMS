@@ -2,18 +2,20 @@
 
 namespace App\Mail;
 
+use App\Models\Application;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Application;
 
-class AdminApplicationSubmittedEmail extends Mailable
+class ApplicationEvaluationStartedEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public Application $application;
+    public $application;
 
     /**
      * Create a new message instance.
@@ -21,7 +23,6 @@ class AdminApplicationSubmittedEmail extends Mailable
     public function __construct(Application $application)
     {
         $this->application = $application;
-        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
     }
 
     /**
@@ -29,9 +30,8 @@ class AdminApplicationSubmittedEmail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $type = ucfirst($this->application->application_type);
         return new Envelope(
-            subject: "[Admin Notification] New {$type} Application Submitted — {$this->application->tracking_number}",
+            subject: 'Application Evaluation Started - ' . $this->application->tracking_number,
         );
     }
 
@@ -40,9 +40,18 @@ class AdminApplicationSubmittedEmail extends Mailable
      */
     public function content(): Content
     {
-        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         return new Content(
-            view: 'emails.admin_application_submitted',
+            view: 'emails.evaluation_started',
         );
+    }
+
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        return [];
     }
 }

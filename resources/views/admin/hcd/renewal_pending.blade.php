@@ -159,9 +159,14 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" class="d-inline">
+                <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" class="d-inline eval-form">
                     @csrf
-                    <button type="submit" class="btn btn-primary">Start Evaluation</button>
+                    <button type="submit" class="btn btn-primary eval-submit-btn">
+                        <span class="eval-submit-text">Start Evaluation</span>
+                        <span class="eval-submit-spinner d-none">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        </span>
+                    </button>
                 </form>
             </div>
         </div>
@@ -189,4 +194,21 @@
 
 {{-- Reusable Table Component JS --}}
 <script src="{{ asset('js/table-component.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.eval-form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.eval-submit-btn');
+            const text = this.querySelector('.eval-submit-text');
+            const spinner = this.querySelector('.eval-submit-spinner');
+            
+            if (btn && text && spinner) {
+                btn.disabled = true;
+                text.classList.add('d-none');
+                spinner.classList.remove('d-none');
+            }
+        });
+    });
+});
+</script>
 @endpush

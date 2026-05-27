@@ -104,6 +104,41 @@
                     <nav class="nav navbar-nav ms-auto">
                         <ul class="navbar-right d-flex align-items-center gap-3 pe-3">
                             <li class="nav-item dropdown">
+                                <a href="#" class="dropdown-toggle info-number" id="navbarDropdown1" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-bell"></i>
+                                    @if(auth()->user()->unreadNotifications->count() > 0)
+                                        <span class="badge bg-danger rounded-pill" style="position: absolute; top: 0px; right: 0px; font-size: 0.6rem;">
+                                            {{ auth()->user()->unreadNotifications->count() }}
+                                        </span>
+                                    @endif
+                                </a>
+                                <ul class="dropdown-menu list-unstyled msg_list dropdown-menu-end shadow" role="menu" aria-labelledby="navbarDropdown1" style="min-width: 300px; padding: 0;">
+                                    <li class="p-2 border-bottom bg-light">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold ms-2">Notifications</span>
+                                            <form action="{{ url('admin/notifications/mark-all-read') }}" method="POST" class="m-0 p-0">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-link text-decoration-none m-0 p-0 me-2" style="font-size: 0.8rem;">Mark all as read</button>
+                                            </form>
+                                        </div>
+                                    </li>
+                                    @forelse(auth()->user()->unreadNotifications->take(5) as $notification)
+                                        <li class="border-bottom p-2" style="background: transparent;">
+                                            <a class="dropdown-item d-flex flex-column text-wrap" href="{{ url('admin/notifications/' . $notification->id . '/read') }}" style="white-space: normal; line-height: 1.4; padding: 6px 12px; background: transparent;">
+                                                <span class="text-muted" style="font-size: 0.72rem; display: block; margin-bottom: 3px; font-weight: normal;">{{ $notification->created_at->diffForHumans() }}</span>
+                                                <span class="text-dark" style="font-size: 0.84rem; display: block; font-weight: 500; white-space: normal;">
+                                                    {{ $notification->data['message'] ?? 'You have a new notification.' }}
+                                                </span>
+                                            </a>
+                                        </li>
+                                    @empty
+                                        <li class="p-3 text-center text-muted small">
+                                            No new notifications
+                                        </li>
+                                    @endforelse
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
                                 <a href="#" role="button" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                     <img src="{{ asset(Auth::user()->user_photo ?? 'images/profile_picture/default_photo.jpg') }}" alt="" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=User&background=random';">{{ Auth::user()->name ?? 'User' }}
                                 </a>

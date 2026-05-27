@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Application;
 
-class AdminApplicationSubmittedEmail extends Mailable
+class AdminPaymentSubmittedEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -29,9 +29,8 @@ class AdminApplicationSubmittedEmail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $type = ucfirst($this->application->application_type);
         return new Envelope(
-            subject: "[Admin Notification] New {$type} Application Submitted — {$this->application->tracking_number}",
+            subject: "Payment Submitted - {$this->application->tracking_number}",
         );
     }
 
@@ -40,9 +39,8 @@ class AdminApplicationSubmittedEmail extends Mailable
      */
     public function content(): Content
     {
-        $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
         return new Content(
-            view: 'emails.admin_application_submitted',
+            view: 'emails.admin_payment_submitted',
         );
     }
 }

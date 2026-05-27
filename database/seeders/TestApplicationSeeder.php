@@ -252,6 +252,7 @@ class TestApplicationSeeder extends Seeder
         $accInterview->interview_date = Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->toDateString();
         $accInterview->interview_time = '10:00:00';
         $accInterview->mode = 'online';
+        $accInterview->venue = 'https://meet.google.com/kevin-interview-link';
         $accInterview->save();
 
         // 9. Create Accreditation (Expires in 3 months)

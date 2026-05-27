@@ -71,6 +71,19 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
+        
+        // Notification Routes
+        Route::get('/notifications/{id}/read', function ($id) {
+            $notification = auth()->user()->notifications()->findOrFail($id);
+            $notification->markAsRead();
+            return redirect($notification->data['link'] ?? '/admin/hcd/dashboard');
+        })->name('notifications.read');
+
+        Route::post('/notifications/mark-all-read', function () {
+            auth()->user()->unreadNotifications->markAsRead();
+            return back();
+        })->name('notifications.mark_all_read');
+
         Route::prefix('hcd')->name('hcd.')->group(function () {
             Route::get('/dashboard', [HCDApplicationController::class, 'dashboard'])->name('dashboard');
             Route::get('/applications/pending', [HCDApplicationController::class, 'pending'])->name('applications.pending');
@@ -90,7 +103,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/applications/awaiting-payment', [HCDApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');
 
             Route::get('/applications/{application}', [HCDApplicationController::class, 'show'])->name('applications.show');
-            Route::post('/applications/{application}/generate-recommendation', [HCDApplicationController::class, 'generateRecommendationPDF'])->name('applications.generate_recommendation');
+            Route::match(['get', 'post'], '/applications/{application}/generate-recommendation', [HCDApplicationController::class, 'generateRecommendationPDF'])->name('applications.generate_recommendation');
             Route::post('/applications/{application}/request-payment', [HCDApplicationController::class, 'requestPayment'])->name('applications.request_payment');
             Route::post('/applications/{application}/evaluate-payment', [HCDApplicationController::class, 'evaluatePayment'])->name('applications.evaluate_payment');
             Route::post('/applications/{application}/archive-payment', [HCDApplicationController::class, 'archiveFromPayment'])->name('applications.archive_payment');
@@ -127,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
     // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');
     Route::get('/applicant/instructors/{instructor}/service-agreement/view', [ApplicantInstructorController::class, 'serveServiceAgreement'])->name('applicant.instructors.service_agreement.view');
+    Route::get('/applicant/documents/{document}/view', [RenewalController::class, 'serveDocument'])->name('applicant.documents.view');
 });
 
 // Password Reset Routes

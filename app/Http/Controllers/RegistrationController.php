@@ -455,13 +455,19 @@ class RegistrationController extends Controller
 
             // 11. Notify Admin Evaluators
             try {
-                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
                     $q->where('name', 'Evaluator');
-                })->pluck('email');
+                })->get();
 
-                if ($evaluatorEmails->isNotEmpty() && $application) {
+                if ($evaluators->isNotEmpty() && $application) {
                     $application->load(['user', 'accreditationType']);
+                    
+                    // Send Email
+                    $evaluatorEmails = $evaluators->pluck('email');
                     Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+
+                    // Send database/in-app portal notifications
+                    \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
                 }
             } catch (\Exception $mailEx) {
                 Log::warning('Admin application submission notification failed: ' . $mailEx->getMessage());

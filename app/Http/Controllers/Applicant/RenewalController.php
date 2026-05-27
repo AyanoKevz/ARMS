@@ -26,6 +26,17 @@ class RenewalController extends Controller
     // Credential types with their required fields
     private const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC', 'BOSH'];
 
+    // Required document field codes
+    private const REQUIRED_DOCUMENT_FIELDS = [
+        'LEGAL_01', 'LEGAL_02', 'LEGAL_03', 'LEGAL_04', 'LEGAL_05', 'LEGAL_06',
+        'TRAIN_01', 'TRAIN_03',
+        'PREM_01', 'PREM_02', 'PREM_03', 'PREM_04', 'PREM_05', 'PREM_06', 'PREM_07',
+        'IP_01', 'IP_02',
+        'QA_02', 'QA_03', 'QA_04', 'QA_05', 'QA_06', 'QA_07', 'QA_08', 'QA_09',
+        'EQUIP_01',
+        'IP_DPO_NAME', 'PREM_DATE'
+    ];
+
     /**
      * Show the renewal / reinstatement form.
      * Pre-fills existing accreditation details, profile, instructors, and documents.
@@ -64,8 +75,10 @@ class RenewalController extends Controller
             })
             ->with([
                 'documents.documentField.documentType',
+                'documents.userDocument',
                 'user.instructors.credentials.instructor',
                 'payment',
+                'interview',
             ])
             ->first();
 
@@ -143,17 +156,67 @@ class RenewalController extends Controller
             return back()->with('error', 'Renewal is not allowed since your current accreditation is revoked. Please submit a reinstatement application instead.')->withInput();
         }
 
+        // ── Dynamic Organization validation rules based on profile ──
+        $orgRules = [];
+        if ($user->profile_type === 'Organization') {
+            $orgRules = [
+                'org_name'     => ['required', 'string', 'max:255'],
+                'org_address'  => ['required', 'string', 'max:500'],
+                'head_name'    => ['required', 'string', 'max:255'],
+                'designation'  => ['nullable', 'string', 'max:255'],
+                'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
+                'fax'          => ['nullable', 'regex:/^\d{10}$/'],
+                'org_email'    => ['required', 'email', 'max:255'],
+                'rep_full_name'      => ['required', 'string', 'max:255'],
+                'rep_position'       => ['required', 'string', 'max:255'],
+                'rep_contact_number' => ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
+                'rep_email'          => ['required', 'email', 'max:255'],
+            ];
+        } else {
+            $orgRules = [
+                'org_name'     => ['nullable', 'string', 'max:255'],
+                'org_address'  => ['nullable', 'string', 'max:500'],
+                'head_name'    => ['nullable', 'string', 'max:255'],
+                'designation'  => ['nullable', 'string', 'max:255'],
+                'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
+                'fax'          => ['nullable', 'regex:/^\d{10}$/'],
+                'org_email'    => ['nullable', 'email', 'max:255'],
+                'rep_full_name'      => ['nullable', 'string', 'max:255'],
+                'rep_position'       => ['nullable', 'string', 'max:255'],
+                'rep_contact_number' => ['nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
+                'rep_email'          => ['nullable', 'email', 'max:255'],
+            ];
+        }
+
         // ── Build document field validation rules ──────────────────
         $documentFields = DocumentField::all()->keyBy('code');
         $documentRules = [];
         foreach ($documentFields as $code => $field) {
             $key = "documents.{$code}";
+            $existing = UserDocument::where('user_id', $user->id)
+                ->where('document_field_id', $field->id)
+                ->first();
+
+            $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
+
             if ($field->input_type === 'file') {
-                $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                if ($isRequired && (!$existing || !$existing->file_path)) {
+                    $documentRules[$key] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+                } else {
+                    $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                }
             } elseif ($field->input_type === 'date') {
-                $documentRules[$key] = ['nullable', 'date'];
+                if ($isRequired && (!$existing || !$existing->value)) {
+                    $documentRules[$key] = ['required', 'date'];
+                } else {
+                    $documentRules[$key] = ['nullable', 'date'];
+                }
             } elseif ($field->input_type === 'text') {
-                $documentRules[$key] = ['nullable', 'string', 'max:500'];
+                if ($isRequired && (!$existing || !$existing->value)) {
+                    $documentRules[$key] = ['required', 'string', 'max:500'];
+                } else {
+                    $documentRules[$key] = ['nullable', 'string', 'max:500'];
+                }
             }
         }
 
@@ -163,46 +226,53 @@ class RenewalController extends Controller
 
         if (is_array($instructors) && count($instructors) > 0) {
             foreach ($instructors as $i => $inst) {
+                $instructorId = $inst['id'] ?? null;
+                $existingInst = $instructorId ? Instructor::where('id', $instructorId)->where('user_id', $user->id)->first() : null;
+
                 $instructorRules["instructors.{$i}.first_name"] = ['required', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.middle_name"] = ['nullable', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.last_name"]  = ['required', 'string', 'max:255'];
-                $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+
+                // Service agreement is required if no existing service agreement
+                if ($existingInst && $existingInst->service_agreement_path) {
+                    $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                } else {
+                    $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+                }
 
                 foreach (self::CREDENTIAL_TYPES as $type) {
                     $base = "instructors.{$i}.credentials.{$type}";
-                    $instructorRules["{$base}.number"]         = ['nullable', 'string', 'max:255'];
-                    $instructorRules["{$base}.issued_date"]    = ['nullable', 'date'];
-                    $instructorRules["{$base}.validity_date"]  = ['nullable', 'date'];
-                    $instructorRules["{$base}.pdf"]            = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                    $existingCred = $existingInst ? $existingInst->credentials->firstWhere('type', $type) : null;
+
+                    $instructorRules["{$base}.number"]         = ['required', 'string', 'max:255'];
+                    if ($type !== 'BOSH') {
+                        $instructorRules["{$base}.issued_date"]    = ['required', 'date'];
+                    }
+                    $instructorRules["{$base}.validity_date"]  = ['required', 'date'];
                     if ($type === 'BOSH') {
-                        $instructorRules["{$base}.training_dates"] = ['nullable', 'string', 'max:500'];
+                        $instructorRules["{$base}.training_dates"] = ['required', 'string', 'max:500'];
+                    }
+
+                    // Certificate PDF is required if no existing credential PDF
+                    if ($existingCred && $existingCred->pdf_path) {
+                        $instructorRules["{$base}.pdf"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                    } else {
+                        $instructorRules["{$base}.pdf"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
                     }
                 }
             }
+        } else {
+            // Require at least one instructor
+            $request->merge(['instructors' => []]);
+            $instructorRules['instructors'] = ['required', 'array', 'min:1'];
         }
 
         // ── Full validation ────────────────────────────────────────
         $request->validate(array_merge([
             'application_type' => ['required', 'in:renewal,reinstatement'],
-
-            // Organization fields (optional for renewal — only update if provided)
-            'org_name'     => ['nullable', 'string', 'max:255'],
-            'org_address'  => ['nullable', 'string', 'max:500'],
-            'head_name'    => ['nullable', 'string', 'max:255'],
-            'designation'  => ['nullable', 'string', 'max:255'],
-            'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
-            'fax'          => ['nullable', 'regex:/^\d{10}$/'],
-            'org_email'    => ['nullable', 'email', 'max:255'],
-
-            // Representative fields
-            'rep_full_name'      => ['nullable', 'string', 'max:255'],
-            'rep_position'       => ['nullable', 'string', 'max:255'],
-            'rep_contact_number' => ['nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
-            'rep_email'          => ['nullable', 'email', 'max:255'],
-
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
-        ], $documentRules, $instructorRules), [
+        ], $orgRules, $documentRules, $instructorRules), [
             'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
             'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
             'rep_contact_number.regex' => 'The representative contact number must be a PH mobile number (e.g. 09171234567 or +639171234567).',
@@ -333,51 +403,73 @@ class RenewalController extends Controller
 
                 // ── 5. Handle instructors & credentials ───────────
                 $instructorsInput = $request->input('instructors', []);
-                $existingInstructors = $user->instructors()->with('credentials')->get();
+                
+                // Get all submitted instructor IDs that are not null/empty
+                $submittedIds = collect($instructorsInput)->pluck('id')->filter()->toArray();
 
-                // Delete old instructors and their credentials (overwrite)
-                foreach ($existingInstructors as $oldInst) {
-                    // Delete old credential files
+                // Find existing instructors of the user that were explicitly removed (not in submitted IDs)
+                $toDelete = $user->instructors()->whereNotIn('id', $submittedIds)->get();
+                foreach ($toDelete as $oldInst) {
                     foreach ($oldInst->credentials as $cred) {
                         if ($cred->pdf_path && Storage::disk('local')->exists($cred->pdf_path)) {
                             Storage::disk('local')->delete($cred->pdf_path);
                         }
                         $cred->delete();
                     }
-                    // Delete old service agreement
                     if ($oldInst->service_agreement_path && Storage::disk('local')->exists($oldInst->service_agreement_path)) {
                         Storage::disk('local')->delete($oldInst->service_agreement_path);
                     }
                     $oldInst->delete();
                 }
 
-                // Create new instructors
+                // Process instructors input (updating or creating)
                 foreach ($instructorsInput as $i => $instData) {
+                    $instructorId = $instData['id'] ?? null;
+                    $existingInst = $instructorId ? $user->instructors()->find($instructorId) : null;
+
                     $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['first_name'] ?? ''));
                     $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['last_name'] ?? ''));
 
-                    // Service agreement
-                    $saPermanent = null;
+                    // Handle service agreement file
+                    $saPermanent = $existingInst ? $existingInst->service_agreement_path : null;
                     if ($request->hasFile("instructors.{$i}.service_agreement")) {
+                        if ($saPermanent && Storage::disk('local')->exists($saPermanent)) {
+                            Storage::disk('local')->delete($saPermanent);
+                        }
                         $saFile = $request->file("instructors.{$i}.service_agreement");
                         $saPermanent = "{$baseCredPath}/sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
                         $saFile->storeAs($baseCredPath, "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
                     }
 
-                    $instructor = Instructor::create([
-                        'user_id'                => $user->id,
-                        'first_name'             => $instData['first_name'] ?? '',
-                        'middle_name'            => $instData['middle_name'] ?? null,
-                        'last_name'              => $instData['last_name'] ?? '',
-                        'service_agreement_path' => $saPermanent,
-                    ]);
+                    if ($existingInst) {
+                        $existingInst->update([
+                            'first_name'             => $instData['first_name'] ?? '',
+                            'middle_name'            => $instData['middle_name'] ?? null,
+                            'last_name'              => $instData['last_name'] ?? '',
+                            'service_agreement_path' => $saPermanent,
+                        ]);
+                        $instructor = $existingInst;
+                    } else {
+                        $instructor = Instructor::create([
+                            'user_id'                => $user->id,
+                            'first_name'             => $instData['first_name'] ?? '',
+                            'middle_name'            => $instData['middle_name'] ?? null,
+                            'last_name'              => $instData['last_name'] ?? '',
+                            'service_agreement_path' => $saPermanent,
+                        ]);
+                    }
 
                     // Credentials
                     foreach (self::CREDENTIAL_TYPES as $type) {
                         $credData = $instData['credentials'][$type] ?? [];
 
-                        $credPermanent = null;
+                        $existingCred = $existingInst ? $existingInst->credentials->firstWhere('type', $type) : null;
+                        $credPermanent = $existingCred ? $existingCred->pdf_path : null;
+
                         if ($request->hasFile("instructors.{$i}.credentials.{$type}.pdf")) {
+                            if ($credPermanent && Storage::disk('local')->exists($credPermanent)) {
+                                Storage::disk('local')->delete($credPermanent);
+                            }
                             $credFile = $request->file("instructors.{$i}.credentials.{$type}.pdf");
                             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $type));
                             $credPermanent = "{$baseCredPath}/{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
@@ -391,15 +483,21 @@ class RenewalController extends Controller
                             || $credPermanent);
 
                         if ($hasData) {
-                            InstructorCredential::create([
-                                'instructor_id'  => $instructor->id,
-                                'type'           => $type,
-                                'number'         => $credData['number'] ?? null,
-                                'issued_date'    => $credData['issued_date'] ?? null,
-                                'validity_date'  => $credData['validity_date'] ?? null,
-                                'training_dates' => $credData['training_dates'] ?? null,
-                                'pdf_path'       => $credPermanent,
-                            ]);
+                            InstructorCredential::updateOrCreate(
+                                ['instructor_id' => $instructor->id, 'type' => $type],
+                                [
+                                    'number'         => $credData['number'] ?? null,
+                                    'issued_date'    => $credData['issued_date'] ?? null,
+                                    'validity_date'  => $credData['validity_date'] ?? null,
+                                    'training_dates' => $credData['training_dates'] ?? null,
+                                    'pdf_path'       => $credPermanent,
+                                ]
+                            );
+                        } elseif ($existingCred) {
+                            if ($existingCred->pdf_path && Storage::disk('local')->exists($existingCred->pdf_path)) {
+                                Storage::disk('local')->delete($existingCred->pdf_path);
+                            }
+                            $existingCred->delete();
                         }
                     }
                 }
@@ -418,13 +516,19 @@ class RenewalController extends Controller
 
             // Notify Admin Evaluators
             try {
-                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
                     $q->where('name', 'Evaluator');
-                })->pluck('email');
+                })->get();
 
-                if ($evaluatorEmails->isNotEmpty() && $application) {
+                if ($evaluators->isNotEmpty() && $application) {
                     $application->load(['user', 'accreditationType']);
+                    
+                    // Send Email
+                    $evaluatorEmails = $evaluators->pluck('email');
                     Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+
+                    // Send database/in-app portal notifications
+                    \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
                 }
             } catch (\Exception $mailEx) {
                 Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());
@@ -611,7 +715,7 @@ class RenewalController extends Controller
 
         // Instructor service agreements
         foreach ($instructorFiles as $instructorId => $file) {
-            $instructor = $user->instructors->firstWhere('id', $instructorId);
+            $instructor = $application->user->instructors->firstWhere('id', $instructorId);
             if (!$instructor || !in_array($instructor->status, ['rejected', 'returned'])) continue;
 
             $timestamp = time();
@@ -638,10 +742,12 @@ class RenewalController extends Controller
         // Credential files
         foreach ($credentialFiles as $credentialId => $file) {
             $credential = null;
-            foreach ($user->instructors as $inst) {
+            $instModel = null;
+            foreach ($application->user->instructors as $inst) {
                 $cred = $inst->credentials->firstWhere('id', $credentialId);
                 if ($cred) {
                     $credential = $cred;
+                    $instModel = $inst;
                     break;
                 }
             }
@@ -649,8 +755,8 @@ class RenewalController extends Controller
 
             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->type));
             $timestamp = time();
-            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->first_name));
-            $instLast  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $credential->instructor->last_name));
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instModel->first_name));
+            $instLast  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instModel->last_name));
             $filename  = "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
             $finalPath = "{$baseCredPath}/{$filename}";
 
@@ -671,6 +777,17 @@ class RenewalController extends Controller
 
         if ($resubmitted === 0) {
             return back()->with('error', 'No valid documents were resubmitted. Please ensure you are uploading PDF files for rejected items.');
+        }
+
+        // Progress application status back to "Under Evaluation"
+        $underEvaluationStatus = ApplicationStatus::where('name', 'Under Evaluation')->first();
+        if ($underEvaluationStatus) {
+            ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $underEvaluationStatus->id,
+                'updated_by'     => null,
+                'remarks'        => 'Documents resubmitted by applicant. Application is back under evaluation.',
+            ]);
         }
 
         // Notify Admin Evaluators about resubmitted documents
@@ -766,17 +883,14 @@ class RenewalController extends Controller
         if ($changed) {
             $payment->save();
 
-            // Notify Verifiers via email
+            // Notify Verifiers via Notification system (Email + DB)
             try {
-                $verifierEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
                     $q->where('name', 'Verifier');
-                })->pluck('email');
+                })->get();
 
-                if ($verifierEmails->isNotEmpty()) {
-                    Mail::send('emails.admin_payment_submitted', ['application' => $application], function ($message) use ($verifierEmails, $application) {
-                        $message->to($verifierEmails)
-                            ->subject('Notification: Payment Details Submitted - ' . $application->tracking_number);
-                    });
+                if ($verifiers->isNotEmpty()) {
+                    \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\PaymentSubmittedNotification($application));
                 }
             } catch (\Exception $e) {
                 Log::warning('Verifier notification email failed: ' . $e->getMessage());
@@ -786,5 +900,26 @@ class RenewalController extends Controller
         }
 
         return back()->with('error', 'No new payment files were selected.');
+    }
+
+    /**
+     * Stream a document PDF to the browser (auth-guarded).
+     */
+    public function serveDocument(ApplicationDocument $document)
+    {
+        $userDoc = $document->userDocument;
+        abort_if(!$userDoc || $userDoc->user_id !== auth()->id(), 403);
+        abort_if(!$userDoc->file_path || !Storage::disk('local')->exists($userDoc->file_path), 404);
+
+        $fullPath = Storage::disk('local')->path($userDoc->file_path);
+        $filename = basename($userDoc->file_path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
     }
 }

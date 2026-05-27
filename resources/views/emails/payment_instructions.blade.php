@@ -19,7 +19,28 @@
         We are pleased to inform you that you have <strong>successfully passed the interview stage</strong> of the accreditation process!
     </p>
     <p>
-        To complete your accreditation, we kindly request you to upload the following payment requirements:
+        To complete your accreditation, we kindly request you to settle the required fees. The total amount to be paid is <strong>PHP 900.00</strong>, with the breakdown as follows:
+    </p>
+
+    <div style="background: #fafafa; border: 1px solid #e5e5e5; border-radius: 8px; padding: 15px; margin-bottom: 20px; max-width: 450px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem; color: #333;">
+            <tr>
+                <td style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>Application Fee</strong></td>
+                <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right;">PHP 600.00</td>
+            </tr>
+            <tr>
+                <td style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>Accreditation Certification Fee</strong></td>
+                <td style="padding: 6px 0; border-bottom: 1px solid #eee; text-align: right;">PHP 300.00</td>
+            </tr>
+            <tr style="font-weight: bold; color: #1a4a8a; font-size: 1.05rem;">
+                <td style="padding: 10px 0 0 0;">Total Fee Required</td>
+                <td style="padding: 10px 0 0 0; text-align: right;">PHP 900.00</td>
+            </tr>
+        </table>
+    </div>
+
+    <p>
+        Once payment is made, please upload the following payment requirements to verify your transaction:
     </p>
 
     <div class="doc-list" style="margin-bottom: 20px;">
