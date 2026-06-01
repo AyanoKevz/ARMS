@@ -93,4 +93,32 @@ class Application extends Model
     {
         return $this->hasOne(ApplicationPayment::class);
     }
+
+    /**
+     * Get all PCT (Process Cycle Time) entries for this application.
+     */
+    public function pctEntries()
+    {
+        return $this->hasMany(PctEntry::class)->orderBy('step_number');
+    }
+
+    /**
+     * Get the currently active PCT entry.
+     */
+    public function activePctEntry()
+    {
+        return $this->hasOne(PctEntry::class)->where('is_active', true)->latestOfMany();
+    }
+
+    /**
+     * Calculate the total PCT elapsed in working days across all steps.
+     */
+    public function totalPctDays(): float
+    {
+        $totalSeconds = 0;
+        foreach ($this->pctEntries as $entry) {
+            $totalSeconds += $entry->totalElapsedSeconds();
+        }
+        return round($totalSeconds / 86400, 1);
+    }
 }

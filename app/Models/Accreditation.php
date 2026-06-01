@@ -17,6 +17,7 @@ class Accreditation extends Model
         'date_of_accreditation',
         'validity_date',
         'status',
+        'scanned_certificate',
         'reminder_3mo_sent_at',
         'reminder_2mo_sent_at',
         'reminder_1mo_sent_at',

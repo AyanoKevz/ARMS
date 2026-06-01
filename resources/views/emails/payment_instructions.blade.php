@@ -40,25 +40,15 @@
     </div>
 
     <p>
-        Once payment is made, please upload the following payment requirements to verify your transaction:
+        Once payment is made, please upload the following payment requirement to verify your transaction:
     </p>
 
     <div class="doc-list" style="margin-bottom: 20px;">
-        <p class="doc-list-title">📋 Payment Requirements</p>
+        <p class="doc-list-title">📋 Payment Requirement</p>
 
         <div class="doc-item">
-            <div class="doc-item-name">1. Proof of Payment</div>
-            <div class="doc-item-value">Receipt / Deposit Slip (PDF or Image)</div>
-        </div>
-
-        <div class="doc-item">
-            <div class="doc-item-name">2. E-Signature</div>
-            <div class="doc-item-value">Scanned signature (Image)</div>
-        </div>
-
-        <div class="doc-item">
-            <div class="doc-item-name">3. ID Photo</div>
-            <div class="doc-item-value">2x2 ID Photo (Image)</div>
+            <div class="doc-item-name">Proof of Payment</div>
+            <div class="doc-item-value">Receipt / Deposit Slip / Transaction Screenshot (PDF or Image)</div>
         </div>
     </div>
 

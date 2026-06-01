@@ -12,6 +12,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\AdminDocumentsUploadedEmail;
+use App\Models\ApplicationStatus;
+use App\Models\ApplicationStatusLog;
+use App\Services\PctService;
 
 class TrackingController extends Controller
 {
@@ -242,6 +245,9 @@ class TrackingController extends Controller
             ]);
         }
 
+        // ── PCT: Resume the paused step (applicant has resubmitted)
+        app(PctService::class)->resumeCurrentStep($application);
+
         // Notify Admin Evaluators about resubmitted documents
         try {
             $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
@@ -270,8 +276,6 @@ class TrackingController extends Controller
         $request->validate([
             'application_id'   => ['required', 'exists:applications,id'],
             'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'e_signature'      => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'id_photo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
         ]);
 
         $application = Application::findOrFail($request->input('application_id'));
@@ -301,36 +305,11 @@ class TrackingController extends Controller
             $changed = true;
         }
 
-        // Process e_signature
-        if ($request->hasFile('e_signature')) {
-            if ($payment->e_signature && Storage::disk('local')->exists($payment->e_signature)) {
-                Storage::disk('local')->delete($payment->e_signature);
-            }
-            $ext = $request->file('e_signature')->getClientOriginalExtension();
-            $filename = "e_signature_" . time() . ".{$ext}";
-            $path = $request->file('e_signature')->storeAs($baseDocPath, $filename, 'local');
-            $payment->e_signature = $path;
-            $payment->e_signature_status = 'pending';
-            $payment->e_signature_remarks = null;
-            $changed = true;
-        }
-
-        // Process id_photo
-        if ($request->hasFile('id_photo')) {
-            if ($payment->id_photo && Storage::disk('local')->exists($payment->id_photo)) {
-                Storage::disk('local')->delete($payment->id_photo);
-            }
-            $ext = $request->file('id_photo')->getClientOriginalExtension();
-            $filename = "id_photo_" . time() . ".{$ext}";
-            $path = $request->file('id_photo')->storeAs($baseDocPath, $filename, 'local');
-            $payment->id_photo = $path;
-            $payment->id_photo_status = 'pending';
-            $payment->id_photo_remarks = null;
-            $changed = true;
-        }
-
         if ($changed) {
             $payment->save();
+
+            // ── PCT: Resume the paused Step 7 (payment re-uploaded)
+            app(PctService::class)->resumeCurrentStep($application);
 
             // Notify Verifiers via Notification system (Email + DB)
             try {

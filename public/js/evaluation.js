@@ -49,6 +49,50 @@
             }
         }
 
+        // Auto-save the status immediately in the background via fetch
+        let itemType = 'document';
+        let itemId = docId;
+
+        if (typeof docId === 'string') {
+            if (docId.startsWith('cred-')) {
+                itemType = 'credential';
+                itemId = parseInt(docId.replace('cred-', ''), 10);
+            } else if (docId.startsWith('inst-')) {
+                itemType = 'instructor';
+                itemId = parseInt(docId.replace('inst-', ''), 10);
+            } else {
+                itemId = parseInt(docId, 10);
+            }
+        }
+
+        if (window.ARMS && window.ARMS.evaluateItemUrl) {
+            const formData = new FormData();
+            formData.append('_token', window.ARMS.csrfToken);
+            formData.append('item_type', itemType);
+            formData.append('item_id', itemId);
+            formData.append('status', status);
+
+            const remarksInput = document.getElementById(`remarks-${docId}`);
+            if (remarksInput) {
+                formData.append('remarks', remarksInput.value);
+            }
+
+            fetch(window.ARMS.evaluateItemUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            }).then(async (res) => {
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Evaluation auto-saved.', 'success');
+                } else {
+                    console.error('Auto-save failed:', data.message);
+                }
+            }).catch(err => {
+                console.error('Auto-save network error:', err);
+            });
+        }
+
         refreshState();
     };
 
@@ -57,28 +101,39 @@
         const inputs   = getStatusInputs();
         const total    = inputs.length;
         const approved = inputs.filter(i => i.value === 'approved').length;
-        const rejected = inputs.filter(i => i.value === 'rejected').length;
-        const pending  = total - approved - rejected;
+        const awaitingUpdate = inputs.filter(i => i.getAttribute('data-db-status') === 'rejected').length;
+        const rejected = inputs.filter(i => i.value === 'rejected' && i.getAttribute('data-db-status') !== 'rejected').length;
+        const pending  = total - approved - rejected - awaitingUpdate;
 
         // Progress label inside Documents card header
         const progressEl = document.getElementById('eval-progress-label');
         if (progressEl) {
-            progressEl.textContent = `${approved} approved · ${rejected} rejected · ${pending} pending`;
+            let labelText = `${approved} approved`;
+            if (rejected > 0) labelText += ` · ${rejected} rejected`;
+            if (awaitingUpdate > 0) labelText += ` · ${awaitingUpdate} awaiting re-upload`;
+            if (pending > 0) labelText += ` · ${pending} pending`;
+            progressEl.textContent = labelText;
         }
 
         const btn      = document.getElementById('btn-open-schedule');
         const btnText  = document.getElementById('btn-schedule-text');
         if (!btn) return;
 
-        if (pending > 0) {
-            // ── State 1: Still has unevaluated docs ──
+        if (pending > 0 || awaitingUpdate > 0) {
+            // ── State 1: Still has unevaluated docs or awaiting re-upload ──
             btn.disabled = true;
             btn.className = 'btn btn-outline-secondary btn-sm fw-semibold px-4';
             btn.style.cssText = 'border-radius:6px;';
             btn.removeAttribute('data-bs-toggle');
             btn.removeAttribute('data-bs-target');
             btn.onclick = null;
-            if (btnText) btnText.textContent = `Pending Documents (${pending} remaining)`;
+            if (btnText) {
+                if (awaitingUpdate > 0 && pending === 0) {
+                    btnText.textContent = `Awaiting Applicant Re-upload (${awaitingUpdate} remaining)`;
+                } else {
+                    btnText.textContent = `Pending Documents (${pending + awaitingUpdate} remaining)`;
+                }
+            }
 
         } else if (rejected > 0) {
             // ── State 2: Some rejected, none pending → Send Rejection Email ──
@@ -150,22 +205,10 @@
                 mainBtn.textContent = 'Approvals Saved';
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                // Set up button to open modal now
-                mainBtn.className = 'btn btn-primary btn-sm fw-semibold px-4';
-                mainBtn.style.cssText = 'border-radius:6px;';
-                mainBtn.textContent = 'Set Schedule';
-                mainBtn.disabled = false;
-                mainBtn.onclick = null;
-                mainBtn.setAttribute('data-bs-toggle', 'modal');
-                mainBtn.setAttribute('data-bs-target', '#scheduleInterviewModal');
-
-                // Auto-open modal
-                const modalEl = document.getElementById('scheduleInterviewModal');
-                if (window.bootstrap && window.bootstrap.Modal) {
-                    new window.bootstrap.Modal(modalEl).show();
-                } else if (typeof $ !== 'undefined') {
-                    $(modalEl).modal('show');
-                }
+                mainBtn.textContent = 'Approvals Saved';
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
             }
 
         } catch (err) {
@@ -195,6 +238,7 @@
                 list.innerHTML = '';
                 document.querySelectorAll('input[id^="status-input-"]').forEach(input => {
                     if (input.value !== 'rejected') return;
+                    if (input.getAttribute('data-db-status') === 'rejected') return;
 
                     const docId   = input.id.replace('status-input-', '');
                     const nameEl  = document.querySelector(`#doc-row-${docId} .doc-field-name`);
@@ -370,6 +414,52 @@
             if (spinner) spinner.classList.remove('d-none');
         });
     }
+
+    // Wire auto-save for rejection remarks on change / blur
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('reject-remarks-input')) {
+            const ta = e.target;
+            const docId = ta.id.replace('remarks-', '');
+            
+            let itemType = 'document';
+            let itemId = docId;
+
+            if (docId.startsWith('cred-')) {
+                itemType = 'credential';
+                itemId = parseInt(docId.replace('cred-', ''), 10);
+            } else if (docId.startsWith('inst-')) {
+                itemType = 'instructor';
+                itemId = parseInt(docId.replace('inst-', ''), 10);
+            } else {
+                itemId = parseInt(docId, 10);
+            }
+
+            const statusInput = document.getElementById(`status-input-${docId}`);
+            const status = statusInput ? statusInput.value : 'rejected';
+
+            if (window.ARMS && window.ARMS.evaluateItemUrl) {
+                const formData = new FormData();
+                formData.append('_token', window.ARMS.csrfToken);
+                formData.append('item_type', itemType);
+                formData.append('item_id', itemId);
+                formData.append('status', status);
+                formData.append('remarks', ta.value);
+
+                fetch(window.ARMS.evaluateItemUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                }).then(async (res) => {
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast('Rejection remarks auto-saved.', 'success');
+                    }
+                }).catch(err => {
+                    console.error('Auto-save remarks error:', err);
+                });
+            }
+        }
+    });
 
     /* ─── Init ────────────────────────────────────────────── */
     if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate) {

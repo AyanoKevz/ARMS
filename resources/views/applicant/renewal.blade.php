@@ -126,58 +126,69 @@
                     <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
                         1. FATPro General & Legal Documents
                     </h6>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle" style="font-size: 0.85rem;">
-                            <thead>
-                                <tr class="table-light">
-                                    <th>Document / Field Name</th>
-                                    <th>Value / PDF</th>
-                                    <th class="text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($pendingRenewal->documents as $doc)
-                                    @php
-                                        $field = $doc->documentField;
-                                        $isPdf = $field?->input_type === 'file';
-                                        $statusClass = match($doc->status) {
-                                            'approved' => 'bg-success text-white',
-                                            'rejected', 'returned' => 'bg-danger text-white',
-                                            default => 'bg-warning text-dark'
-                                        };
-                                    @endphp
-                                    <tr>
-                                        <td class="fw-semibold text-secondary" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                            {{ $field?->name ?? 'Document' }}
-                                        </td>
-                                        <td>
-                                            @if($isPdf)
-                                                @if($doc->userDocument?->file_path)
-                                                    <a href="{{ route('applicant.documents.view', $doc->id) }}" target="_blank" class="btn btn-sm btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.75rem;">
-                                                        View PDF
-                                                    </a>
-                                                @else
-                                                    <span class="text-muted small">No file</span>
+                    @php
+                        // Group documents by their document type (section) and sort by section ID
+                        $grouped = $pendingRenewal->documents->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id)->sortBy(fn($docs, $key) => $key);
+                        $sectionCounter = 1;
+                    @endphp
+
+                    <div class="d-flex flex-column gap-3">
+                        @forelse($grouped as $typeId => $docs)
+                            @php
+                                $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'Other Documents';
+                            @endphp
+
+                            <div class="border rounded shadow-sm mb-3 bg-white" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
+                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.8rem; border-bottom: 1px solid #e2e8f0;">
+                                    <span>{{ $sectionCounter }}. {{ $sectionName }}</span>
+                                </div>
+
+                                <div class="list-group list-group-flush">
+                                    @foreach($docs as $doc)
+                                        @php
+                                            $field = $doc->documentField;
+                                            $isPdf = $field?->input_type === 'file';
+                                            $statusClass = match($doc->status) {
+                                                'approved' => 'bg-success text-white',
+                                                'rejected', 'returned' => 'bg-danger text-white',
+                                                default => 'bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.82rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    {{ $field?->name ?? 'Document' }}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge {{ $statusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($doc->status) }}
+                                                    </span>
+                                                    @if(!$isPdf && $doc->userDocument?->value)
+                                                        <span class="text-muted small" title="{{ $doc->userDocument->value }}" style="font-size: 0.72rem;">
+                                                            Value: {{ Str::limit($doc->userDocument->value, 30) }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div>
+                                                @if($isPdf)
+                                                    @if($doc->userDocument?->file_path)
+                                                        <a href="{{ route('applicant.documents.view', $doc->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
+                                                            <i class="fa fa-eye me-1"></i>View
+                                                        </a>
+                                                    @else
+                                                        <span class="text-muted small">No file</span>
+                                                    @endif
                                                 @endif
-                                            @else
-                                                <span class="text-dark fw-normal" title="{{ $doc->userDocument?->value }}">
-                                                    {{ Str::limit($doc->userDocument?->value, 20) }}
-                                                </span>
-                                            @endif
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge {{ $statusClass }}" style="font-size: 0.72rem; padding: 4px 8px; border-radius: 12px;">
-                                                {{ ucfirst($doc->status) }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="3" class="text-center text-muted py-3">No documents submitted.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @php $sectionCounter++; @endphp
+                        @empty
+                            <p class="text-muted text-center py-3">No documents submitted.</p>
+                        @endforelse
                     </div>
                 </div>
 
@@ -189,56 +200,61 @@
                     
                     @php $appInstructors = $pendingRenewal->user ? $pendingRenewal->user->instructors : collect(); @endphp
                     
-                    @forelse($appInstructors as $inst)
-                        <div class="card mb-3 border rounded shadow-sm bg-white" style="border-color: #eee !important;">
-                            <div class="card-header py-2 bg-light d-flex justify-content-between align-items-center border-bottom" style="background-color: #fcfcfc !important; border-bottom: 1px solid #eee !important;">
-                                <span class="fw-bold text-dark" style="font-size: 0.85rem;">
-                                    {{ $inst->first_name }} {{ $inst->last_name }}
-                                </span>
-                                @if($inst->service_agreement_path)
-                                    <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem;">
-                                        Service Agreement
-                                    </a>
-                                @else
-                                    <span class="text-danger small" style="font-size: 0.72rem;">No Service Agreement</span>
-                                @endif
-                            </div>
-                            <div class="card-body p-2" style="font-size: 0.8rem;">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-borderless align-middle mb-0">
-                                        <thead>
-                                            <tr class="text-muted" style="font-size: 0.75rem; border-bottom: 1px solid #eee;">
-                                                <th>Type</th>
-                                                <th>Cert #</th>
-                                                <th>Validity</th>
-                                                <th class="text-end">Certificate</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($inst->credentials as $cred)
-                                                <tr>
-                                                    <td><span class="badge bg-secondary text-white">{{ $cred->type }}</span></td>
-                                                    <td class="fw-semibold text-secondary">{{ $cred->number }}</td>
-                                                    <td>{{ $cred->validity_date ? \Carbon\Carbon::parse($cred->validity_date)->format('m/d/Y') : 'N/A' }}</td>
-                                                    <td class="text-end">
-                                                        @if($cred->pdf_path)
-                                                            <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem;">
-                                                                View
-                                                            </a>
-                                                        @else
-                                                            <span class="text-muted" style="font-size: 0.7rem;">No File</span>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                    <div class="d-flex flex-column gap-3">
+                        @forelse($appInstructors as $inst)
+                            <div class="border rounded shadow-sm bg-white mb-3" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
+                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.83rem; border-bottom: 1px solid #e2e8f0;">
+                                    <span>{{ $inst->first_name }} {{ $inst->last_name }}</span>
+                                    @if($inst->service_agreement_path)
+                                        <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
+                                            <i class="fa fa-file-contract me-1"></i>Agreement
+                                        </a>
+                                    @else
+                                        <span class="text-danger small" style="font-size: 0.72rem;">No Agreement</span>
+                                    @endif
+                                </div>
+                                <div class="list-group list-group-flush">
+                                    @foreach($inst->credentials as $cred)
+                                        @php
+                                            $credStatus = $cred->status ?: 'pending';
+                                            $credStatusClass = match($credStatus) {
+                                                'approved' => 'badge bg-success text-white',
+                                                'rejected', 'returned' => 'badge bg-danger text-white',
+                                                default => 'badge bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">{{ $cred->type }}</span>
+                                                    Cert #: {{ $cred->number }}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="{{ $credStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($credStatus) }}
+                                                    </span>
+                                                    <span class="text-muted small" style="font-size: 0.72rem;">
+                                                        Validity: {{ $cred->validity_date ? \Carbon\Carbon::parse($cred->validity_date)->format('m/d/Y') : 'N/A' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                @if($cred->pdf_path)
+                                                    <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                        <i class="fa fa-eye me-1"></i>View
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted small">No File</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
-                        </div>
-                    @empty
-                        <p class="text-muted text-center py-3 mb-0" style="font-size: 0.85rem;">No instructors submitted.</p>
-                    @endforelse
+                        @empty
+                            <p class="text-muted text-center py-3 mb-0" style="font-size: 0.85rem;">No instructors submitted.</p>
+                        @endforelse
+                    </div>
                 </div>
             </div>
         </div>
@@ -269,9 +285,17 @@
             <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents
         </h6>
 
-        <form action="{{ route('applicant.renewal.reupload.store') }}" method="POST" enctype="multipart/form-data" id="batch-resubmit-form">
+        <form action="{{ route('applicant.renewal.reupload.store') }}" method="POST" enctype="multipart/form-data" id="batch-resubmit-form" novalidate>
             @csrf
             <input type="hidden" name="application_id" value="{{ $application->id }}">
+
+            {{-- Backend validation error --}}
+            @if(session('resubmit_error'))
+            <div class="alert alert-danger d-flex align-items-center gap-2 mb-3 py-2" role="alert" style="font-size:.87rem;">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                <span>{{ session('resubmit_error') }}</span>
+            </div>
+            @endif
 
             <div class="d-flex flex-column gap-4">
                 {{-- FATPro Documents Section --}}
@@ -308,6 +332,13 @@
                                             @if($rdoc->remarks)
                                             <div class="text-muted small mt-1">
                                                 <i class="bi bi-chat-left-text me-1"></i>{{ $rdoc->remarks }}
+                                            </div>
+                                            @endif
+                                            @if($rdoc->documentField?->input_type === 'file' && $rdoc->userDocument?->file_path)
+                                            <div class="mt-2">
+                                                <a href="{{ route('applicant.documents.view', $rdoc->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                                    <i class="bi bi-eye-fill me-1"></i> View Current File
+                                                </a>
                                             </div>
                                             @endif
                                         </div>
@@ -369,6 +400,13 @@
                                     <i class="bi bi-chat-left-text me-1"></i>{{ $rInst->remarks }}
                                 </div>
                                 @endif
+                                @if($rInst->service_agreement_path)
+                                <div class="mt-2">
+                                    <a href="{{ route('applicant.instructors.service_agreement.view', $rInst->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                        <i class="bi bi-eye-fill me-1"></i> View Current File
+                                    </a>
+                                </div>
+                                @endif
                             </div>
                             <div style="min-width:260px;">
                                 <label class="form-label small fw-semibold mb-1" style="color:#842029;">
@@ -402,6 +440,13 @@
                                     <i class="bi bi-chat-left-text me-1"></i>{{ $rCred->remarks }}
                                 </div>
                                 @endif
+                                @if($rCred->pdf_path)
+                                <div class="mt-2">
+                                    <a href="{{ route('applicant.instructors.credentials.view', $rCred->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                        <i class="bi bi-eye-fill me-1"></i> View Current File
+                                    </a>
+                                </div>
+                                @endif
                             </div>
                             <div style="min-width:260px;">
                                 <label class="form-label small fw-semibold mb-1" style="color:#842029;">
@@ -426,8 +471,16 @@
                 @endif
             </div>
 
-            <div class="mt-4 text-end">
-                <button type="submit" class="btn btn-danger fw-bold px-5" id="btn-resubmit-all">
+            <div class="mt-4" id="batch-form-error-banner" style="display:none;" role="alert" aria-live="assertive">
+                <div class="alert alert-danger d-flex align-items-center gap-2 mb-3 py-2" style="font-size:.87rem;">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                    <span>Please upload a replacement PDF for <strong>every</strong> rejected item before submitting.</span>
+                </div>
+            </div>
+
+            <div class="mt-3 text-end">
+                <button type="button" class="btn btn-danger fw-bold px-5" id="btn-resubmit-all"
+                        onclick="handleResubmitSubmit(event)">
                     <i class="bi bi-send-fill me-2"></i>
                     Resubmit All Documents ({{ $totalRejected }})
                 </button>
@@ -446,23 +499,13 @@
                 'desc' => 'Attach clear copy of your payment receipt or deposit slip (PDF/JPG/PNG)',
                 'accept' => '.pdf,.jpg,.jpeg,.png'
             ],
-            'e_signature'      => [
-                'label' => 'E-Signature',
-                'desc' => 'Attach clear copy of your digital signature (JPG/PNG only)',
-                'accept' => '.jpg,.jpeg,.png'
-            ],
-            'id_photo'         => [
-                'label' => 'ID Photo',
-                'desc' => 'Attach clear 2x2 ID photo with white background (JPG/PNG only)',
-                'accept' => '.jpg,.jpeg,.png'
-            ],
         ];
         $needsUpload = false;
     @endphp
 
     <div class="x_panel mt-4" style="border-left: 4px solid #17a2b8;">
         <div class="x_title">
-            <h2 class="fw-bold text-info" style="color: #17a2b8 !important;"><i class="fas fa-credit-card me-2"></i>Submit Payment & Signatures</h2>
+            <h2 class="fw-bold text-info" style="color: #17a2b8 !important;"><i class="fas fa-credit-card me-2"></i>Submit Proof of Payment</h2>
             <div class="clearfix"></div>
         </div>
         <div class="x_content py-3">
@@ -478,19 +521,22 @@
                 </div>
             </div>
             <p class="text-muted mb-4" style="font-size: 0.95rem;">
-                Congratulations on passing your interview! To proceed with issuing your renewal/reinstatement accreditation certificate, please upload the required documents below. You may upload them individually or all at once.
+                Congratulations on passing your interview! To proceed with issuing your renewal/reinstatement accreditation certificate, please upload your Proof of Payment below.
             </p>
 
-            <form action="{{ route('applicant.renewal.submit_payment') }}" method="POST" enctype="multipart/form-data" id="payment-upload-form">
+            <form action="{{ route('applicant.renewal.submit_payment') }}" method="POST" enctype="multipart/form-data" id="payment-upload-form" novalidate>
                 @csrf
                 <input type="hidden" name="application_id" value="{{ $pendingRenewal->id }}">
 
                 <div class="d-flex flex-column gap-3 mb-4">
                     @foreach($reqs as $key => $info)
                         @php
-                            $status = $payment ? $payment->{"{$key}_status"} : 'missing';
-                            $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                             $filePath = $payment ? $payment->$key : null;
+                            $status = $payment ? $payment->{"{$key}_status"} : 'missing';
+                            if (!$filePath) {
+                                $status = 'missing';
+                            }
+                            $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                         @endphp
                         <div class="p-3 border rounded shadow-sm" style="background: #fafafa; border-color: #e5e5e5 !important;">
                             <div class="row align-items-center">
@@ -559,12 +605,12 @@
                 @if($needsUpload)
                     <div class="text-end">
                         <button type="submit" class="btn btn-info fw-bold px-5" style="border-radius: 8px; background-color: #17a2b8; border-color: #17a2b8; color: white;">
-                            <i class="fas fa-cloud-upload-alt me-2"></i> Upload Payment Files
+                            <i class="fas fa-cloud-upload-alt me-2"></i> Upload Proof of Payment
                         </button>
                     </div>
                 @else
                     <div class="alert alert-success mb-0 text-center fw-semibold py-3">
-                        <i class="fas fa-check-double me-2"></i> All payment documents have been uploaded successfully. The HCD verifier is currently reviewing your payment details.
+                        <i class="fas fa-check-double me-2"></i> Proof of Payment has been uploaded successfully. The HCD verifier is currently reviewing your payment details.
                     </div>
                 @endif
             </form>
@@ -638,7 +684,7 @@
     </div>
 
     {{-- Renewal Form --}}
-    <form action="{{ route('applicant.renewal.store') }}" method="POST" enctype="multipart/form-data" id="renewalForm">
+    <form action="{{ route('applicant.renewal.store') }}" method="POST" enctype="multipart/form-data" id="renewalForm" novalidate>
         @csrf
 
         {{-- Step 1 — Application Type --}}
@@ -753,14 +799,14 @@
                                 @if($type === 'BOSH')
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}" required></div>
                                 @endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span>@endif</label><input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" accept=".pdf" @if(!$cred?->pdf_path) required @endif></div>
+                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label><input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
                             </div>
                         </div>
                         @endforeach
 
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
-                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span>@endif</p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][service_agreement]" accept=".pdf" @if(!$inst->service_agreement_path) required @endif>
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span> <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
+                            <input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][service_agreement]" accept=".pdf" required>
                         </div>
                     </div>
                     @endforeach
@@ -843,45 +889,45 @@
                 @php
                 $docSections = [
                     ['title' => 'Legal Requirements to Operate Business', 'badge' => '1', 'docs' => [
-                        ['code'=>'LEGAL_01','title'=>'DOLE Registration','required'=>true],
-                        ['code'=>'LEGAL_02','title'=>'Business Registration','required'=>true],
-                        ['code'=>'LEGAL_03','title'=>'Articles of Incorporation','required'=>true],
-                        ['code'=>'LEGAL_04','title'=>"Mayor's Permit",'required'=>true],
-                        ['code'=>'LEGAL_05','title'=>'BIR Registration & TIN','required'=>true],
-                        ['code'=>'LEGAL_06','title'=>'DOLE clearance','required'=>true],
-                        ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','required'=>false],
+                        ['code'=>'LEGAL_01','title'=>'DOLE Registration','label'=>'Certificate of Registration to the Department of Labor and Employment (Rule 10-20, OSHS).','required'=>true],
+                        ['code'=>'LEGAL_02','title'=>'Business Registration','label'=>'Registration of business with DTI, SEC, or CDA.','required'=>true],
+                        ['code'=>'LEGAL_03','title'=>'Articles of Incorporation','label'=>'Articles of Incorporation with By-Laws','required'=>true],
+                        ['code'=>'LEGAL_04','title'=>"Mayor's Permit",'label'=>"Valid Mayor's Permit",'required'=>true],
+                        ['code'=>'LEGAL_05','title'=>'BIR Registration & TIN','label'=>'Registration Certificate with BIR, TIN, receipts, and Books of Accounts','required'=>true],
+                        ['code'=>'LEGAL_06','title'=>'DOLE clearance','label'=>'DOLE-issued certificate of no pending labor standard case','required'=>true],
+                        ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of building','required'=>false],
                     ]],
                     ['title' => 'Training Management and Staff', 'badge' => '2', 'docs' => [
-                        ['code'=>'TRAIN_01','title'=>'Organizational Chart','required'=>true],
-                        ['code'=>'TRAIN_02','title'=>'TESDA Certificate','required'=>false],
-                        ['code'=>'TRAIN_03','title'=>'Training Monitoring','required'=>true],
+                        ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
+                        ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
+                        ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
                     ]],
                     ['title' => 'Premises Including Occupational Safety', 'badge' => '3', 'docs' => [
-                        ['code'=>'PREM_01','title'=>'Location Map','required'=>true],
-                        ['code'=>'PREM_02','title'=>'Site Floor Plan','required'=>true],
-                        ['code'=>'PREM_03','title'=>'OSH Policy & Program','required'=>true],
-                        ['code'=>'PREM_04','title'=>'Decontamination Procedures','required'=>true],
-                        ['code'=>'PREM_05','title'=>'Safety Officers List','required'=>true],
-                        ['code'=>'PREM_06','title'=>'First-Aiders List','required'=>true],
-                        ['code'=>'PREM_07','title'=>'First-Aider Certificate','required'=>true],
+                        ['code'=>'PREM_01','title'=>'Location Map','label'=>"Organization's location map",'required'=>true],
+                        ['code'=>'PREM_02','title'=>'Site Floor Plan','label'=>'Detailed floor plan including classrooms, facilities, and emergency exits.','required'=>true],
+                        ['code'=>'PREM_03','title'=>'OSH Policy & Program','label'=>'Occupational Safety and Health Policy and Program','required'=>true],
+                        ['code'=>'PREM_04','title'=>'Decontamination Procedures','label'=>'Written procedures for decontamination of first aid tools/equipment.','required'=>true],
+                        ['code'=>'PREM_05','title'=>'Safety Officers List','label'=>'List of qualified and designated "safety officers".','required'=>true],
+                        ['code'=>'PREM_06','title'=>'First-Aiders List','label'=>'List of qualified first-aiders in the organization.','required'=>true],
+                        ['code'=>'PREM_07','title'=>'First-Aider Certificate','label'=>'Valid first-aider certificate in your organization.','required'=>true],
                     ]],
                     ['title' => 'Policies on IP and Data Protection', 'badge' => '4', 'docs' => [
-                        ['code'=>'IP_01','title'=>'Data Privacy Policy','required'=>true],
-                        ['code'=>'IP_02','title'=>'Intellectual Property Policy','required'=>true],
+                        ['code'=>'IP_01','title'=>'Data Privacy Policy','label'=>'Written policy on how to ensure privacy and security of the data subjects.','required'=>true],
+                        ['code'=>'IP_02','title'=>'Intellectual Property Policy','label'=>'Written policy on use of intellectual properties as applicable.','required'=>true],
                     ]],
                     ['title' => 'Quality Assurance and Enhancement', 'badge' => '5', 'docs' => [
-                        ['code'=>'QA_01','title'=>'Course Review Procedures','required'=>false],
-                        ['code'=>'QA_02','title'=>'Test Results Summary','required'=>true],
-                        ['code'=>'QA_03','title'=>'Evaluation Summary','required'=>true],
-                        ['code'=>'QA_04','title'=>'Assessment Tools','required'=>true],
-                        ['code'=>'QA_05','title'=>'Participant Directory Template','required'=>true],
-                        ['code'=>'QA_06','title'=>'Attendance Sheet Template','required'=>true],
-                        ['code'=>'QA_07','title'=>'Emergency First Aid Manual','required'=>true],
-                        ['code'=>'QA_08','title'=>'Occupational First Aid Manual','required'=>true],
-                        ['code'=>'QA_09','title'=>'Standard First Aid Manual','required'=>true],
+                        ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>false],
+                        ['code'=>'QA_02','title'=>'Test Results Summary','label'=>'Template summary of the pre- and post-test results.','required'=>true],
+                        ['code'=>'QA_03','title'=>'Evaluation Summary','label'=>'Template summary of general and individual trainer evaluation numerical ratings.','required'=>true],
+                        ['code'=>'QA_04','title'=>'Assessment Tools','label'=>'Sample assessment tools such as test questions, etc.','required'=>true],
+                        ['code'=>'QA_05','title'=>'Participant Directory Template','label'=>'Template containing participant data, unique codes, and ID pictures.','required'=>true],
+                        ['code'=>'QA_06','title'=>'Attendance Sheet Template','label'=>'Daily attendance sheet template.','required'=>true],
+                        ['code'=>'QA_07','title'=>'Emergency First Aid Manual','label'=>'Emergency First Aid (1-day) Manual.','required'=>true],
+                        ['code'=>'QA_08','title'=>'Occupational First Aid Manual','label'=>'Occupational First Aid (2-days) Manual.','required'=>true],
+                        ['code'=>'QA_09','title'=>'Standard First Aid Manual','label'=>'Standard First Aid (4-days) Manual.','required'=>true],
                     ]],
                     ['title' => 'Training Equipment and Materials', 'badge' => '6', 'docs' => [
-                        ['code'=>'EQUIP_01','title'=>'Equipment & Materials List','required'=>true],
+                        ['code'=>'EQUIP_01','title'=>'Equipment & Materials List','label'=>'Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to FATPro MOP).','required'=>true],
                     ]],
                 ];
                 @endphp
@@ -893,6 +939,7 @@
                         @if($section['badge'] == '4')
                         <div class="col-md-12 mb-2">
                             <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Data Protection Officer Name <span class="text-danger">*</span></label>
+                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Please provide the full name of your designated Data Protection Officer.</div>
                             @php $existingDPO = $existingDocs->get('IP_DPO_NAME'); @endphp
                             @if($existingDPO && $existingDPO->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ Str::limit($existingDPO->value, 30) }}</div>
@@ -905,18 +952,20 @@
                         @php $existing = $existingDocs->get($f['code']); @endphp
                         <div class="col-md-6 mb-2">
                             <label class="form-label fw-bold mb-1" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
+                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                             @if($existing && $existing->file_path)
-                                <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }}</div>
+                                <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }} <a href="{{ route('applicant.user_documents.view', $existing->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a></div>
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif
-                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && (!$existing || !$existing->file_path)) required @endif>
+                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && !$existing) required @endif>
                         </div>
                         @endforeach
 
                         @if($section['badge'] == '3')
                         <div class="col-md-6 mb-2">
                             <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Certificate Validity Date <span class="text-danger">*</span></label>
+                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Validity date of your first-aider certificate.</div>
                             @php $existingPremDate = $existingDocs->get('PREM_DATE'); @endphp
                             @if($existingPremDate && $existingPremDate->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ $existingPremDate->value }}</div>
@@ -959,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const container = document.getElementById('instructorCardsContainer');
-    if (!container) return;
+    if (container) {
     
     const template = document.getElementById('instructorTemplate');
     const addBtn = document.getElementById('addInstructorBtn');
@@ -1045,7 +1094,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             relabelCards();
         });
-    }
+    } // end if(addBtn)
+
+    } // end if(container)
 
     /* ── Live Validation for Telephone, Fax, and Rep Contact ── */
     const telInput = document.getElementById('telephone');
@@ -1132,6 +1183,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 e.stopPropagation();
                 this.classList.add('was-validated');
+                
+                // Focus on the first invalid field for better UX
+                const firstInvalid = this.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.focus();
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             } else {
                 this.classList.add('was-validated');
                 const btn = document.getElementById('renewalSubmitBtn');
@@ -1188,14 +1246,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    const batchForm = document.getElementById('batch-resubmit-form');
-    const batchBtn  = document.getElementById('btn-resubmit-all');
-    if (batchForm && batchBtn) {
-        batchForm.addEventListener('submit', function () {
+    // ─── Batch Resubmit: Global handler called directly from button onclick ───
+    window.handleResubmitSubmit = function(e) {
+        const batchForm   = document.getElementById('batch-resubmit-form');
+        const batchBtn    = document.getElementById('btn-resubmit-all');
+        const batchBanner = document.getElementById('batch-form-error-banner');
+
+        if (!batchForm) return;
+
+        const fileInputs = Array.from(batchForm.querySelectorAll('.batch-file-input'));
+        let firstErrorWrapper = null;
+        let hasError = false;
+
+        fileInputs.forEach(function(input) {
+            const wrapper = input.closest('div.file-upload-wrapper');
+            if (input.files.length === 0) {
+                hasError = true;
+                input.classList.add('is-invalid');
+                input.classList.remove('is-valid');
+                if (wrapper) {
+                    const feedback = wrapper.querySelector('.file-invalid-feedback');
+                    if (feedback) feedback.style.display = 'block';
+                    const btn = wrapper.querySelector('.custom-file-btn');
+                    if (btn) {
+                        btn.classList.remove('btn-success');
+                        btn.style.cssText = 'border-color:#dc3545 !important; color:#dc3545 !important; background-color:#fff5f5 !important;';
+                        btn.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i> Required';
+                    }
+                    if (!firstErrorWrapper) firstErrorWrapper = wrapper;
+                }
+            } else {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+                if (wrapper) {
+                    const feedback = wrapper.querySelector('.file-invalid-feedback');
+                    if (feedback) feedback.style.display = 'none';
+                }
+            }
+        });
+
+        if (hasError) {
+            if (batchBanner) batchBanner.style.display = 'block';
+            const scrollTarget = firstErrorWrapper || batchBanner;
+            if (scrollTarget) scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return; // stop — do NOT submit
+        }
+
+        // All files present — hide banner and submit
+        if (batchBanner) batchBanner.style.display = 'none';
+        if (batchBtn) {
             batchBtn.disabled = true;
             batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
-        });
-    }
+        }
+        batchForm.submit();
+    };
 
     // Payment Upload File Input Handling
     document.querySelectorAll('.payment-file-input').forEach(function (input) {
@@ -1235,10 +1339,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentForm = document.getElementById('payment-upload-form');
     if (paymentForm) {
         paymentForm.addEventListener('submit', function (e) {
-            const btn = this.querySelector('button[type="submit"]');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.classList.add('was-validated');
+            } else {
+                this.classList.add('was-validated');
+                const btn = this.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
+                }
             }
         });
     }
@@ -1258,12 +1369,27 @@ document.addEventListener('DOMContentLoaded', function() {
     .real-file-input.is-invalid ~ div .custom-file-btn {
         border-color: var(--bs-danger) !important;
         color: var(--bs-danger) !important;
-        background-color: transparent !important;
+        background-color: #fff5f5 !important;
     }
     .real-file-input:valid ~ div .custom-file-btn {
         background-color: #198754 !important;
         border-color: #198754 !important;
         color: white !important;
+    }
+
+    /* Highlight empty required file inputs in red when invalid/submitted */
+    .was-validated input[type="file"]:invalid,
+    input[type="file"].is-invalid {
+        border-color: #dc3545 !important;
+        background-color: #fff8f8 !important;
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+    }
+
+    /* Highlight standard inputs when in valid state */
+    .was-validated input[type="file"]:valid,
+    input[type="file"].is-valid {
+        border-color: #198754 !important;
+        background-color: #f8fff9 !important;
     }
 
     /* Fix for Bootstrap 5 file input validation huge space bug */

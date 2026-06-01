@@ -307,3 +307,45 @@ body {
     height: auto !important;
     overflow-y: visible !important;
 }
+
+/* Expanded width for collapsed (mini) sidebar to prevent text overflow/overlap */
+body.nav-sm .container.body .col-md-3.left_col {
+    width: 85px !important;
+}
+body.nav-sm .right_col {
+    margin-left: 85px !important;
+}
+body.nav-sm .top_nav {
+    margin-left: 85px !important;
+}
+body.nav-sm footer {
+    margin-left: 85px !important;
+}
+
+/* Adjust collapsed menu items to fit the new width and long words */
+body.nav-sm .nav.side-menu li a {
+    font-size: 9.5px !important;
+    padding: 12px 4px !important;
+    min-height: 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+body.nav-sm .nav.side-menu li a i {
+    font-size: 20px !important;
+    margin-bottom: 6px !important;
+    width: 100% !important;
+    text-align: center !important;
+}
+body.nav-sm .sidebar-footer {
+    width: 85px !important;
+}
+body.nav-sm .sidebar-footer #real-time-clock {
+    font-size: 0.72rem !important;
+}
+body.nav-sm .sidebar-footer #real-time-date {
+    font-size: 0.58rem !important;
+}
+

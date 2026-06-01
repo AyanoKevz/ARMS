@@ -22,9 +22,16 @@ use App\Mail\InstructorUpdateCompleteEmail;
 use App\Mail\AccreditationRevokedEmail;
 use App\Mail\DocumentsApprovedEmail;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\PctService;
 
 class ApplicationController extends Controller
 {
+    protected PctService $pctService;
+
+    public function __construct(PctService $pctService)
+    {
+        $this->pctService = $pctService;
+    }
     /**
      * Helper to block Verifier role from accessing evaluator-specific actions.
      */
@@ -52,6 +59,7 @@ class ApplicationController extends Controller
      */
     public function dashboard(Request $request)
     {
+        $this->pctService->autoResumeAllScheduledInterviews();
         $selectedYear = $request->input('year', now()->year);
 
         // ── Statuses we care about ───────────────────────────────────────────
@@ -203,6 +211,9 @@ class ApplicationController extends Controller
                 'remarks'        => 'Application is now being evaluated.',
             ]);
 
+            // ── PCT: Initialize Steps 1+2 (auto) and start Step 3 (Evaluation)
+            $this->pctService->initializeFromEvaluation($application);
+
             // Notify applicant via email
             $applicantEmail = $application->user?->email;
             if ($applicantEmail) {
@@ -271,7 +282,11 @@ class ApplicationController extends Controller
             'interview',
             'accreditation',
             'user.instructors.credentials',
+            'pctEntries',
         ]);
+
+        // Auto-resume Interview (Step 5) if current time is >= scheduled interview time
+        $this->pctService->autoResumeInterviewIfScheduled($application);
 
         // Load all accreditations for this user (for history display)
         $accreditationHistory = \App\Models\Accreditation::where('user_id', $application->user_id)
@@ -279,7 +294,10 @@ class ApplicationController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('admin.hcd.show_application_info', compact('application', 'accreditationHistory'));
+        // PCT Summary for timeline card
+        $pctSummary = $this->pctService->getSummary($application);
+
+        return view('admin.hcd.show_application_info', compact('application', 'accreditationHistory', 'pctSummary'));
     }
 
     /**
@@ -350,6 +368,48 @@ class ApplicationController extends Controller
         }
 
         return back()->with('success', 'Document ' . ucfirst($newStatus) . ' successfully.');
+    }
+
+    /**
+     * AJAX endpoint to save evaluation for a single item (document, instructor, or credential) immediately.
+     */
+    public function evaluateItem(Request $request, Application $application)
+    {
+        $this->checkVerifierAccess();
+
+        $request->validate([
+            'item_type' => ['required', 'in:document,instructor,credential'],
+            'item_id'   => ['required', 'integer'],
+            'status'    => ['required', 'in:approved,rejected,pending'],
+            'remarks'   => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $itemType = $request->input('item_type');
+        $itemId   = $request->input('item_id');
+        $status   = $request->input('status');
+        $remarks  = $request->input('status') === 'rejected' ? $request->input('remarks') : null;
+
+        if ($itemType === 'document') {
+            $item = ApplicationDocument::where('application_id', $application->id)->findOrFail($itemId);
+        } elseif ($itemType === 'instructor') {
+            $item = \App\Models\Instructor::whereHas('user.applications', function ($q) use ($application) {
+                $q->where('id', $application->id);
+            })->findOrFail($itemId);
+        } else {
+            $item = \App\Models\InstructorCredential::whereHas('instructor.user.applications', function ($q) use ($application) {
+                $q->where('id', $application->id);
+            })->findOrFail($itemId);
+        }
+
+        $item->update([
+            'status'  => $status,
+            'remarks' => $remarks,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Evaluation saved immediately.',
+        ]);
     }
 
     /**
@@ -487,6 +547,9 @@ class ApplicationController extends Controller
                     ]);
                 }
 
+                // ── PCT: Pause Step 3 (waiting for applicant re-upload)
+                $this->pctService->pauseCurrentStep($application);
+
                 // Send Email
                 $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
                 $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
@@ -571,6 +634,9 @@ class ApplicationController extends Controller
                 ]);
             }
 
+            // ── PCT: Complete Step 3 (Evaluation), Start Step 4 (Pending Interview)
+            $this->pctService->transitionToStep($application, 4);
+
             if ($application->user && $application->user->email) {
                 try {
                     Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
@@ -642,6 +708,12 @@ class ApplicationController extends Controller
             ]
         );
 
+        // ⏱ PCT: Complete Step 4 (Pending Interview), Start Step 5 (Interview), then immediately PAUSE Step 5
+        if ($isNewInterview) {
+            $this->pctService->transitionToStep($application, 5);
+            $this->pctService->pauseCurrentStep($application);
+        }
+
         // Always send / re-send email confirmation to the applicant
         if ($application->user && $application->user->email) {
             $isUpdate = !$isNewInterview;
@@ -712,6 +784,7 @@ class ApplicationController extends Controller
     public function pendingInterview()
     {
         $this->checkVerifierAccess();
+        $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -737,6 +810,7 @@ class ApplicationController extends Controller
     public function scheduledInterviews()
     {
         $this->checkVerifierAccess();
+        $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
             'user.organizationProfile',
             'user.individualProfile',
@@ -749,6 +823,38 @@ class ApplicationController extends Controller
             ->get();
 
         return view('admin.hcd.scheduled_interviews', compact('applications'));
+    }
+
+    /**
+     * Start the interview manually (resumes Step 5 PCT).
+     */
+    public function startInterview(Request $request, Application $application)
+    {
+        $this->checkVerifierAccess();
+        $activePct = $application->activePctEntry;
+        
+        if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'paused') {
+            $this->pctService->resumeCurrentStep($application);
+            return back()->with('success', 'Interview started successfully.');
+        }
+
+        return back()->with('error', 'Cannot start the interview. Ensure the application is scheduled and not already started.');
+    }
+
+    /**
+     * Stop the interview manually (completes Step 5, starts Step 6 PCT).
+     */
+    public function stopInterview(Request $request, Application $application)
+    {
+        $this->checkVerifierAccess();
+        $activePct = $application->activePctEntry;
+        
+        if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'active') {
+            $this->pctService->transitionToStep($application, 6);
+            return back()->with('success', 'Interview stopped. You can now record the result.');
+        }
+
+        return back()->with('error', 'Cannot stop the interview. Ensure the interview is currently running.');
     }
 
     /**
@@ -772,6 +878,8 @@ class ApplicationController extends Controller
         }
 
         if ($request->input('result') === 'passed') {
+            $application->load('user');
+
             // Log status: Awaiting Payment
             $awaitingPaymentStatus = ApplicationStatus::where('name', 'Awaiting Payment')->first();
             if ($awaitingPaymentStatus) {
@@ -779,8 +887,23 @@ class ApplicationController extends Controller
                     'application_id' => $application->id,
                     'status_id'      => $awaitingPaymentStatus->id,
                     'updated_by'     => auth()->id(),
-                    'remarks'        => 'Interview passed. Application is now awaiting recommendation form and payment verification.',
+                    'remarks'        => 'Interview passed. Payment instructions automatically emailed to applicant.',
                 ]);
+            }
+
+            // ⏱ PCT: Complete Step 6 (Result) ➔ Step 7 (Recommendation & Payment)
+            $this->pctService->transitionToStep($application, 7);
+
+            // Trigger payment instructions email automatically
+            if ($application->user && $application->user->email) {
+                try {
+                    Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
+                        $message->to($application->user->email)
+                            ->subject('Action Required: Submit Recommendation and Payment - ' . $application->tracking_number);
+                    });
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send auto payment instructions email: ' . $e->getMessage());
+                }
             }
 
             // Notify Verifiers
@@ -813,6 +936,9 @@ class ApplicationController extends Controller
                     'remarks'        => 'Interview not passed. Application marked as Rejected/Archived.',
                 ]);
             }
+
+            // ── PCT: Complete all active steps (final)
+            $this->pctService->completeAllSteps($application);
 
             return redirect()->route('admin.hcd.interviews.scheduled')
                 ->with('success', 'Application ' . $trackingNumber . ' has been rejected and archived. The applicant has been notified.');
@@ -994,7 +1120,7 @@ class ApplicationController extends Controller
     /**
      * Generate and stream the Accreditation Certificate as a PDF.
      */
-    public function downloadCertificate(\App\Models\Accreditation $accreditation)
+    public function downloadCertificate(Request $request, \App\Models\Accreditation $accreditation)
     {
         $accreditation->load([
             'user.organizationProfile',
@@ -1013,9 +1139,13 @@ class ApplicationController extends Controller
             $fatproName = $user->name;
         }
 
+        // Allow admin to customise the Executive Director name on the certificate
+        $executiveDirector = $request->query('executive_director', 'JOSE MARIA S. BATINO');
+
         $pdf = Pdf::loadView('admin.accreditation_certificate', [
-            'accreditation' => $accreditation,
-            'fatproName'    => $fatproName,
+            'accreditation'     => $accreditation,
+            'fatproName'        => $fatproName,
+            'executiveDirector' => $executiveDirector,
         ])->setPaper('a4', 'portrait');
 
         $filename = 'Accreditation_Certificate_' . $accreditation->accreditation_number . '.pdf';
@@ -1228,6 +1358,34 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Display a listing of applications awaiting or completed certificate release.
+     */
+    public function releasingList()
+    {
+        $this->checkEvaluatorAccess(); // Block evaluators, only allow verifiers
+
+        $applications = Application::with([
+            'user.organizationProfile',
+            'user.individualProfile',
+            'accreditationType',
+            'latestStatus.status',
+            'accreditation',
+        ])
+            ->whereHas('latestStatus', function ($query) {
+                $query->whereHas('status', function ($q) {
+                    $q->where('name', 'Approved');
+                });
+            })
+            ->whereHas('accreditation', function ($query) {
+                $query->whereNull('scanned_certificate');
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return view('admin.hcd.releasing', compact('applications'));
+    }
+
+    /**
      * Generate dynamic OSHC recommendation form PDF.
      */
     public function generateRecommendationPDF(Request $request, Application $application)
@@ -1337,10 +1495,6 @@ class ApplicationController extends Controller
             'signed_recommendation_letter' => $hasLetter ? 'nullable|file|mimes:pdf|max:10240' : 'required|file|mimes:pdf|max:10240',
             'proof_of_payment_status'      => 'required|in:pending,approved,rejected',
             'proof_of_payment_remarks'     => 'nullable|string|max:1000',
-            'e_signature_status'           => 'required|in:pending,approved,rejected',
-            'e_signature_remarks'          => 'nullable|string|max:1000',
-            'id_photo_status'              => 'required|in:pending,approved,rejected',
-            'id_photo_remarks'             => 'nullable|string|max:1000',
         ]);
 
         $accreditationType = $application->accreditationType;
@@ -1369,34 +1523,18 @@ class ApplicationController extends Controller
             $payment->proof_of_payment = null;
         }
 
-        $payment->e_signature_status  = $request->input('e_signature_status');
-        $payment->e_signature_remarks = $request->input('e_signature_remarks');
-        if ($payment->e_signature_status === 'rejected') {
-            if ($payment->e_signature && Storage::disk('local')->exists($payment->e_signature)) {
-                Storage::disk('local')->delete($payment->e_signature);
-            }
-            $payment->e_signature = null;
-        }
-
-        $payment->id_photo_status  = $request->input('id_photo_status');
-        $payment->id_photo_remarks = $request->input('id_photo_remarks');
-        if ($payment->id_photo_status === 'rejected') {
-            if ($payment->id_photo && Storage::disk('local')->exists($payment->id_photo)) {
-                Storage::disk('local')->delete($payment->id_photo);
-            }
-            $payment->id_photo = null;
-        }
-
         $payment->save();
 
-        $allApproved = ($payment->proof_of_payment_status === 'approved') &&
-                       ($payment->e_signature_status === 'approved') &&
-                       ($payment->id_photo_status === 'approved');
+        $allApproved = ($payment->proof_of_payment_status === 'approved');
 
         if ($allApproved) {
             if (!$payment->signed_recommendation_letter) {
                 return back()->with('error', 'You must upload the signed recommendation letter before final approval.')->withInput();
             }
+
+            // ── PCT: Complete Step 7 (Recommendation & Payment), Start Step 8 (Certificate Issuance)
+            $this->pctService->completeCurrentStep($application);
+            $this->pctService->startStep($application, 8);
 
             // Create accreditation record
             $datePrefix = now()->format('ymd'); // YYMMDD
@@ -1475,14 +1613,15 @@ class ApplicationController extends Controller
                 }
             }
 
-            return redirect()->route('admin.hcd.applications.awaiting_payment')->with('success', 'Application ' . $application->tracking_number . ' successfully approved and accredited! Number: ' . $accNumber);
+            return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' successfully approved and accredited! Number: ' . $accNumber);
         } else {
             // Rejections made: Notify applicant to resubmit
-            $hasRejections = ($payment->proof_of_payment_status === 'rejected') ||
-                             ($payment->e_signature_status === 'rejected') ||
-                             ($payment->id_photo_status === 'rejected');
+            $hasRejections = ($payment->proof_of_payment_status === 'rejected');
 
             if ($hasRejections) {
+                // ── PCT: Pause Step 7 (waiting for payment re-upload)
+                $this->pctService->pauseCurrentStep($application);
+
                 if ($application->user && $application->user->email) {
                     try {
                         Mail::send('emails.payment_rejection', ['application' => $application, 'payment' => $payment], function ($message) use ($application) {
@@ -1499,10 +1638,13 @@ class ApplicationController extends Controller
                     'application_id' => $application->id,
                     'status_id'      => $application->latestStatus->status_id,
                     'updated_by'     => auth()->id(),
-                    'remarks'        => 'Payment evaluation complete. Rejected items were identified, and applicant has been requested to resubmit.',
+                    'remarks'        => 'Payment evaluation complete. Proof of payment was rejected, and applicant has been requested to resubmit.',
                 ]);
 
-                return redirect()->route('admin.hcd.applications.awaiting_payment')->with('success', 'Payment evaluation submitted. Rejections were recorded and applicant has been notified.');
+                return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Payment evaluation submitted. Rejections were recorded and applicant has been notified.');
+            } elseif (!$payment->proof_of_payment && $payment->signed_recommendation_letter) {
+                // ── PCT: Pause Step 7 (waiting for applicant to submit payment)
+                $this->pctService->pauseCurrentStep($application);
             }
         }
 
@@ -1544,7 +1686,7 @@ class ApplicationController extends Controller
      */
     public function servePaymentFile(\App\Models\ApplicationPayment $payment, $fileType)
     {
-        $allowedTypes = ['proof_of_payment', 'e_signature', 'id_photo', 'signed_recommendation_letter'];
+        $allowedTypes = ['proof_of_payment', 'signed_recommendation_letter'];
         if (!in_array($fileType, $allowedTypes)) {
             abort(404, 'Invalid file type requested.');
         }
@@ -1567,6 +1709,84 @@ class ApplicationController extends Controller
 
         return response()->file($fullPath, [
             'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Verifier uploads the scanned physical certificate (Step 8 completion).
+     */
+    public function uploadScannedCertificate(Request $request, \App\Models\Accreditation $accreditation)
+    {
+        $this->checkEvaluatorAccess();
+
+        $request->validate([
+            'scanned_certificate' => 'required|file|mimes:pdf|max:10240',
+        ]);
+
+        $application = $accreditation->application;
+
+        $accreditationType = $application->accreditationType;
+        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $fatProName = $application->user->name;
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+
+        if ($request->hasFile('scanned_certificate')) {
+            if ($accreditation->scanned_certificate && Storage::disk('local')->exists($accreditation->scanned_certificate)) {
+                Storage::disk('local')->delete($accreditation->scanned_certificate);
+            }
+            $filename = "scanned_certificate_" . time() . ".pdf";
+            $path = $request->file('scanned_certificate')->storeAs($baseDocPath, $filename, 'local');
+            $accreditation->scanned_certificate = $path;
+            $accreditation->save();
+        }
+
+        // ── PCT: Complete Step 8 (Certificate Issuance)
+        $this->pctService->completeCurrentStep($application);
+
+        // Send Email to Applicant
+        if ($application->user?->email) {
+            try {
+                Mail::send('emails.certificate_ready', ['application' => $application], function ($message) use ($application) {
+                    $message->to($application->user->email)
+                        ->subject('Ready for Pickup: Your Accreditation Certificate - ' . $application->tracking_number);
+                });
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Ready for pickup email failed: ' . $e->getMessage());
+            }
+        }
+
+        // Add log entry
+        ApplicationStatusLog::create([
+            'application_id' => $application->id,
+            'status_id'      => $application->latestStatus->status_id,
+            'updated_by'     => auth()->id(),
+            'remarks'        => 'Scanned certificate uploaded. Applicant has been emailed that the certificate is ready for pickup.',
+        ]);
+
+        return back()->with('success', 'Scanned certificate successfully uploaded. The applicant has been notified by email.');
+    }
+
+    /**
+     * Securely serve scanned certificate files to authenticated admin users.
+     */
+    public function viewScannedCertificate(\App\Models\Accreditation $accreditation)
+    {
+        $path = $accreditation->scanned_certificate;
+        if (!$path || !Storage::disk('local')->exists($path)) {
+            abort(404, 'Scanned certificate not found.');
+        }
+
+        $fullPath = Storage::disk('local')->path($path);
+        $filename = basename($path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
             'Cache-Control'       => 'no-cache, no-store, must-revalidate',
             'Pragma'              => 'no-cache',

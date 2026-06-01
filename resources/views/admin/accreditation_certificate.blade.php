@@ -228,12 +228,12 @@
         </div>
 
         {{-- ── Bottom layout table (Signature Block pushed to the right side) ── --}}
-        <table style="width: 100%; margin-top: 12mm; border: none; border-collapse: collapse;">
+        <table style="width: 100%; margin-top:40mm; border: none; border-collapse: collapse;">
             <tr>
                 <td style="width: 50%;"></td>
                 <td style="width: 50%; text-align: center; vertical-align: top; padding: 0;">
                     <div class="signature-block">
-                        <div class="sig-name">JOSE MARIA S. BATINO</div>
+                        <div class="sig-name">{{ $executiveDirector }}</div>
                         <div class="sig-title">Executive Director</div>
                         <div class="sig-org">Occupational Safety and Health Center</div>
                     </div>

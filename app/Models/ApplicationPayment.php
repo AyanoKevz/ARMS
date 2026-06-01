@@ -14,12 +14,6 @@ class ApplicationPayment extends Model
         'proof_of_payment',
         'proof_of_payment_status',
         'proof_of_payment_remarks',
-        'e_signature',
-        'e_signature_status',
-        'e_signature_remarks',
-        'id_photo',
-        'id_photo_status',
-        'id_photo_remarks',
         'signed_recommendation_letter',
     ];
 

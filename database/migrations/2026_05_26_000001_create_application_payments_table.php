@@ -23,14 +23,6 @@ return new class extends Migration
             $table->enum('proof_of_payment_status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('proof_of_payment_remarks')->nullable();
 
-            $table->string('e_signature')->nullable();
-            $table->enum('e_signature_status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->text('e_signature_remarks')->nullable();
-
-            $table->string('id_photo')->nullable();
-            $table->enum('id_photo_status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->text('id_photo_remarks')->nullable();
-
             // Verifier uploaded recommendation letter
             $table->string('signed_recommendation_letter')->nullable();
 
@@ -39,8 +31,6 @@ return new class extends Migration
             // Indexes for fast lookups (Normalization & Indexing requirement)
             $table->index('application_id');
             $table->index('proof_of_payment_status');
-            $table->index('e_signature_status');
-            $table->index('id_photo_status');
         });
     }
 

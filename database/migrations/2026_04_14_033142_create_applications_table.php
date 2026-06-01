@@ -125,6 +125,8 @@ return new class extends Migration
 
             $table->enum('status', ['active', 'expired', 'revoked']);
 
+            $table->string('scanned_certificate')->nullable();
+
             // Reminder tracking columns
             $table->timestamp('reminder_3mo_sent_at')->nullable();
             $table->timestamp('reminder_2mo_sent_at')->nullable();

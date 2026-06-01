@@ -80,7 +80,7 @@
                         <div class="rounded-3 border mb-4 overflow-hidden" style="border-color:#fbbf24 !important; border-width: 1px !important;">
                             <div class="px-4 py-2 fw-bold d-flex align-items-center gap-2"
                                 style="background:#f59e0b; color:#fff; font-size:.9rem;">
-                                <i class="bi bi-credit-card-2-back-fill"></i> Interview Passed! Submit Payment & Signatures
+                                <i class="bi bi-credit-card-2-back-fill"></i> Interview Passed! Submit Proof of Payment
                             </div>
                             <div class="px-4 py-3" style="background:#fffbeb;">
                                 <div class="alert alert-warning border border-warning-subtle d-flex align-items-start gap-3 p-3 mb-3 bg-white" style="border-radius: 10px; color: #856404;">
@@ -95,15 +95,13 @@
                                     </div>
                                 </div>
                                 <p class="small text-muted mb-3">
-                                    Congratulations on passing your interview! To proceed with your accreditation certificate, please submit the following files. You can upload them individually.
+                                    Congratulations on passing your interview! To proceed with your accreditation certificate, please submit your Proof of Payment below.
                                 </p>
 
                                 @php
                                 $payment = $application->payment;
                                 $reqs = [
                                 'proof_of_payment' => ['label' => 'Proof of Payment', 'desc' => 'Attach clear copy of your payment receipt or deposit slip (PDF/JPG/PNG)', 'accept' => '.pdf,.jpg,.jpeg,.png'],
-                                'e_signature' => ['label' => 'E-Signature', 'desc' => 'Attach clear copy of your digital signature (JPG/PNG only)', 'accept' => '.jpg,.jpeg,.png'],
-                                'id_photo' => ['label' => 'ID Photo', 'desc' => 'Attach clear 2x2 ID photo with white background (JPG/PNG only)', 'accept' => '.jpg,.jpeg,.png'],
                                 ];
                                 $needsUpload = false;
                                 @endphp
@@ -115,9 +113,12 @@
                                     <div class="d-flex flex-column gap-3">
                                         @foreach($reqs as $key => $info)
                                         @php
-                                        $status = $payment ? $payment->{"{$key}_status"} : 'missing';
-                                        $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                                         $filePath = $payment ? $payment->$key : null;
+                                        $status = $payment ? $payment->{"{$key}_status"} : 'missing';
+                                        if (!$filePath) {
+                                            $status = 'missing';
+                                        }
+                                        $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                                         @endphp
                                         <div class="p-3 bg-white border rounded shadow-sm" style="border-color: #f1f3f5 !important;">
                                             <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
@@ -161,13 +162,13 @@
 
                                     @if($needsUpload)
                                     <div class="mt-3 text-end">
-                                        <button type="submit" class="btn btn-warning fw-bold px-4" style="background:#d97706; border-color:#d97706; color:#fff; border-radius: 8px;">
-                                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Selected Files
+                                        <button type="submit" id="btn-payment-submit" class="btn btn-warning fw-bold px-4" style="background:#d97706; border-color:#d97706; color:#fff; border-radius: 8px;">
+                                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Proof of Payment
                                         </button>
                                     </div>
                                     @else
                                     <div class="alert alert-success mt-3 mb-0 small text-center fw-semibold">
-                                        <i class="bi bi-check-circle-fill me-1"></i> All payment requirements have been uploaded. Awaiting accreditation team to verify the payment.
+                                        <i class="bi bi-check-circle-fill me-1"></i> Proof of Payment has been uploaded. Awaiting accreditation team to verify the payment.
                                     </div>
                                     @endif
                                 </form>
@@ -661,6 +662,16 @@
             form.addEventListener('submit', function() {
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
+            });
+        }
+
+        // Prevent double-submit on payment upload form
+        const paymentForm = document.getElementById('payment-submit-form');
+        const paymentBtn = document.getElementById('btn-payment-submit');
+        if (paymentForm && paymentBtn) {
+            paymentForm.addEventListener('submit', function() {
+                paymentBtn.disabled = true;
+                paymentBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
             });
         }
 

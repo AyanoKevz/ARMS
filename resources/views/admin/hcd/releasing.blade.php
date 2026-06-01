@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Recommendation / Payment Verification')
+@section('title', 'Certificate Releasing')
 
 @push('styles')
 {{-- DataTables CSS --}}
@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
 <link rel="stylesheet" href="{{ asset('css/table-component.css') }}">
 <style>
-    .payment-badge {
+    .cert-badge {
         font-size: 0.72rem;
         padding: 4px 8px;
         border-radius: 12px;
@@ -17,10 +17,8 @@
         display: inline-block;
         margin: 2px;
     }
-    .badge-pending { background-color: #fef9c3; color: #854d0e; }
-    .badge-approved { background-color: #dcfce7; color: #166534; }
-    .badge-rejected { background-color: #fee2e2; color: #991b1b; }
-    .badge-missing { background-color: #f3f4f6; color: #4b5563; }
+    .badge-released { background-color: #dcfce7; color: #166534; }
+    .badge-awaiting { background-color: #fef9c3; color: #854d0e; }
 </style>
 @endpush
 
@@ -28,7 +26,7 @@
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3>Recommendation / Payment Verification</h3>
+            <h3>Certificate Releasing</h3>
         </div>
     </div>
 
@@ -53,7 +51,7 @@
 
             <div class="x_panel">
                 <div class="x_title">
-                    <h2>Applications Awaiting Recommendation Letter & Payment</h2>
+                    <h2>Approved Applications & Releasing Status</h2>
                     <ul class="nav navbar-right panel_toolbox">
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
@@ -62,15 +60,14 @@
                 
                 <div class="x_content">
                     <div class="table-responsive">
-                        <table id="awaiting_payment_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-date-index="4">
+                        <table id="releasing_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-date-index="4">
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
                                     <th class="column-title">FATPro Name</th>
-                                    <th class="column-title">Head Name</th>
-                                    <th class="column-title">Email</th>
-                                    <th class="column-title text-center">Passed Date</th>
-                                    <th class="column-title text-center no-sort">Status</th>
+                                    <th class="column-title">Accreditation No</th>
+                                    <th class="column-title">Approved Date</th>
+                                    <th class="column-title text-center">Certificate Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
                             </thead>
@@ -80,9 +77,8 @@
                                     @php
                                         $org  = $app->user->organizationProfile;
                                         $isOrg = $app->user->profile_type === 'Organization';
-                                        $payment = $app->payment;
-                                        
-                                        $proofStatus = $payment ? $payment->proof_of_payment_status : 'missing';
+                                        $accreditation = $app->accreditation;
+                                        $hasScannedCert = $accreditation && $accreditation->scanned_certificate;
                                     @endphp
                                     <tr class="even pointer">
                                         <td><strong>{{ $app->tracking_number }}</strong></td>
@@ -93,30 +89,29 @@
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
                                         </td>
-                                        <td>{{ $org->head_name ?? '—' }}</td>
-                                        <td>{{ $app->user->email }}</td>
-                                        <td class="text-center" data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
+                                        <td>
+                                            <code class="fw-bold text-dark" style="font-size: .88rem;">
+                                                {{ $accreditation->accreditation_number ?? 'Pending Number' }}
+                                            </code>
+                                        </td>
+                                        <td data-order="{{ $app->updated_at->format('Y-m-d') }}">
+                                            {{ $app->updated_at->format('M d, Y') }}
+                                        </td>
                                         <td class="text-center">
-                                            @php
-                                                $statusName = $app->latestStatus->status->name ?? 'Awaiting Payment';
-                                                if ($statusName === 'Awaiting Payment') {
-                                                    $statusName = 'Recommendation/Payment';
-                                                }
-                                                $badgeClass = 'bg-warning text-dark';
-                                                if ($statusName === 'Approved') {
-                                                    $badgeClass = 'bg-success text-white';
-                                                } elseif ($statusName === 'Rejected') {
-                                                    $badgeClass = 'bg-danger text-white';
-                                                }
-                                            @endphp
-                                            <span class="badge {{ $badgeClass }} fw-bold" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 12px;">
-                                                {{ $statusName }}
-                                            </span>
+                                            @if($hasScannedCert)
+                                                <span class="cert-badge badge-released">
+                                                    <i class="fas fa-check-circle me-1"></i> Released
+                                                </span>
+                                            @else
+                                                <span class="cert-badge badge-awaiting">
+                                                    <i class="fas fa-hourglass-half me-1"></i> Awaiting Scanned Cert
+                                                </span>
+                                            @endif
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
                                             <a href="{{ route('admin.hcd.applications.show', $app->id) }}"
                                                class="btn btn-info btn-xs m-0"
-                                               title="View Application">
+                                               title="View & Upload Certificate">
                                                 <i class="fas fa-eye me-1"></i> View
                                             </a>
                                         </td>
@@ -151,4 +146,22 @@
 
 {{-- Reusable Table Component JS --}}
 <script src="{{ asset('js/table-component.js') }}"></script>
+<script>
+    $(document).ready(function() {
+        if ($.fn.DataTable.isDataTable('#releasing_table')) {
+            $('#releasing_table').DataTable().destroy();
+        }
+        $('#releasing_table').DataTable({
+            responsive: true,
+            order: [[3, 'desc']], // Sort by Approved Date
+            columnDefs: [
+                { targets: 'no-sort', orderable: false }
+            ],
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search releasing applications..."
+            }
+        });
+    });
+</script>
 @endpush

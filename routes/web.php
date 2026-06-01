@@ -91,8 +91,11 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/applications/archived', [HCDApplicationController::class, 'archived'])->name('applications.archived');
             Route::post('/applications/{application}/update-evaluation', [HCDApplicationController::class, 'updateToEvaluation'])->name('applications.update_evaluation');
             Route::post('/applications/{application}/schedule-interview', [HCDApplicationController::class, 'scheduleInterview'])->name('applications.schedule_interview');
+            Route::post('/applications/{application}/start-interview', [HCDApplicationController::class, 'startInterview'])->name('applications.start_interview');
+            Route::post('/applications/{application}/stop-interview', [HCDApplicationController::class, 'stopInterview'])->name('applications.stop_interview');
             Route::get('/interviews/check-slot', [HCDApplicationController::class, 'checkInterviewSlot'])->name('interviews.check_slot');
             Route::post('/applications/{application}/finalize-evaluation', [HCDApplicationController::class, 'finalizeEvaluation'])->name('applications.finalize_evaluation');
+            Route::post('/applications/{application}/evaluate-item', [HCDApplicationController::class, 'evaluateItem'])->name('applications.evaluate_item');
             Route::post('/documents/{document}/evaluate', [HCDApplicationController::class, 'evaluateDocument'])->name('documents.evaluate');
             Route::get('/interviews/pending', [HCDApplicationController::class, 'pendingInterview'])->name('interviews.pending');
             Route::get('/interviews/scheduled', [HCDApplicationController::class, 'scheduledInterviews'])->name('interviews.scheduled');
@@ -101,6 +104,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Payment and Recommendation
             Route::get('/applications/awaiting-payment', [HCDApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');
+            Route::get('/applications/releasing', [HCDApplicationController::class, 'releasingList'])->name('applications.releasing');
 
             Route::get('/applications/{application}', [HCDApplicationController::class, 'show'])->name('applications.show');
             Route::match(['get', 'post'], '/applications/{application}/generate-recommendation', [HCDApplicationController::class, 'generateRecommendationPDF'])->name('applications.generate_recommendation');
@@ -117,6 +121,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             // Accreditation Certificate PDF
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
             Route::post('/accreditations/{accreditation}/revoke', [HCDApplicationController::class, 'revokeAccreditation'])->name('accreditations.revoke');
+            Route::post('/accreditations/{accreditation}/upload-scanned', [HCDApplicationController::class, 'uploadScannedCertificate'])->name('accreditations.upload_scanned');
+            Route::get('/accreditations/{accreditation}/view-scanned', [HCDApplicationController::class, 'viewScannedCertificate'])->name('accreditations.view_scanned');
 
             // Renewal / Reinstatement
             Route::get('/renewal/pending', [HCDApplicationController::class, 'renewalPending'])->name('renewal.pending');
@@ -141,6 +147,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');
     Route::get('/applicant/instructors/{instructor}/service-agreement/view', [ApplicantInstructorController::class, 'serveServiceAgreement'])->name('applicant.instructors.service_agreement.view');
     Route::get('/applicant/documents/{document}/view', [RenewalController::class, 'serveDocument'])->name('applicant.documents.view');
+    Route::get('/applicant/user-documents/{userDocument}/view', [RenewalController::class, 'serveUserDocument'])->name('applicant.user_documents.view');
 });
 
 // Password Reset Routes

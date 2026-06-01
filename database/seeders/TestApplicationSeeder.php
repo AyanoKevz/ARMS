@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
+use App\Models\PctEntry;
+
 class TestApplicationSeeder extends Seeder
 {
     /**
@@ -264,6 +266,33 @@ class TestApplicationSeeder extends Seeder
             'date_of_accreditation' => Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->toDateString(),
             'validity_date' => Carbon::now()->addMonths(3)->toDateString(),
             'status' => 'active',
+            'scanned_certificate' => 'dummy_files/scanned_certificate_acc.pdf',
         ]);
+
+        // 10. Seed PCT entries for accredited application (completed timeline)
+        $pctBaseDate = Carbon::now()->subYears(2)->subMonths(9);
+        $pctSteps = [
+            ['step' => 1, 'name' => 'Submission',               'target' => 3, 'elapsed' => 0,      'offset_days' => 0,   'duration_days' => 0],
+            ['step' => 2, 'name' => 'Receipt of Requirements',  'target' => 1, 'elapsed' => 0,      'offset_days' => 0,   'duration_days' => 0.5],
+            ['step' => 3, 'name' => 'Evaluation',               'target' => 5, 'elapsed' => 345600, 'offset_days' => 0.5, 'duration_days' => 4],
+            ['step' => 4, 'name' => 'Pending Interview',        'target' => 3, 'elapsed' => 172800, 'offset_days' => 4.5, 'duration_days' => 2],
+            ['step' => 5, 'name' => 'Interview',                'target' => 1, 'elapsed' => 7200,   'offset_days' => 6.5, 'duration_days' => 0.5],
+            ['step' => 6, 'name' => 'Interview Result',         'target' => 1, 'elapsed' => 3600,   'offset_days' => 7,   'duration_days' => 0.1],
+            ['step' => 7, 'name' => 'Recommendation & Payment', 'target' => 5, 'elapsed' => 432000, 'offset_days' => 7.1, 'duration_days' => 5],
+            ['step' => 8, 'name' => 'Certificate Issuance',     'target' => 1, 'elapsed' => 43200,  'offset_days' => 12.1,'duration_days' => 0.5],
+        ];
+
+        foreach ($pctSteps as $ps) {
+            PctEntry::create([
+                'application_id' => $accApplication->id,
+                'step_name'      => $ps['name'],
+                'step_number'    => $ps['step'],
+                'target_days'    => $ps['target'],
+                'started_at'     => $pctBaseDate->copy()->addDays($ps['offset_days']),
+                'completed_at'   => $pctBaseDate->copy()->addDays($ps['offset_days'] + $ps['duration_days']),
+                'elapsed_seconds' => $ps['elapsed'],
+                'is_active'      => false,
+            ]);
+        }
     }
 }

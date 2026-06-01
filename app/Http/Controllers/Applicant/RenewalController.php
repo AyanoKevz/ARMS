@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminApplicationSubmittedEmail;
 use App\Mail\AdminDocumentsUploadedEmail;
+use App\Services\PctService;
 
 class RenewalController extends Controller
 {
@@ -200,7 +201,7 @@ class RenewalController extends Controller
             $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
 
             if ($field->input_type === 'file') {
-                if ($isRequired && (!$existing || !$existing->file_path)) {
+                if ($isRequired) {
                     $documentRules[$key] = ['required', 'file', 'mimes:pdf', 'max:10240'];
                 } else {
                     $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
@@ -233,12 +234,8 @@ class RenewalController extends Controller
                 $instructorRules["instructors.{$i}.middle_name"] = ['nullable', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.last_name"]  = ['required', 'string', 'max:255'];
 
-                // Service agreement is required if no existing service agreement
-                if ($existingInst && $existingInst->service_agreement_path) {
-                    $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
-                } else {
-                    $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
-                }
+                // Service agreement is strictly required
+                $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
 
                 foreach (self::CREDENTIAL_TYPES as $type) {
                     $base = "instructors.{$i}.credentials.{$type}";
@@ -253,12 +250,8 @@ class RenewalController extends Controller
                         $instructorRules["{$base}.training_dates"] = ['required', 'string', 'max:500'];
                     }
 
-                    // Certificate PDF is required if no existing credential PDF
-                    if ($existingCred && $existingCred->pdf_path) {
-                        $instructorRules["{$base}.pdf"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
-                    } else {
-                        $instructorRules["{$base}.pdf"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
-                    }
+                    // Certificate PDF is strictly required
+                    $instructorRules["{$base}.pdf"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
                 }
             }
         } else {
@@ -447,6 +440,8 @@ class RenewalController extends Controller
                             'middle_name'            => $instData['middle_name'] ?? null,
                             'last_name'              => $instData['last_name'] ?? '',
                             'service_agreement_path' => $saPermanent,
+                            'status'                 => 'pending',
+                            'remarks'                => null,
                         ]);
                         $instructor = $existingInst;
                     } else {
@@ -456,6 +451,8 @@ class RenewalController extends Controller
                             'middle_name'            => $instData['middle_name'] ?? null,
                             'last_name'              => $instData['last_name'] ?? '',
                             'service_agreement_path' => $saPermanent,
+                            'status'                 => 'pending',
+                            'remarks'                => null,
                         ]);
                     }
 
@@ -491,6 +488,8 @@ class RenewalController extends Controller
                                     'validity_date'  => $credData['validity_date'] ?? null,
                                     'training_dates' => $credData['training_dates'] ?? null,
                                     'pdf_path'       => $credPermanent,
+                                    'status'         => 'pending',
+                                    'remarks'        => null,
                                 ]
                             );
                         } elseif ($existingCred) {
@@ -550,44 +549,7 @@ class RenewalController extends Controller
      */
     public function reupload(Request $request)
     {
-        $user = Auth::user();
-
-        // Find the latest renewal/reinstatement application that is "For Update"
-        $application = Application::where('user_id', $user->id)
-            ->whereIn('application_type', ['renewal', 'reinstatement'])
-            ->whereHas('latestStatus', function ($q) {
-                $q->whereHas('status', function ($q2) {
-                    $q2->where('name', 'For Update');
-                });
-            })
-            ->with([
-                'documents.documentField.documentType',
-                'documents.userDocument',
-                'user.instructors.credentials',
-                'accreditationType',
-                'latestStatus.status',
-            ])
-            ->latest()
-            ->first();
-
-        if (!$application) {
-            return redirect()->route('applicant.dashboard')->with('error', 'No pending re-upload found.');
-        }
-
-        // Get rejected items
-        $rejectedDocs = $application->documents()->where('status', 'rejected')->with(['documentField.documentType', 'userDocument'])->get();
-        $rejectedInstructors = $user->instructors()->where('status', 'rejected')->get();
-        $rejectedCredentials = InstructorCredential::whereIn('instructor_id', $user->instructors->pluck('id'))
-            ->where('status', 'rejected')
-            ->with('instructor')
-            ->get();
-
-        return view('applicant.renewal_reupload', compact(
-            'application',
-            'rejectedDocs',
-            'rejectedInstructors',
-            'rejectedCredentials'
-        ));
+        return redirect()->route('applicant.renewal.index');
     }
 
     /**
@@ -612,8 +574,57 @@ class RenewalController extends Controller
 
         $application = Application::where('id', $request->input('application_id'))
             ->where('user_id', $user->id)
-            ->with(['user.instructors.credentials', 'accreditationType'])
+            ->with([
+                'accreditationType',
+                'documents.documentField',
+                'documents.userDocument',
+                'user.instructors.credentials.instructor',
+            ])
             ->firstOrFail();
+
+        // Strict backend validation: Make sure all rejected/returned items are provided in the upload
+        $rejectedDocs = $application->documents->filter(fn($d) => in_array($d->status, ['rejected','returned']));
+        $rejectedInstructors = $application->user ? $application->user->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
+        $rejectedCredentials = collect();
+        if ($application->user) {
+            foreach ($application->user->instructors as $inst) {
+                foreach ($inst->credentials as $cred) {
+                    if (in_array($cred->status, ['rejected','returned'])) {
+                        $rejectedCredentials->push($cred);
+                    }
+                }
+            }
+        }
+
+        $errors = [];
+        foreach ($rejectedDocs as $rdoc) {
+            if ($rdoc->documentField?->input_type === 'file') {
+                if (!$request->hasFile("files.{$rdoc->id}")) {
+                    $errors["files.{$rdoc->id}"] = "The replacement file for " . ($rdoc->documentField->name ?? 'Document') . " is required.";
+                }
+            } else {
+                if (!$request->filled("values.{$rdoc->id}")) {
+                    $errors["values.{$rdoc->id}"] = "The updated value for " . ($rdoc->documentField->name ?? 'Document') . " is required.";
+                }
+            }
+        }
+        foreach ($rejectedInstructors as $rInst) {
+            if (!$request->hasFile("instructor_files.{$rInst->id}")) {
+                $errors["instructor_files.{$rInst->id}"] = "The replacement Service Agreement for {$rInst->first_name} {$rInst->last_name} is required.";
+            }
+        }
+        foreach ($rejectedCredentials as $rCred) {
+            if (!$request->hasFile("credential_files.{$rCred->id}")) {
+                $errors["credential_files.{$rCred->id}"] = "The replacement {$rCred->type} Certificate for {$rCred->instructor->first_name} {$rCred->instructor->last_name} is required.";
+            }
+        }
+
+        if (!empty($errors)) {
+            $missing = count($errors);
+            return back()->with('resubmit_error',
+                "Please upload replacement files for all rejected items. {$missing} item" . ($missing > 1 ? 's are' : ' is') . " still missing a replacement file."
+            );
+        }
 
         $accreditationName = $application->accreditationType ? $application->accreditationType->name : 'Unknown';
         $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
@@ -790,6 +801,9 @@ class RenewalController extends Controller
             ]);
         }
 
+        // ── PCT: Resume the paused step (applicant has resubmitted)
+        app(PctService::class)->resumeCurrentStep($application);
+
         // Notify Admin Evaluators about resubmitted documents
         try {
             $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
@@ -805,7 +819,7 @@ class RenewalController extends Controller
         }
 
         return redirect()
-            ->route('applicant.dashboard')
+            ->route('applicant.renewal.index')
             ->with('success', "{$resubmitted} document" . ($resubmitted > 1 ? 's' : '') . " successfully resubmitted. Your application is now back under review.");
     }
 
@@ -817,8 +831,6 @@ class RenewalController extends Controller
         $request->validate([
             'application_id'   => ['required', 'exists:applications,id'],
             'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-            'e_signature'      => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
-            'id_photo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
         ]);
 
         $user = Auth::user();
@@ -852,36 +864,11 @@ class RenewalController extends Controller
             $changed = true;
         }
 
-        // Process e_signature
-        if ($request->hasFile('e_signature')) {
-            if ($payment->e_signature && Storage::disk('local')->exists($payment->e_signature)) {
-                Storage::disk('local')->delete($payment->e_signature);
-            }
-            $ext = $request->file('e_signature')->getClientOriginalExtension();
-            $filename = "e_signature_" . time() . ".{$ext}";
-            $path = $request->file('e_signature')->storeAs($baseDocPath, $filename, 'local');
-            $payment->e_signature = $path;
-            $payment->e_signature_status = 'pending';
-            $payment->e_signature_remarks = null;
-            $changed = true;
-        }
-
-        // Process id_photo
-        if ($request->hasFile('id_photo')) {
-            if ($payment->id_photo && Storage::disk('local')->exists($payment->id_photo)) {
-                Storage::disk('local')->delete($payment->id_photo);
-            }
-            $ext = $request->file('id_photo')->getClientOriginalExtension();
-            $filename = "id_photo_" . time() . ".{$ext}";
-            $path = $request->file('id_photo')->storeAs($baseDocPath, $filename, 'local');
-            $payment->id_photo = $path;
-            $payment->id_photo_status = 'pending';
-            $payment->id_photo_remarks = null;
-            $changed = true;
-        }
-
         if ($changed) {
             $payment->save();
+
+            // ── PCT: Resume the paused Step 7 (payment re-uploaded)
+            app(PctService::class)->resumeCurrentStep($application);
 
             // Notify Verifiers via Notification system (Email + DB)
             try {
@@ -913,6 +900,26 @@ class RenewalController extends Controller
 
         $fullPath = Storage::disk('local')->path($userDoc->file_path);
         $filename = basename($userDoc->file_path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Stream a user document PDF to the browser (auth-guarded).
+     */
+    public function serveUserDocument(UserDocument $userDocument)
+    {
+        abort_if($userDocument->user_id !== auth()->id(), 403);
+        abort_if(!$userDocument->file_path || !Storage::disk('local')->exists($userDocument->file_path), 404);
+
+        $fullPath = Storage::disk('local')->path($userDocument->file_path);
+        $filename = basename($userDocument->file_path);
 
         return response()->file($fullPath, [
             'Content-Type'        => 'application/pdf',

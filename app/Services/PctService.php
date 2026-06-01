@@ -1,0 +1,356 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Application;
+use App\Models\PctEntry;
+use Carbon\Carbon;
+
+class PctService
+{
+    /**
+     * PCT Step Definitions.
+     * [step_number => [name, target_days]]
+     */
+    public const STEPS = [
+        1 => ['name' => 'Submission',                  'target_days' => 3],
+        2 => ['name' => 'Receipt of Requirements',     'target_days' => 1],
+        3 => ['name' => 'Evaluation',                  'target_days' => 5],
+        4 => ['name' => 'Pending Interview',           'target_days' => 3],
+        5 => ['name' => 'Interview',                   'target_days' => 1],
+        6 => ['name' => 'Interview Result',            'target_days' => 1],
+        7 => ['name' => 'Recommendation & Payment',    'target_days' => 5],
+        8 => ['name' => 'Certificate Issuance',        'target_days' => 1],
+    ];
+
+    public const TOTAL_TARGET_DAYS = 20;
+
+    /**
+     * Initialize PCT when an application is first moved to evaluation.
+     * Auto-completes Steps 1 (Submission) and 2 (Receipt of Requirements)
+     * since these are system-automatic steps.
+     */
+    public function initializeFromEvaluation(Application $application): void
+    {
+        // Guard: don't re-initialize if already has PCT entries
+        if ($application->pctEntries()->exists()) {
+            return;
+        }
+
+        $now = Carbon::now();
+        $submittedAt = $application->submitted_at ?? $application->created_at ?? $now;
+
+        // Step 1: Submission (auto-completed, 0 admin time — system step)
+        PctEntry::create([
+            'application_id' => $application->id,
+            'step_name'      => self::STEPS[1]['name'],
+            'step_number'    => 1,
+            'target_days'    => self::STEPS[1]['target_days'],
+            'started_at'     => $submittedAt,
+            'completed_at'   => $submittedAt,
+            'elapsed_seconds' => 0,
+            'is_active'      => false,
+        ]);
+
+        // Step 2: Receipt of Requirements (auto-completed, 0 admin time — system step)
+        PctEntry::create([
+            'application_id' => $application->id,
+            'step_name'      => self::STEPS[2]['name'],
+            'step_number'    => 2,
+            'target_days'    => self::STEPS[2]['target_days'],
+            'started_at'     => $submittedAt,
+            'completed_at'   => $now,
+            'elapsed_seconds' => 0,
+            'is_active'      => false,
+        ]);
+
+        // Step 3: Evaluation — starts NOW (admin is evaluating)
+        $this->startStep($application, 3);
+    }
+
+    /**
+     * Start a specific PCT step for an application.
+     */
+    public function startStep(Application $application, int $stepNumber): PctEntry
+    {
+        $stepDef = self::STEPS[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
+
+        return PctEntry::create([
+            'application_id' => $application->id,
+            'step_name'      => $stepDef['name'],
+            'step_number'    => $stepNumber,
+            'target_days'    => $stepDef['target_days'],
+            'started_at'     => Carbon::now(),
+            'is_active'      => true,
+            'elapsed_seconds' => 0,
+        ]);
+    }
+
+    /**
+     * Complete the currently active step for an application.
+     */
+    public function completeCurrentStep(Application $application): ?PctEntry
+    {
+        $active = $application->pctEntries()->active()->first();
+        if ($active) {
+            $active->complete();
+        }
+        return $active;
+    }
+
+    /**
+     * Complete the current step and immediately start the next one.
+     */
+    public function transitionToStep(Application $application, int $nextStepNumber): PctEntry
+    {
+        $this->completeCurrentStep($application);
+        return $this->startStep($application, $nextStepNumber);
+    }
+
+    /**
+     * Pause the currently active step (waiting for applicant action).
+     */
+    public function pauseCurrentStep(Application $application): ?PctEntry
+    {
+        $active = $application->pctEntries()->active()->first();
+        if ($active) {
+            $active->pause();
+        }
+        return $active;
+    }
+
+    /**
+     * Resume the currently paused step (applicant has submitted back).
+     */
+    public function resumeCurrentStep(Application $application): ?PctEntry
+    {
+        // Find the paused entry (active but with paused_at set)
+        $paused = $application->pctEntries()
+            ->whereNotNull('paused_at')
+            ->whereNull('completed_at')
+            ->first();
+
+        if ($paused) {
+            $paused->resume();
+        }
+        return $paused;
+    }
+
+    /**
+     * Complete ALL active/paused steps (used when application is rejected/archived).
+     */
+    public function completeAllSteps(Application $application): void
+    {
+        $activeEntries = $application->pctEntries()
+            ->whereNull('completed_at')
+            ->get();
+
+        foreach ($activeEntries as $entry) {
+            $entry->complete();
+        }
+    }
+
+    /**
+     * Calculate total elapsed working days for an application.
+     * Excludes weekends (Sat/Sun) and Philippine public holidays from the count.
+     */
+    public static function calculateWorkingDays(Carbon $start, Carbon $end): float
+    {
+        if ($start->greaterThanOrEqualTo($end)) {
+            return 0;
+        }
+
+        $totalSeconds = 0;
+        $current = $start->copy()->startOfDay();
+        $endDay = $end->copy()->startOfDay();
+
+        // Get Philippine holidays for the relevant year range
+        $holidays = self::getHolidays($start->year, $end->year);
+
+        while ($current->lessThanOrEqualTo($endDay)) {
+            $isWeekend = $current->isWeekend();
+            $isHoliday = in_array($current->format('Y-m-d'), $holidays);
+
+            if (!$isWeekend && !$isHoliday) {
+                // Working day — calculate how many seconds of this day fall within [start, end]
+                $dayStart = $current->copy()->startOfDay();
+                $dayEnd   = $current->copy()->endOfDay();
+
+                $effectiveStart = $start->greaterThan($dayStart) ? $start : $dayStart;
+                $effectiveEnd   = $end->lessThan($dayEnd) ? $end : $dayEnd;
+
+                if ($effectiveStart->lessThan($effectiveEnd)) {
+                    $totalSeconds += $effectiveStart->diffInSeconds($effectiveEnd);
+                }
+            }
+
+            $current->addDay();
+        }
+
+        return round($totalSeconds / 86400, 1);
+    }
+
+    /**
+     * Get Philippine public holidays for the given year range.
+     * Returns an array of date strings in Y-m-d format.
+     */
+    public static function getHolidays(int $startYear, int $endYear): array
+    {
+        $holidays = [];
+
+        for ($year = $startYear; $year <= $endYear; $year++) {
+            $holidays = array_merge($holidays, [
+                // Regular Holidays
+                "{$year}-01-01", // New Year's Day
+                "{$year}-04-09", // Araw ng Kagitingan
+                "{$year}-05-01", // Labor Day
+                "{$year}-06-12", // Independence Day
+                "{$year}-08-21", // Ninoy Aquino Day
+                "{$year}-08-26", // National Heroes Day (approximate)
+                "{$year}-11-30", // Bonifacio Day
+                "{$year}-12-25", // Christmas Day
+                "{$year}-12-30", // Rizal Day
+
+                // Special Non-Working Days (common ones)
+                "{$year}-02-25", // EDSA People Power Revolution
+                "{$year}-11-01", // All Saints' Day
+                "{$year}-11-02", // All Souls' Day
+                "{$year}-12-24", // Christmas Eve
+                "{$year}-12-31", // Last Day of the Year
+            ]);
+        }
+
+        return $holidays;
+    }
+    /**
+     * Get a summary of PCT status for display.
+     */
+    public function getSummary(Application $application): array
+    {
+        // ── Auto-Resume Step 5 (Interview) if scheduled time is reached or passed ──
+        $this->autoResumeInterviewIfScheduled($application);
+
+        // ── Auto-Reconcile Step 7 state if signed recommendation is uploaded but payment is pending ──
+        $payment = $application->payment;
+        if ($payment && !$payment->proof_of_payment && $payment->signed_recommendation_letter) {
+            $active = $application->pctEntries()->active()->where('step_number', 7)->first();
+            if ($active && !$active->paused_at) {
+                $active->pause();
+            }
+        }
+
+        $entries = $application->pctEntries()->orderBy('step_number')->get();
+
+        $totalElapsed = 0;
+        $steps = [];
+
+        foreach (self::STEPS as $num => $def) {
+            $entry = $entries->firstWhere('step_number', $num);
+
+            if ($entry) {
+                $elapsed = $entry->totalElapsedSeconds();
+                $totalElapsed += $elapsed;
+                $elapsedDays = round($elapsed / 86400, 1);
+
+                $steps[] = [
+                    'number'      => $num,
+                    'name'        => $def['name'],
+                    'target_days' => $def['target_days'],
+                    'status'      => $entry->stepStatus(),
+                    'elapsed_days' => $elapsedDays,
+                    'elapsed_seconds' => $elapsed,
+                    'started_at'  => $entry->started_at,
+                    'completed_at' => $entry->completed_at,
+                    'paused_at'   => $entry->paused_at,
+                    'is_overdue'  => $elapsedDays > $def['target_days'],
+                    'percent'     => $def['target_days'] > 0 ? min(100, round(($elapsedDays / $def['target_days']) * 100)) : 0,
+                ];
+            } else {
+                $steps[] = [
+                    'number'      => $num,
+                    'name'        => $def['name'],
+                    'target_days' => $def['target_days'],
+                    'status'      => 'pending',
+                    'elapsed_days' => 0,
+                    'started_at'  => null,
+                    'completed_at' => null,
+                    'paused_at'   => null,
+                    'is_overdue'  => false,
+                    'percent'     => 0,
+                ];
+            }
+        }
+
+        $totalDays = round($totalElapsed / 86400, 1);
+
+        return [
+            'steps'          => $steps,
+            'total_elapsed'  => $totalDays,
+            'total_target'   => self::TOTAL_TARGET_DAYS,
+            'percent'        => self::TOTAL_TARGET_DAYS > 0 ? min(100, round(($totalDays / self::TOTAL_TARGET_DAYS) * 100)) : 0,
+            'is_overdue'     => $totalDays > self::TOTAL_TARGET_DAYS,
+            'has_entries'    => $entries->isNotEmpty(),
+        ];
+    }
+
+    /**
+     * Automatically resume Step 5 (Interview) if the scheduled date/time is reached/passed.
+     */
+    public function autoResumeInterviewIfScheduled(Application $application)
+    {
+        $active = $application->pctEntries()->where('step_number', 5)->where('is_active', true)->whereNotNull('paused_at')->first();
+        if ($active && $application->interview) {
+            $date = $application->interview->interview_date;
+            $dateStr = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
+            $scheduledTimeStr = $dateStr . ' ' . $application->interview->interview_time;
+            try {
+                $scheduledTime = \Carbon\Carbon::parse($scheduledTimeStr);
+                if (now()->greaterThanOrEqualTo($scheduledTime)) {
+                    $active->resume();
+                    
+                    // Clear the cached relations so the model reads the fresh values from the DB!
+                    $application->unsetRelation('pctEntries');
+                    $application->unsetRelation('activePctEntry');
+                }
+            } catch (\Exception $e) {
+                // Ignore parse errors
+            }
+        }
+    }
+
+    /**
+     * Bulk auto-resume Step 5 (Interview) for any applications that have reached their scheduled time.
+     */
+    public function autoResumeAllScheduledInterviews()
+    {
+        // Find all active PCT entries for Step 5 that are paused
+        $pausedEntries = PctEntry::where('step_number', 5)
+            ->where('is_active', true)
+            ->whereNotNull('paused_at')
+            ->whereNull('completed_at')
+            ->with('application.interview')
+            ->get();
+
+        foreach ($pausedEntries as $entry) {
+            $application = $entry->application;
+            if ($application && $application->interview) {
+                $date = $application->interview->interview_date;
+                $dateStr = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
+                $scheduledTimeStr = $dateStr . ' ' . $application->interview->interview_time;
+                try {
+                    $scheduledTime = \Carbon\Carbon::parse($scheduledTimeStr);
+                    if (now()->greaterThanOrEqualTo($scheduledTime)) {
+                        $entry->resume();
+                        
+                        if ($application) {
+                            $application->unsetRelation('pctEntries');
+                            $application->unsetRelation('activePctEntry');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Ignore parse errors
+                }
+            }
+        }
+    }
+}

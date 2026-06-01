@@ -34,6 +34,7 @@
 
 @if($isVerifier)
 <li><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
+<li><a href="{{ route('admin.hcd.applications.releasing') }}"><i class="fas fa-file-signature"></i> Releasing </a></li>
 @elseif($isEvaluator)
 <li><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
 @endif

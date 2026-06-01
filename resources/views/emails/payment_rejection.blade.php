@@ -28,20 +28,6 @@
             <div class="doc-item-value" style="margin-top: 4px; font-style: italic; color: #555;">Remarks: {{ $payment->proof_of_payment_remarks ?? 'Please upload a clear copy of your payment receipt.' }}</div>
         </div>
         @endif
-
-        @if($payment->e_signature_status === 'rejected')
-        <div class="doc-item red" style="margin-bottom: 12px; padding: 12px; border-left: 4px solid #dc3545; background-color: #fff8f8;">
-            <div class="doc-item-name" style="font-weight: bold; color: #dc3545;">E-Signature — Rejected</div>
-            <div class="doc-item-value" style="margin-top: 4px; font-style: italic; color: #555;">Remarks: {{ $payment->e_signature_remarks ?? 'Please upload a clear scanned signature.' }}</div>
-        </div>
-        @endif
-
-        @if($payment->id_photo_status === 'rejected')
-        <div class="doc-item red" style="margin-bottom: 12px; padding: 12px; border-left: 4px solid #dc3545; background-color: #fff8f8;">
-            <div class="doc-item-name" style="font-weight: bold; color: #dc3545;">ID Photo — Rejected</div>
-            <div class="doc-item-value" style="margin-top: 4px; font-style: italic; color: #555;">Remarks: {{ $payment->id_photo_remarks ?? 'Please upload a clear 2x2 ID photo.' }}</div>
-        </div>
-        @endif
     </div>
 
     <div class="tracking-card">

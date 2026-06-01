@@ -93,6 +93,7 @@
 .doc-badge-pending     { background:#fef9c3; color:#854d0e; }
 .doc-badge-approved    { background:#dcfce7; color:#166534; }
 .doc-badge-rejected    { background:#fee2e2; color:#991b1b; }
+.doc-badge-for_update  { background:#ffedd5; color:#9a3412; border: 1.5px dashed #f97316; }
 .doc-badge-for_revision{ background:#ffedd5; color:#9a3412; }
 
 /* Remark alert */
@@ -274,6 +275,218 @@
     color: #fff !important;
 }
 
+/* ── PCT Timeline Card ─────────────────────────── */
+.pct-card {
+    border-top: 3px solid #1A4A8A;
+}
+.pct-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 16px 8px 20px;
+    border-bottom: 1px dashed #e4e8ee;
+    margin-bottom: 16px;
+}
 
+/* Progress Ring */
+.pct-ring-wrapper {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+}
+.pct-ring {
+    width: 88px;
+    height: 88px;
+    transform: rotate(-90deg);
+}
+.pct-ring-bg {
+    fill: none;
+    stroke: #e5e7eb;
+    stroke-width: 7;
+}
+.pct-ring-fill {
+    fill: none;
+    stroke-width: 7;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.8s ease;
+}
+.pct-ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.pct-ring-value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Summary Stats */
+.pct-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+.pct-stat-item {
+    text-align: center;
+    min-width: 70px;
+}
+.pct-stat-label {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #9ca3af;
+    margin-bottom: 2px;
+}
+.pct-stat-value {
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.pct-stat-value small {
+    font-size: .65rem;
+    font-weight: 600;
+    opacity: .7;
+}
+
+/* Step Timeline */
+.pct-timeline {
+    position: relative;
+    padding: 0 4px;
+}
+.pct-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    padding-bottom: 14px;
+}
+.pct-step:last-child { padding-bottom: 0; }
+.pct-step:last-child .pct-step-connector { display: none; }
+
+.pct-step-connector {
+    position: absolute;
+    left: 10px;
+    top: 24px;
+    bottom: 0;
+    width: 2px;
+    background: #e5e7eb;
+}
+.pct-step-completed .pct-step-connector { background: #22c55e; }
+.pct-step-active .pct-step-connector { background: linear-gradient(to bottom, #3b82f6, #e5e7eb); }
+.pct-step-paused .pct-step-connector { background: linear-gradient(to bottom, #f59e0b, #e5e7eb); }
+
+.pct-step-icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.15rem;
+    z-index: 1;
+}
+.pct-step-completed .pct-step-icon { color: #22c55e; }
+.pct-step-active .pct-step-icon { color: #3b82f6; animation: pctPulse 2s ease-in-out infinite; }
+.pct-step-paused .pct-step-icon { color: #f59e0b; }
+.pct-step-pending .pct-step-icon { color: #d1d5db; }
+
+@keyframes pctPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: .8; }
+}
+
+.pct-step-content {
+    flex: 1;
+    min-width: 0;
+}
+.pct-step-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.pct-step-number {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #9ca3af;
+    min-width: 42px;
+}
+.pct-step-name {
+    font-size: .85rem;
+    font-weight: 600;
+    color: #374151;
+}
+.pct-step-pending .pct-step-name { color: #9ca3af; }
+
+.pct-step-badge {
+    font-size: .7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.pct-sla-ok { background: #dcfce7; color: #166534; }
+.pct-sla-warning { background: #fef3c7; color: #92400e; }
+.pct-sla-overdue { background: #fee2e2; color: #991b1b; }
+.pct-sla-pending { background: #f3f4f6; color: #9ca3af; }
+
+/* Step progress bar */
+.pct-step-bar-wrapper {
+    margin-top: 5px;
+    margin-bottom: 4px;
+}
+.pct-step-bar {
+    width: 100%;
+    height: 4px;
+    background: #f3f4f6;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.pct-step-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+.pct-step-bar-fill.pct-sla-ok { background: #22c55e; }
+.pct-step-bar-fill.pct-sla-warning { background: #f59e0b; }
+.pct-step-bar-fill.pct-sla-overdue { background: #dc2626; }
+
+.pct-step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 3px;
+}
+.pct-step-meta span {
+    font-size: .72rem;
+    color: #6b7280;
+}
+
+/* Legend */
+.pct-legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    padding: 12px 0 4px;
+    border-top: 1px dashed #e4e8ee;
+    margin-top: 12px;
+}
+.pct-legend-item {
+    font-size: .72rem;
+    font-weight: 600;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pct-legend-item i { font-size: .85rem; }
 
 
