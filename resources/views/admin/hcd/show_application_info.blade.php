@@ -1252,7 +1252,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="mt-3">
                             <button type="submit" class="btn btn-primary fw-semibold px-4">
-                                <i class="fas fa-save me-1"></i> Upload Scanned Certificate
+                                <span class="btn-text"><i class="fas fa-save me-1"></i> Upload Scanned Certificate</span>
+                                <span class="btn-spinner d-none">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Uploading...
+                                </span>
                             </button>
                         </div>
                     </form>
@@ -1960,7 +1963,7 @@ document.addEventListener('change', function (e) {
 // Approval and Rejection modal submission loaders
 (function () {
     'use strict';
-    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form'];
+    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form'];
     forms.forEach(function (formId) {
         const form = document.getElementById(formId);
         if (form) {

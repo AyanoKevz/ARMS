@@ -127,21 +127,20 @@ class User extends Authenticatable
         return $this->hasMany(Instructor::class);
     }
 
-    /**
-     * Get the user's display name based on their profile.
-     */
     public function getNameAttribute()
     {
-        if ($this->role && strtolower($this->role->name) === 'admin') {
-            $admin = $this->adminProfile;
+        $role = $this->relationLoaded('role') ? $this->role : $this->role()->first();
+        if ($role && strtolower($role->name) === 'admin') {
+            $admin = $this->relationLoaded('adminProfile') ? $this->adminProfile : $this->adminProfile()->first();
             return $admin ? "{$admin->first_name} {$admin->last_name}" : 'Admin';
         }
 
         if ($this->profile_type === 'Organization') {
-            return $this->organizationProfile->name ?? 'Organization User';
+            $org = $this->relationLoaded('organizationProfile') ? $this->organizationProfile : $this->organizationProfile()->first();
+            return $org->name ?? 'Organization User';
         }
 
-        $ind = $this->individualProfile;
+        $ind = $this->relationLoaded('individualProfile') ? $this->individualProfile : $this->individualProfile()->first();
         if ($ind) {
             return "{$ind->first_name} {$ind->last_name}";
         }

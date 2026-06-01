@@ -503,9 +503,9 @@
         $needsUpload = false;
     @endphp
 
-    <div class="x_panel mt-4" style="border-left: 4px solid #17a2b8;">
+    <div class="x_panel mt-4">
         <div class="x_title">
-            <h2 class="fw-bold text-info" style="color: #17a2b8 !important;"><i class="fas fa-credit-card me-2"></i>Submit Proof of Payment</h2>
+            <h2 class="fw-bold">Submit Proof of Payment</h2>
             <div class="clearfix"></div>
         </div>
         <div class="x_content py-3">
