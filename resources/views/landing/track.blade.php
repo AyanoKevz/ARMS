@@ -69,8 +69,14 @@
                             </div>
                             <div class="col-md-6 text-md-end">
                                 <p class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.8rem; letter-spacing: 0.5px;">Current Status</p>
+                                @php
+                                    $displayStatus = $application->latestStatus?->status?->name ?? 'Submitted';
+                                    if ($displayStatus === 'Scheduled for Interview' && !$application->interview) {
+                                        $displayStatus = 'Pending for Interview';
+                                    }
+                                @endphp
                                 <span class="badge rounded-pill bg-info text-dark px-3 py-2 fs-6" style="background-color: #e0f2fe !important; color: #0369a1 !important;">
-                                    {{ $application->latestStatus?->status?->name ?? 'Submitted' }}
+                                    {{ $displayStatus }}
                                 </span>
                             </div>
                         </div>

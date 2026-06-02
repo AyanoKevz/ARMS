@@ -9,75 +9,65 @@
 @section('content')
 
 @php
-    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
-    $isVerifier  = strtolower($isAdminRole) === 'verifier';
-    $isEvaluator = strtolower($isAdminRole) === 'evaluator';
+$user = $application->user;
+$isOrg = $user->profile_type === 'Organization';
+$org = $user->organizationProfile;
+$ind = $user->individualProfile;
+$reps = $org?->authorizedRepresentatives ?? collect();
 
-    $user  = $application->user;
-    $isOrg = $user->profile_type === 'Organization';
-    $org   = $user->organizationProfile;
-    $ind   = $user->individualProfile;
-    $reps  = $org?->authorizedRepresentatives ?? collect();
+$grouped = $application->documents->groupBy(
+fn($doc) => optional($doc->documentField?->documentType)->id
+);
 
-    $grouped = $application->documents
-        ->sortBy(function ($doc) {
-            $typeId = $doc->documentField?->documentType?->id ?? 999999;
-            $fieldId = $doc->documentField?->id ?? 999999;
-            return sprintf('%08d-%08d', $typeId, $fieldId);
-        })
-        ->groupBy(
-            fn($doc) => optional($doc->documentField?->documentType)->id
-        );
+$currentStatus = $application->latestStatus?->status?->name ?? 'Under Evaluation';
+$isScheduled = $currentStatus === 'Scheduled for Interview';
+$docApproved = $application->documents->count() === 0 || $application->documents->every(fn($d) => $d->status === 'approved');
+$instApproved = !$application->user || $application->user->instructors->count() === 0 || $application->user->instructors->every(fn($i) => $i->status === 'approved');
+$credApproved = !$application->user || $application->user->instructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+$allApproved = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
 
+$interview = $application->interview;
+$isAccredited = (bool) $application->accreditation;
+$isApproved = $currentStatus === 'Approved';
+$isRejected = $currentStatus === 'Rejected';
 
-
-    $currentStatus  = $application->latestStatus?->status?->name ?? 'Under Evaluation';
-    $isScheduled    = $currentStatus === 'Scheduled for Interview';
-    $docApproved  = $application->documents->count() === 0 || $application->documents->every(fn($d) => $d->status === 'approved');
-    $instApproved = !$application->user || $application->user->instructors->count() === 0 || $application->user->instructors->every(fn($i) => $i->status === 'approved');
-    $credApproved = !$application->user || $application->user->instructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
-    $allApproved  = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
-
-    $interview      = $application->interview;
-    $isAccredited   = (bool) $application->accreditation;
-    $isApproved     = $currentStatus === 'Approved';
-    $isRejected     = $currentStatus === 'Rejected';
-    
-    $hasPendingUpdate = false;
-    if ($application->user && $application->user->instructors) {
-        $hasPendingUpdate = $application->user->instructors->contains('update_request_status', 'pending_review');
-    }
+$hasPendingUpdate = false;
+if ($application->user && $application->user->instructors) {
+$hasPendingUpdate = $application->user->instructors->contains('update_request_status', 'pending_review');
+}
 @endphp
 
 {{-- ── Flash Messages ── --}}
 @if($errors->any())
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Please fix the following errors:</strong>
-        <ul class="mb-0 mt-1">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+<div class="alert alert-danger alert-dismissible fade show">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i> <strong>Please fix the following errors:</strong>
+    <ul class="mb-0 mt-1">
+        @foreach($errors->all() as $error)
+        <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
 @endif
 
 @if(session('success'))
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+<div class="alert alert-success alert-dismissible fade show">
+    <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
 @endif
 @if(session('error'))
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+<div class="alert alert-danger alert-dismissible fade show">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
 @endif
 
 {{-- ── Page Header ── --}}
 <div class="page-title d-flex justify-content-between align-items-center">
-    <div class="title_left"><h3>Application Details</h3></div>
+    <div class="title_left">
+        <h3>Application Details</h3>
+    </div>
     <a href="{{ url()->previous() }}" class="btn btn-secondary btn-sm mt-3">
         Back
     </a>
@@ -97,16 +87,12 @@
             <span class="badge fs-6 px-3 py-2 bg-success text-white">
                 <i class="bi bi-check-circle-fill me-1"></i> Active
             </span>
-            @if($isVerifier)
-            <button type="button"
-               class="btn btn-success btn-sm m-0 fw-semibold"
-               style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;"
-               data-bs-toggle="modal"
-               data-bs-target="#certDirectorModal"
-               onclick="setCertUrl('{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}')">
+            <a href="{{ route('admin.hcd.accreditations.certificate', $application->accreditation->id) }}"
+                target="_blank"
+                class="btn btn-success btn-sm m-0 fw-semibold"
+                style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
-            </button>
-            @endif
+            </a>
             <div class="dropdown">
                 <button class="btn btn-light btn-sm m-0 px-2" type="button" data-bs-toggle="dropdown" style="border-radius:8px; border: 1px solid #bbf7d0; color: #166534;">
                     <i class="bi bi-three-dots-vertical"></i>
@@ -168,15 +154,15 @@
         <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Submitted: {{ $application->created_at->format('F d, Y h:i A') }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-         @php
-            $statusColor = match($currentStatus) {
-                'Scheduled for Interview' => 'bg-primary',
-                'For Update'              => 'bg-warning text-dark',
-                'Approved'                => 'bg-success',
-                'Rejected'                => 'bg-danger',
-                'Awaiting Payment'        => 'bg-warning text-dark',
-                default                   => 'bg-info',
-            };
+        @php
+        $statusColor = match($currentStatus) {
+        'Scheduled for Interview' => 'bg-primary',
+        'For Update' => 'bg-warning text-dark',
+        'Approved' => 'bg-success',
+        'Rejected' => 'bg-danger',
+        'Awaiting Payment' => 'bg-warning text-dark',
+        default => 'bg-info',
+        };
         @endphp
         <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
             {{ $currentStatus === 'Awaiting Payment' ? 'Recommendation/Payment' : $currentStatus }}
@@ -189,178 +175,6 @@
 </div>
 @endif
 
-{{-- ══ Process Cycle Time (PCT) Timeline ══ --}}
-@if($pctSummary['has_entries'])
-@php
-    $pctPercent = $pctSummary['percent'];
-    $pctOverdue = $pctSummary['is_overdue'];
-    $pctColor = $pctOverdue ? '#dc2626' : ($pctPercent >= 80 ? '#f59e0b' : '#22c55e');
-    $pctStrokeDash = round(($pctPercent / 100) * 251.2, 1);
-@endphp
-<div class="ai-card mb-4 pct-card">
-    <div class="ai-card-header" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#pctTimelineBody" aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true' }}">
-        <div style="width:32px;height:32px;background:linear-gradient(135deg,#1A4A8A,#0D2B55);border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <i class="bi bi-clock-history text-white" style="font-size:.95rem;"></i>
-        </div>
-        <h5 class="mb-0">Process Cycle Time (PCT)</h5>
-        <div class="d-flex align-items-center gap-2 ms-auto">
-            <span class="badge {{ $pctOverdue ? 'bg-danger' : ($pctPercent >= 80 ? 'bg-warning text-dark' : 'bg-success') }}" style="font-size:.75rem;">
-                {{ $pctSummary['total_elapsed'] }} / {{ $pctSummary['total_target'] }} Days
-            </span>
-            <i class="bi bi-chevron-down" id="pctChevron"></i>
-        </div>
-    </div>
-    <div id="pctTimelineBody" class="collapse {{ $isAccredited || $isApproved || $isRejected ? '' : 'show' }}">
-        <div class="pct-summary-row">
-            {{-- Progress Ring --}}
-            <div class="pct-ring-wrapper">
-                <svg class="pct-ring" viewBox="0 0 90 90">
-                    <circle class="pct-ring-bg" cx="45" cy="45" r="40" />
-                    <circle class="pct-ring-fill" cx="45" cy="45" r="40"
-                            style="stroke: {{ $pctColor }}; stroke-dasharray: {{ $pctStrokeDash }} 251.2;" />
-                </svg>
-                <div class="pct-ring-text">
-                    <span class="pct-ring-value" style="color: {{ $pctColor }};">{{ $pctPercent }}%</span>
-                </div>
-            </div>
-            {{-- Summary Stats --}}
-            <div class="pct-stats">
-                <div class="pct-stat-item">
-                    <div class="pct-stat-label">Elapsed</div>
-                    <div class="pct-stat-value" style="color: {{ $pctColor }};">{{ $pctSummary['total_elapsed'] }} <small>days</small></div>
-                </div>
-                <div class="pct-stat-item">
-                    <div class="pct-stat-label">Max Limit</div>
-                    <div class="pct-stat-value" style="color:#2A3F54;">{{ $pctSummary['total_target'] }} <small>days</small></div>
-                </div>
-                <div class="pct-stat-item">
-                    <div class="pct-stat-label">Remaining</div>
-                    @php $remaining = max(0, $pctSummary['total_target'] - $pctSummary['total_elapsed']); @endphp
-                    <div class="pct-stat-value" style="color: {{ $remaining > 0 ? '#22c55e' : '#dc2626' }};">{{ $remaining }} <small>days</small></div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Step Timeline --}}
-        <div class="pct-timeline">
-            @foreach($pctSummary['steps'] as $step)
-            @php
-                $stepStatus = $step['status'];
-                $stepColorClass = match($stepStatus) {
-                    'completed' => 'pct-step-completed',
-                    'active'    => 'pct-step-active',
-                    'paused'    => 'pct-step-paused',
-                    default     => 'pct-step-pending',
-                };
-                $stepIcon = match($stepStatus) {
-                    'completed' => 'bi-check-circle-fill',
-                    'active'    => 'bi-play-circle-fill',
-                    'paused'    => 'bi-pause-circle-fill',
-                    default     => 'bi-circle',
-                };
-                $stepSlaClass = '';
-                if ($stepStatus !== 'pending') {
-                    if ($step['is_overdue']) {
-                        $stepSlaClass = 'pct-sla-overdue';
-                    } elseif ($step['percent'] >= 80) {
-                        $stepSlaClass = 'pct-sla-warning';
-                    } else {
-                        $stepSlaClass = 'pct-sla-ok';
-                    }
-                }
-            @endphp
-            <div class="pct-step {{ $stepColorClass }}">
-                <div class="pct-step-connector"></div>
-                <div class="pct-step-icon">
-                    <i class="bi {{ $stepIcon }}"></i>
-                </div>
-                <div class="pct-step-content">
-                    <div class="pct-step-header">
-                        <span class="pct-step-number">Step {{ $step['number'] }}</span>
-                        <span class="pct-step-name">{{ $step['name'] }}</span>
-                        @if($stepStatus !== 'pending')
-                        @php
-                            $s = $step['elapsed_seconds'] ?? 0;
-                            $dCount = floor($s / 86400);
-                            $hCount = floor(($s % 86400) / 3600);
-                            $mCount = floor(($s % 3600) / 60);
-                            $sCount = $s % 60;
-                            $timeFmt = "{$hCount}h {$mCount}m {$sCount}s";
-                        @endphp
-                        <span class="pct-step-badge {{ $stepSlaClass }}" 
-                              @if($stepStatus === 'active') id="livePctCounter" data-seconds="{{ $s }}" data-target="{{ $step['target_days'] }}" @endif>
-                            <i class="bi bi-stopwatch me-1"></i>({{ $timeFmt }}) &nbsp;&nbsp;{{ $dCount }} days / {{ $step['target_days'] }} days
-                        </span>
-                        @else
-                        <span class="pct-step-badge pct-sla-pending">{{ $step['target_days'] }} days target</span>
-                        @endif
-                    </div>
-                    @if($stepStatus !== 'pending')
-                    <div class="pct-step-bar-wrapper">
-                        <div class="pct-step-bar">
-                            <div class="pct-step-bar-fill {{ $stepSlaClass }}" style="width: {{ min(100, $step['percent']) }}%;"></div>
-                        </div>
-                    </div>
-                    @endif
-                    @if($step['started_at'] || $step['completed_at'])
-                    <div class="pct-step-meta">
-                        @if($step['started_at'])
-                            <span><i class="bi bi-arrow-right-circle me-1"></i>Started: {{ $step['started_at']->format('M d, Y h:i A') }}</span>
-                        @endif
-                        @if($step['completed_at'])
-                            <span><i class="bi bi-check2 me-1"></i>Completed: {{ $step['completed_at']->format('M d, Y h:i A') }}</span>
-                        @endif
-                        @if($stepStatus === 'paused')
-                            <span class="text-warning"><i class="bi bi-pause-fill me-1"></i>Paused</span>
-                        @endif
-                    </div>
-                    @endif
-                </div>
-            </div>
-            @endforeach
-        </div>
-
-        {{-- Legend --}}
-        <div class="pct-legend">
-            <span class="pct-legend-item"><i class="bi bi-check-circle-fill" style="color:#22c55e;"></i> Completed</span>
-            <span class="pct-legend-item"><i class="bi bi-play-circle-fill" style="color:#3b82f6;"></i> Active</span>
-            <span class="pct-legend-item"><i class="bi bi-pause-circle-fill" style="color:#f59e0b;"></i> Paused</span>
-            <span class="pct-legend-item"><i class="bi bi-circle" style="color:#d1d5db;"></i> Pending</span>
-        </div>
-    </div>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const pctBody = document.getElementById('pctTimelineBody');
-    const pctChevron = document.getElementById('pctChevron');
-    if (pctBody && pctChevron) {
-        pctBody.addEventListener('show.bs.collapse', () => pctChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-        pctBody.addEventListener('hide.bs.collapse', () => pctChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-    }
-
-    // Live Ticker for Active Step
-    const liveCounter = document.getElementById('livePctCounter');
-    if (liveCounter) {
-        let seconds = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
-        const targetDays = liveCounter.getAttribute('data-target');
-        
-        setInterval(() => {
-            seconds++;
-            
-            const days = Math.floor(seconds / 86400);
-            const hrs = Math.floor((seconds % 86400) / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            
-            let liveTime = `${hrs}h ${mins}m ${secs}s`;
-            
-            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
-        }, 1000);
-    }
-});
-</script>
-@endif
-
 {{-- ══ Org / Reps Card ══ --}}
 <div class="ai-card mb-4">
     <div class="ai-card-header">
@@ -369,13 +183,48 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     @if($isOrg && $org)
     <div class="row">
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Organization Name</div><div class="val">{{ $org->name }}</div></div></div>
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Head of Organization</div><div class="val">{{ $org->head_name ?? '—' }}</div></div></div>
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Designation</div><div class="val">{{ $org->designation ?? '—' }}</div></div></div>
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Organization Email</div><div class="val">{{ $org->email ?? '—' }}</div></div></div>
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Telephone</div><div class="val">{{ $org->telephone ?? '—' }}</div></div></div>
-        <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Fax</div><div class="val">{{ $org->fax ?? '—' }}</div></div></div>
-        <div class="col-md-6 col-12"><div class="info-pair mb-0"><div class="lbl">Address</div><div class="val">{{ $org->address ?? '—' }}</div></div></div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Organization Name</div>
+                <div class="val">{{ $org->name }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Head of Organization</div>
+                <div class="val">{{ $org->head_name ?? '—' }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Designation</div>
+                <div class="val">{{ $org->designation ?? '—' }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Organization Email</div>
+                <div class="val">{{ $org->email ?? '—' }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Telephone</div>
+                <div class="val">{{ $org->telephone ?? '—' }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="info-pair">
+                <div class="lbl">Fax</div>
+                <div class="val">{{ $org->fax ?? '—' }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-12">
+            <div class="info-pair mb-0">
+                <div class="lbl">Address</div>
+                <div class="val">{{ $org->address ?? '—' }}</div>
+            </div>
+        </div>
     </div>
     @else
     <p class="text-muted small mb-0">Organization profile not found.</p>
@@ -390,10 +239,30 @@ document.addEventListener('DOMContentLoaded', function() {
     @forelse($reps as $rep)
     <div class="rep-block">
         <div class="row">
-            <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Full Name</div><div class="val">{{ $rep->full_name }}</div></div></div>
-            <div class="col-md-3 col-6"><div class="info-pair"><div class="lbl">Position</div><div class="val">{{ $rep->position ?? '—' }}</div></div></div>
-            <div class="col-md-3 col-6"><div class="info-pair mb-0"><div class="lbl">Contact Number</div><div class="val">{{ $rep->contact_number ?? '—' }}</div></div></div>
-            <div class="col-md-3 col-6"><div class="info-pair mb-0"><div class="lbl">Email</div><div class="val">{{ $rep->email ?? '—' }}</div></div></div>
+            <div class="col-md-3 col-6">
+                <div class="info-pair">
+                    <div class="lbl">Full Name</div>
+                    <div class="val">{{ $rep->full_name }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-pair">
+                    <div class="lbl">Position</div>
+                    <div class="val">{{ $rep->position ?? '—' }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-pair mb-0">
+                    <div class="lbl">Contact Number</div>
+                    <div class="val">{{ $rep->contact_number ?? '—' }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-pair mb-0">
+                    <div class="lbl">Email</div>
+                    <div class="val">{{ $rep->email ?? '—' }}</div>
+                </div>
+            </div>
         </div>
     </div>
     @empty
@@ -431,26 +300,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="text-center">{{ $histAcc->validity_date ? \Carbon\Carbon::parse($histAcc->validity_date)->format('M d, Y') : '—' }}</td>
                         <td class="text-center">
                             @php
-                                $histBadge = match($histAcc->status) {
-                                    'active'  => 'bg-success',
-                                    'expired' => 'bg-warning text-dark',
-                                    'revoked' => 'bg-danger',
-                                    default   => 'bg-secondary',
-                                };
+                            $histBadge = match($histAcc->status) {
+                            'active' => 'bg-success',
+                            'expired' => 'bg-warning text-dark',
+                            'revoked' => 'bg-danger',
+                            default => 'bg-secondary',
+                            };
                             @endphp
                             <span class="badge {{ $histBadge }}">{{ ucfirst($histAcc->status) }}</span>
                         </td>
                         <td class="text-center" style="white-space: nowrap;">
-                            @if($isVerifier)
-                            <button type="button"
-                               class="btn btn-xs btn-outline-success m-0 px-2 py-0"
-                               style="font-size:.72rem;" title="View Certificate"
-                               data-bs-toggle="modal"
-                               data-bs-target="#certDirectorModal"
-                               onclick="setCertUrl('{{ route('admin.hcd.accreditations.certificate', $histAcc->id) }}')">
+                            <a href="{{ route('admin.hcd.accreditations.certificate', $histAcc->id) }}"
+                                target="_blank"
+                                class="btn btn-xs btn-outline-success m-0 px-2 py-0"
+                                style="font-size:.72rem;" title="View Certificate">
                                 <i class="bi bi-file-earmark-pdf"></i> PDF
-                            </button>
-                            @endif
+                            </a>
                         </td>
                     </tr>
                     @endforeach
@@ -473,129 +338,124 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Evaluation Form ══ --}}
 <form id="evaluation-form"
-      data-url="{{ route('admin.hcd.applications.finalize_evaluation', $application->id) }}">
+    data-url="{{ route('admin.hcd.applications.finalize_evaluation', $application->id) }}">
     @csrf
 
     {{-- ── Documents Card ── --}}
     <div class="ai-card">
-        <div class="ai-card-header d-flex align-items-center" style="cursor:pointer;" data-custom-toggle="collapse" data-bs-target="#documentsBody" aria-expanded="true">
+        <div class="ai-card-header">
             <i class="bi bi-folder2-open fs-5 text-dark"></i>
-            <h5 class="mb-0">Submitted Documents</h5>
-            <span class="ms-auto small text-muted fst-italic" id="eval-progress-label" style="margin-right: 10px;"></span>
-            <i class="bi bi-chevron-up" id="documentsChevron"></i>
+            <h5>Submitted Documents</h5>
+            <span class="ms-auto small text-muted fst-italic" id="eval-progress-label"></span>
         </div>
-        <div id="documentsBody" class="collapse show mt-3">
 
         @if($application->documents->count() > 0)
         <div class="row g-3">
             @foreach($grouped as $typeId => $docs)
-                @php $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'General Documents'; @endphp
-                <div class="col-md-6">
-                    <div class="doc-section">
-                        <div class="doc-section-header">
-                            <i class="bi bi-folder-fill"></i> {{ $sectionName }}
+            @php $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'General Documents'; @endphp
+            <div class="col-md-6">
+                <div class="doc-section">
+                    <div class="doc-section-header">
+                        <i class="bi bi-folder-fill"></i> {{ $sectionName }}
+                    </div>
+
+                    @foreach($docs as $doc)
+                    @php
+                    $field = $doc->documentField;
+                    $userDoc = $doc->userDocument;
+                    $inputType = $field?->input_type ?? 'text';
+                    $filePath = $userDoc?->file_path;
+                    $textVal = $userDoc?->value;
+
+                    // Normalise: treat anything not approved/rejected as pending for JS
+                    $evalStatus = in_array($doc->status, ['approved','rejected']) ? $doc->status : 'pending';
+
+                    $badgeClass = match($doc->status) {
+                    'approved' => 'doc-badge-approved',
+                    'rejected' => 'doc-badge-rejected',
+                    'for_revision' => 'doc-badge-for_revision',
+                    default => 'doc-badge-pending',
+                    };
+                    $badgeLabel = match($doc->status) {
+                    'approved' => 'Approved',
+                    'rejected' => 'Rejected',
+                    'for_revision' => 'For Revision',
+                    default => 'Pending',
+                    };
+                    @endphp
+                    <div class="doc-row" id="doc-row-{{ $doc->id }}">
+                        {{-- Hidden form inputs --}}
+                        <input type="hidden" name="evaluations[{{ $doc->id }}][id]" value="{{ $doc->id }}">
+                        <input type="hidden" name="evaluations[{{ $doc->id }}][status]"
+                            id="status-input-{{ $doc->id }}" value="{{ $evalStatus }}">
+
+                        {{-- Field name --}}
+                        <div class="doc-field-name">
+                            @if($inputType === 'file') <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                            @elseif($inputType === 'date') <i class="bi bi-calendar-event text-info me-1"></i>
+                            @else <i class="bi bi-fonts text-secondary me-1"></i>
+                            @endif
+                            {{ $field?->name ?? 'Unknown Field' }}
                         </div>
 
-                        @foreach($docs as $doc)
-                        @php
-                            $field     = $doc->documentField;
-                            $userDoc   = $doc->userDocument;
-                            $inputType = $field?->input_type ?? 'text';
-                            $filePath  = $userDoc?->file_path;
-                            $textVal   = $userDoc?->value;
+                        {{-- Value display --}}
+                        @if($inputType === 'date' && $textVal)
+                        <div class="doc-value">{{ \Carbon\Carbon::parse($textVal)->format('M d, Y') }}</div>
+                        @elseif($inputType === 'text' && $textVal)
+                        <div class="doc-value">{{ $textVal }}</div>
+                        @elseif($inputType === 'file')
+                        <div class="doc-value text-muted" style="font-size:.75rem;">
+                            {{ $filePath ? basename($filePath) : 'No file' }}
+                        </div>
+                        @endif
 
-                            // Normalise: treat anything not approved/rejected as pending for JS
-                            $evalStatus = in_array($doc->status, ['approved','rejected']) ? $doc->status : 'pending';
-                            $isAlreadyRejected = $doc->status === 'rejected';
+                        {{-- Status badge --}}
+                        <span class="doc-badge {{ $badgeClass }}" id="badge-{{ $doc->id }}">{{ $badgeLabel }}</span>
 
-                            $badgeClass = match($doc->status) {
-                                'approved'     => 'doc-badge-approved',
-                                'rejected'     => 'doc-badge-for_update',
-                                'for_revision' => 'doc-badge-for_revision',
-                                default        => 'doc-badge-pending',
-                            };
-                            $badgeLabel = match($doc->status) {
-                                'approved'     => 'Approved',
-                                'rejected'     => 'Awaiting Re-upload',
-                                'for_revision' => 'For Revision',
-                                default        => 'Pending',
-                            };
-                        @endphp
-                        <div class="doc-row" id="doc-row-{{ $doc->id }}">
-                            {{-- Hidden form inputs --}}
-                            <input type="hidden" name="evaluations[{{ $doc->id }}][id]" value="{{ $doc->id }}">
-                            <input type="hidden" name="evaluations[{{ $doc->id }}][status]"
-                                   id="status-input-{{ $doc->id }}" value="{{ $evalStatus }}" data-db-status="{{ $doc->status }}">
+                        {{-- View button --}}
+                        @if($inputType === 'file' && $filePath)
+                        <div class="doc-actions">
+                            <a href="{{ route('admin.hcd.documents.view', $doc->id) }}?v={{ $doc->updated_at->timestamp ?? time() }}"
+                                target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0"
+                                style="font-size:.78rem;">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </div>
+                        @endif
 
-                            {{-- Field name --}}
-                            <div class="doc-field-name">
-                                @if($inputType === 'file') <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
-                                @elseif($inputType === 'date') <i class="bi bi-calendar-event text-info me-1"></i>
-                                @else <i class="bi bi-fonts text-secondary me-1"></i>
-                                @endif
-                                {{ $field?->name ?? 'Unknown Field' }}
-                            </div>
+                        {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
+                        @if(!$allApproved && !$isScheduled && !$isAccredited && !$isApproved)
+                        <div class="doc-eval-actions">
+                            <button type="button"
+                                class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
+                                data-doc-id="{{ $doc->id }}"
+                                onclick="setDocStatus({{ $doc->id }}, 'approved')">
+                                <i class="bi bi-check-circle-fill"></i> Approve
+                            </button>
+                            <button type="button"
+                                class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}"
+                                data-doc-id="{{ $doc->id }}"
+                                onclick="setDocStatus({{ $doc->id }}, 'rejected')">
+                                <i class="bi bi-x-circle-fill"></i> Reject
+                            </button>
+                        </div>
+                        <div class="reject-panel" id="reject-panel-{{ $doc->id }}"
+                            style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
+                            <label class="reject-remarks-label">
+                                <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
+                            </label>
+                            <textarea class="reject-remarks-input"
+                                name="evaluations[{{ $doc->id }}][remarks]"
+                                id="remarks-{{ $doc->id }}"
+                                placeholder="Explain why this document was rejected…"
+                                rows="2">{{ $doc->remarks }}</textarea>
+                        </div>
+                        @endif
 
-                            {{-- Value display --}}
-                            @if($inputType === 'date' && $textVal)
-                                <div class="doc-value">{{ \Carbon\Carbon::parse($textVal)->format('M d, Y') }}</div>
-                            @elseif($inputType === 'text' && $textVal)
-                                <div class="doc-value">{{ $textVal }}</div>
-                            @elseif($inputType === 'file')
-                                <div class="doc-value text-muted" style="font-size:.75rem;">
-                                    {{ $filePath ? basename($filePath) : 'No file' }}
-                                </div>
-                            @endif
-
-                            {{-- Status badge --}}
-                            <span class="doc-badge {{ $badgeClass }}" id="badge-{{ $doc->id }}">{{ $badgeLabel }}</span>
-
-                            {{-- View button --}}
-                            @if($inputType === 'file' && $filePath)
-                            <div class="doc-actions">
-                                <a href="{{ route('admin.hcd.documents.view', $doc->id) }}?v={{ $doc->updated_at->timestamp ?? time() }}"
-                                   target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0"
-                                   style="font-size:.78rem;">
-                                    <i class="bi bi-eye me-1"></i>View
-                                </a>
-                            </div>
-                            @endif
-
-                            {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
-                            @if(!$allApproved && !$isScheduled && !$isAccredited && !$isApproved)
-                            <div class="doc-eval-actions">
-                                <button type="button"
-                                        class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
-                                        data-doc-id="{{ $doc->id }}"
-                                        {{ $isAlreadyRejected ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }}
-                                        onclick="{{ $isAlreadyRejected ? '' : 'setDocStatus(' . $doc->id . ', \'approved\')' }}">
-                                    <i class="bi bi-check-circle-fill"></i> Approve
-                                </button>
-                                <button type="button"
-                                        class="btn-eval btn-reject {{ $evalStatus === 'rejected' && !$isAlreadyRejected ? 'active' : '' }}"
-                                        data-doc-id="{{ $doc->id }}"
-                                        {{ $isAlreadyRejected ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }}
-                                        onclick="{{ $isAlreadyRejected ? '' : 'setDocStatus(' . $doc->id . ', \'rejected\')' }}">
-                                    <i class="bi bi-x-circle-fill"></i> Reject
-                                </button>
-                            </div>
-                            <div class="reject-panel" id="reject-panel-{{ $doc->id }}"
-                                 style="{{ $evalStatus === 'rejected' && !$isAlreadyRejected ? '' : 'display:none;' }}">
-                                <label class="reject-remarks-label">
-                                    <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
-                                </label>
-                                <textarea class="reject-remarks-input"
-                                          name="evaluations[{{ $doc->id }}][remarks]"
-                                          id="remarks-{{ $doc->id }}"
-                                          placeholder="Explain why this document was rejected…"
-                                          rows="2">{{ $doc->remarks }}</textarea>
-                            </div>
-                            @endif
-
-                        </div>{{-- /doc-row --}}
-                        @endforeach
-                    </div>
+                    </div>{{-- /doc-row --}}
+                    @endforeach
                 </div>
+            </div>
             @endforeach
         </div>
         @else
@@ -603,19 +463,16 @@ document.addEventListener('DOMContentLoaded', function() {
             No documents have been uploaded for this application.
         </div>
         @endif
-        </div>
     </div>
 
     {{-- ── Instructor Credentials Card ── --}}
     @if($application->user && $application->user->instructors && $application->user->instructors->count() > 0)
     <div class="ai-card mt-4">
-        <div class="ai-card-header d-flex align-items-center" style="cursor:pointer;" data-custom-toggle="collapse" data-bs-target="#instructorsBody" aria-expanded="true">
+        <div class="ai-card-header">
             <i class="bi bi-people-fill fs-5 text-dark"></i>
-            <h5 class="mb-0">Instructor Credentials</h5>
-            <i class="bi bi-chevron-up ms-auto" id="instructorsChevron"></i>
+            <h5>Instructor Credentials</h5>
         </div>
-        <div id="instructorsBody" class="collapse show mt-3">
-        
+
         <div class="row g-3">
             @foreach($application->user->instructors as $instructor)
             <div class="col-md-12">
@@ -630,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         @endif
                     </div>
-                    
+
                     {{-- Update request status banners (non-none states) --}}
                     @if($instructor->update_request_status === 'admin_requested')
                     <div class="m-3 mb-0 p-3 rounded" style="background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2;">
@@ -641,15 +498,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="fw-semibold">Fields:</span>
                             <ul class="mb-0 mt-1" style="padding-left:1.2rem;">
                                 @foreach($instructor->update_request_fields as $field)
-                                    <li>
-                                        @if($field === 'service_agreement') Service Agreement between FATPro head and instructor
-                                        @elseif($field === 'EMS') TESDA EMS NC II/III
-                                        @elseif($field === 'TM1') TESDA TM1
-                                        @elseif($field === 'NTTC') TESDA NTTC
-                                        @elseif($field === 'BOSH') BOSH SO1/SO2
-                                        @else {{ $field }}
-                                        @endif
-                                    </li>
+                                <li>
+                                    @if($field === 'service_agreement') Service Agreement between FATPro head and instructor
+                                    @elseif($field === 'EMS') TESDA EMS NC II/III
+                                    @elseif($field === 'TM1') TESDA TM1
+                                    @elseif($field === 'NTTC') TESDA NTTC
+                                    @elseif($field === 'BOSH') BOSH SO1/SO2
+                                    @else {{ $field }}
+                                    @endif
+                                </li>
                                 @endforeach
                             </ul>
                         </div>
@@ -672,70 +529,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     @foreach($instructor->credentials as $credential)
                     @php
-                        $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
-                        $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);
-                        $isAlreadyRejectedCred = $credential->status === 'rejected';
+                    $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
+                    $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);
 
-                        if ($instructor->update_request_status === 'admin_requested' && $isRequestedCred) {
-                            $badgeClassCred = 'doc-badge-pending';
-                            $badgeLabelCred = 'Awaiting Upload';
-                        } else {
-                            $badgeClassCred = match($credential->status) {
-                                'approved'     => 'doc-badge-approved',
-                                'rejected'     => 'doc-badge-for_update',
-                                'for_revision' => 'doc-badge-for_revision',
-                                default        => 'doc-badge-pending',
-                            };
-                            $badgeLabelCred = match($credential->status) {
-                                'approved'     => 'Approved',
-                                'rejected'     => 'Awaiting Re-upload',
-                                'for_revision' => 'For Revision',
-                                default        => 'Pending',
-                            };
-                        }
+                    if ($instructor->update_request_status === 'admin_requested' && $isRequestedCred) {
+                    $badgeClassCred = 'doc-badge-pending';
+                    $badgeLabelCred = 'Awaiting Upload';
+                    } else {
+                    $badgeClassCred = match($credential->status) {
+                    'approved' => 'doc-badge-approved',
+                    'rejected' => 'doc-badge-rejected',
+                    'for_revision' => 'doc-badge-for_revision',
+                    default => 'doc-badge-pending',
+                    };
+                    $badgeLabelCred = match($credential->status) {
+                    'approved' => 'Approved',
+                    'rejected' => 'Rejected',
+                    'for_revision' => 'For Revision',
+                    default => 'Pending',
+                    };
+                    }
                     @endphp
                     <div class="doc-row" id="doc-row-cred-{{ $credential->id }}">
                         <input type="hidden" name="credential_evaluations[{{ $credential->id }}][id]" value="{{ $credential->id }}">
-                        <input type="hidden" name="credential_evaluations[{{ $credential->id }}][status]" id="status-input-cred-{{ $credential->id }}" value="{{ $evalStatusCred }}" data-db-status="{{ $credential->status }}">
-                        
+                        <input type="hidden" name="credential_evaluations[{{ $credential->id }}][status]" id="status-input-cred-{{ $credential->id }}" value="{{ $evalStatusCred }}">
+
                         <div class="doc-field-name">
                             <div class="d-flex align-items-center mb-1">
                                 <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
                                 <span class="fw-bold">
                                     @if($credential->type === 'EMS')
-                                        TESDA Emergency Medical Services NC II or III Certificate
+                                    TESDA Emergency Medical Services NC II or III Certificate
                                     @elseif($credential->type === 'TM1')
-                                        TESDA Trainers Methodology Certificate 1
+                                    TESDA Trainers Methodology Certificate 1
                                     @elseif($credential->type === 'NTTC')
-                                        TESDA National TVET Trainer Certificate
+                                    TESDA National TVET Trainer Certificate
                                     @elseif($credential->type === 'BOSH')
-                                        BOSH SO1 or SO2 Certificate
+                                    BOSH SO1 or SO2 Certificate
                                     @else
-                                        {{ $credential->type }} Credential
+                                    {{ $credential->type }} Credential
                                     @endif
                                 </span>
                             </div>
                             <div class="ms-4 text-muted" style="font-size: 0.78rem; line-height: 1.5;">
                                 @if($credential->number)
-                                    <div><strong style="color:#555;">Certificate Number:</strong> {{ $credential->number }}</div>
+                                <div><strong style="color:#555;">Certificate Number:</strong> {{ $credential->number }}</div>
                                 @endif
                                 @if($credential->issued_date)
-                                    <div><strong style="color:#555;">Issued On:</strong> {{ \Carbon\Carbon::parse($credential->issued_date)->format('M d, Y') }}</div>
+                                <div><strong style="color:#555;">Issued On:</strong> {{ \Carbon\Carbon::parse($credential->issued_date)->format('M d, Y') }}</div>
                                 @endif
                                 @if($credential->validity_date)
-                                    <div><strong style="color:#555;">Valid Until:</strong> {{ \Carbon\Carbon::parse($credential->validity_date)->format('M d, Y') }}</div>
+                                <div><strong style="color:#555;">Valid Until:</strong> {{ \Carbon\Carbon::parse($credential->validity_date)->format('M d, Y') }}</div>
                                 @endif
                                 @if($credential->training_dates)
-                                    <div><strong style="color:#555;">Training date(s):</strong> {{ $credential->training_dates }}</div>
+                                <div><strong style="color:#555;">Training date(s):</strong> {{ $credential->training_dates }}</div>
                                 @endif
                             </div>
                         </div>
                         <div class="doc-value text-muted" style="font-size:.75rem;">
                             {{ $credential->pdf_path ? basename($credential->pdf_path) : 'No file' }}
                         </div>
-                        
+
                         <span class="doc-badge {{ $badgeClassCred }}" id="badge-cred-{{ $credential->id }}">{{ $badgeLabelCred }}</span>
-                        
+
                         @if($credential->pdf_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                         <div class="doc-actions">
                             @if($credential->pdf_path)
@@ -745,24 +601,24 @@ document.addEventListener('DOMContentLoaded', function() {
                             @endif
                         </div>
                         @endif
-                        
+
                         @php
-                            $isRequested = $instructor->update_request_status === 'pending_review' && 
-                                           is_array($instructor->update_request_fields) && 
-                                           in_array($credential->type, $instructor->update_request_fields);
-                            $showEvalButtons = (!$isAccredited && !$isScheduled) || $isRequested;
+                        $isRequested = $instructor->update_request_status === 'pending_review' &&
+                        is_array($instructor->update_request_fields) &&
+                        in_array($credential->type, $instructor->update_request_fields);
+                        $showEvalButtons = (!$isAccredited && !$isScheduled) || $isRequested;
                         @endphp
-                        
+
                         @if($showEvalButtons)
                         <div class="doc-eval-actions">
-                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" {{ $isAlreadyRejectedCred ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }} onclick="{{ $isAlreadyRejectedCred ? '' : "setDocStatus('cred-{$credential->id}', 'approved')" }}">
+                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
                                 <i class="bi bi-check-circle-fill"></i> Approve
                             </button>
-                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' && !$isAlreadyRejectedCred ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" {{ $isAlreadyRejectedCred ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }} onclick="{{ $isAlreadyRejectedCred ? '' : "setDocStatus('cred-{$credential->id}', 'rejected')" }}">
+                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'rejected')">
                                 <i class="bi bi-x-circle-fill"></i> Reject
                             </button>
                         </div>
-                        <div class="reject-panel" id="reject-panel-cred-{{ $credential->id }}" style="{{ $evalStatusCred === 'rejected' && !$isAlreadyRejectedCred ? '' : 'display:none;' }}">
+                        <div class="reject-panel" id="reject-panel-cred-{{ $credential->id }}" style="{{ $evalStatusCred === 'rejected' ? '' : 'display:none;' }}">
                             <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
                             <textarea class="reject-remarks-input" name="credential_evaluations[{{ $credential->id }}][remarks]" id="remarks-cred-{{ $credential->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $credential->remarks }}</textarea>
                         </div>
@@ -772,32 +628,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     {{-- Service Agreement --}}
                     @php
-                        $evalStatus = in_array($instructor->status, ['approved','rejected']) ? $instructor->status : 'pending';
-                        $isSaRequested = is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields);
-                        $isAlreadyRejectedSa = $instructor->status === 'rejected';
+                    $evalStatus = in_array($instructor->status, ['approved','rejected']) ? $instructor->status : 'pending';
+                    $isSaRequested = is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields);
 
-                        if ($instructor->update_request_status === 'admin_requested' && $isSaRequested) {
-                            $badgeClass = 'doc-badge-pending';
-                            $badgeLabel = 'Awaiting Upload';
-                        } else {
-                            $badgeClass = match($instructor->status) {
-                                'approved'     => 'doc-badge-approved',
-                                'rejected'     => 'doc-badge-for_update',
-                                'for_revision' => 'doc-badge-for_revision',
-                                default        => 'doc-badge-pending',
-                            };
-                            $badgeLabel = match($instructor->status) {
-                                'approved'     => 'Approved',
-                                'rejected'     => 'Awaiting Re-upload',
-                                'for_revision' => 'For Revision',
-                                default        => 'Pending',
-                            };
-                        }
+                    if ($instructor->update_request_status === 'admin_requested' && $isSaRequested) {
+                    $badgeClass = 'doc-badge-pending';
+                    $badgeLabel = 'Awaiting Upload';
+                    } else {
+                    $badgeClass = match($instructor->status) {
+                    'approved' => 'doc-badge-approved',
+                    'rejected' => 'doc-badge-rejected',
+                    'for_revision' => 'doc-badge-for_revision',
+                    default => 'doc-badge-pending',
+                    };
+                    $badgeLabel = match($instructor->status) {
+                    'approved' => 'Approved',
+                    'rejected' => 'Rejected',
+                    'for_revision' => 'For Revision',
+                    default => 'Pending',
+                    };
+                    }
                     @endphp
                     <div class="doc-row" id="doc-row-inst-{{ $instructor->id }}">
                         <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][id]" value="{{ $instructor->id }}">
-                        <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][status]" id="status-input-inst-{{ $instructor->id }}" value="{{ $evalStatus }}" data-db-status="{{ $instructor->status }}">
-                        
+                        <input type="hidden" name="instructor_evaluations[{{ $instructor->id }}][status]" id="status-input-inst-{{ $instructor->id }}" value="{{ $evalStatus }}">
+
                         <div class="doc-field-name">
                             <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
                             <span class="fw-bold">Service Agreement between FATPro head and instructor</span>
@@ -805,9 +660,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="doc-value text-muted" style="font-size:.75rem;">
                             {{ $instructor->service_agreement_path ? basename($instructor->service_agreement_path) : 'No file' }}
                         </div>
-                        
+
                         <span class="doc-badge {{ $badgeClass }}" id="badge-inst-{{ $instructor->id }}">{{ $badgeLabel }}</span>
-                        
+
                         @if($instructor->service_agreement_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                         <div class="doc-actions">
                             @if($instructor->service_agreement_path)
@@ -817,24 +672,24 @@ document.addEventListener('DOMContentLoaded', function() {
                             @endif
                         </div>
                         @endif
-                        
+
                         @php
-                            $isSaRequested = $instructor->update_request_status === 'pending_review' && 
-                                             is_array($instructor->update_request_fields) && 
-                                             in_array('service_agreement', $instructor->update_request_fields);
-                            $showSaEvalButtons = (!$isAccredited && !$isScheduled) || $isSaRequested;
+                        $isSaRequested = $instructor->update_request_status === 'pending_review' &&
+                        is_array($instructor->update_request_fields) &&
+                        in_array('service_agreement', $instructor->update_request_fields);
+                        $showSaEvalButtons = (!$isAccredited && !$isScheduled) || $isSaRequested;
                         @endphp
-                        
+
                         @if($showSaEvalButtons)
                         <div class="doc-eval-actions">
-                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" {{ $isAlreadyRejectedSa ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }} onclick="{{ $isAlreadyRejectedSa ? '' : "setDocStatus('inst-{$instructor->id}', 'approved')" }}">
+                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
                                 <i class="bi bi-check-circle-fill"></i> Approve
                             </button>
-                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' && !$isAlreadyRejectedSa ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" {{ $isAlreadyRejectedSa ? 'disabled style=opacity:0.55;cursor:not-allowed;' : '' }} onclick="{{ $isAlreadyRejectedSa ? '' : "setDocStatus('inst-{$instructor->id}', 'rejected')" }}">
+                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'rejected')">
                                 <i class="bi bi-x-circle-fill"></i> Reject
                             </button>
                         </div>
-                        <div class="reject-panel" id="reject-panel-inst-{{ $instructor->id }}" style="{{ $evalStatus === 'rejected' && !$isAlreadyRejectedSa ? '' : 'display:none;' }}">
+                        <div class="reject-panel" id="reject-panel-inst-{{ $instructor->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
                             <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
                             <textarea class="reject-remarks-input" name="instructor_evaluations[{{ $instructor->id }}][remarks]" id="remarks-inst-{{ $instructor->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $instructor->remarks }}</textarea>
                         </div>
@@ -844,444 +699,352 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             @endforeach
         </div>
-        </div>
     </div>
     @endif
-
 
 </form>
 
 
 {{-- ══ Interview Schedule Card (shown when not yet accredited/approved) ══ --}}
 @if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
-    @if($interview)
-        @php
-            $activePct = $application->activePctEntry;
-            $activeStep = $activePct->step_number ?? 0;
-            $pctStatus = $activePct ? $activePct->stepStatus() : '';
-        @endphp
-        <div class="mt-3 mb-3"
-             style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+@if($interview)
+<div class="mt-3 mb-3"
+    style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
 
-            {{-- Card Header --}}
-            <div class="d-flex align-items-center justify-content-center gap-3 px-4 py-3"
-                 style="background:linear-gradient(135deg,#1A4A8A,#0D2B55);">
-                <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:8px;
+    {{-- Card Header --}}
+    <div class="d-flex align-items-center justify-content-center gap-3 px-4 py-3"
+        style="background:linear-gradient(135deg,#1A4A8A,#0D2B55);">
+        <div style="width:38px;height:38px;background:rgba(255,255,255,.15);border-radius:8px;
                             display:flex;align-items:center;justify-content:center;">
-                    <i class="bi bi-calendar-check-fill text-white fs-5"></i>
-                </div>
-                <div class="text-start">
-                    <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
-                    <small class="text-white-50">Schedule has been set.</small>
+            <i class="bi bi-calendar-check-fill text-white fs-5"></i>
+        </div>
+        <div class="text-start">
+            <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
+            <small class="text-white-50">Schedule has been set.</small>
+        </div>
+    </div>
+
+    {{-- Card Body --}}
+    <div class="px-4 pt-3 pb-2 text-center">
+        {{-- Info chips row — centered --}}
+        <div class="row g-2 mb-3 justify-content-center text-start">
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Date</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->interview_date->format('F d, Y') }}</div>
                 </div>
             </div>
-
-            {{-- Card Body --}}
-            <div class="px-4 pt-3 pb-2 text-center">
-                {{-- Info chips row — centered --}}
-                <div class="row g-2 mb-3 justify-content-center text-start">
-                    <div class="col-auto">
-                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Date</div>
-                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ $interview->interview_date->format('F d, Y') }}</div>
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Time</div>
-                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</div>
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Mode</div>
-                            <div>
-                                <span class="badge {{ $interview->mode === 'online' ? 'bg-info' : 'bg-secondary' }} text-white" style="font-size:.78rem;">
-                                    {{ strtoupper($interview->mode) }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    @if($interview->venue)
-                    <div class="col-auto">
-                        <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
-                            <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">{{ $interview->mode === 'online' ? 'Meeting Link' : 'Venue' }}</div>
-                            <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">
-                                @if($interview->mode === 'online')
-                                    <a href="{{ $interview->venue }}" target="_blank" style="text-decoration:underline;">Open Link</a>
-                                @else
-                                    {{ $interview->venue }}
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    @endif
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Time</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">{{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}</div>
                 </div>
             </div>
-
-            {{-- Card Footer — centered button --}}
-            @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && $activeStep === 5 && $pctStatus !== 'active')
-            <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
-                <button type="button"
-                        id="btn-open-schedule"
-                        class="btn btn-outline-primary btn-sm fw-semibold px-4"
-                        disabled
-                        data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
-                        style="border-radius:6px;">
-                    <span id="btn-schedule-icon"></span>
-                    <span id="btn-schedule-text">Update Schedule</span>
-                </button>
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Mode</div>
+                    <div>
+                        <span class="badge {{ $interview->mode === 'online' ? 'bg-info' : 'bg-secondary' }} text-white" style="font-size:.78rem;">
+                            {{ strtoupper($interview->mode) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            @if($interview->venue)
+            <div class="col-auto">
+                <div style="background:#f0f5ff;border:1px solid #d0ddf7;border-radius:8px;padding:8px 14px;">
+                    <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">{{ $interview->mode === 'online' ? 'Meeting Link' : 'Venue' }}</div>
+                    <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">
+                        @if($interview->mode === 'online')
+                        <a href="{{ $interview->venue }}" target="_blank" style="text-decoration:underline;">Open Link</a>
+                        @else
+                        {{ $interview->venue }}
+                        @endif
+                    </div>
+                </div>
             </div>
             @endif
-
-            {{-- PCT Interview Controls & Result Actions --}}
-            @if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
-                @if($isRejected)
-                    <div class="d-flex align-items-center justify-content-center gap-3 p-3 bg-light border-top" style="color: #dc3545;">
-                        <i class="bi bi-x-circle-fill fs-4 text-danger"></i>
-                        <div class="text-start">
-                            <div class="fw-bold" style="font-size:0.95rem;">Interview Result: Failed / Rejected</div>
-                            <small class="text-muted">This application did not pass the interview process.</small>
-                        </div>
-                    </div>
-                @elseif($activeStep === 5 && $pctStatus === 'paused')
-                    {{-- Interview is scheduled, but PCT is paused (waiting to start) --}}
-                    <div class="px-4 py-3 bg-light border-top text-center">
-                        <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
-                            <i class="bi bi-play-circle-fill me-1 text-primary"></i>
-                            The interview is scheduled. Click below when it actually begins:
-                        </p>
-                        <form action="{{ route('admin.hcd.applications.start_interview', $application->id) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="btn btn-primary btn-sm fw-bold px-4" style="border-radius:8px;">
-                                <i class="bi bi-play-fill me-1"></i> Start Interview
-                            </button>
-                        </form>
-                    </div>
-                @elseif($activeStep === 5 && $pctStatus === 'active')
-                    {{-- Interview is Running --}}
-                    <div class="px-4 py-3 bg-light border-top text-center" style="background-color: #fff4e5 !important;">
-                        <p class="fw-bold mb-2 text-danger" style="font-size: 0.95rem; animation: pulse 2s infinite;">
-                            <i class="bi bi-record-circle-fill me-1"></i> Interview is currently running...
-                        </p>
-                        <button type="button" class="btn btn-danger btn-sm fw-bold px-4" style="border-radius:8px; box-shadow: 0 0 10px rgba(220,53,69,0.4);" data-bs-toggle="modal" data-bs-target="#stopInterviewModal">
-                            <i class="bi bi-stop-fill me-1"></i> Stop Interview
-                        </button>
-                    </div>
-                @elseif($activeStep === 6)
-                    {{-- Interview Result --}}
-                    <div class="px-4 py-3 bg-light border-top text-center">
-                        <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
-                            <i class="bi bi-question-circle-fill me-1 text-primary"></i>
-                            Please record the outcome of the interview:
-                        </p>
-                        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2">
-                            {{-- PASSED button --}}
-                            <button type="button"
-                                    class="btn btn-success btn-sm fw-bold px-4"
-                                    style="border-radius:8px;"
-                                    data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
-                                <i class="bi bi-check-circle-fill me-1"></i>Passed
-                            </button>
-                            {{-- NOT PASSED button --}}
-                            <button type="button"
-                                    class="btn btn-danger btn-sm fw-bold px-4"
-                                    style="border-radius:8px;"
-                                    data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
-                                <i class="bi bi-x-circle-fill me-1"></i>Not Passed
-                            </button>
-                        </div>
-                    </div>
-                @endif
-            @endif
-
         </div>
-    @else
-        {{-- Just the button if no schedule yet --}}
-        @if(!$isRejected)
-        <div class="mt-4 mb-4 text-center">
-            <button type="button"
-                    id="btn-open-schedule"
-                    class="btn btn-outline-primary btn-sm fw-semibold px-4"
-                    disabled
-                    data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
-                    style="border-radius:6px;">
-                <span id="btn-schedule-icon"></span>
-                <span id="btn-schedule-text">Set Schedule</span>
-            </button>
-        </div>
-        @endif
-    @endif
-@elseif($hasPendingUpdate)
-    <div class="mt-4 mb-4 text-center">
+    </div>
+
+    {{-- Card Footer — centered button --}}
+    @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']))
+    <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
         <button type="button"
-                id="btn-open-schedule"
-                class="btn btn-outline-primary btn-sm fw-semibold px-4"
-                disabled
-                style="border-radius:6px;">
+            id="btn-open-schedule"
+            class="btn btn-outline-primary btn-sm fw-semibold px-4"
+            disabled
+            data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
+            style="border-radius:6px;">
             <span id="btn-schedule-icon"></span>
-            <span id="btn-schedule-text">Pending Documents</span>
+            <span id="btn-schedule-text">Update Schedule</span>
         </button>
     </div>
+    @endif
+
+    {{-- Interview Result Actions / Status inside Card --}}
+    @if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
+    @if($isRejected)
+    <div class="d-flex align-items-center justify-content-center gap-3 p-3 bg-light border-top" style="color: #dc3545;">
+        <i class="bi bi-x-circle-fill fs-4 text-danger"></i>
+        <div class="text-start">
+            <div class="fw-bold" style="font-size:0.95rem;">Interview Result: Failed / Rejected</div>
+            <small class="text-muted">This application did not pass the interview process.</small>
+        </div>
+    </div>
+    @else
+    <div class="px-4 py-3 bg-light border-top text-center">
+        <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
+            <i class="bi bi-question-circle-fill me-1 text-primary"></i>
+            Please record the outcome of the scheduled interview:
+        </p>
+        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2">
+            {{-- PASSED button --}}
+            <button type="button"
+                class="btn btn-success btn-sm fw-bold px-4"
+                style="border-radius:8px;"
+                data-bs-toggle="modal" data-bs-target="#passedConfirmModal">
+                <i class="bi bi-check-circle-fill me-1"></i>Passed
+            </button>
+            {{-- NOT PASSED button --}}
+            <button type="button"
+                class="btn btn-danger btn-sm fw-bold px-4"
+                style="border-radius:8px;"
+                data-bs-toggle="modal" data-bs-target="#notPassedConfirmModal">
+                <i class="bi bi-x-circle-fill me-1"></i>Not Passed
+            </button>
+        </div>
+    </div>
+    @endif
+    @endif
+
+</div>
+@else
+{{-- Just the button if no schedule yet --}}
+@if(!$isRejected)
+<div class="mt-4 mb-4 text-center">
+    <button type="button"
+        id="btn-open-schedule"
+        class="btn btn-outline-primary btn-sm fw-semibold px-4"
+        disabled
+        data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
+        style="border-radius:6px;">
+        <span id="btn-schedule-icon"></span>
+        <span id="btn-schedule-text">Set Schedule</span>
+    </button>
+</div>
+@endif
+@endif
+@elseif($hasPendingUpdate)
+<div class="mt-4 mb-4 text-center">
+    <button type="button"
+        id="btn-open-schedule"
+        class="btn btn-outline-primary btn-sm fw-semibold px-4"
+        disabled
+        style="border-radius:6px;">
+        <span id="btn-schedule-icon"></span>
+        <span id="btn-schedule-text">Pending Documents</span>
+    </button>
+</div>
 @endif
 
 @php
-    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
-    $isEvaluator = strtolower($isAdminRole) === 'evaluator';
-    $isVerifier  = strtolower($isAdminRole) === 'verifier';
+$isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+$isEvaluator = strtolower($isAdminRole) === 'evaluator';
+$isVerifier = strtolower($isAdminRole) === 'verifier';
 @endphp
 
 {{-- ══ Awaiting Payment Panels ══ --}}
 @if($currentStatus === 'Awaiting Payment')
-    @if($isEvaluator && (!$application->payment || !$application->payment->signed_recommendation_letter))
-    <div class="ai-card mt-4">
-        <div class="ai-card-header">
-            <i class="bi bi-file-earmark-pdf fs-5 text-dark"></i>
-            <h5>Recommendation Form</h5>
-        </div>
-        <div class="x_content p-3 mt-2">
-            <p class="text-muted small">This application has passed the interview stage. Fill out the recommendation form details and generate the PDF to print.</p>
-            
-            <form action="{{ route('admin.hcd.applications.generate_recommendation', $application->id) }}" method="POST" target="_blank" class="mb-3">
-                @csrf
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label fw-semibold small">Form Date</label>
-                        <input type="date" name="date" class="form-control form-control-sm" value="{{ now()->format('Y-m-d') }}" required>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold small">From Division</label>
-                        <input type="text" name="from" class="form-control form-control-sm" value="Health Control Division (HCD)" required>
-                    </div>
-                    <div class="col-md-5">
-                        <label class="form-label fw-semibold small">To Office</label>
-                        <input type="text" name="to" class="form-control form-control-sm" value="Office of the Executive Director (OED)" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold small">Specialization/Industry</label>
-                        <input type="text" name="specialization" class="form-control form-control-sm" placeholder="e.g. Construction, General Manufacturing">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold small">Evaluator Name</label>
-                        <input type="text" name="evaluator" class="form-control form-control-sm" value="{{ auth()->user()->name }}" required>
-                    </div>
-                    <div class="col-md-12">
-                        <label class="form-label fw-semibold small">
-                            Interviewers (One per line) <span class="text-muted fw-normal" style="font-size: 0.72rem;">— Press Enter after each name to add each interviewer on a new line.</span>
-                        </label>
-                        <textarea name="interviewers" class="form-control form-control-sm" rows="3" placeholder="Enter interviewer names, one per line"></textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold small">Recommended By</label>
-                        <input type="text" name="recommended_by" class="form-control form-control-sm" value="MARIA BEATRIZ G. VILLANUEVA, MD" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold small">Approved By</label>
-                        <input type="text" name="approved_by" class="form-control form-control-sm" value="ENGR. JOSE MARIA S. BATINO" required>
-                    </div>
-                </div>
-                
-                <div class="mt-4 text-center">
-                    <button type="submit" class="btn btn-primary fw-semibold text-white px-5 py-2" style="border-radius: 8px; font-size: 0.95rem;">
-                        <i class="fas fa-file-pdf me-2"></i>Generate Recommendation Form
-                    </button>
-                </div>
-            </form>
-
-            {{-- Payment actions removed from Evaluator view --}}
-        </div>
+@if($isEvaluator && (!$application->payment || !$application->payment->signed_recommendation_letter))
+<div class="ai-card mt-4">
+    <div class="ai-card-header">
+        <i class="bi bi-file-earmark-pdf fs-5 text-dark"></i>
+        <h5>Recommendation Form</h5>
     </div>
-    @endif
+    <div class="x_content p-3 mt-2">
+        <p class="text-muted small">This application has passed the interview stage. Fill out the recommendation form details and generate the PDF to print.</p>
 
-    @if($isVerifier)
-    <div class="ai-card mb-4" style="border-left: 4px solid #1A4A8A; background-color: #f7f9fc;">
-        <div class="ai-card-header">
-            <i class="bi bi-shield-check fs-5 text-dark"></i>
-            <h5 class="fw-bold text-dark mb-0">Verifier Action: Signed Recommendation & Payment Verification</h5>
-        </div>
-        <div class="x_content p-3 mt-2">
-            <p class="text-muted small">This application is awaiting final verification. As a Verifier, you must upload the signed recommendation letter (signed offline by OED/Division Chief) and evaluate the payment requirements uploaded by the applicant.</p>
-            
-            <form id="evaluate-payment-form" action="{{ route('admin.hcd.applications.evaluate_payment', $application->id) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                
-                <div class="p-3 border rounded mb-3 bg-white shadow-sm" style="border-color: #d0ddf7 !important;">
-                    <div class="row g-4">
-                        {{-- Left Column: Signed Recommendation Letter --}}
-                        <div class="col-md-6 border-end pr-md-4">
-                            <h6 class="fw-bold" style="color: #1A3A6A; font-size: 0.95rem;">
-                                <i class="fas fa-file-signature me-1"></i> Signed Recommendation Letter (PDF) <span class="text-danger">*</span>
-                            </h6>
-                            <p class="text-muted small mt-1 mb-3">Upload the signed recommendation letter (signed offline by OED/Division Chief) to finalize accreditation.</p>
-                            <div class="mt-2">
-                                <input type="file" name="signed_recommendation_letter" class="form-control form-control-sm" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
-                                @if($application->payment && $application->payment->signed_recommendation_letter)
-                                    <div class="mt-2 text-success fw-semibold small">
-                                        <i class="fas fa-check-circle"></i> Already uploaded: 
-                                        <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="text-decoration-underline text-success">
-                                            {{ basename($application->payment->signed_recommendation_letter) }}
-                                        </a>
-                                    </div>
-                                @else
-                                    <div class="mt-2 text-danger small"><i class="fas fa-exclamation-circle"></i> Missing: Please upload the signed recommendation letter.</div>
-                                @endif
-                            </div>
-                        </div>
+        <form action="{{ route('admin.hcd.applications.generate_recommendation', $application->id) }}" method="POST" target="_blank" class="mb-3">
+            @csrf
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold small">Form Date</label>
+                    <input type="date" name="date" class="form-control form-control-sm" value="{{ now()->format('Y-m-d') }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">From Division</label>
+                    <input type="text" name="from" class="form-control form-control-sm" value="Health Control Division (HCD)" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold small">To Office</label>
+                    <input type="text" name="to" class="form-control form-control-sm" value="Office of the Executive Director (OED)" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Specialization/Industry</label>
+                    <input type="text" name="specialization" class="form-control form-control-sm" placeholder="e.g. Construction, General Manufacturing">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Evaluator Name</label>
+                    <input type="text" name="evaluator" class="form-control form-control-sm" value="{{ auth()->user()->name }}" required>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold small">
+                        Interviewers (One per line) <span class="text-muted fw-normal" style="font-size: 0.72rem;">— Press Enter after each name to add each interviewer on a new line.</span>
+                    </label>
+                    <textarea name="interviewers" class="form-control form-control-sm" rows="3" placeholder="Enter interviewer names, one per line"></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Recommended By</label>
+                    <input type="text" name="recommended_by" class="form-control form-control-sm" value="MARIA BEATRIZ G. VILLANUEVA, MD" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold small">Approved By</label>
+                    <input type="text" name="approved_by" class="form-control form-control-sm" value="ENGR. JOSE MARIA S. BATINO" required>
+                </div>
+            </div>
 
-                        {{-- Right Column: Proof of Payment --}}
-                        <div class="col-md-6 pl-md-4">
-                            @php
-                                $payment = $application->payment;
-                                $key = 'proof_of_payment';
-                                $filePath = $payment ? $payment->$key : null;
-                                $status   = $payment ? $payment->{"{$key}_status"} : 'pending';
-                                $remarks  = $payment ? $payment->{"{$key}_remarks"} : '';
-                            @endphp
-                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">
-                                <i class="fas fa-receipt me-1 text-primary"></i> Proof of Payment
-                            </h6>
-                            <p class="text-muted small mt-1 mb-3">Verify the payment receipt or transaction slip uploaded by the applicant.</p>
-                            <div class="mt-2" style="min-height: 45px;">
-                                @if($filePath)
-                                    <div class="d-flex align-items-center gap-2">
-                                        <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" target="_blank" class="btn btn-outline-primary btn-sm px-3 py-1 fw-semibold">
-                                            <i class="fas fa-eye me-1"></i> View Proof of Payment
-                                        </a>
-                                        <span class="text-muted small text-truncate" style="max-width: 250px;">
-                                            {{ basename($filePath) }}
-                                        </span>
-                                    </div>
-                                @else
-                                    <div class="alert alert-secondary py-1 px-2 border-0 rounded text-center small mt-2">
-                                        <i class="fas fa-info-circle me-1"></i> Not Uploaded Yet by Applicant
-                                    </div>
-                                @endif
-                            </div>
-                            
-                            @if($filePath)
-                            <div class="mt-3 pt-3 border-top">
-                                <label class="form-label small fw-semibold d-block mb-1">Verify Action</label>
-                                <div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
-                                        <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve Payment</label>
-                                    </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
-                                        <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject Payment</label>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">
-                                    <label class="form-label small text-muted">Rejection Remarks</label>
-                                    <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
-                                </div>
+            <div class="mt-4 text-center">
+                <button type="submit" class="btn btn-primary fw-semibold text-white px-5 py-2" style="border-radius: 8px; font-size: 0.95rem;">
+                    <i class="fas fa-file-pdf me-2"></i>Generate Recommendation Form
+                </button>
+            </div>
+        </form>
+
+        {{-- Payment actions removed from Evaluator view --}}
+    </div>
+</div>
+@endif
+
+@if($isVerifier)
+<div class="ai-card mb-4" style="border-left: 4px solid #1A4A8A; background-color: #f7f9fc;">
+    <div class="ai-card-header">
+        <i class="bi bi-shield-check fs-5 text-dark"></i>
+        <h5 class="fw-bold text-dark mb-0">Verifier Action: Signed Recommendation & Payment Verification</h5>
+    </div>
+    <div class="x_content p-3 mt-2">
+        <p class="text-muted small">This application is awaiting final verification. As a Verifier, you must upload the signed recommendation letter (signed offline by OED/Division Chief) and evaluate the payment requirements uploaded by the applicant.</p>
+
+        <form id="evaluate-payment-form" action="{{ route('admin.hcd.applications.evaluate_payment', $application->id) }}" method="POST" enctype="multipart/form-data">
+            @csrf
+
+            <div class="row g-3">
+                {{-- Signed recommendation letter upload --}}
+                <div class="col-md-12">
+                    <div class="p-3 border rounded mb-3 bg-white" style="border-color: #d0ddf7 !important;">
+                        <h6 class="fw-bold" style="color: #1A3A6A;"><i class="fas fa-file-signature me-1"></i> Signed Recommendation Letter (PDF) <span class="text-danger">*</span></h6>
+                        <div class="mt-2">
+                            <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
+                            @if($application->payment && $application->payment->signed_recommendation_letter)
+                            <div class="mt-2 text-success fw-semibold small">
+                                <i class="fas fa-check-circle"></i> Already uploaded:
+                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="text-decoration-underline text-success">
+                                    {{ basename($application->payment->signed_recommendation_letter) }}
+                                </a>
                             </div>
                             @else
-                                <input type="hidden" name="{{ $key }}_status" value="pending">
+                            <div class="mt-2 text-danger small"><i class="fas fa-exclamation-circle"></i> Missing: Please upload the signed recommendation letter to finalize accreditation.</div>
                             @endif
                         </div>
                     </div>
                 </div>
 
-                <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
-                    <button type="submit" class="btn btn-primary fw-semibold px-4">
-                        <span class="btn-text"><i class="fas fa-save me-1"></i> Submit Evaluation</span>
-                        <span class="btn-spinner d-none">
-                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
-                        </span>
-                    </button>
-            </form>
+                {{-- Payment Requirements evaluation list --}}
+                @php
+                $payment = $application->payment;
+                $requirements = [
+                'proof_of_payment' => 'Proof of Payment',
+                'e_signature' => 'E-Signature',
+                'id_photo' => 'ID Photo'
+                ];
+                @endphp
 
-            @php
-                $hasUploadedAny = $payment && (
-                    $payment->proof_of_payment || 
-                    $payment->proof_of_payment_status === 'rejected' ||
-                    $payment->proof_of_payment_status === 'approved'
-                );
-            @endphp
+                @foreach($requirements as $key => $label)
+                @php
+                $filePath = $payment ? $payment->$key : null;
+                $status = $payment ? $payment->{"{$key}_status"} : 'pending';
+                $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
+                @endphp
+                <div class="col-md-4">
+                    <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6;">
+                        <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
+                        <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
+                            @if($filePath)
+                            <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" target="_blank" class="btn btn-outline-primary btn-xs mt-2 px-3 py-1 fw-semibold">
+                                <i class="fas fa-eye me-1"></i> View {{ $label }}
+                            </a>
+                            <div class="text-muted small mt-2" style="font-size: 0.72rem; word-break: break-all;">
+                                {{ basename($filePath) }}
+                            </div>
+                            @else
+                            <span class="badge bg-secondary mt-3">Not Uploaded Yet</span>
+                            @endif
+                        </div>
 
-
-            <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
-                <i class="fas fa-archive me-1"></i> Archive Application
-            </button>
-        </div>
-    </div>
-    @endif
-@endif
-
-{{-- ══ Certificate Issuance Panel (Step 8) ══ --}}
-@if($isAccredited)
-    <div class="ai-card mb-4 mt-4" style="border-left: 4px solid #16a34a; background-color: #f0fdf4;">
-        <div class="ai-card-header">
-            <i class="bi bi-file-earmark-check fs-5 text-dark"></i>
-            <h5 class="fw-bold text-dark mb-0">Certificate Issuance</h5>
-        </div>
-        <div class="x_content p-3 mt-2">
-            <p class="text-muted small">
-                This application has been approved and accredited. 
-                @if($isVerifier)
-                    As a Verifier, you must upload the scanned certificate to complete Step 8 (Certificate Issuance) and notify the applicant that it is ready for pickup.
-                @else
-                    The Verifier will upload the scanned certificate to notify the applicant that it is ready for pickup.
-                @endif
-            </p>
-
-            @if($application->accreditation->scanned_certificate)
-                <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #bbf7d0 !important;">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-4"></i>
+                        @if($filePath)
+                        <div class="mt-3 pt-3 border-top">
+                            <label class="form-label small fw-semibold d-block mb-2">Status</label>
                             <div>
-                                <div class="fw-bold text-success" style="font-size: 0.95rem;">
-                                    <i class="fas fa-check-circle"></i> Scanned Certificate Uploaded
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
+                                    <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
                                 </div>
-                                <small class="text-muted">
-                                    File: {{ basename($application->accreditation->scanned_certificate) }}
-                                </small>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
+                                    <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject</label>
+                                </div>
+                            </div>
+
+                            <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">
+                                <label class="form-label small text-muted">Rejection Remarks</label>
+                                <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
                             </div>
                         </div>
-                        <div>
-                            <a href="{{ route('admin.hcd.accreditations.view_scanned', $application->accreditation->id) }}" target="_blank" class="btn btn-outline-success btn-sm fw-semibold px-3">
-                                <i class="fas fa-eye me-1"></i> View Scanned Certificate
-                            </a>
-                        </div>
+                        @else
+                        <input type="hidden" name="{{ $key }}_status" value="pending">
+                        @endif
                     </div>
                 </div>
-            @else
-                @if($isVerifier)
-                    <form id="upload-scanned-certificate-form" action="{{ route('admin.hcd.accreditations.upload_scanned', $application->accreditation->id) }}" method="POST" enctype="multipart/form-data">
-                        @csrf
-                        <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #d0ddf7 !important;">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h6 class="fw-bold mb-1" style="color: #1A3A6A; font-size: 0.95rem;">
-                                        <i class="fas fa-upload me-1"></i> Upload Scanned Certificate (PDF) <span class="text-danger">*</span>
-                                    </h6>
-                                    <p class="text-muted small mb-0">Upload proof that the certificate is ready for pickup (signed & scanned certificate).</p>
-                                </div>
-                                <div class="col-md-4 mt-2 mt-md-0">
-                                    <input type="file" name="scanned_certificate" class="form-control form-control-sm" accept=".pdf" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <button type="submit" class="btn btn-primary fw-semibold px-4">
-                                <span class="btn-text"><i class="fas fa-save me-1"></i> Upload Scanned Certificate</span>
-                                <span class="btn-spinner d-none">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Uploading...
-                                </span>
-                            </button>
-                        </div>
-                    </form>
-                @else
-                    <div class="alert alert-secondary py-2 px-3 border-0 rounded text-center small mb-0">
-                        <i class="fas fa-info-circle me-1"></i> Awaiting Scanned Certificate Upload by Verifier.
-                    </div>
-                @endif
-            @endif
-        </div>
+                @endforeach
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                <button type="submit" class="btn btn-primary fw-semibold px-4">
+                    <span class="btn-text"><i class="fas fa-save me-1"></i> Submit Evaluation</span>
+                    <span class="btn-spinner d-none">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
+                    </span>
+                </button>
+        </form>
+
+        @php
+        $hasUploadedAny = $payment && (
+        $payment->proof_of_payment ||
+        $payment->e_signature ||
+        $payment->id_photo ||
+        $payment->proof_of_payment_status === 'rejected' ||
+        $payment->e_signature_status === 'rejected' ||
+        $payment->id_photo_status === 'rejected' ||
+        $payment->proof_of_payment_status === 'approved' ||
+        $payment->e_signature_status === 'approved' ||
+        $payment->id_photo_status === 'approved'
+        );
+        @endphp
+        @if(!$hasUploadedAny)
+        <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
+            @csrf
+            <button type="submit" class="btn btn-success fw-semibold px-4">
+                <i class="fas fa-paper-plane me-1"></i> Send Payment Request to Applicant
+            </button>
+        </form>
+        @endif
+
+        <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
+            <i class="fas fa-archive me-1"></i> Archive Application
+        </button>
     </div>
+</div>
+@endif
 @endif
 
 {{-- ══ Archive Payment Modal ══ --}}
@@ -1296,11 +1059,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p>Are you sure you want to archive/reject this application? This action is <strong>permanent</strong> and will notify the applicant that they did not pass the requirements.</p>
                 <ul class="mb-0">
                     <li><strong>Tracking Number:</strong> {{ $application->tracking_number }}</li>
-                    <li><strong>FATPro Name:</strong> 
+                    <li><strong>FATPro Name:</strong>
                         @if($isOrg)
-                            {{ $org->name ?? 'N/A' }}
+                        {{ $org->name ?? 'N/A' }}
                         @else
-                            {{ ($ind->first_name ?? '') . ' ' . ($ind->last_name ?? '') }}
+                        {{ ($ind->first_name ?? '') . ' ' . ($ind->last_name ?? '') }}
                         @endif
                     </li>
                 </ul>
@@ -1319,13 +1082,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Schedule Interview Modal ══ --}}
 <div class="modal fade" id="scheduleInterviewModal" tabindex="-1"
-     aria-labelledby="scheduleInterviewModalLabel" aria-hidden="true">
+    aria-labelledby="scheduleInterviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px; overflow:hidden; border:none; box-shadow:0 20px 60px rgba(0,0,0,.18);">
 
             {{-- Modal Header --}}
             <div class="modal-header"
-                 style="background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none; padding:22px 28px;">
+                style="background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none; padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -1344,13 +1107,13 @@ document.addEventListener('DOMContentLoaded', function() {
             {{-- Modal Body --}}
             <div class="modal-body p-4" style="background:#f8fafc;">
                 <form id="schedule-interview-form"
-                      action="{{ route('admin.hcd.applications.schedule_interview', $application->id) }}"
-                      method="POST">
+                    action="{{ route('admin.hcd.applications.schedule_interview', $application->id) }}"
+                    method="POST">
                     @csrf
 
-                        {{-- Notice --}}
+                    {{-- Notice --}}
                     <div class="mb-3 p-2 d-flex align-items-center gap-2"
-                         style="background:#eef5ff;border-radius:8px;border-left:4px solid #1A4A8A;">
+                        style="background:#eef5ff;border-radius:8px;border-left:4px solid #1A4A8A;">
                         <i class="bi bi-info-circle-fill text-primary mt-1"></i>
                         <small class="text-muted">
                             An email notification with the interview schedule will be sent to the applicant upon saving.
@@ -1364,9 +1127,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="bi bi-calendar3 me-1 text-primary"></i>Interview Date
                             </label>
                             <input type="date" name="interview_date" id="interview-date" class="form-control"
-                                   value="{{ $interview?->interview_date?->format('Y-m-d') }}"
-                                   min="{{ now()->format('Y-m-d') }}" required
-                                   style="border-radius:8px;border-color:#d0d8e8;">
+                                value="{{ $interview?->interview_date?->format('Y-m-d') }}"
+                                min="{{ now()->format('Y-m-d') }}" required
+                                style="border-radius:8px;border-color:#d0d8e8;">
                         </div>
 
                         {{-- Time --}}
@@ -1375,8 +1138,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="bi bi-clock me-1 text-primary"></i>Interview Time
                             </label>
                             <input type="time" name="interview_time" id="interview-time" class="form-control"
-                                   value="{{ $interview ? \Carbon\Carbon::parse($interview->interview_time)->format('H:i') : '' }}" required
-                                   style="border-radius:8px;border-color:#d0d8e8;">
+                                value="{{ $interview ? \Carbon\Carbon::parse($interview->interview_time)->format('H:i') : '' }}" required
+                                style="border-radius:8px;border-color:#d0d8e8;">
                         </div>
 
                         {{-- Mode --}}
@@ -1385,10 +1148,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="bi bi-display me-1 text-primary"></i>Interview Mode
                             </label>
                             <select name="mode" id="interview-mode" class="form-select" required
-                                    style="border-radius:8px;border-color:#d0d8e8;">
+                                style="border-radius:8px;border-color:#d0d8e8;">
                                 <option value="">— Select Mode —</option>
                                 <option value="online" {{ ($interview?->mode === 'online') ? 'selected' : '' }}>Online</option>
-                                <option value="f2f"    {{ ($interview?->mode === 'f2f')    ? 'selected' : '' }}>Face-to-Face (F2F)</option>
+                                <option value="f2f" {{ ($interview?->mode === 'f2f')    ? 'selected' : '' }}>Face-to-Face (F2F)</option>
                             </select>
                         </div>
 
@@ -1399,9 +1162,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="text-muted fw-normal fst-italic" id="venue-note">(F2F only)</span>
                             </label>
                             <input type="text" name="venue" id="interview-venue" class="form-control"
-                                   placeholder="Venue / meeting link"
-                                   value="{{ $interview?->venue }}"
-                                   style="border-radius:8px;border-color:#d0d8e8;" required>
+                                placeholder="Venue / meeting link"
+                                value="{{ $interview?->venue }}"
+                                style="border-radius:8px;border-color:#d0d8e8;" required>
                         </div>
 
                         {{-- Online Notice --}}
@@ -1414,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{-- Slot Conflict Warning (hidden by default) --}}
                         <div class="col-12">
                             <div id="slot-conflict-warning" class="d-none mt-2 p-2 d-flex align-items-center gap-2"
-                                 style="background:#fee2e2;border-radius:8px;border-left:4px solid #dc2626;font-size:0.82rem;color:#991b1b;">
+                                style="background:#fee2e2;border-radius:8px;border-left:4px solid #dc2626;font-size:0.82rem;color:#991b1b;">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <span id="slot-conflict-msg">This slot is already taken.</span>
                             </div>
@@ -1429,9 +1192,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi bi-x me-1"></i>Cancel
                 </button>
                 <button type="submit" form="schedule-interview-form"
-                        id="submit-schedule-btn"
-                        class="btn btn-primary fw-bold px-5"
-                        style="border-radius:8px; background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none;">
+                    id="submit-schedule-btn"
+                    class="btn btn-primary fw-bold px-5"
+                    style="border-radius:8px; background:linear-gradient(135deg,#1A4A8A,#0D2B55); border:none;">
                     <span id="submit-schedule-text">
                         <i class="bi bi-calendar-check me-2"></i>
                         {{ $interview ? 'Update Schedule' : 'Save Schedule' }}
@@ -1448,13 +1211,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Rejection Confirmation Modal ══ --}}
 <div class="modal fade" id="rejectionConfirmModal" tabindex="-1"
-     aria-labelledby="rejectionConfirmModalLabel" aria-hidden="true">
+    aria-labelledby="rejectionConfirmModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content" style="border-radius:16px; overflow:hidden; border:none; box-shadow:0 20px 60px rgba(0,0,0,.2);">
 
             {{-- Header --}}
             <div class="modal-header border-0 pb-2"
-                 style="background:linear-gradient(135deg,#c0392b,#922b21); padding:22px 28px;">
+                style="background:linear-gradient(135deg,#c0392b,#922b21); padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -1475,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 {{-- Applicant info --}}
                 <div class="d-flex align-items-center gap-3 mb-3 p-3"
-                     style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
                     <i class="bi bi-person-circle fs-2 text-danger"></i>
                     <div>
                         <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
@@ -1487,7 +1250,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 {{-- Warning notice --}}
                 <div class="d-flex align-items-start gap-2 mb-3 p-3"
-                     style="background:#fff3cd;border-radius:8px;border-left:4px solid #ffc107;">
+                    style="background:#fff3cd;border-radius:8px;border-left:4px solid #ffc107;">
                     <i class="bi bi-exclamation-triangle-fill text-warning mt-1"></i>
                     <small class="text-dark">
                         An email will be sent to the applicant listing the rejected documents and remarks. The application status will change to <strong>For Update</strong>.
@@ -1509,8 +1272,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     Go Back
                 </button>
                 <button type="button" id="btn-confirm-rejection"
-                        class="btn btn-danger fw-bold px-5"
-                        style="border-radius:8px;">
+                    class="btn btn-danger fw-bold px-5"
+                    style="border-radius:8px;">
                     <i class="bi bi-send-fill me-2"></i>Confirm & Send Email
                 </button>
             </div>
@@ -1521,20 +1284,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Shared variables for modal applicant details partial ══ --}}
 @php
-    $modalInstructors = $user->instructors ?? collect();
-    $applicantName = $isOrg ? ($org->name ?? 'N/A') : ($user->name ?? 'N/A');
-    $applicantEmail = $isOrg ? ($org->email ?? $user->email) : $user->email;
-    $accTypeName = $application->accreditationType->name ?? '—';
+$modalInstructors = $user->instructors ?? collect();
+$applicantName = $isOrg ? ($org->name ?? 'N/A') : ($user->name ?? 'N/A');
+$applicantEmail = $isOrg ? ($org->email ?? $user->email) : $user->email;
+$accTypeName = $application->accreditationType->name ?? '—';
 @endphp
 
 {{-- ══ Passed Confirmation Modal ══ --}}
 <div class="modal fade" id="passedConfirmModal" tabindex="-1"
-     aria-labelledby="passedConfirmModalLabel" aria-hidden="true">
+    aria-labelledby="passedConfirmModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.18);">
 
             <div class="modal-header border-0"
-                 style="background:linear-gradient(135deg,#1a7a4a,#145c38);padding:22px 28px;">
+                style="background:linear-gradient(135deg,#1a7a4a,#145c38);padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -1553,7 +1316,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 {{-- Action Notice --}}
                 <div class="d-flex align-items-start gap-2 p-3"
-                     style="background:#d4edda;border-radius:8px;border-left:4px solid #28a745;">
+                    style="background:#d4edda;border-radius:8px;border-left:4px solid #28a745;">
                     <i class="bi bi-check-circle-fill text-success mt-1"></i>
                     <small class="text-dark">
                         The application will be marked as having <strong>Passed the Interview</strong>. The status will be updated to <strong>Awaiting Payment</strong>, allowing the Evaluator to generate the recommendation form and request payment from the applicant.
@@ -1580,44 +1343,14 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
-{{-- ══ Stop Interview Confirmation Modal ══ --}}
-<div class="modal fade" id="stopInterviewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
-            <div class="modal-header border-0" style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
-                <div class="d-flex align-items-center gap-3">
-                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px; display:flex;align-items:center;justify-content:center;">
-                        <i class="bi bi-stop-circle-fill text-white fs-4"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title text-white mb-0 fw-bold">Stop Interview</h5>
-                    </div>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4 text-center">
-                <p class="mb-0 fw-semibold">Are you sure you want to stop the interview?</p>
-                <small class="text-muted">The PCT timer for the interview will be completed, and you will be able to record the evaluation result.</small>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" action="{{ route('admin.hcd.applications.stop_interview', $application->id) }}">
-                    @csrf
-                    <button type="submit" class="btn btn-danger fw-bold"><i class="bi bi-stop-fill me-1"></i> Confirm Stop</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
 {{-- ══ Not Passed Confirmation Modal ══ --}}
 <div class="modal fade" id="notPassedConfirmModal" tabindex="-1"
-     aria-labelledby="notPassedConfirmModalLabel" aria-hidden="true">
+    aria-labelledby="notPassedConfirmModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
 
             <div class="modal-header border-0"
-                 style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
+                style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -1636,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 {{-- Warning Notice --}}
                 <div class="d-flex align-items-start gap-2 p-3"
-                     style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
+                    style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
                     <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
                     <small class="text-dark">
                         <strong>Warning — this action is permanent and cannot be undone.</strong><br>
@@ -1667,12 +1400,12 @@ document.addEventListener('DOMContentLoaded', function() {
 {{-- ══ Revoke Accreditation Confirmation Modal ══ --}}
 @if($isAccredited && $application->accreditation->status === 'active')
 <div class="modal fade" id="revokeAccreditationModal" tabindex="-1"
-     aria-labelledby="revokeAccreditationModalLabel" aria-hidden="true">
+    aria-labelledby="revokeAccreditationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
 
             <div class="modal-header border-0"
-                 style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
+                style="background:linear-gradient(135deg,#c0392b,#922b21);padding:22px 28px;">
                 <div class="d-flex align-items-center gap-3">
                     <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
                                 display:flex;align-items:center;justify-content:center;">
@@ -1688,7 +1421,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="modal-body p-4" style="background:#fafafa;">
                 <div class="d-flex align-items-center gap-3 mb-3 p-3"
-                     style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
                     <i class="bi bi-person-circle fs-2 text-danger"></i>
                     <div>
                         <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
@@ -1698,7 +1431,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
                 <div class="d-flex align-items-start gap-2 p-3 mb-1"
-                     style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
+                    style="background:#f8d7da;border-radius:8px;border-left:4px solid #dc3545;">
                     <i class="bi bi-exclamation-triangle-fill text-danger mt-1"></i>
                     <small class="text-dark">
                         <strong>Warning — this action will revoke the FATPro's active accreditation.</strong><br>
@@ -1726,352 +1459,241 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Request Update Modals (outside main form to avoid nesting issues) ══ --}}
 @if($application->user && $application->user->instructors)
-    @foreach($application->user->instructors as $instructor)
-        @if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
-        <div class="modal fade" id="reqModal-inst-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content text-start" style="border-radius:12px;overflow:hidden;font-family:'Inter',sans-serif;">
-                    @csrf
-                    <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0b3d91,#091e3e);border:none;">
-                        <div>
-                            <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">Request Update</h6>
-                            <small class="text-white-50" style="font-size:.75rem;">{{ $instructor->first_name }} {{ $instructor->last_name }}</small>
-                        </div>
-                        <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body p-3" style="background:#f8fafc;">
-                        <label class="form-label fw-semibold mb-2" style="font-size:.82rem;color:#2A3F54;">
-                            Select Documents &amp; Provide Reason Per Item <span class="text-danger">*</span>
-                        </label>
-                        <div class="px-2 py-2" style="background:#fff;border:1px solid #d0d8e8;border-radius:6px;">
-
-                            {{-- Service Agreement --}}
-                            <div class="mb-3 border-bottom pb-3">
-                                <div class="form-check mb-1">
-                                    <input class="form-check-input req-chk" type="checkbox"
-                                           name="fields[service_agreement][requested]" value="1"
-                                           id="chk-sa-{{ $instructor->id }}"
-                                           data-target="reason-sa-{{ $instructor->id }}">
-                                    <label class="form-check-label fw-semibold" for="chk-sa-{{ $instructor->id }}" style="font-size:.85rem;">Service Agreement</label>
-                                </div>
-                                <div id="reason-sa-{{ $instructor->id }}" class="req-reason-box ps-4" style="display:none;">
-                                    <input type="text" name="fields[service_agreement][reason]"
-                                           class="form-control form-control-sm mt-1"
-                                           placeholder="Reason for this document..."
-                                           style="font-size:.8rem;border-radius:5px;">
-                                </div>
-                            </div>
-
-                            {{-- Credentials --}}
-                            @foreach($instructor->credentials as $cred)
-                            <div class="{{ $loop->last ? '' : 'mb-3 border-bottom pb-3' }}">
-                                <div class="form-check mb-1">
-                                    <input class="form-check-input req-chk" type="checkbox"
-                                           name="fields[{{ $cred->type }}][requested]" value="1"
-                                           id="chk-{{ $instructor->id }}-{{ $cred->type }}"
-                                           data-target="reason-{{ $instructor->id }}-{{ $cred->type }}">
-                                    <label class="form-check-label fw-semibold" for="chk-{{ $instructor->id }}-{{ $cred->type }}" style="font-size:.85rem;">
-                                        @if($cred->type === 'EMS') TESDA EMS NC II/III
-                                        @elseif($cred->type === 'TM1') TESDA TM1
-                                        @elseif($cred->type === 'NTTC') TESDA NTTC
-                                        @elseif($cred->type === 'BOSH') BOSH SO1/SO2
-                                        @else {{ $cred->type }}
-                                        @endif
-                                    </label>
-                                </div>
-                                <div id="reason-{{ $instructor->id }}-{{ $cred->type }}" class="req-reason-box ps-4" style="display:none;">
-                                    <input type="text" name="fields[{{ $cred->type }}][reason]"
-                                           class="form-control form-control-sm mt-1"
-                                           placeholder="Reason for this document..."
-                                           style="font-size:.8rem;border-radius:5px;">
-                                </div>
-                            </div>
-                            @endforeach
-
-                        </div>
-                    </div>
-                    <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
-                        <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold" style="background-color:#0b3d91; border-color:#0b3d91;"><i class="bi bi-send me-1"></i>Send Request</button>
-                    </div>
-                </form>
+@foreach($application->user->instructors as $instructor)
+@if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
+<div class="modal fade" id="reqModal-inst-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ route('admin.hcd.instructors.request_update', $instructor->id) }}" method="POST" class="modal-content text-start" style="border-radius:12px;overflow:hidden;font-family:'Inter',sans-serif;">
+            @csrf
+            <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0b3d91,#091e3e);border:none;">
+                <div>
+                    <h6 class="modal-title text-white mb-0 fw-bold" style="font-size:.88rem;">Request Update</h6>
+                    <small class="text-white-50" style="font-size:.75rem;">{{ $instructor->first_name }} {{ $instructor->last_name }}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal"></button>
             </div>
-        </div>
-        @endif
-    @endforeach
-@endif
-
-{{-- ── Certificate Executive Director Name Modal ── --}}
-<div class="modal fade" id="certDirectorModal" tabindex="-1" aria-labelledby="certDirectorModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content" style="border-radius:14px;overflow:hidden;border:0;box-shadow:0 8px 30px rgba(0,0,0,.15);">
-            <div class="modal-header py-3 px-4" style="background:linear-gradient(135deg,#15803d,#166534);border:0;">
-                <h6 class="modal-title text-white fw-bold mb-0" id="certDirectorModalLabel">
-                    <i class="bi bi-file-earmark-pdf me-2"></i>Generate Certificate
-                </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body px-4 py-4">
-                <small class="text-muted d-block mb-2" style="font-size:.75rem;">Name of signatory on the certificate.</small>
-                <input type="text" class="form-control" id="cert-director-name"
-                       value="JOSE MARIA S. BATINO"
-                       placeholder="Enter Executive Director name"
-                       style="border-radius:8px;font-size:.9rem;border:1px solid #ccc;">
-                <div class="invalid-feedback">Please enter the Executive Director name.</div>
-                <label for="cert-director-name" class="form-label fw-semibold mt-2 mb-0 d-block text-center" style="font-size:.85rem;color:#333;">
-                    Executive Director Name
+            <div class="modal-body p-3" style="background:#f8fafc;">
+                <label class="form-label fw-semibold mb-2" style="font-size:.82rem;color:#2A3F54;">
+                    Select Documents &amp; Provide Reason Per Item <span class="text-danger">*</span>
                 </label>
+                <div class="px-2 py-2" style="background:#fff;border:1px solid #d0d8e8;border-radius:6px;">
+
+                    {{-- Service Agreement --}}
+                    <div class="mb-3 border-bottom pb-3">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input req-chk" type="checkbox"
+                                name="fields[service_agreement][requested]" value="1"
+                                id="chk-sa-{{ $instructor->id }}"
+                                data-target="reason-sa-{{ $instructor->id }}">
+                            <label class="form-check-label fw-semibold" for="chk-sa-{{ $instructor->id }}" style="font-size:.85rem;">Service Agreement</label>
+                        </div>
+                        <div id="reason-sa-{{ $instructor->id }}" class="req-reason-box ps-4" style="display:none;">
+                            <input type="text" name="fields[service_agreement][reason]"
+                                class="form-control form-control-sm mt-1"
+                                placeholder="Reason for this document..."
+                                style="font-size:.8rem;border-radius:5px;">
+                        </div>
+                    </div>
+
+                    {{-- Credentials --}}
+                    @foreach($instructor->credentials as $cred)
+                    <div class="{{ $loop->last ? '' : 'mb-3 border-bottom pb-3' }}">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input req-chk" type="checkbox"
+                                name="fields[{{ $cred->type }}][requested]" value="1"
+                                id="chk-{{ $instructor->id }}-{{ $cred->type }}"
+                                data-target="reason-{{ $instructor->id }}-{{ $cred->type }}">
+                            <label class="form-check-label fw-semibold" for="chk-{{ $instructor->id }}-{{ $cred->type }}" style="font-size:.85rem;">
+                                @if($cred->type === 'EMS') TESDA EMS NC II/III
+                                @elseif($cred->type === 'TM1') TESDA TM1
+                                @elseif($cred->type === 'NTTC') TESDA NTTC
+                                @elseif($cred->type === 'BOSH') BOSH SO1/SO2
+                                @else {{ $cred->type }}
+                                @endif
+                            </label>
+                        </div>
+                        <div id="reason-{{ $instructor->id }}-{{ $cred->type }}" class="req-reason-box ps-4" style="display:none;">
+                            <input type="text" name="fields[{{ $cred->type }}][reason]"
+                                class="form-control form-control-sm mt-1"
+                                placeholder="Reason for this document..."
+                                style="font-size:.8rem;border-radius:5px;">
+                        </div>
+                    </div>
+                    @endforeach
+
+                </div>
             </div>
-            <div class="modal-footer border-0 px-4 pb-4 pt-0">
-                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
-                <button type="button" class="btn btn-success btn-sm fw-semibold px-4" id="cert-generate-btn" style="border-radius:8px;background:#15803d;border-color:#166534;" onclick="generateCert()">
-                    <i class="bi bi-file-earmark-arrow-down me-1"></i> Generate PDF
-                </button>
+            <div class="modal-footer py-2 px-3" style="background:#f8fafc;border-top:1px solid #e4eaf2;">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold" style="background-color:#0b3d91; border-color:#0b3d91;"><i class="bi bi-send me-1"></i>Send Request</button>
             </div>
-        </div>
+        </form>
     </div>
 </div>
-<script>
-var _certBaseUrl = '';
-function setCertUrl(url) {
-    _certBaseUrl = url;
-    var nameInput = document.getElementById('cert-director-name');
-    if (nameInput) {
-        nameInput.value = 'JOSE MARIA S. BATINO';
-        nameInput.classList.remove('is-invalid');
-    }
-}
-function generateCert() {
-    var nameInput = document.getElementById('cert-director-name');
-    var name = nameInput ? nameInput.value.trim() : '';
-    if (!name) {
-        if (nameInput) nameInput.classList.add('is-invalid');
-        return;
-    }
-    var url = _certBaseUrl + '?executive_director=' + encodeURIComponent(name);
-    window.open(url, '_blank');
-    
-    // Close modal programmatically by clicking the modal's close/cancel button
-    var modalEl = document.getElementById('certDirectorModal');
-    if (modalEl) {
-        var cancelBtn = modalEl.querySelector('[data-bs-dismiss="modal"]');
-        if (cancelBtn) {
-            cancelBtn.click();
-        }
-    }
-}
-document.getElementById('cert-director-name').addEventListener('input', function () {
-    this.classList.remove('is-invalid');
-});
-</script>
+@endif
+@endforeach
+@endif
 
 @endsection
 
 @push('scripts')
 <script>
     window.ARMS = window.ARMS || {};
-    window.ARMS.csrfToken   = '{{ csrf_token() }}';
-    window.ARMS.isScheduled = {{ $isScheduled ? 'true' : 'false' }};
-    window.ARMS.hasInterviewRecord = {{ $interview ? 'true' : 'false' }};
-    window.ARMS.allApproved = {{ $allApproved ? 'true' : 'false' }};
-    window.ARMS.isApproved  = {{ $isApproved ? 'true' : 'false' }};
-    window.ARMS.isAccredited = {{ $isAccredited ? 'true' : 'false' }};
-    window.ARMS.hasPendingUpdate = {{ $hasPendingUpdate ? 'true' : 'false' }};
+    window.ARMS.csrfToken = '{{ csrf_token() }}';
+    window.ARMS.isScheduled = {
+        {
+            $isScheduled ? 'true' : 'false'
+        }
+    };
+    window.ARMS.hasInterviewRecord = {
+        {
+            $interview ? 'true' : 'false'
+        }
+    };
+    window.ARMS.allApproved = {
+        {
+            $allApproved ? 'true' : 'false'
+        }
+    };
+    window.ARMS.isApproved = {
+        {
+            $isApproved ? 'true' : 'false'
+        }
+    };
+    window.ARMS.isAccredited = {
+        {
+            $isAccredited ? 'true' : 'false'
+        }
+    };
+    window.ARMS.hasPendingUpdate = {
+        {
+            $hasPendingUpdate ? 'true' : 'false'
+        }
+    };
     window.ARMS.checkSlotUrl = '{{ route("admin.hcd.interviews.check_slot") }}';
-    window.ARMS.evaluateItemUrl = '{{ route("admin.hcd.applications.evaluate_item", $application->id) }}';
-    window.ARMS.applicationId = {{ $application->id }};
+    window.ARMS.applicationId = {
+        {
+            $application - > id
+        }
+    };
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
 <script>
-// ── Interview Slot Conflict Checker ──────────────────────────────────────
-(function () {
-    'use strict';
+    // ── Interview Slot Conflict Checker ──────────────────────────────────────
+    (function() {
+        'use strict';
 
-    const dateInput   = document.getElementById('interview-date');
-    const timeInput   = document.getElementById('interview-time');
-    const warningBox  = document.getElementById('slot-conflict-warning');
-    const warningMsg  = document.getElementById('slot-conflict-msg');
-    const submitBtn   = document.querySelector('#schedule-interview-form button[type="submit"], button[form="schedule-interview-form"]');
+        const dateInput = document.getElementById('interview-date');
+        const timeInput = document.getElementById('interview-time');
+        const warningBox = document.getElementById('slot-conflict-warning');
+        const warningMsg = document.getElementById('slot-conflict-msg');
+        const submitBtn = document.querySelector('#schedule-interview-form button[type="submit"], button[form="schedule-interview-form"]');
 
-    if (!dateInput || !timeInput) return;
+        if (!dateInput || !timeInput) return;
 
-    let checkTimeout = null;
+        let checkTimeout = null;
 
-    function checkSlot() {
-        const date = dateInput.value;
-        const time = timeInput.value;
+        function checkSlot() {
+            const date = dateInput.value;
+            const time = timeInput.value;
 
-        // Only check when both fields are filled
-        if (!date || !time) {
-            hideWarning();
-            return;
-        }
+            // Only check when both fields are filled
+            if (!date || !time) {
+                hideWarning();
+                return;
+            }
 
-        clearTimeout(checkTimeout);
-        checkTimeout = setTimeout(async function () {
-            try {
-                const url = new URL(window.ARMS.checkSlotUrl, window.location.origin);
-                url.searchParams.set('date', date);
-                url.searchParams.set('time', time);
-                url.searchParams.set('application_id', window.ARMS.applicationId);
+            clearTimeout(checkTimeout);
+            checkTimeout = setTimeout(async function() {
+                try {
+                    const url = new URL(window.ARMS.checkSlotUrl, window.location.origin);
+                    url.searchParams.set('date', date);
+                    url.searchParams.set('time', time);
+                    url.searchParams.set('application_id', window.ARMS.applicationId);
 
-                const res = await fetch(url.toString(), {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await res.json();
+                    const res = await fetch(url.toString(), {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    const data = await res.json();
 
-                if (!data.available) {
-                    showWarning(data.message);
-                } else {
+                    if (!data.available) {
+                        showWarning(data.message);
+                    } else {
+                        hideWarning();
+                    }
+                } catch (err) {
+                    console.error('Slot check failed:', err);
                     hideWarning();
                 }
-            } catch (err) {
-                console.error('Slot check failed:', err);
-                hideWarning();
+            }, 350); // debounce 350ms
+        }
+
+        function showWarning(msg) {
+            if (warningBox) {
+                warningMsg.textContent = msg;
+                warningBox.classList.remove('d-none');
+                warningBox.classList.add('d-flex');
             }
-        }, 350); // debounce 350ms
-    }
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        }
 
-    function showWarning(msg) {
-        if (warningBox) {
-            warningMsg.textContent = msg;
-            warningBox.classList.remove('d-none');
-            warningBox.classList.add('d-flex');
+        function hideWarning() {
+            if (warningBox) {
+                warningBox.classList.add('d-none');
+                warningBox.classList.remove('d-flex');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
         }
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = '0.5';
-            submitBtn.style.cursor = 'not-allowed';
-        }
-    }
 
-    function hideWarning() {
-        if (warningBox) {
-            warningBox.classList.add('d-none');
-            warningBox.classList.remove('d-flex');
-        }
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
-            submitBtn.style.cursor = 'pointer';
-        }
-    }
-
-    dateInput.addEventListener('change', checkSlot);
-    timeInput.addEventListener('change', checkSlot);
-})();
+        dateInput.addEventListener('change', checkSlot);
+        timeInput.addEventListener('change', checkSlot);
+    })();
 </script>
 <script>
-// Request Update modal — show/hide reason input when checkbox is checked
-document.addEventListener('change', function (e) {
-    if (e.target.classList.contains('req-chk')) {
-        const targetId = e.target.dataset.target;
-        const box = document.getElementById(targetId);
-        if (box) {
-            box.style.display = e.target.checked ? 'block' : 'none';
-            const input = box.querySelector('input, textarea');
-            if (input) input.required = e.target.checked;
-        }
-    }
-});
-
-// Approval and Rejection modal submission loaders
-(function () {
-    'use strict';
-    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form'];
-    forms.forEach(function (formId) {
-        const form = document.getElementById(formId);
-        if (form) {
-            form.addEventListener('submit', function () {
-                const btn = form.querySelector('button[type="submit"]');
-                if (btn) {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.85';
-                    btn.style.cursor = 'not-allowed';
-                    const textSpan = btn.querySelector('.btn-text');
-                    const spinnerSpan = btn.querySelector('.btn-spinner');
-                    if (textSpan) textSpan.classList.add('d-none');
-                    if (spinnerSpan) spinnerSpan.classList.remove('d-none');
-                }
-            });
-        }
-    });
-})();
-</script>
-<script>
-// ── Specialized JS Collapse Controller ──
-(function () {
-    'use strict';
-
-    // Global listeners for Bootstrap collapse events to sync chevrons correctly
-    const syncChevron = (targetId, isShown) => {
-        const header = document.querySelector(`[data-bs-target="#${targetId}"]`);
-        if (header) {
-            const chevron = header.querySelector('.bi-chevron-down, .bi-chevron-up');
-            if (chevron) {
-                if (isShown) {
-                    chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
-                } else {
-                    chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
-                }
-            }
-        }
-    };
-
-    document.addEventListener('show.bs.collapse', function (e) {
-        if (e.target && e.target.id) syncChevron(e.target.id, true);
-    });
-
-    document.addEventListener('hide.bs.collapse', function (e) {
-        if (e.target && e.target.id) syncChevron(e.target.id, false);
-    });
-
-    // Bulletproof click handler for custom toggles
-    document.addEventListener('click', function (e) {
-        const header = e.target.closest('.ai-card-header[data-custom-toggle="collapse"]');
-        if (!header) return;
-
-        // Ignore clicks on buttons, inputs, links, or dropdowns inside the header
-        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.dropdown') || e.target.closest('input')) {
-            return;
-        }
-
-        const targetId = header.getAttribute('data-bs-target');
-        const targetEl = document.querySelector(targetId);
-        if (!targetEl) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        // 1. Try standard Bootstrap 5 Collapse instance if loaded
-        if (window.bootstrap && window.bootstrap.Collapse) {
-            let collapseInstance = window.bootstrap.Collapse.getInstance(targetEl);
-            if (!collapseInstance) {
-                collapseInstance = new window.bootstrap.Collapse(targetEl, { toggle: false });
-            }
-            collapseInstance.toggle();
-        } 
-        // 2. Try jQuery collapse fallback
-        else if (typeof $ !== 'undefined' && $.fn.collapse) {
-            $(targetEl).collapse('toggle');
-        } 
-        // 3. Absolute fallback — toggles classes instantly
-        else {
-            const isShown = targetEl.classList.contains('show');
-            if (isShown) {
-                targetEl.classList.remove('show');
-                header.setAttribute('aria-expanded', 'false');
-                const chevron = header.querySelector('.bi-chevron-up');
-                if (chevron) chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
-            } else {
-                targetEl.classList.add('show');
-                header.setAttribute('aria-expanded', 'true');
-                const chevron = header.querySelector('.bi-chevron-down');
-                if (chevron) chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+    // Request Update modal — show/hide reason input when checkbox is checked
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('req-chk')) {
+            const targetId = e.target.dataset.target;
+            const box = document.getElementById(targetId);
+            if (box) {
+                box.style.display = e.target.checked ? 'block' : 'none';
+                const input = box.querySelector('input, textarea');
+                if (input) input.required = e.target.checked;
             }
         }
     });
-})();
+
+    // Approval and Rejection modal submission loaders
+    (function() {
+        'use strict';
+        const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form'];
+        forms.forEach(function(formId) {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const btn = form.querySelector('button[type="submit"]');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        btn.style.cursor = 'not-allowed';
+                        const textSpan = btn.querySelector('.btn-text');
+                        const spinnerSpan = btn.querySelector('.btn-spinner');
+                        if (textSpan) textSpan.classList.add('d-none');
+                        if (spinnerSpan) spinnerSpan.classList.remove('d-none');
+                    }
+                });
+            }
+        });
+    })();
 </script>
 @endpush
-

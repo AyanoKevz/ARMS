@@ -23,7 +23,7 @@ background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
     <p class="label">Tracking Number</p>
     <p class="value">{{ $application->tracking_number }}</p>
     <p class="label">Application Status</p>
-    <p class="value-status">📅 Scheduled for Interview</p>
+    <p class="value-status">📅 Pending for Interview</p>
 </div>
 
 <p class="info-box blue">
