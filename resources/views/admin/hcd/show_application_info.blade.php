@@ -19,9 +19,17 @@
     $ind   = $user->individualProfile;
     $reps  = $org?->authorizedRepresentatives ?? collect();
 
-    $grouped = $application->documents->groupBy(
-        fn($doc) => optional($doc->documentField?->documentType)->id
-    );
+    $grouped = $application->documents
+        ->sortBy(function ($doc) {
+            $typeId = $doc->documentField?->documentType?->id ?? 999999;
+            $fieldId = $doc->documentField?->id ?? 999999;
+            return sprintf('%08d-%08d', $typeId, $fieldId);
+        })
+        ->groupBy(
+            fn($doc) => optional($doc->documentField?->documentType)->id
+        );
+
+
 
     $currentStatus  = $application->latestStatus?->status?->name ?? 'Under Evaluation';
     $isScheduled    = $currentStatus === 'Scheduled for Interview';
@@ -470,11 +478,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     {{-- ── Documents Card ── --}}
     <div class="ai-card">
-        <div class="ai-card-header">
+        <div class="ai-card-header d-flex align-items-center" style="cursor:pointer;" data-custom-toggle="collapse" data-bs-target="#documentsBody" aria-expanded="true">
             <i class="bi bi-folder2-open fs-5 text-dark"></i>
-            <h5>Submitted Documents</h5>
-            <span class="ms-auto small text-muted fst-italic" id="eval-progress-label"></span>
+            <h5 class="mb-0">Submitted Documents</h5>
+            <span class="ms-auto small text-muted fst-italic" id="eval-progress-label" style="margin-right: 10px;"></span>
+            <i class="bi bi-chevron-up" id="documentsChevron"></i>
         </div>
+        <div id="documentsBody" class="collapse show mt-3">
 
         @if($application->documents->count() > 0)
         <div class="row g-3">
@@ -593,15 +603,18 @@ document.addEventListener('DOMContentLoaded', function() {
             No documents have been uploaded for this application.
         </div>
         @endif
+        </div>
     </div>
 
     {{-- ── Instructor Credentials Card ── --}}
     @if($application->user && $application->user->instructors && $application->user->instructors->count() > 0)
     <div class="ai-card mt-4">
-        <div class="ai-card-header">
+        <div class="ai-card-header d-flex align-items-center" style="cursor:pointer;" data-custom-toggle="collapse" data-bs-target="#instructorsBody" aria-expanded="true">
             <i class="bi bi-people-fill fs-5 text-dark"></i>
-            <h5>Instructor Credentials</h5>
+            <h5 class="mb-0">Instructor Credentials</h5>
+            <i class="bi bi-chevron-up ms-auto" id="instructorsChevron"></i>
         </div>
+        <div id="instructorsBody" class="collapse show mt-3">
         
         <div class="row g-3">
             @foreach($application->user->instructors as $instructor)
@@ -831,8 +844,10 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             @endforeach
         </div>
+        </div>
     </div>
     @endif
+
 
 </form>
 
@@ -1983,4 +1998,80 @@ document.addEventListener('change', function (e) {
     });
 })();
 </script>
+<script>
+// ── Specialized JS Collapse Controller ──
+(function () {
+    'use strict';
+
+    // Global listeners for Bootstrap collapse events to sync chevrons correctly
+    const syncChevron = (targetId, isShown) => {
+        const header = document.querySelector(`[data-bs-target="#${targetId}"]`);
+        if (header) {
+            const chevron = header.querySelector('.bi-chevron-down, .bi-chevron-up');
+            if (chevron) {
+                if (isShown) {
+                    chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+                } else {
+                    chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
+                }
+            }
+        }
+    };
+
+    document.addEventListener('show.bs.collapse', function (e) {
+        if (e.target && e.target.id) syncChevron(e.target.id, true);
+    });
+
+    document.addEventListener('hide.bs.collapse', function (e) {
+        if (e.target && e.target.id) syncChevron(e.target.id, false);
+    });
+
+    // Bulletproof click handler for custom toggles
+    document.addEventListener('click', function (e) {
+        const header = e.target.closest('.ai-card-header[data-custom-toggle="collapse"]');
+        if (!header) return;
+
+        // Ignore clicks on buttons, inputs, links, or dropdowns inside the header
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.dropdown') || e.target.closest('input')) {
+            return;
+        }
+
+        const targetId = header.getAttribute('data-bs-target');
+        const targetEl = document.querySelector(targetId);
+        if (!targetEl) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 1. Try standard Bootstrap 5 Collapse instance if loaded
+        if (window.bootstrap && window.bootstrap.Collapse) {
+            let collapseInstance = window.bootstrap.Collapse.getInstance(targetEl);
+            if (!collapseInstance) {
+                collapseInstance = new window.bootstrap.Collapse(targetEl, { toggle: false });
+            }
+            collapseInstance.toggle();
+        } 
+        // 2. Try jQuery collapse fallback
+        else if (typeof $ !== 'undefined' && $.fn.collapse) {
+            $(targetEl).collapse('toggle');
+        } 
+        // 3. Absolute fallback — toggles classes instantly
+        else {
+            const isShown = targetEl.classList.contains('show');
+            if (isShown) {
+                targetEl.classList.remove('show');
+                header.setAttribute('aria-expanded', 'false');
+                const chevron = header.querySelector('.bi-chevron-up');
+                if (chevron) chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
+            } else {
+                targetEl.classList.add('show');
+                header.setAttribute('aria-expanded', 'true');
+                const chevron = header.querySelector('.bi-chevron-down');
+                if (chevron) chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+            }
+        }
+    });
+})();
+</script>
 @endpush
+

@@ -128,7 +128,14 @@
                     </h6>
                     @php
                         // Group documents by their document type (section) and sort by section ID
-                        $grouped = $pendingRenewal->documents->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id)->sortBy(fn($docs, $key) => $key);
+                        $grouped = $pendingRenewal->documents
+                            ->sortBy(function ($doc) {
+                                $typeId = $doc->documentField?->documentType?->id ?? 999999;
+                                $fieldId = $doc->documentField?->id ?? 999999;
+                                return sprintf('%08d-%08d', $typeId, $fieldId);
+                            })
+                            ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+
                         $sectionCounter = 1;
                     @endphp
 
@@ -301,7 +308,14 @@
                 {{-- FATPro Documents Section --}}
                 @if($rejectedDocs->count() > 0)
                 @php
-                    $groupedRejected = $rejectedDocs->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                    $groupedRejected = $rejectedDocs
+                        ->sortBy(function ($doc) {
+                            $typeId = $doc->documentField?->documentType?->id ?? 999999;
+                            $fieldId = $doc->documentField?->id ?? 999999;
+                            return sprintf('%08d-%08d', $typeId, $fieldId);
+                        })
+                        ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+
                     $resubmitCounter = 1;
                 @endphp
                 <div>

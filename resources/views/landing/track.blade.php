@@ -232,7 +232,14 @@
 
                         @php
                         // Group documents by their document type (section)
-                        $grouped = $application->documents->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                        $grouped = $application->documents
+                            ->sortBy(function ($doc) {
+                                $typeId = $doc->documentField?->documentType?->id ?? 999999;
+                                $fieldId = $doc->documentField?->id ?? 999999;
+                                return sprintf('%08d-%08d', $typeId, $fieldId);
+                            })
+                            ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+
                         $sectionCounter = 1;
                         @endphp
 
