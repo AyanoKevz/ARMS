@@ -38,6 +38,7 @@ class AdminUserSeeder extends Seeder
             [
                 'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
+                'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
                 'email_verified_at' => now(),
             ]
@@ -60,6 +61,7 @@ class AdminUserSeeder extends Seeder
             [
                 'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
+                'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
                 'email_verified_at' => now(),
             ]

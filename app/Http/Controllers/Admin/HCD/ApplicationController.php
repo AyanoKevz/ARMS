@@ -383,7 +383,7 @@ class ApplicationController extends Controller
         $request->validate([
             'item_type' => ['required', 'in:document,instructor,credential'],
             'item_id'   => ['required', 'integer'],
-            'status'    => ['required', 'in:approved,rejected,pending'],
+            'status'    => ['required', 'in:approved,rejected,pending,returned'],
             'remarks'   => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -426,15 +426,15 @@ class ApplicationController extends Controller
         $request->validate([
             'evaluations' => ['nullable', 'array'],
             'evaluations.*.id' => ['required', 'exists:application_documents,id'],
-            'evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
+            'evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'instructor_evaluations' => ['nullable', 'array'],
             'instructor_evaluations.*.id' => ['required', 'exists:instructors,id'],
-            'instructor_evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
+            'instructor_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'instructor_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'credential_evaluations' => ['nullable', 'array'],
             'credential_evaluations.*.id' => ['required', 'exists:instructor_credentials,id'],
-            'credential_evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
+            'credential_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'credential_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 

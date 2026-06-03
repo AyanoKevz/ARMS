@@ -19,9 +19,13 @@ $org = $user->organizationProfile;
 $ind = $user->individualProfile;
 $reps = $org?->authorizedRepresentatives ?? collect();
 
-$grouped = $application->documents->groupBy(
-fn($doc) => optional($doc->documentField?->documentType)->id
-);
+$grouped = $application->documents
+    ->sortBy(function ($doc) {
+        $typeId = $doc->documentField?->documentType?->id ?? 999999;
+        $fieldId = $doc->documentField?->id ?? 999999;
+        return sprintf('%08d-%08d', $typeId, $fieldId);
+    })
+    ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
 
 $currentStatus = $application->latestStatus?->status?->name ?? 'Under Evaluation';
 $isScheduled = $currentStatus === 'Scheduled for Interview';
@@ -648,18 +652,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 $filePath = $userDoc?->file_path;
                                 $textVal = $userDoc?->value;
 
-                                // Normalise: treat anything not approved/rejected as pending for JS
-                                $evalStatus = in_array($doc->status, ['approved','rejected']) ? $doc->status : 'pending';
+                                // Normalise: treat anything not approved/rejected/returned as pending for JS
+                                $evalStatus = in_array($doc->status, ['approved','rejected','returned']) ? $doc->status : 'pending';
 
                                 $badgeClass = match($doc->status) {
                                 'approved' => 'doc-badge-approved',
-                                'rejected' => 'doc-badge-rejected',
+                                'rejected' => 'doc-badge-for_revision',
+                                'returned' => 'doc-badge-for_revision',
                                 'for_revision' => 'doc-badge-for_revision',
                                 default => 'doc-badge-pending',
                                 };
                                 $badgeLabel = match($doc->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Rejected',
+                                'rejected' => 'Awaiting Re-upload',
+                                'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
                                 };
@@ -706,31 +712,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
                                     @if(!$allApproved && !$isScheduled && !$isAccredited && !$isApproved)
-                                    <div class="doc-eval-actions">
-                                        <button type="button"
-                                            class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
-                                            data-doc-id="{{ $doc->id }}"
-                                            onclick="setDocStatus({{ $doc->id }}, 'approved')">
-                                            <i class="bi bi-check-circle-fill"></i> Approve
-                                        </button>
-                                        <button type="button"
-                                            class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}"
-                                            data-doc-id="{{ $doc->id }}"
-                                            onclick="setDocStatus({{ $doc->id }}, 'rejected')">
-                                            <i class="bi bi-x-circle-fill"></i> Reject
-                                        </button>
-                                    </div>
-                                    <div class="reject-panel" id="reject-panel-{{ $doc->id }}"
-                                        style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
-                                        <label class="reject-remarks-label">
-                                            <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
-                                        </label>
-                                        <textarea class="reject-remarks-input"
-                                            name="evaluations[{{ $doc->id }}][remarks]"
-                                            id="remarks-{{ $doc->id }}"
-                                            placeholder="Explain why this document was rejected…"
-                                            rows="2">{{ $doc->remarks }}</textarea>
-                                    </div>
+                                        @if(!in_array($doc->status, ['rejected', 'returned']))
+                                        <div class="doc-eval-actions">
+                                            <button type="button"
+                                                class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
+                                                data-doc-id="{{ $doc->id }}"
+                                                onclick="setDocStatus({{ $doc->id }}, 'approved')">
+                                                <i class="bi bi-check-circle-fill"></i> Approve
+                                            </button>
+                                            <button type="button"
+                                                class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}"
+                                                data-doc-id="{{ $doc->id }}"
+                                                onclick="setDocStatus({{ $doc->id }}, 'rejected')">
+                                                <i class="bi bi-x-circle-fill"></i> Reject
+                                            </button>
+                                        </div>
+                                        @endif
+                                        <div class="reject-panel" id="reject-panel-{{ $doc->id }}"
+                                            style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
+                                            <label class="reject-remarks-label">
+                                                <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
+                                            </label>
+                                            <textarea class="reject-remarks-input"
+                                                name="evaluations[{{ $doc->id }}][remarks]"
+                                                id="remarks-{{ $doc->id }}"
+                                                placeholder="Explain why this document was rejected…"
+                                                rows="2"
+                                                {{ in_array($doc->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                                        </div>
                                     @endif
 
                                 </div>{{-- /doc-row --}}
@@ -846,7 +855,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                                 @foreach($instructor->credentials as $credential)
                                 @php
-                                $evalStatusCred = in_array($credential->status, ['approved','rejected']) ? $credential->status : 'pending';
+                                $evalStatusCred = in_array($credential->status, ['approved','rejected','returned']) ? $credential->status : 'pending';
                                 $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);
 
                                 if ($instructor->update_request_status === 'admin_requested' && $isRequestedCred) {
@@ -855,13 +864,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 } else {
                                 $badgeClassCred = match($credential->status) {
                                 'approved' => 'doc-badge-approved',
-                                'rejected' => 'doc-badge-rejected',
+                                'rejected' => 'doc-badge-for_revision',
+                                'returned' => 'doc-badge-for_revision',
                                 'for_revision' => 'doc-badge-for_revision',
                                 default => 'doc-badge-pending',
                                 };
                                 $badgeLabelCred = match($credential->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Rejected',
+                                'rejected' => 'Awaiting Re-upload',
+                                'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
                                 };
@@ -927,25 +938,32 @@ document.addEventListener('DOMContentLoaded', function() {
                                     @endphp
 
                                     @if($showEvalButtons)
-                                    <div class="doc-eval-actions">
-                                        <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
-                                            <i class="bi bi-check-circle-fill"></i> Approve
-                                        </button>
-                                        <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'rejected')">
-                                            <i class="bi bi-x-circle-fill"></i> Reject
-                                        </button>
-                                    </div>
-                                    <div class="reject-panel" id="reject-panel-cred-{{ $credential->id }}" style="{{ $evalStatusCred === 'rejected' ? '' : 'display:none;' }}">
-                                        <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
-                                        <textarea class="reject-remarks-input" name="credential_evaluations[{{ $credential->id }}][remarks]" id="remarks-cred-{{ $credential->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $credential->remarks }}</textarea>
-                                    </div>
+                                        @if(!in_array($credential->status, ['rejected', 'returned']))
+                                        <div class="doc-eval-actions">
+                                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
+                                                <i class="bi bi-check-circle-fill"></i> Approve
+                                            </button>
+                                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'rejected')">
+                                                <i class="bi bi-x-circle-fill"></i> Reject
+                                            </button>
+                                        </div>
+                                        @endif
+                                        <div class="reject-panel" id="reject-panel-cred-{{ $credential->id }}" style="{{ $evalStatusCred === 'rejected' ? '' : 'display:none;' }}">
+                                            <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
+                                            <textarea class="reject-remarks-input"
+                                                name="credential_evaluations[{{ $credential->id }}][remarks]"
+                                                id="remarks-cred-{{ $credential->id }}"
+                                                placeholder="Explain why this document was rejected…"
+                                                rows="2"
+                                                {{ in_array($credential->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
+                                        </div>
                                     @endif
                                 </div>
                                 @endforeach
 
                                 {{-- Service Agreement --}}
                                 @php
-                                $evalStatus = in_array($instructor->status, ['approved','rejected']) ? $instructor->status : 'pending';
+                                $evalStatus = in_array($instructor->status, ['approved','rejected','returned']) ? $instructor->status : 'pending';
                                 $isSaRequested = is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields);
 
                                 if ($instructor->update_request_status === 'admin_requested' && $isSaRequested) {
@@ -954,13 +972,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 } else {
                                 $badgeClass = match($instructor->status) {
                                 'approved' => 'doc-badge-approved',
-                                'rejected' => 'doc-badge-rejected',
+                                'rejected' => 'doc-badge-for_revision',
+                                'returned' => 'doc-badge-for_revision',
                                 'for_revision' => 'doc-badge-for_revision',
                                 default => 'doc-badge-pending',
                                 };
                                 $badgeLabel = match($instructor->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Rejected',
+                                'rejected' => 'Awaiting Re-upload',
+                                'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
                                 };
@@ -998,18 +1018,25 @@ document.addEventListener('DOMContentLoaded', function() {
                                     @endphp
 
                                     @if($showSaEvalButtons)
-                                    <div class="doc-eval-actions">
-                                        <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
-                                            <i class="bi bi-check-circle-fill"></i> Approve
-                                        </button>
-                                        <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'rejected')">
-                                            <i class="bi bi-x-circle-fill"></i> Reject
-                                        </button>
-                                    </div>
-                                    <div class="reject-panel" id="reject-panel-inst-{{ $instructor->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
-                                        <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
-                                        <textarea class="reject-remarks-input" name="instructor_evaluations[{{ $instructor->id }}][remarks]" id="remarks-inst-{{ $instructor->id }}" placeholder="Explain why this document was rejected…" rows="2">{{ $instructor->remarks }}</textarea>
-                                    </div>
+                                        @if(!in_array($instructor->status, ['rejected', 'returned']))
+                                        <div class="doc-eval-actions">
+                                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
+                                                <i class="bi bi-check-circle-fill"></i> Approve
+                                            </button>
+                                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'rejected')">
+                                                <i class="bi bi-x-circle-fill"></i> Reject
+                                            </button>
+                                        </div>
+                                        @endif
+                                        <div class="reject-panel" id="reject-panel-inst-{{ $instructor->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
+                                            <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
+                                            <textarea class="reject-remarks-input"
+                                                name="instructor_evaluations[{{ $instructor->id }}][remarks]"
+                                                id="remarks-inst-{{ $instructor->id }}"
+                                                placeholder="Explain why this document was rejected…"
+                                                rows="2"
+                                                {{ in_array($instructor->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
+                                        </div>
                                     @endif
                                 </div>
                             </div>
@@ -1269,8 +1296,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="row g-3">
                 {{-- Signed recommendation letter upload --}}
-                <div class="col-md-12">
-                    <div class="p-3 border rounded mb-3 bg-white" style="border-color: #d0ddf7 !important;">
+                <div class="col-md-6">
+                    <div class="p-3 border rounded mb-3 bg-white" style="border-color: #d0ddf7 !important; min-height: 250px;">
                         <h6 class="fw-bold" style="color: #1A3A6A;"><i class="fas fa-file-signature me-1"></i> Signed Recommendation Letter (PDF) <span class="text-danger">*</span></h6>
                         <div class="mt-2">
                             <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
@@ -1302,8 +1329,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 $status = $payment ? $payment->{"{$key}_status"} : 'pending';
                 $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                 @endphp
-                <div class="col-md-12">
-                    <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6;">
+                <div class="col-md-6">
+                    <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6; min-height: 250px;">
                         <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
                         <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
                             @if($filePath)

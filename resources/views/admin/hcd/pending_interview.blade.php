@@ -98,7 +98,7 @@
                                         <td>{{ $isOrg && $org ? ($org->email ?? '—') : ($app->user->email ?? '—') }}</td>
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark">
-                                                {{ $app->latestStatus?->status?->name ?? 'Scheduled for Interview' }}
+                                                Pending
                                             </span>
                                         </td>
                                         <td class="last text-center">

@@ -426,7 +426,13 @@
                                     {{-- FATPro Documents Section --}}
                                     @if($rejectedDocs->count() > 0)
                                     @php
-                                    $groupedRejected = $rejectedDocs->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+                                    $groupedRejected = $rejectedDocs
+                                        ->sortBy(function ($doc) {
+                                            $typeId = $doc->documentField?->documentType?->id ?? 999999;
+                                            $fieldId = $doc->documentField?->id ?? 999999;
+                                            return sprintf('%08d-%08d', $typeId, $fieldId);
+                                        })
+                                        ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
                                     $resubmitCounter = 1;
                                     @endphp
                                     <div>
