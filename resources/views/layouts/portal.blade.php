@@ -242,6 +242,36 @@
                     }
                 });
             }, 5000);
+
+            // Close sidebar on click outside (mobile)
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 991) {
+                    const body = document.body;
+                    const leftCol = document.querySelector('.col-md-3.left_col');
+                    const menuToggle = document.getElementById('menu_toggle');
+                    
+                    if (body.classList.contains('nav-md')) {
+                        // If click is outside sidebar and not on toggle button or its children
+                        if (leftCol && !leftCol.contains(e.target) && menuToggle && !menuToggle.contains(e.target)) {
+                            menuToggle.click();
+                        }
+                    }
+                }
+            });
+
+            // Prevent collapsed sidebar clicks from triggering inline sub-menu slideToggle (which messes up flyout)
+            const sidebarMenu = document.getElementById('sidebar-menu');
+            if (sidebarMenu) {
+                sidebarMenu.addEventListener('click', function(e) {
+                    if (document.body.classList.contains('nav-sm')) {
+                        const a = e.target.closest('a');
+                        if (a && a.nextElementSibling && a.nextElementSibling.classList.contains('child_menu')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    }
+                }, true); // Use capture phase to intercept BEFORE Gentelella event handler
+            }
         });
     </script>
     @stack('scripts')

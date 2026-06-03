@@ -119,6 +119,6 @@ class Application extends Model
         foreach ($this->pctEntries as $entry) {
             $totalSeconds += $entry->totalElapsedSeconds();
         }
-        return round($totalSeconds / 86400, 1);
+        return round($totalSeconds / 32400, 1);
     }
 }

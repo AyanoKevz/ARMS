@@ -32,11 +32,17 @@
     @if($pendingRenewal)
     @php
         $renewalStatus = $pendingRenewal->latestStatus?->status?->name ?? 'Submitted';
-        $statusColor = match($renewalStatus) {
+        $displayStatus = $renewalStatus;
+        if ($renewalStatus === 'Scheduled for Interview' && !$pendingRenewal->interview) {
+            $displayStatus = 'Pending Interview';
+        }
+
+        $statusColor = match($displayStatus) {
             'Submitted'               => ['bg' => '#ffc107', 'text' => '#212529', 'icon' => 'fa-paper-plane'],
             'Under Evaluation'        => ['bg' => '#0d6efd', 'text' => '#fff',    'icon' => 'fa-search'],
             'For Update'              => ['bg' => '#dc3545', 'text' => '#fff',    'icon' => 'fa-exclamation-circle'],
             'Scheduled for Interview' => ['bg' => '#0b3d91', 'text' => '#fff',    'icon' => 'fa-calendar-check'],
+            'Pending Interview'       => ['bg' => '#17a2b8', 'text' => '#fff',    'icon' => 'fa-calendar-alt'],
             'Awaiting Payment'        => ['bg' => '#17a2b8', 'text' => '#fff',    'icon' => 'fa-credit-card'],
             default                   => ['bg' => '#6c757d', 'text' => '#fff',    'icon' => 'fa-circle'],
         };
@@ -48,7 +54,7 @@
             <p class="text-muted mb-1">Tracking Number: <strong>{{ $pendingRenewal->tracking_number }}</strong></p>
             <p class="mb-3">
                 <span class="badge px-3 py-2" style="background:{{ $statusColor['bg'] }}; color:{{ $statusColor['text'] }}; font-size:.85rem; border-radius:20px;">
-                    <i class="fas {{ $statusColor['icon'] }} me-1"></i>{{ $renewalStatus }}
+                    <i class="fas {{ $statusColor['icon'] }} me-1"></i>{{ $displayStatus }}
                 </span>
             </p>
             @if($renewalStatus === 'For Update')
@@ -102,6 +108,8 @@
                         @endif
                     </div>
                 </div>
+            @elseif($renewalStatus === 'Scheduled for Interview')
+                <p class="text-muted mb-0">Your application is currently awaiting interview scheduling. You will receive an email notification once scheduled.</p>
             @else
                 <p class="text-muted mb-0">Finish the application process before submitting another.</p>
             @endif
@@ -286,7 +294,7 @@
         }
         $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
     @endphp
-    @if($totalRejected > 0)
+    @if($totalRejected > 0 && optional($application->latestStatus->status)->name === 'For Update')
     <div class="mt-4 p-4 border rounded-3 text-start" style="background:#fff8f8; border-color:#f5c6cb !important;">
         <h6 class="fw-bold mb-3" style="color:#842029;">
             <i class="bi bi-arrow-repeat me-2"></i>Resubmit Rejected Documents

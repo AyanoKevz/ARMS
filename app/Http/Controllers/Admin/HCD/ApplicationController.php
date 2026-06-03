@@ -285,6 +285,9 @@ class ApplicationController extends Controller
             'pctEntries',
         ]);
 
+        // Self-heal: ensure PCT is initialized for applications in/past evaluation
+        $this->pctService->initializeMissingEntries($application);
+
         // Auto-resume Interview (Step 5) if current time is >= scheduled interview time
         $this->pctService->autoResumeInterviewIfScheduled($application);
 
@@ -423,15 +426,15 @@ class ApplicationController extends Controller
         $request->validate([
             'evaluations' => ['nullable', 'array'],
             'evaluations.*.id' => ['required', 'exists:application_documents,id'],
-            'evaluations.*.status' => ['required', 'in:approved,rejected'],
+            'evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'instructor_evaluations' => ['nullable', 'array'],
             'instructor_evaluations.*.id' => ['required', 'exists:instructors,id'],
-            'instructor_evaluations.*.status' => ['required', 'in:approved,rejected'],
+            'instructor_evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
             'instructor_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'credential_evaluations' => ['nullable', 'array'],
             'credential_evaluations.*.id' => ['required', 'exists:instructor_credentials,id'],
-            'credential_evaluations.*.status' => ['required', 'in:approved,rejected'],
+            'credential_evaluations.*.status' => ['required', 'in:approved,rejected,pending'],
             'credential_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -486,7 +489,18 @@ class ApplicationController extends Controller
             }
         }
 
+        // Hardened Backend Guardrail: Check if there are any rejected items already in the database
+        $hasRejectionsInDb = $application->documents()->whereIn('status', ['rejected', 'returned'])->exists()
+            || ($application->user && (
+                $application->user->instructors()->whereIn('status', ['rejected', 'returned'])->exists()
+                || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                    ->whereIn('status', ['rejected', 'returned'])
+                    ->exists()
+            ));
 
+        if ($hasRejectionsInDb) {
+            $hasRejections = true;
+        }
 
         if ($hasRejections) {
             if ($isAccredited) {

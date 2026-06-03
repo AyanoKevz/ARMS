@@ -69,6 +69,85 @@ class PctService
     }
 
     /**
+     * Create a pre-completed step for historical catching-up.
+     */
+    private function createCompletedStep(Application $application, int $stepNumber, Carbon $time): void
+    {
+        $stepDef = self::STEPS[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
+        PctEntry::create([
+            'application_id' => $application->id,
+            'step_name'      => $stepDef['name'],
+            'step_number'    => $stepNumber,
+            'target_days'    => $stepDef['target_days'],
+            'started_at'     => $time,
+            'completed_at'   => $time,
+            'elapsed_seconds' => 0,
+            'is_active'      => false,
+        ]);
+    }
+
+    /**
+     * Auto-initialize missing PCT entries for historical or skipped applications.
+     */
+    public function initializeMissingEntries(Application $application): void
+    {
+        if ($application->pctEntries()->exists()) {
+            return;
+        }
+
+        $now = Carbon::now();
+        $submittedAt = $application->submitted_at ?? $application->created_at ?? $now;
+        $statusName = $application->latestStatus?->status?->name;
+
+        if (!$statusName || $statusName === 'Submitted') {
+            return; // Not yet in evaluation
+        }
+
+        // Step 1 & 2 are always completed
+        $this->createCompletedStep($application, 1, $submittedAt);
+        $this->createCompletedStep($application, 2, $submittedAt);
+
+        if (in_array($statusName, ['Under Evaluation', 'For Update'])) {
+            $step3 = $this->startStep($application, 3);
+            if ($statusName === 'For Update') {
+                $step3->pause();
+            }
+            return;
+        }
+
+        // Complete Step 3
+        $this->createCompletedStep($application, 3, $now);
+
+        if ($statusName === 'Scheduled for Interview') {
+            if ($application->interview) {
+                $this->createCompletedStep($application, 4, $now);
+                $step5 = $this->startStep($application, 5);
+                // Pause it because interview is scheduled but not necessarily started yet
+                $step5->pause();
+            } else {
+                $this->startStep($application, 4);
+            }
+            return;
+        }
+
+        // Complete Step 4, 5, 6
+        $this->createCompletedStep($application, 4, $now);
+        $this->createCompletedStep($application, 5, $now);
+        $this->createCompletedStep($application, 6, $now);
+
+        if ($statusName === 'Awaiting Payment') {
+            $this->startStep($application, 7);
+            return;
+        }
+
+        // Complete Step 7
+        $this->createCompletedStep($application, 7, $now);
+
+        // Step 8: Certificate Issuance
+        $this->createCompletedStep($application, 8, $now);
+    }
+
+    /**
      * Start a specific PCT step for an application.
      */
     public function startStep(Application $application, int $stepNumber): PctEntry
@@ -222,6 +301,50 @@ class PctService
 
         return $holidays;
     }
+
+    /**
+     * Calculate total elapsed working seconds for an application between start and end.
+     * Only counts hours between 8:00 AM and 5:00 PM on weekdays (Mon-Fri) excluding holidays.
+     */
+    public static function calculateWorkingSeconds(Carbon $start, Carbon $end): int
+    {
+        if ($start->greaterThanOrEqualTo($end)) {
+            return 0;
+        }
+
+        $totalSeconds = 0;
+        
+        $start = $start->copy();
+        $end = $end->copy();
+
+        $current = $start->copy()->startOfDay();
+        $endDay = $end->copy()->startOfDay();
+
+        $holidays = self::getHolidays($start->year, $end->year);
+
+        while ($current->lessThanOrEqualTo($endDay)) {
+            $isWeekend = $current->isWeekend();
+            $isHoliday = in_array($current->format('Y-m-d'), $holidays);
+
+            if (!$isWeekend && !$isHoliday) {
+                // Working day — calculate overlap with 8:00 AM to 5:00 PM (9 hours window)
+                $workStart = $current->copy()->setTime(8, 0, 0);
+                $workEnd   = $current->copy()->setTime(17, 0, 0);
+
+                $effectiveStart = $start->greaterThan($workStart) ? $start : $workStart;
+                $effectiveEnd   = $end->lessThan($workEnd) ? $end : $workEnd;
+
+                if ($effectiveStart->lessThan($effectiveEnd)) {
+                    $totalSeconds += $effectiveStart->diffInSeconds($effectiveEnd);
+                }
+            }
+
+            $current->addDay();
+        }
+
+        return $totalSeconds;
+    }
+
     /**
      * Get a summary of PCT status for display.
      */
@@ -250,7 +373,7 @@ class PctService
             if ($entry) {
                 $elapsed = $entry->totalElapsedSeconds();
                 $totalElapsed += $elapsed;
-                $elapsedDays = round($elapsed / 86400, 1);
+                $elapsedDays = round($elapsed / 32400, 1);
 
                 $steps[] = [
                     'number'      => $num,
@@ -281,7 +404,7 @@ class PctService
             }
         }
 
-        $totalDays = round($totalElapsed / 86400, 1);
+        $totalDays = round($totalElapsed / 32400, 1);
 
         return [
             'steps'          => $steps,

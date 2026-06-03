@@ -54,6 +54,15 @@ class TrackingController extends Controller
      */
     public function resubmitAll(Request $request)
     {
+        $application = Application::with(['user.instructors.credentials', 'accreditationType', 'latestStatus.status'])->find($request->input('application_id'));
+        if (!$application) {
+            return back()->with('error', 'Application not found.');
+        }
+        $statusName = $application->latestStatus?->status?->name;
+        if ($statusName !== 'For Update') {
+            return back()->with('error', 'Invalid action. You can only resubmit documents if your application status is "For Update".');
+        }
+
         $request->validate([
             'application_id' => ['required', 'exists:applications,id'],
             'files'          => ['nullable', 'array'],
@@ -66,7 +75,6 @@ class TrackingController extends Controller
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
-        $application = Application::with(['user.instructors.credentials', 'accreditationType'])->findOrFail($request->input('application_id'));
         $userId      = $application->user_id;
         
         $accreditationName = $application->accreditationType ? $application->accreditationType->name : 'Unknown';

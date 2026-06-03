@@ -68,7 +68,7 @@ class PctEntry extends Model
         $reference = $this->resumed_at ?? $this->started_at;
         $now = Carbon::now();
 
-        $this->elapsed_seconds += $reference ? $reference->diffInSeconds($now) : 0;
+        $this->elapsed_seconds += $reference ? \App\Services\PctService::calculateWorkingSeconds($reference, $now) : 0;
         $this->paused_at = $now;
         $this->is_active = true; // still "assigned" to this step, just paused
         $this->save();
@@ -102,7 +102,7 @@ class PctEntry extends Model
         // If not paused, accumulate time from last resume (or start)
         if (!$this->paused_at) {
             $reference = $this->resumed_at ?? $this->started_at;
-            $this->elapsed_seconds += $reference ? $reference->diffInSeconds($now) : 0;
+            $this->elapsed_seconds += $reference ? \App\Services\PctService::calculateWorkingSeconds($reference, $now) : 0;
         }
 
         $this->completed_at = $now;
@@ -121,7 +121,7 @@ class PctEntry extends Model
         if ($this->is_active && !$this->paused_at && !$this->completed_at) {
             $reference = $this->resumed_at ?? $this->started_at;
             if ($reference) {
-                $total += $reference->diffInSeconds(Carbon::now());
+                $total += \App\Services\PctService::calculateWorkingSeconds($reference, Carbon::now());
             }
         }
 
@@ -130,11 +130,11 @@ class PctEntry extends Model
 
     /**
      * Get elapsed time as fractional working days.
-     * 1 working day = 8 hours = 28800 seconds.
+     * 1 working day = 9 hours = 32400 seconds.
      */
     public function elapsedWorkingDays(): float
     {
-        return round($this->totalElapsedSeconds() / 86400, 1);
+        return round($this->totalElapsedSeconds() / 32400, 1);
     }
 
     /**

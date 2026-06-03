@@ -411,7 +411,7 @@
                         }
                         $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
                         @endphp
-                        @if($totalRejected > 0)
+                        @if($totalRejected > 0 && optional($application->latestStatus->status)->name === 'For Update')
                         @if($application->application_type === 'new')
                         <div class="mt-4 p-4 border rounded-3" style="background:#fff8f8; border-color:#f5c6cb !important;">
                             <h6 class="fw-bold mb-3" style="color:#842029;">

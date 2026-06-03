@@ -10,7 +10,26 @@
 }
 
 .nav_title {
-    border-bottom: 1px solid var(--portal-gold) !important;
+    height: 57px !important;
+    line-height: 55px !important;
+    border-bottom: 2px solid var(--portal-gold) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* Expanded desktop sidebar layout overrides to increase width from 230px to 250px */
+body.nav-md .col-md-3.left_col {
+    width: 250px !important;
+}
+body.nav-md .nav_title {
+    width: 250px !important;
+}
+body.nav-md .right_col {
+    margin-left: 250px !important;
+}
+body.nav-md .top_nav {
+    margin-left: 250px !important;
 }
 
 /* Fix sidebar to stay fixed and cover full viewport height */
@@ -45,6 +64,33 @@
     padding-bottom: 10px !important;
 }
 
+/* Enable scroll in both expanded (body.nav-md) and collapsed (body.nav-sm) modes */
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+}
+
+/* Custom scrollbar styling for sidebar menu */
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar {
+    width: 4px;
+}
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-track,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-thumb,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-thumb {
+    background: var(--portal-gold);
+    border-radius: 2px;
+}
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
+    scrollbar-width: thin;
+    scrollbar-color: var(--portal-gold) rgba(0, 0, 0, 0.1);
+}
+
 /* Sidebar Footer - compact, pinned at bottom of sidebar flex container */
 .sidebar-footer {
     padding: 6px 0 !important;
@@ -71,10 +117,21 @@
     color: var(--portal-gold) !important;
 }
 
+/* Active / Current Page text, icon, and background styles for sidebar links */
+.nav.side-menu > li.current-page > a,
 .nav.side-menu > li.active > a,
-.nav.child_menu > li.active > a {
-    background: rgba(212,172,75,.15) !important;
-    border-left: 3px solid var(--portal-gold) !important;
+.nav.side-menu > li:has(ul.child_menu li.current-page) > a,
+.nav.child_menu li.current-page > a,
+.nav.child_menu li.active > a {
+    color: var(--portal-gold) !important;
+    background: rgba(212, 172, 75, 0.15) !important;
+}
+
+.nav.side-menu > li.current-page > a i,
+.nav.side-menu > li.active > a i,
+.nav.side-menu > li:has(ul.child_menu li.current-page) > a i,
+.nav.child_menu li.current-page > a i,
+.nav.child_menu li.active > a i {
     color: var(--portal-gold) !important;
 }
 
@@ -83,23 +140,59 @@
     background: transparent !important;
 }
 
-.nav.child_menu li.active > a {
-    color: var(--portal-gold) !important;
+/* Enforce the right border for active/current page items in both expanded and collapsed sidebar states */
+body.nav-md .nav.side-menu > li.current-page > a,
+body.nav-md .nav.side-menu > li.active > a,
+body.nav-md .nav.side-menu > li:has(ul.child_menu li.current-page) > a {
+    border-right: 5px solid var(--portal-gold) !important;
 }
 
-/* Right border for active page - restricted to child menu only */
-.nav.side-menu > li.current-page {
-    border-right: 0 !important;
+/* Disable Gentelella's default green border-right on active sidebar list items in expanded state */
+body.nav-md .nav.side-menu > li.current-page,
+body.nav-md .nav.side-menu > li.active,
+body.nav-md .nav.side-menu > li:has(ul.child_menu li.current-page),
+body.nav-md .nav.child_menu li.current-page {
+    border-right: none !important;
 }
 
-.nav.child_menu li.current-page {
+
+body.nav-sm .nav.side-menu > li.current-page,
+body.nav-sm .nav.side-menu > li.active,
+body.nav-sm .nav.side-menu > li:has(ul.child_menu li.current-page) {
+    border-right: 5px solid var(--portal-gold) !important;
+}
+
+body.nav-md .nav.side-menu > li.current-page,
+body.nav-md .nav.side-menu > li.active,
+body.nav-md .nav.side-menu > li:has(ul.child_menu li.current-page),
+body.nav-sm .nav.side-menu > li.current-page,
+body.nav-sm .nav.side-menu > li.active,
+body.nav-sm .nav.side-menu > li:has(ul.child_menu li.current-page) {
+    background: rgba(212, 172, 75, 0.08) !important;
+}
+
+/* Sub-menu items border-right styling */
+body.nav-md .nav.child_menu li.current-page > a {
+    border-right: 5px solid var(--portal-gold) !important;
+}
+body.nav-sm .nav.child_menu li.current-page {
     border-right: 5px solid var(--portal-gold) !important;
 }
 
 /* Top Navigation Bar */
-.top_nav .nav_menu {
+.top_nav {
+    height: 57px !important;
     border-bottom: 2px solid var(--portal-gold) !important;
     background: var(--portal-bg) !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.top_nav .nav_menu {
+    height: 100% !important;
+    border-bottom: none !important;
+    background: transparent !important;
 }
 
 .top_nav .nav-item a {
@@ -123,10 +216,7 @@
     color: var(--portal-gold) !important;
 }
 
-.nav.side-menu>li.current-page, .nav.side-menu>li.active {
-    border-right: 5px solid var(--portal-gold) !important;
-    padding-right: 3px;
-}
+
 
 
 /* Dropdown User Menu */
@@ -148,14 +238,95 @@ footer {
 
 /* Footer margin based on sidebar state */
 body.nav-md footer {
-    margin-left: 230px !important;
+    margin-left: 250px !important;
 }
 body.nav-sm footer {
-    margin-left: 70px !important;
+    margin-left: 100px !important;
 }
 @media (max-width: 991px) {
     body.nav-md footer, body.nav-sm footer {
         margin-left: 0 !important;
+    }
+
+    /* Mobile Sidebar Overrides */
+    .col-md-3.left_col {
+        position: fixed !important;
+        top: 0 !important;
+        left: -250px !important;
+        width: 250px !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        z-index: 1040 !important;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Open mobile sidebar when body has nav-md */
+    body.nav-md .col-md-3.left_col {
+        left: 0 !important;
+    }
+
+    /* Ensure scroll-view container matches the width */
+    .col-md-3.left_col > .left_col.scroll-view {
+        width: 100% !important;
+    }
+
+    /* When mobile sidebar is open, prevent body scroll and overlay dim content */
+    body.nav-md {
+        overflow: hidden !important;
+    }
+
+    body.nav-md .right_col::after {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1035;
+        pointer-events: auto;
+    }
+
+    /* Reset content, top nav, and footer margins for both nav-md and nav-sm on mobile */
+    .right_col {
+        margin-left: 0 !important;
+        width: 100% !important;
+        padding: 15px !important;
+        position: relative !important;
+    }
+
+    .top_nav {
+        margin-left: 0 !important;
+        width: 100% !important;
+        position: relative !important;
+        z-index: 1030 !important;
+    }
+
+    body.nav-sm .right_col,
+    body.nav-md .right_col,
+    body.nav-sm .top_nav,
+    body.nav-md .top_nav,
+    body.nav-sm footer,
+    body.nav-md footer {
+        margin-left: 0 !important;
+    }
+
+    /* Mobile Top Nav Menu Adjustments */
+    .top_nav .nav_menu {
+        padding: 0 10px !important;
+    }
+
+    .top_nav .nav_menu .toggle {
+        display: block !important;
+        padding: 12px 10px !important;
+        margin: 0 !important;
+    }
+
+    /* Responsive tables container styling */
+    .table-responsive {
+        border: 0 !important;
+        margin-bottom: 0 !important;
     }
 }
 
@@ -310,42 +481,77 @@ body {
 
 /* Expanded width for collapsed (mini) sidebar to prevent text overflow/overlap */
 body.nav-sm .container.body .col-md-3.left_col {
-    width: 85px !important;
+    width: 100px !important;
+}
+body.nav-sm .nav_title {
+    width: 100px !important;
+}
+body.nav-sm .site_title {
+    width: 100px !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
 }
 body.nav-sm .right_col {
-    margin-left: 85px !important;
+    margin-left: 100px !important;
 }
 body.nav-sm .top_nav {
-    margin-left: 85px !important;
+    margin-left: 100px !important;
 }
 body.nav-sm footer {
-    margin-left: 85px !important;
+    margin-left: 100px !important;
 }
 
 /* Adjust collapsed menu items to fit the new width and long words */
-body.nav-sm .nav.side-menu li a {
+body.nav-sm .nav.side-menu > li > a {
     font-size: 9.5px !important;
-    padding: 12px 4px !important;
-    min-height: 80px !important;
+    padding: 10px 6px !important;
+    min-height: 60px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
     text-align: center !important;
+    white-space: normal !important;
+    word-break: break-word !important;
 }
-body.nav-sm .nav.side-menu li a i {
-    font-size: 20px !important;
-    margin-bottom: 6px !important;
+body.nav-sm .nav.side-menu > li > a i {
+    font-size: 18px !important;
+    margin-bottom: 4px !important;
     width: 100% !important;
     text-align: center !important;
 }
+
+/* Correct positioning & alignment for the flyout submenu in collapsed mode */
+body.nav-sm ul.nav.child_menu {
+    left: 100px !important;
+    width: 220px !important;
+    background-color: var(--portal-bg) !important;
+    border: 1px solid var(--portal-gold) !important;
+    border-left: none !important;
+    display: none;
+    position: fixed !important;
+    z-index: 1050 !important;
+}
+
+body.nav-sm .nav.side-menu li:hover > ul.child_menu {
+    display: block !important;
+}
 body.nav-sm .sidebar-footer {
-    width: 85px !important;
+    width: 100px !important;
 }
 body.nav-sm .sidebar-footer #real-time-clock {
     font-size: 0.72rem !important;
 }
 body.nav-sm .sidebar-footer #real-time-date {
     font-size: 0.58rem !important;
+}
+
+/* Hide sidebar footer on very short viewports to prevent cutting off menu content */
+@media (max-height: 600px) {
+    .sidebar-footer {
+        display: none !important;
+    }
 }
 

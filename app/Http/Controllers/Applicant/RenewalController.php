@@ -559,6 +559,25 @@ class RenewalController extends Controller
     public function submitReupload(Request $request)
     {
         $user = Auth::user();
+        $application = Application::where('id', $request->input('application_id'))
+            ->where('user_id', $user->id)
+            ->with([
+                'accreditationType',
+                'documents.documentField',
+                'documents.userDocument',
+                'user.instructors.credentials.instructor',
+                'latestStatus.status',
+            ])
+            ->first();
+
+        if (!$application) {
+            return back()->with('resubmit_error', 'Application not found.');
+        }
+
+        $statusName = $application->latestStatus?->status?->name;
+        if ($statusName !== 'For Update') {
+            return back()->with('resubmit_error', 'Invalid action. You can only resubmit documents if your application status is "For Update".');
+        }
 
         $request->validate([
             'application_id'     => ['required', 'exists:applications,id'],
@@ -571,16 +590,6 @@ class RenewalController extends Controller
             'credential_files'   => ['nullable', 'array'],
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
-
-        $application = Application::where('id', $request->input('application_id'))
-            ->where('user_id', $user->id)
-            ->with([
-                'accreditationType',
-                'documents.documentField',
-                'documents.userDocument',
-                'user.instructors.credentials.instructor',
-            ])
-            ->firstOrFail();
 
         // Strict backend validation: Make sure all rejected/returned items are provided in the upload
         $rejectedDocs = $application->documents->filter(fn($d) => in_array($d->status, ['rejected','returned']));

@@ -100,12 +100,23 @@
     function refreshState() {
         const inputs   = getStatusInputs();
         const total    = inputs.length;
+
+        const applicationStatus = window.ARMS?.applicationStatus ?? 'Under Evaluation';
+        const isForUpdate = (applicationStatus === 'For Update');
+
         const approved = inputs.filter(i => i.value === 'approved').length;
-        const awaitingUpdate = inputs.filter(i => i.getAttribute('data-db-status') === 'rejected').length;
-        const rejected = inputs.filter(i => i.value === 'rejected' && i.getAttribute('data-db-status') !== 'rejected').length;
+
+        const awaitingUpdate = isForUpdate
+            ? inputs.filter(i => i.getAttribute('data-db-status') === 'rejected' || i.getAttribute('data-db-status') === 'returned').length
+            : 0;
+
+        const rejected = isForUpdate
+            ? 0
+            : inputs.filter(i => i.value === 'rejected').length;
+
         const pending  = total - approved - rejected - awaitingUpdate;
 
-        // Progress label inside Documents card header
+        // Progress label inside Documents card header (old progress element if it exists)
         const progressEl = document.getElementById('eval-progress-label');
         if (progressEl) {
             let labelText = `${approved} approved`;
@@ -115,11 +126,65 @@
             progressEl.textContent = labelText;
         }
 
+        // Submitted Documents (Main Card Progress Badge)
+        const docInputs = inputs.filter(i => !i.id.includes('cred-') && !i.id.includes('inst-'));
+        const docTotal = docInputs.length;
+        const docApproved = docInputs.filter(i => i.value === 'approved').length;
+        const docProgressEl = document.getElementById('submitted-docs-progress');
+        if (docProgressEl) {
+            docProgressEl.textContent = `${docApproved} / ${docTotal} Accepted`;
+        }
+
+        // Folder Sub-sections Progress Badges
+        const folderSections = document.querySelectorAll('[id^="folder-section-"]');
+        folderSections.forEach(section => {
+            const typeId = section.id.replace('folder-section-', '');
+            const folderInputs = Array.from(section.querySelectorAll('input[id^="status-input-"]'));
+            const folderTotal = folderInputs.length;
+            const folderApproved = folderInputs.filter(i => i.value === 'approved').length;
+            const badgeEl = document.getElementById(`folder-progress-${typeId}`);
+            if (badgeEl) {
+                badgeEl.textContent = `${folderApproved} / ${folderTotal} Accepted`;
+            }
+        });
+
+        // Instructor Credentials (Main Card Progress Badge)
+        const credInputs = inputs.filter(i => i.id.includes('cred-') || i.id.includes('inst-'));
+        const credTotal = credInputs.length;
+        const credApproved = credInputs.filter(i => i.value === 'approved').length;
+        const credProgressEl = document.getElementById('instructor-creds-progress');
+        if (credProgressEl) {
+            credProgressEl.textContent = `${credApproved} / ${credTotal} Accepted`;
+        }
+
+        // Instructor Sub-sections Progress Badges
+        const instructorSections = document.querySelectorAll('[id^="instructor-section-"]');
+        instructorSections.forEach(section => {
+            const instructorId = section.id.replace('instructor-section-', '');
+            const instInputs = Array.from(section.querySelectorAll('input[id^="status-input-"]'));
+            const instTotal = instInputs.length;
+            const instApproved = instInputs.filter(i => i.value === 'approved').length;
+            const badgeEl = document.getElementById(`instructor-progress-${instructorId}`);
+            if (badgeEl) {
+                badgeEl.textContent = `${instApproved} / ${instTotal} Accepted`;
+            }
+        });
+
         const btn      = document.getElementById('btn-open-schedule');
         const btnText  = document.getElementById('btn-schedule-text');
         if (!btn) return;
 
-        if (pending > 0 || awaitingUpdate > 0) {
+        if (rejected > 0) {
+            // ── State 2: Some rejected → Send Rejection Email ──
+            btn.disabled = false;
+            btn.className = 'btn btn-danger btn-sm fw-semibold px-4';
+            btn.style.cssText = 'border-radius:6px;';
+            btn.setAttribute('data-bs-toggle', 'modal');
+            btn.setAttribute('data-bs-target', '#rejectionConfirmModal');
+            btn.onclick = null;
+            if (btnText) btnText.textContent = `Send Rejection Email (${rejected} rejected)`;
+
+        } else if (pending > 0 || awaitingUpdate > 0) {
             // ── State 1: Still has unevaluated docs or awaiting re-upload ──
             btn.disabled = true;
             btn.className = 'btn btn-outline-secondary btn-sm fw-semibold px-4';
@@ -134,16 +199,6 @@
                     btnText.textContent = `Pending Documents (${pending + awaitingUpdate} remaining)`;
                 }
             }
-
-        } else if (rejected > 0) {
-            // ── State 2: Some rejected, none pending → Send Rejection Email ──
-            btn.disabled = false;
-            btn.className = 'btn btn-danger btn-sm fw-semibold px-4';
-            btn.style.cssText = 'border-radius:6px;';
-            btn.setAttribute('data-bs-toggle', 'modal');
-            btn.setAttribute('data-bs-target', '#rejectionConfirmModal');
-            btn.onclick = null;
-            if (btnText) btnText.textContent = `Send Rejection Email (${rejected} rejected)`;
 
         } else {
             // ── State 3: All approved → Save Approvals & Schedule Interview ──
@@ -224,21 +279,12 @@
     const rejectionModalEl = document.getElementById('rejectionConfirmModal');
     if (rejectionModalEl) {
         rejectionModalEl.addEventListener('show.bs.modal', function (e) {
-            // Guard: ensure no pending docs
-            const pending = getStatusInputs().filter(i => !['approved','rejected'].includes(i.value));
-            if (pending.length > 0) {
-                e.preventDefault(); // Stop modal from opening
-                alert('Please approve or reject every document before submitting.');
-                return;
-            }
-
             // Build the list of rejected docs to show
             const list = document.getElementById('rejection-doc-list');
             if (list) {
                 list.innerHTML = '';
                 document.querySelectorAll('input[id^="status-input-"]').forEach(input => {
                     if (input.value !== 'rejected') return;
-                    if (input.getAttribute('data-db-status') === 'rejected') return;
 
                     const docId   = input.id.replace('status-input-', '');
                     const nameEl  = document.querySelector(`#doc-row-${docId} .doc-field-name`);
@@ -462,7 +508,7 @@
     });
 
     /* ─── Init ────────────────────────────────────────────── */
-    if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate) {
+    if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
         // Already all approved or scheduled — enable button directly
         const btn     = document.getElementById('btn-open-schedule');
         const btnText = document.getElementById('btn-schedule-text');
