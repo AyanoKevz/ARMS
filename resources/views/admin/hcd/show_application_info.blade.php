@@ -1293,8 +1293,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 $payment = $application->payment;
                 $requirements = [
                 'proof_of_payment' => 'Proof of Payment',
-                'e_signature' => 'E-Signature',
-                'id_photo' => 'ID Photo'
                 ];
                 @endphp
 
@@ -1304,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 $status = $payment ? $payment->{"{$key}_status"} : 'pending';
                 $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                 @endphp
-                <div class="col-md-4">
+                <div class="col-md-12">
                     <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6;">
                         <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
                         <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
@@ -1355,28 +1353,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </span>
                 </button>
         </form>
-
-        @php
-        $hasUploadedAny = $payment && (
-        $payment->proof_of_payment ||
-        $payment->e_signature ||
-        $payment->id_photo ||
-        $payment->proof_of_payment_status === 'rejected' ||
-        $payment->e_signature_status === 'rejected' ||
-        $payment->id_photo_status === 'rejected' ||
-        $payment->proof_of_payment_status === 'approved' ||
-        $payment->e_signature_status === 'approved' ||
-        $payment->id_photo_status === 'approved'
-        );
-        @endphp
-        @if(!$hasUploadedAny)
-        <form action="{{ route('admin.hcd.applications.request_payment', $application->id) }}" method="POST" class="d-inline">
-            @csrf
-            <button type="submit" class="btn btn-success fw-semibold px-4">
-                <i class="fas fa-paper-plane me-1"></i> Send Payment Request to Applicant
-            </button>
-        </form>
-        @endif
 
         <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
             <i class="fas fa-archive me-1"></i> Archive Application
