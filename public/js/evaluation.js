@@ -14,13 +14,49 @@
     const hasInterviewRecord = window.ARMS?.hasInterviewRecord ?? false;
     const allApproved = window.ARMS?.allApproved ?? false;
 
+    let activeSavesCount = 0;
+
     /* ─── Helpers ─────────────────────────────────────────── */
     function getStatusInputs() {
         return Array.from(document.querySelectorAll('input[id^="status-input-"]'));
     }
 
-    /* ─── setDocStatus ────────────────────────────────────── */
-    window.setDocStatus = function (docId, status) {
+    function updateActiveSavesIndicator() {
+        const btn = document.getElementById('btn-open-schedule');
+        const indicator = document.getElementById('eval-saving-indicator');
+
+        if (activeSavesCount > 0) {
+            if (!indicator) {
+                const container = document.getElementById('btn-open-schedule')?.parentNode || document.body;
+                const indEl = document.createElement('div');
+                indEl.id = 'eval-saving-indicator';
+                indEl.className = 'text-warning fw-semibold d-flex align-items-center gap-2 mt-2 justify-content-center';
+                indEl.style.fontSize = '.9rem';
+                indEl.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving evaluation in background... Please do not refresh.';
+                if (container === document.body) {
+                    indEl.style.cssText = 'position:fixed; bottom:80px; right:28px; z-index:9998; background:rgba(0,0,0,0.8); color:#ffc107; padding:10px 18px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+                }
+                container.appendChild(indEl);
+            } else {
+                indicator.style.display = 'flex';
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                const btnText = document.getElementById('btn-schedule-text');
+                if (btnText) {
+                    btnText.textContent = 'Saving Evaluation...';
+                }
+            }
+        } else {
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+            refreshState();
+        }
+    }
+
+    function updateDocStatusUI(docId, status) {
         const statusInput = document.getElementById(`status-input-${docId}`);
         const badge       = document.getElementById(`badge-${docId}`);
         const approveBtn  = document.querySelector(`.btn-approve[data-doc-id="${docId}"]`);
@@ -31,25 +67,43 @@
 
         statusInput.value = status;
 
-        // Badge
-        badge.classList.remove('doc-badge-approved','doc-badge-rejected','doc-badge-pending','doc-badge-for_revision');
-        badge.classList.add(`doc-badge-${status}`);
-        badge.textContent = status === 'approved' ? 'Approved' : 'Rejected';
-
-        // Button active states
-        approveBtn.classList.toggle('active', status === 'approved');
-        rejectBtn.classList.toggle('active',  status === 'rejected');
-
-        // Reject remarks panel
-        if (rejectPanel) {
-            rejectPanel.style.display = status === 'rejected' ? 'block' : 'none';
-            if (status === 'rejected') {
-                const ta = document.getElementById(`remarks-${docId}`);
-                if (ta) ta.focus();
-            }
+        if (badge) {
+            badge.classList.remove('doc-badge-approved','doc-badge-rejected','doc-badge-pending','doc-badge-for_revision');
+            badge.classList.add(`doc-badge-${status}`);
+            
+            let labelText = 'Pending';
+            if (status === 'approved') labelText = 'Approved';
+            else if (status === 'rejected') labelText = 'Rejected';
+            else if (status === 'returned') labelText = 'Awaiting Re-upload';
+            else if (status === 'for_revision') labelText = 'For Revision';
+            badge.textContent = labelText;
         }
 
-        // Auto-save the status immediately in the background via fetch
+        if (approveBtn) approveBtn.classList.toggle('active', status === 'approved');
+        if (rejectBtn) rejectBtn.classList.toggle('active',  status === 'rejected');
+
+        if (rejectPanel) {
+            rejectPanel.style.display = status === 'rejected' ? 'block' : 'none';
+        }
+    }
+
+    /* ─── setDocStatus ────────────────────────────────────── */
+    window.setDocStatus = function (docId, status) {
+        const statusInput = document.getElementById(`status-input-${docId}`);
+        if (!statusInput) return;
+
+        const oldStatus = statusInput.value;
+        if (oldStatus === status) return;
+
+        updateDocStatusUI(docId, status);
+        if (status === 'rejected') {
+            const ta = document.getElementById(`remarks-${docId}`);
+            if (ta) ta.focus();
+        }
+
+        activeSavesCount++;
+        updateActiveSavesIndicator();
+
         let itemType = 'document';
         let itemId = docId;
 
@@ -63,6 +117,8 @@
             } else {
                 itemId = parseInt(docId, 10);
             }
+        } else {
+            itemId = parseInt(docId, 10);
         }
 
         if (window.ARMS && window.ARMS.evaluateItemUrl) {
@@ -87,10 +143,22 @@
                     showToast('Evaluation auto-saved.', 'success');
                 } else {
                     console.error('Auto-save failed:', data.message);
+                    showToast('Failed to auto-save evaluation. Reverting...', 'danger');
+                    updateDocStatusUI(docId, oldStatus);
+                    refreshState();
                 }
             }).catch(err => {
                 console.error('Auto-save network error:', err);
+                showToast('Network error during auto-save. Reverting...', 'danger');
+                updateDocStatusUI(docId, oldStatus);
+                refreshState();
+            }).finally(() => {
+                activeSavesCount--;
+                updateActiveSavesIndicator();
             });
+        } else {
+            activeSavesCount--;
+            updateActiveSavesIndicator();
         }
 
         refreshState();
@@ -483,6 +551,9 @@
             const statusInput = document.getElementById(`status-input-${docId}`);
             const status = statusInput ? statusInput.value : 'rejected';
 
+            activeSavesCount++;
+            updateActiveSavesIndicator();
+
             if (window.ARMS && window.ARMS.evaluateItemUrl) {
                 const formData = new FormData();
                 formData.append('_token', window.ARMS.csrfToken);
@@ -499,11 +570,28 @@
                     const data = await res.json();
                     if (data.success) {
                         showToast('Rejection remarks auto-saved.', 'success');
+                    } else {
+                        showToast('Failed to auto-save remarks.', 'danger');
                     }
                 }).catch(err => {
                     console.error('Auto-save remarks error:', err);
+                    showToast('Network error during remarks auto-save.', 'danger');
+                }).finally(() => {
+                    activeSavesCount--;
+                    updateActiveSavesIndicator();
                 });
+            } else {
+                activeSavesCount--;
+                updateActiveSavesIndicator();
             }
+        }
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (activeSavesCount > 0) {
+            e.preventDefault();
+            e.returnValue = 'Evaluation updates are still saving in the background. Are you sure you want to leave?';
+            return e.returnValue;
         }
     });
 

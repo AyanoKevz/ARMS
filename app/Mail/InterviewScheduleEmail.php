@@ -46,7 +46,7 @@ class InterviewScheduleEmail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.interview_scheduled',
+            view: 'emails.interview',
         );
     }
 

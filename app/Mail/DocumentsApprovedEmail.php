@@ -40,7 +40,7 @@ class DocumentsApprovedEmail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.documents_approved',
+            view: 'emails.interview',
         );
     }
 

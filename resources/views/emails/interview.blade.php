@@ -1,0 +1,128 @@
+@extends('emails.layout')
+
+@section('title')
+    @if(isset($interview) && $interview)
+        {{ isset($isUpdate) && $isUpdate ? 'Interview Schedule Updated — ARMS' : 'Interview Schedule Confirmation — ARMS' }}
+    @else
+        Documents Approved — ARMS
+    @endif
+@endsection
+
+@section('css')
+    .icon-circle {
+        @if(isset($interview) && $interview)
+            background: linear-gradient(135deg, {{ isset($isUpdate) && $isUpdate ? '#e3f2fd, #bbdefb' : '#e8f5e9, #c8e6c9' }});
+        @else
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        @endif
+    }
+@endsection
+
+@section('content')
+    <div class="icon-circle">
+        @if(isset($interview) && $interview)
+            {{ isset($isUpdate) && $isUpdate ? '🔄' : '✅' }}
+        @else
+            📄
+        @endif
+    </div>
+
+    <h2>
+        @if(isset($interview) && $interview)
+            {{ isset($isUpdate) && $isUpdate ? 'Interview Schedule Updated' : 'Interview Schedule Confirmed' }}
+        @else
+            Documents Approved
+        @endif
+    </h2>
+
+    <p>
+        Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
+    </p>
+
+    <p>
+        @if(isset($interview) && $interview)
+            @if(isset($isUpdate) && $isUpdate)
+                Please be informed that your interview schedule has been updated.
+            @else
+                We are pleased to inform you that your interview has been scheduled.
+            @endif
+        @else
+            We are pleased to inform you that all the documents you submitted for your
+            <strong>{{ ucfirst($application->application_type) }}</strong> application have been reviewed and <strong>approved</strong>.
+        @endif
+    </p>
+
+    <div class="tracking-card">
+        <p class="label">Tracking Number</p>
+        <p class="value">{{ $application->tracking_number }}</p>
+        <p class="label">Application Status</p>
+        <p class="value-status">
+            @if(isset($interview) && $interview)
+                Scheduled for Interview
+            @else
+                📅 Pending for Interview
+            @endif
+        </p>
+    </div>
+
+    @if(isset($interview) && $interview)
+        <p>Please review your interview details below.</p>
+
+        {{-- Interview Details --}}
+        <div class="doc-list">
+            <p class="doc-list-title">📅 Interview Details</p>
+            
+            <div class="doc-item green">
+                <div class="doc-item-name">Date & Time</div>
+                <div class="doc-item-remark">
+                    <span>Date:</span> {{ \Carbon\Carbon::parse($interview->interview_date)->format('l, F j, Y') }}<br>
+                    <span>Time:</span> {{ \Carbon\Carbon::parse($interview->interview_time)->format('h:i A') }}
+                </div>
+            </div>
+
+            <div class="doc-item green">
+                <div class="doc-item-name">Mode & Venue</div>
+                <div class="doc-item-remark">
+                    <span>Mode:</span> {{ $interview->mode === 'online' ? 'Online Interview' : 'Face-to-Face' }}<br>
+                    @if($interview->mode === 'f2f')
+                        <span>Venue:</span> {{ $interview->venue }}
+                    @else
+                        <span>Meeting Link:</span> <a href="{{ $interview->venue }}" target="_blank">{{ $interview->venue }}</a>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        @if($interview->mode === 'online')
+            <p style="font-size:0.85rem; color:#1a6fbd; background-color:#e6f2ff; padding:12px; border-radius:8px; border:1px solid #b3d7ff;">
+                <strong>Meeting Link:</strong> Please join the interview using the link: <a href="{{ $interview->venue }}" target="_blank">{{ $interview->venue }}</a>. Please ensure you are logged in and ready 10 minutes before the schedule.
+            </p>
+        @else
+            <p style="font-size:0.85rem; color:#555;">
+                Please ensure you arrive at the venue at least 15 minutes before your scheduled time and bring any original documents that may be required for verification.
+            </p>
+        @endif
+    @else
+        <p class="info-box blue">
+            <strong>Next Step:</strong> Your application is now ready for the interview stage.
+            We will set a schedule for your interview, and you will receive another email
+            notification with the exact date, time, and venue/mode of the interview once it is finalized.
+        </p>
+
+        <p style="margin-top: 20px;">
+            You can track the progress of your application anytime through your ARMS portal.
+        </p>
+    @endif
+
+    <div class="btn-wrap">
+        <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-primary">
+            {{ isset($interview) && $interview ? 'Track Application' : 'Track My Application' }}
+        </a>
+    </div>
+
+    @if(isset($interview) && $interview)
+        <p style="font-size:0.85rem; color:#888; text-align: center;">
+            If you have any questions or need to request a reschedule, please contact our office as soon as possible.
+        </p>
+    @endif
+@endsection

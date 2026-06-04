@@ -450,12 +450,17 @@ class ApplicationController extends Controller
         foreach ($evaluations as $eval) {
             $doc = ApplicationDocument::find($eval['id']);
             if ($doc) {
+                $newStatus = $eval['status'];
+                if ($doc->status === 'approved' && $newStatus === 'pending') {
+                    $newStatus = 'approved';
+                }
+
                 $doc->update([
-                    'status' => $eval['status'],
-                    'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
+                    'status' => $newStatus,
+                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
                 ]);
 
-                if ($eval['status'] === 'rejected') {
+                if ($newStatus === 'rejected') {
                     $hasRejections = true;
                 }
             }
@@ -464,12 +469,16 @@ class ApplicationController extends Controller
         foreach ($instructorEvals as $eval) {
             $inst = \App\Models\Instructor::find($eval['id']);
             if ($inst) {
+                $newStatus = $eval['status'];
+                if ($inst->status === 'approved' && $newStatus === 'pending') {
+                    $newStatus = 'approved';
+                }
                 $inst->update([
-                    'status' => $eval['status'],
-                    'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
+                    'status' => $newStatus,
+                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
                 ]);
 
-                if ($eval['status'] === 'rejected') {
+                if ($newStatus === 'rejected') {
                     $hasRejections = true;
                 }
             }
@@ -478,12 +487,16 @@ class ApplicationController extends Controller
         foreach ($credentialEvals as $eval) {
             $cred = \App\Models\InstructorCredential::find($eval['id']);
             if ($cred) {
+                $newStatus = $eval['status'];
+                if ($cred->status === 'approved' && $newStatus === 'pending') {
+                    $newStatus = 'approved';
+                }
                 $cred->update([
-                    'status' => $eval['status'],
-                    'remarks' => $eval['status'] === 'rejected' ? ($eval['remarks'] ?? null) : null,
+                    'status' => $newStatus,
+                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
                 ]);
 
-                if ($eval['status'] === 'rejected') {
+                if ($newStatus === 'rejected') {
                     $hasRejections = true;
                 }
             }

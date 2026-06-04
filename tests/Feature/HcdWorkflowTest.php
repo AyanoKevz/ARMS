@@ -509,3 +509,125 @@ test('pending interview table displays "Pending" status label', function () {
     expect($html)->toContain('Pending');
     expect($html)->not->toContain('Scheduled for Interview');
 });
+
+test('finalizeEvaluation preserves already approved items and does not reset them to pending', function () {
+    $this->withoutExceptionHandling();
+    Mail::fake();
+
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'eval_test_safeguard@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_safeguard@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => 7,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-SAFEGUARD',
+    ]);
+
+    $docType = DocumentType::firstOrCreate([
+        'code' => 'TEST_TYPE',
+        'name' => 'Test Type',
+    ]);
+
+    $field1 = DocumentField::firstOrCreate([
+        'code' => 'TEST_01',
+    ], [
+        'name' => 'Test Document 1',
+        'input_type' => 'file',
+        'document_type_id' => $docType->id,
+    ]);
+
+    $field2 = DocumentField::firstOrCreate([
+        'code' => 'TEST_02',
+    ], [
+        'name' => 'Test Document 2',
+        'input_type' => 'file',
+        'document_type_id' => $docType->id,
+    ]);
+
+    $userDoc1 = UserDocument::create([
+        'user_id' => $applicant->id,
+        'document_field_id' => $field1->id,
+        'file_path' => 'dummy1.pdf',
+    ]);
+
+    $userDoc2 = UserDocument::create([
+        'user_id' => $applicant->id,
+        'document_field_id' => $field2->id,
+        'file_path' => 'dummy2.pdf',
+    ]);
+
+    // doc1 is already approved
+    $appDoc1 = ApplicationDocument::create([
+        'application_id' => $application->id,
+        'document_field_id' => $field1->id,
+        'user_document_id' => $userDoc1->id,
+        'status' => 'approved',
+    ]);
+
+    // doc2 is rejected
+    $appDoc2 = ApplicationDocument::create([
+        'application_id' => $application->id,
+        'document_field_id' => $field2->id,
+        'user_document_id' => $userDoc2->id,
+        'status' => 'rejected',
+    ]);
+
+    $status = ApplicationStatus::firstOrCreate(['name' => 'Under Evaluation']);
+    ApplicationStatusLog::create([
+        'application_id' => $application->id,
+        'status_id' => $status->id,
+    ]);
+
+    // Call finalize_evaluation. In the payload, appDoc1 is sent as 'pending'
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.applications.finalize_evaluation', $application->id), [
+            'evaluations' => [
+                [
+                    'id' => $appDoc1->id,
+                    'status' => 'pending',
+                ],
+                [
+                    'id' => $appDoc2->id,
+                    'status' => 'rejected',
+                    'remarks' => 'Needs update',
+                ]
+            ]
+        ]);
+
+    $response->assertStatus(200);
+    
+    // Assert appDoc1 stayed approved
+    $appDoc1->refresh();
+    expect($appDoc1->status)->toBe('approved');
+
+    // Assert appDoc2 stayed rejected
+    $appDoc2->refresh();
+    expect($appDoc2->status)->toBe('rejected');
+});

@@ -91,17 +91,37 @@
                             <div class="px-4 py-3" style="background:#fffbeb;">
                                 <div class="alert alert-warning border border-warning-subtle d-flex align-items-start gap-3 p-3 mb-3 bg-white" style="border-radius: 10px; color: #856404;">
                                     <i class="bi bi-info-circle-fill fs-5 mt-1 text-warning"></i>
-                                    <div>
-                                        <h6 class="fw-bold mb-1" style="color: #856404; font-size: 0.95rem;">Accreditation Fees Breakdown:</h6>
-                                        <p class="mb-2 text-muted small" style="font-size: 0.85rem;">Please pay a total of <strong>PHP 900.00</strong> to complete your accreditation process. The breakdown is as follows:</p>
-                                        <ul class="mb-0 small text-muted pl-3" style="font-size: 0.85rem; list-style-type: disc;">
-                                            <li>Application Fee: <strong>PHP 600.00</strong></li>
-                                            <li>Accreditation Certification Fee: <strong>PHP 300.00</strong></li>
-                                        </ul>
+                                    <div class="w-100">
+                                        <h6 class="fw-bold mb-2" style="color: #856404; font-size: 1rem;">Payment Instructions & Steps</h6>
+                                        <p class="mb-3 small text-dark">Congratulations on your accreditation as a First Aid Training Provider! We would like to inform you that your accreditation as First Aid Training Provider is approved by the Office of the Executive Director.</p>
+                                        
+                                        <div class="mb-3">
+                                            <strong class="small d-block text-dark mb-1">1. Payment Details:</strong>
+                                            <ul class="mb-0 small text-muted pl-3" style="list-style-type: disc;">
+                                                <li>Account Name: <strong>Occupational Safety and Health Center</strong></li>
+                                                <li>Account Number: <strong>0711-0536-03</strong></li>
+                                                <li>Amount: <strong>900.00 Pesos</strong></li>
+                                            </ul>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <strong class="small d-block text-dark mb-1">2. Mode of Payment:</strong>
+                                            <p class="mb-0 small text-muted" style="line-height: 1.4;">
+                                                Payments through GCash, Pay Maya, and other online banking methods are not advisable. Please use Landbank Mobile Banking or Landbank-Over-The-Counter only. You may also pay in Cash through our Finance and Admin Division.
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <strong class="small d-block text-dark mb-1">3. Proof of Payment:</strong>
+                                            <ul class="mb-0 small text-muted pl-3" style="list-style-type: disc;">
+                                                <li>Ensure that the Branch of Account and Bank Teller’s machine validation are visibly printed on your receipt.</li>
+                                                <li>After making your payment, provide a scanned copy of the deposit slip or a screenshot of the Proof of Payment, with the name of the payor, via email, or upload it below.</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                                 <p class="small text-muted mb-3">
-                                    Congratulations on passing your interview! To proceed with your accreditation certificate, please submit your Proof of Payment below.
+                                    We will update you as soon as they are ready for release. Please submit your Proof of Payment below to proceed.
                                 </p>
 
                                 @php
