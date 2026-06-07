@@ -543,7 +543,7 @@
             <div class="clearfix"></div>
         </div>
         <div class="x_content py-3">
-            <div class="alert alert-warning border border-warning-subtle d-flex align-items-start gap-3 p-3 mb-3 bg-white" style="border-radius: 10px; color: #856404;">
+            <div class="alert alert-warning alert-important border border-warning-subtle d-flex align-items-start gap-3 p-3 mb-3 bg-white" style="border-radius: 10px; color: #856404;">
                 <i class="fas fa-info-circle fs-5 mt-1 text-warning"></i>
                 <div class="w-100">
                     <h5 class="fw-bold mb-2" style="color: #856404; font-size: 1rem;">Payment Instructions & Steps</h5>
@@ -625,7 +625,7 @@
                                     </div>
 
                                     @if($status === 'rejected' && $remarks)
-                                        <div class="alert alert-danger py-1 px-3 border-0 rounded mt-3 mb-0" style="font-size: 0.85rem;">
+                                        <div class="alert alert-danger alert-important py-1 px-3 border-0 rounded mt-3 mb-0" style="font-size: 0.85rem;">
                                             <strong>Verifier Remarks:</strong> {{ $remarks }}
                                         </div>
                                     @endif

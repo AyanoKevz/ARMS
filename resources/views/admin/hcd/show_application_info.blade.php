@@ -799,7 +799,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="doc-section-header d-flex justify-content-between align-items-center"
                                  style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#instructor-body-{{ $instructor->id }}"
                                  aria-expanded="true">
-                                <div><i class="bi bi-person-badge-fill me-1"></i> {{ $instructor->first_name }} {{ $instructor->last_name }}</div>
+                                <div><i class="bi bi-person-badge-fill me-1"></i> {{ trim($instructor->first_name . ' ' . $instructor->middle_name . ' ' . $instructor->last_name) }}</div>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-secondary me-2" id="instructor-progress-{{ $instructor->id }}" style="font-size:.72rem;">
                                         {{ $approvedInstItems }} / {{ $totalInstItems }} Accepted

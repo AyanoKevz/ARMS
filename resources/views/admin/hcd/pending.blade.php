@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Pending Applications')
+@section('title', 'New Applications — Pending')
 
 @push('styles')
 {{-- DataTables CSS --}}
@@ -14,7 +14,7 @@
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3>Pending Applications</h3>
+            <h3>New Applications — Pending</h3>
         </div>
     </div>
 

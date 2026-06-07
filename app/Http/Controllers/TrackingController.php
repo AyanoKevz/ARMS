@@ -34,6 +34,10 @@ class TrackingController extends Controller
                 'interview',
                 'user.instructors.credentials.instructor',
             ])->where('tracking_number', $request->input('tracking_number'))->first();
+
+            if ($application && strtolower($application->application_type) !== 'new') {
+                return redirect()->route('track')->with('error', 'This tracking number belongs to a ' . ucfirst($application->application_type) . ' application. Please log in to your applicant portal to track its status.');
+            }
         }
 
         return view('landing.track', compact('application'));

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Applications Under Evaluation')
+@section('title', 'New Applications — Under Evaluation')
 
 @push('styles')
 {{-- DataTables CSS --}}
@@ -14,7 +14,7 @@
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3>Applications Under Evaluation</h3>
+            <h3>New Applications — Under Evaluation</h3>
         </div>
     </div>
 
@@ -39,7 +39,7 @@
 
             <div class="x_panel">
                 <div class="x_title">
-                    <h2>Applications Currently Under Evaluation</h2>
+                    <h2>New Applications Currently Under Evaluation</h2>
                     <ul class="nav navbar-right panel_toolbox">
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>

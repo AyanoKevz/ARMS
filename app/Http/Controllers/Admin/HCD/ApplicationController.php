@@ -1564,51 +1564,59 @@ class ApplicationController extends Controller
             $this->pctService->completeCurrentStep($application);
             $this->pctService->startStep($application, 8);
 
-            // Create accreditation record
+            // Create or update accreditation record
             $datePrefix = now()->format('ymd'); // YYMMDD
             $isRenewalOrReinstatement = in_array($application->application_type, ['renewal', 'reinstatement']);
-            $suffixStr = null;
+            $today = now()->toDateString();
 
             if ($isRenewalOrReinstatement) {
+                // For renewal/reinstatement: update the existing accreditation record
                 $prevAccreditation = Accreditation::where('user_id', $application->user_id)
                     ->orderBy('id', 'desc')
                     ->first();
+
                 if ($prevAccreditation) {
-                    $parts = explode('-', $prevAccreditation->accreditation_number);
-                    $suffixStr = str_pad(end($parts), 3, '0', STR_PAD_LEFT);
-                }
-            }
-
-            if (!$suffixStr) {
-                $maxIncrement = 46;
-                $allAccreditations = Accreditation::all();
-                foreach ($allAccreditations as $acc) {
-                    $parts = explode('-', $acc->accreditation_number);
-                    $suffixVal = (int) end($parts);
-                    if ($suffixVal > $maxIncrement) {
-                        $maxIncrement = $suffixVal;
+                    // Delete old scanned certificate file so Step 8 is not skipped
+                    if ($prevAccreditation->scanned_certificate && Storage::disk('local')->exists($prevAccreditation->scanned_certificate)) {
+                        Storage::disk('local')->delete($prevAccreditation->scanned_certificate);
                     }
+
+                    $prevAccreditation->update([
+                        'application_id'        => $application->id,
+                        'accreditation_type_id' => $application->accreditation_type_id,
+                        'date_of_accreditation' => $today,
+                        'validity_date'         => now()->addYears(3)->toDateString(),
+                        'status'                => 'active',
+                        'scanned_certificate'   => null,
+                    ]);
+                    $accreditation = $prevAccreditation;
+                    $accNumber = $prevAccreditation->accreditation_number;
+                } else {
+                    // Edge case: no previous accreditation found, create a new one
+                    $accNumber = $this->generateNewAccreditationNumber($datePrefix);
+                    $accreditation = Accreditation::create([
+                        'user_id'               => $application->user_id,
+                        'application_id'        => $application->id,
+                        'accreditation_type_id' => $application->accreditation_type_id,
+                        'accreditation_number'  => $accNumber,
+                        'date_of_accreditation' => $today,
+                        'validity_date'         => now()->addYears(3)->toDateString(),
+                        'status'                => 'active',
+                    ]);
                 }
-
-                do {
-                    $maxIncrement++;
-                    $suffixStr = str_pad($maxIncrement, 3, '0', STR_PAD_LEFT);
-                    $accNumber = "235-{$datePrefix}-{$suffixStr}";
-                } while (Accreditation::where('accreditation_number', $accNumber)->exists());
             } else {
-                $accNumber = "235-{$datePrefix}-{$suffixStr}";
+                // For new applications: create a fresh accreditation record
+                $accNumber = $this->generateNewAccreditationNumber($datePrefix);
+                $accreditation = Accreditation::create([
+                    'user_id'               => $application->user_id,
+                    'application_id'        => $application->id,
+                    'accreditation_type_id' => $application->accreditation_type_id,
+                    'accreditation_number'  => $accNumber,
+                    'date_of_accreditation' => $today,
+                    'validity_date'         => now()->addYears(3)->toDateString(),
+                    'status'                => 'active',
+                ]);
             }
-
-            $today = now()->toDateString();
-            $accreditation = Accreditation::create([
-                'user_id'               => $application->user_id,
-                'application_id'        => $application->id,
-                'accreditation_type_id' => $application->accreditation_type_id,
-                'accreditation_number'  => $accNumber,
-                'date_of_accreditation' => $today,
-                'validity_date'         => now()->addYears(3)->toDateString(),
-                'status'                => 'active',
-            ]);
 
             // Log status: Approved
             $approvedStatus = ApplicationStatus::where('name', 'Approved')->first();
@@ -1824,5 +1832,28 @@ class ApplicationController extends Controller
             'Pragma'              => 'no-cache',
             'Expires'             => '0',
         ]);
+    }
+    /**
+     * Generate a unique accreditation number for new accreditations.
+     */
+    private function generateNewAccreditationNumber(string $datePrefix): string
+    {
+        $maxIncrement = 46;
+        $allAccreditations = Accreditation::all();
+        foreach ($allAccreditations as $acc) {
+            $parts = explode('-', $acc->accreditation_number);
+            $suffixVal = (int) end($parts);
+            if ($suffixVal > $maxIncrement) {
+                $maxIncrement = $suffixVal;
+            }
+        }
+
+        do {
+            $maxIncrement++;
+            $suffixStr = str_pad($maxIncrement, 3, '0', STR_PAD_LEFT);
+            $accNumber = "235-{$datePrefix}-{$suffixStr}";
+        } while (Accreditation::where('accreditation_number', $accNumber)->exists());
+
+        return $accNumber;
     }
 }

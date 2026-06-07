@@ -64,7 +64,7 @@
                 </div>
             </div>
             @else
-            <a href="{{ route('admin.hcd.applications.under_review') }}" class="stat-card stat-card-amber">
+            <a href="{{ route('admin.hcd.renewal.pending') }}" class="stat-card stat-card-amber">
                 <div class="stat-card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $renewalPending + $renewalUnderReview }}</div>
