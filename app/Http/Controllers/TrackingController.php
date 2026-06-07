@@ -319,6 +319,17 @@ class TrackingController extends Controller
             // ── PCT: Resume the paused Step 7 (payment re-uploaded)
             app(PctService::class)->resumeCurrentStep($application);
 
+            // ── Transition status to 'Payment Verification'
+            $paymentVerificationStatus = \App\Models\ApplicationStatus::where('name', 'Payment Verification')->first();
+            if ($paymentVerificationStatus) {
+                \App\Models\ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $paymentVerificationStatus->id,
+                    'updated_by'     => null,
+                    'remarks'        => 'Proof of payment submitted by applicant. Awaiting verifier review.',
+                ]);
+            }
+
             // Notify Verifiers via Notification system (Email + DB)
             try {
                 $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {

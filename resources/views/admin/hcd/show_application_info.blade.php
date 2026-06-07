@@ -187,7 +187,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         };
         @endphp
         <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
-            {{ $displayStatusName === 'Awaiting Payment' ? 'Recommendation/Payment' : $displayStatusName }}
+            {{ $displayStatusName }}
         </span>
         <small class="text-muted">
             {{ ucfirst($application->application_type) }} Application &mdash;
@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 };
                                 $badgeLabel = match($doc->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Awaiting Re-upload',
+                                'rejected' => ($currentStatus === 'For Update') ? 'Awaiting Re-upload' : 'Rejected',
                                 'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
@@ -711,7 +711,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     @endif
 
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
-                                    @if(!$allApproved && !$isScheduled && !$isAccredited && !$isApproved)
+                                    @if(!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
                                         @if(!in_array($doc->status, ['rejected', 'returned']))
                                         <div class="doc-eval-actions">
                                             <button type="button"
@@ -738,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 id="remarks-{{ $doc->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ in_array($doc->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                                                {{ ($doc->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
                                         </div>
                                     @endif
 
@@ -871,7 +871,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 };
                                 $badgeLabelCred = match($credential->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Awaiting Re-upload',
+                                'rejected' => ($currentStatus === 'For Update') ? 'Awaiting Re-upload' : 'Rejected',
                                 'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     $isRequested = $instructor->update_request_status === 'pending_review' &&
                                     is_array($instructor->update_request_fields) &&
                                     in_array($credential->type, $instructor->update_request_fields);
-                                    $showEvalButtons = (!$isAccredited && !$isScheduled) || $isRequested;
+                                    $showEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested;
                                     @endphp
 
                                     @if($showEvalButtons)
@@ -955,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 id="remarks-cred-{{ $credential->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ in_array($credential->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
+                                                {{ ($credential->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -979,7 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 };
                                 $badgeLabel = match($instructor->status) {
                                 'approved' => 'Approved',
-                                'rejected' => 'Awaiting Re-upload',
+                                'rejected' => ($currentStatus === 'For Update') ? 'Awaiting Re-upload' : 'Rejected',
                                 'returned' => 'Awaiting Re-upload',
                                 'for_revision' => 'For Revision',
                                 default => 'Pending',
@@ -1014,7 +1014,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     $isSaRequested = $instructor->update_request_status === 'pending_review' &&
                                     is_array($instructor->update_request_fields) &&
                                     in_array('service_agreement', $instructor->update_request_fields);
-                                    $showSaEvalButtons = (!$isAccredited && !$isScheduled) || $isSaRequested;
+                                    $showSaEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested;
                                     @endphp
 
                                     @if($showSaEvalButtons)
@@ -1035,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 id="remarks-inst-{{ $instructor->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ in_array($instructor->status, ['rejected', 'returned']) ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
+                                                {{ ($instructor->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -1052,8 +1052,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </form>
 
 
-{{-- ══ Interview Schedule Card (shown when not yet accredited/approved) ══ --}}
-@if(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
+{{-- ══ Interview Schedule Card ══ --}}
 @if($interview)
 <div class="mt-3 mb-3"
     style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
@@ -1066,8 +1065,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="bi bi-calendar-check-fill text-white fs-5"></i>
         </div>
         <div class="text-start">
-            <h6 class="text-white mb-0 fw-bold">Interview Schedule</h6>
-            <small class="text-white-50">Schedule has been set.</small>
+            <h6 class="text-white mb-0 fw-bold">Interview Schedule Details</h6>
         </div>
     </div>
 
@@ -1191,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
     @endif
 
 </div>
-@else
+@elseif(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
 {{-- Just the button if no schedule yet --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
@@ -1206,7 +1204,6 @@ document.addEventListener('DOMContentLoaded', function() {
     </button>
 </div>
 @endif
-@endif
 @elseif($hasPendingUpdate)
 <div class="mt-4 mb-4 text-center">
     <button type="button"
@@ -1220,8 +1217,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 @endif
 
-{{-- ══ Awaiting Payment Panels ══ --}}
-@if($currentStatus === 'Awaiting Payment')
+{{-- ══ Awaiting Payment / Payment Verification Panels ══ --}}
+@if(in_array($currentStatus, ['Awaiting Payment', 'Payment Verification']))
 @if($isEvaluator && (!$application->payment || !$application->payment->signed_recommendation_letter))
 <div class="ai-card mt-4">
     <div class="ai-card-header">
@@ -1302,10 +1299,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="mt-2">
                             <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
                             @if($application->payment && $application->payment->signed_recommendation_letter)
-                            <div class="mt-2 text-success fw-semibold small">
-                                <i class="fas fa-check-circle"></i> Already uploaded:
-                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="text-decoration-underline text-success">
-                                    {{ basename($application->payment->signed_recommendation_letter) }}
+                            <div class="mt-2 d-flex align-items-center gap-2">
+                                <span class="text-success fw-semibold small"><i class="fas fa-check-circle"></i> Already uploaded:</span>
+                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="btn btn-sm btn-outline-success px-3 py-0" style="font-size:.78rem;">
+                                    <i class="bi bi-eye me-1"></i>View
                                 </a>
                             </div>
                             @else
@@ -1333,38 +1330,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #dee2e6; min-height: 250px;">
                         <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
                         <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
-                            @if($filePath)
+                            @if($filePath && $status !== 'rejected')
                             <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" target="_blank" class="btn btn-outline-primary btn-xs mt-2 px-3 py-1 fw-semibold">
                                 <i class="fas fa-eye me-1"></i> View {{ $label }}
                             </a>
                             <div class="text-muted small mt-2" style="font-size: 0.72rem; word-break: break-all;">
                                 {{ basename($filePath) }}
                             </div>
+                            @elseif($status === 'rejected')
+                            <div class="alert alert-warning mt-3 mb-0 small text-start">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <strong>Rejected.</strong> Waiting for applicant to resubmit.
+                            </div>
+                            <input type="hidden" name="{{ $key }}_status" value="rejected">
                             @else
                             <span class="badge bg-secondary mt-3">Not Uploaded Yet</span>
                             @endif
                         </div>
 
-                        @if($filePath)
-                        <div class="mt-3 pt-3 border-top">
-                            <label class="form-label small fw-semibold d-block mb-2">Status</label>
-                            <div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
-                                    <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
+                        @if($filePath && $status !== 'rejected')
+                            <div class="mt-3 pt-3 border-top">
+                                <label class="form-label small fw-semibold d-block mb-2">Status</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
+                                        <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
+                                        <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject</label>
+                                    </div>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
-                                    <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject</label>
-                                </div>
-                            </div>
 
-                            <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">
-                                <label class="form-label small text-muted">Rejection Remarks</label>
-                                <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
+                                <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">
+                                    <label class="form-label small text-muted">Rejection Remarks</label>
+                                    <textarea name="{{ $key }}_remarks" class="form-control form-control-sm" rows="2" placeholder="State reason for rejection...">{{ $remarks }}</textarea>
+                                </div>
                             </div>
-                        </div>
-                        @else
+                        @elseif(!$filePath)
                         <input type="hidden" name="{{ $key }}_status" value="pending">
                         @endif
                     </div>
@@ -1373,12 +1376,24 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top">
+                @php
+                    $hasSignedLetter = $payment && $payment->signed_recommendation_letter;
+                    $hasProofOfPayment = $payment && $payment->proof_of_payment && $payment->proof_of_payment_status !== 'rejected';
+                    $hideSubmit = $hasSignedLetter && !$hasProofOfPayment;
+                @endphp
+
+                @if(!$hideSubmit)
                 <button type="submit" class="btn btn-primary fw-semibold px-4">
                     <span class="btn-text"><i class="fas fa-save me-1"></i> Submit Evaluation</span>
                     <span class="btn-spinner d-none">
                         <span class="spinner-border spinner-border-sm me-2" role="status"></span> Submitting...
                     </span>
                 </button>
+                @else
+                <div class="alert alert-info py-2 px-3 mb-0 small">
+                    <i class="fas fa-info-circle me-1"></i> Waiting for the applicant to upload or resubmit Proof of Payment.
+                </div>
+                @endif
         </form>
 
         <button type="button" class="btn btn-danger fw-semibold px-4 ms-auto" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
@@ -1432,16 +1447,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     <form id="upload-scanned-certificate-form" action="{{ route('admin.hcd.accreditations.upload_scanned', $application->accreditation->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="p-3 border rounded bg-white shadow-sm" style="border-color: #d0ddf7 !important;">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h6 class="fw-bold mb-1" style="color: #1A3A6A; font-size: 0.95rem;">
-                                        <i class="fas fa-upload me-1"></i> Upload Scanned Certificate (PDF) <span class="text-danger">*</span>
-                                    </h6>
-                                    <p class="text-muted small mb-0">Upload proof that the certificate is ready for pickup (signed & scanned certificate).</p>
-                                </div>
-                                <div class="col-md-4 mt-2 mt-md-0">
-                                    <input type="file" name="scanned_certificate" class="form-control form-control-sm" accept=".pdf" required>
-                                </div>
+                            <div>
+                                <h6 class="fw-bold mb-1" style="color: #1A3A6A; font-size: 0.95rem;">
+                                    <i class="fas fa-upload me-1"></i> Upload Scanned Certificate (PDF) <span class="text-danger">*</span>
+                                </h6>
+                                <p class="text-muted small mb-3">Upload proof that the certificate is ready for pickup (signed & scanned certificate).</p>
+                                <input type="file" name="scanned_certificate" class="form-control form-control-sm" style="max-width: 400px;" accept=".pdf" required>
                             </div>
                         </div>
                         <div class="mt-3">
@@ -1540,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{-- Date --}}
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
-                                <i class="bi bi-calendar3 me-1 text-primary"></i>Interview Date
+                                <i class="bi bi-calendar3 me-1"></i>Interview Date
                             </label>
                             <input type="date" name="interview_date" id="interview-date" class="form-control"
                                 value="{{ $interview?->interview_date?->format('Y-m-d') }}"
@@ -1551,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{-- Time --}}
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
-                                <i class="bi bi-clock me-1 text-primary"></i>Interview Time
+                                <i class="bi bi-clock me-1"></i>Interview Time
                             </label>
                             <input type="time" name="interview_time" id="interview-time" class="form-control"
                                 value="{{ $interview ? \Carbon\Carbon::parse($interview->interview_time)->format('H:i') : '' }}" required
@@ -1561,7 +1572,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{-- Mode --}}
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;">
-                                <i class="bi bi-display me-1 text-primary"></i>Interview Mode
+                                <i class="bi bi-display me-1"></i>Interview Mode
                             </label>
                             <select name="mode" id="interview-mode" class="form-select" required
                                 style="border-radius:8px;border-color:#d0d8e8;">
@@ -1574,13 +1585,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{-- Venue --}}
                         <div class="col-md-6">
                             <label class="form-label fw-semibold" style="color:#2A3F54;font-size:.85rem;" id="interview-venue-label">
-                                <i class="bi bi-geo-alt me-1 text-primary"></i>Venue
-                                <span class="text-muted fw-normal fst-italic" id="venue-note">(F2F only)</span>
+                                <i class="bi bi-geo-alt me-1"></i>Venue / Online Link
+                                <span class="text-muted fw-normal fst-italic" id="venue-note"></span>
                             </label>
                             <input type="text" name="venue" id="interview-venue" class="form-control"
-                                placeholder="Venue / meeting link"
+                                placeholder="Select a mode first"
                                 value="{{ $interview?->venue }}"
-                                style="border-radius:8px;border-color:#d0d8e8;" required>
+                                style="border-radius:8px;border-color:#d0d8e8;"
+                                {{ $interview ? '' : 'disabled' }} required>
                         </div>
 
                         {{-- Online Notice --}}

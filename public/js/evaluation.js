@@ -22,36 +22,7 @@
     }
 
     function updateActiveSavesIndicator() {
-        const btn = document.getElementById('btn-open-schedule');
-        const indicator = document.getElementById('eval-saving-indicator');
-
-        if (activeSavesCount > 0) {
-            if (!indicator) {
-                const container = document.getElementById('btn-open-schedule')?.parentNode || document.body;
-                const indEl = document.createElement('div');
-                indEl.id = 'eval-saving-indicator';
-                indEl.className = 'text-warning fw-semibold d-flex align-items-center gap-2 mt-2 justify-content-center';
-                indEl.style.fontSize = '.9rem';
-                indEl.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving evaluation in background... Please do not refresh.';
-                if (container === document.body) {
-                    indEl.style.cssText = 'position:fixed; bottom:80px; right:28px; z-index:9998; background:rgba(0,0,0,0.8); color:#ffc107; padding:10px 18px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15);';
-                }
-                container.appendChild(indEl);
-            } else {
-                indicator.style.display = 'flex';
-            }
-
-            if (btn) {
-                btn.disabled = true;
-                const btnText = document.getElementById('btn-schedule-text');
-                if (btnText) {
-                    btnText.textContent = 'Saving Evaluation...';
-                }
-            }
-        } else {
-            if (indicator) {
-                indicator.style.display = 'none';
-            }
+        if (activeSavesCount <= 0) {
             refreshState();
         }
     }
@@ -470,25 +441,34 @@
 
         const isOnline = modeSelect.value === 'online';
         const isF2F = modeSelect.value === 'f2f';
-        
+        const noMode = modeSelect.value === '';
+
         if (venueInput) {
-            venueInput.disabled = false; // Always enabled now
-            if (isF2F) {
-                venueInput.placeholder = 'Enter venue address';
-                venueInput.value = 'Occupational Safety And Health Center';
-            } else if (isOnline) {
-                venueInput.placeholder = 'Enter meeting link (e.g. Zoom, Google Meet)';
-                if (venueInput.value === 'Occupational Safety And Health Center') {
-                    venueInput.value = '';
-                }
+            if (noMode) {
+                venueInput.disabled = true;
+                venueInput.placeholder = 'Select a mode first';
+                venueInput.value = '';
             } else {
-                venueInput.placeholder = 'Venue / meeting link';
+                venueInput.disabled = false;
+                if (isF2F) {
+                    venueInput.placeholder = 'Enter venue address';
+                    if (!venueInput.value) {
+                        venueInput.value = 'Occupational Safety And Health Center';
+                    }
+                } else if (isOnline) {
+                    venueInput.placeholder = 'Enter meeting link (e.g. Zoom, Google Meet)';
+                    if (venueInput.value === 'Occupational Safety And Health Center') {
+                        venueInput.value = '';
+                    }
+                } else {
+                    venueInput.placeholder = 'Venue / meeting link';
+                }
             }
         }
 
         if (venueNote) {
             if (isOnline) {
-                venueNote.textContent = '(Meeting Link)';
+                venueNote.textContent = '(Online Link)';
             } else if (isF2F) {
                 venueNote.textContent = '(F2F Venue)';
             } else {
@@ -529,63 +509,71 @@
         });
     }
 
-    // Wire auto-save for rejection remarks on change / blur
-    document.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('reject-remarks-input')) {
-            const ta = e.target;
-            const docId = ta.id.replace('remarks-', '');
-            
-            let itemType = 'document';
-            let itemId = docId;
+    // Debounce timer for remarks auto-save
+    let remarksDebounceTimer = null;
 
-            if (docId.startsWith('cred-')) {
-                itemType = 'credential';
-                itemId = parseInt(docId.replace('cred-', ''), 10);
-            } else if (docId.startsWith('inst-')) {
-                itemType = 'instructor';
-                itemId = parseInt(docId.replace('inst-', ''), 10);
-            } else {
-                itemId = parseInt(docId, 10);
+    function saveRemarks(ta) {
+        const docId = ta.id.replace('remarks-', '');
+
+        let itemType = 'document';
+        let itemId = docId;
+
+        if (docId.startsWith('cred-')) {
+            itemType = 'credential';
+            itemId = parseInt(docId.replace('cred-', ''), 10);
+        } else if (docId.startsWith('inst-')) {
+            itemType = 'instructor';
+            itemId = parseInt(docId.replace('inst-', ''), 10);
+        } else {
+            itemId = parseInt(docId, 10);
+        }
+
+        const statusInput = document.getElementById(`status-input-${docId}`);
+        const status = statusInput ? statusInput.value : 'rejected';
+
+        if (!window.ARMS || !window.ARMS.evaluateItemUrl) return;
+
+        activeSavesCount++;
+        updateActiveSavesIndicator();
+
+        const formData = new FormData();
+        formData.append('_token', window.ARMS.csrfToken);
+        formData.append('item_type', itemType);
+        formData.append('item_id', itemId);
+        formData.append('status', status);
+        formData.append('remarks', ta.value);
+
+        fetch(window.ARMS.evaluateItemUrl, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' }
+        }).then(async (res) => {
+            const data = await res.json();
+            if (!data.success) {
+                showToast('Failed to auto-save remarks.', 'danger');
             }
-
-            const statusInput = document.getElementById(`status-input-${docId}`);
-            const status = statusInput ? statusInput.value : 'rejected';
-
-            activeSavesCount++;
+        }).catch(err => {
+            console.error('Auto-save remarks error:', err);
+            showToast('Network error during remarks auto-save.', 'danger');
+        }).finally(() => {
+            activeSavesCount--;
             updateActiveSavesIndicator();
+        });
+    }
 
-            if (window.ARMS && window.ARMS.evaluateItemUrl) {
-                const formData = new FormData();
-                formData.append('_token', window.ARMS.csrfToken);
-                formData.append('item_type', itemType);
-                formData.append('item_id', itemId);
-                formData.append('status', status);
-                formData.append('remarks', ta.value);
-
-                fetch(window.ARMS.evaluateItemUrl, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                }).then(async (res) => {
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast('Rejection remarks auto-saved.', 'success');
-                    } else {
-                        showToast('Failed to auto-save remarks.', 'danger');
-                    }
-                }).catch(err => {
-                    console.error('Auto-save remarks error:', err);
-                    showToast('Network error during remarks auto-save.', 'danger');
-                }).finally(() => {
-                    activeSavesCount--;
-                    updateActiveSavesIndicator();
-                });
-            } else {
-                activeSavesCount--;
-                updateActiveSavesIndicator();
-            }
+    // Save remarks on input (debounced) and immediately on blur
+    document.addEventListener('input', function (e) {
+        if (e.target && e.target.classList.contains('reject-remarks-input')) {
+            clearTimeout(remarksDebounceTimer);
+            remarksDebounceTimer = setTimeout(() => saveRemarks(e.target), 900);
         }
     });
+    document.addEventListener('blur', function (e) {
+        if (e.target && e.target.classList.contains('reject-remarks-input')) {
+            clearTimeout(remarksDebounceTimer);
+            saveRemarks(e.target);
+        }
+    }, true);
 
     window.addEventListener('beforeunload', function (e) {
         if (activeSavesCount > 0) {

@@ -135,7 +135,7 @@ class PctService
         $this->createCompletedStep($application, 5, $now);
         $this->createCompletedStep($application, 6, $now);
 
-        if ($statusName === 'Awaiting Payment') {
+        if (in_array($statusName, ['Awaiting Payment', 'Payment Verification'])) {
             $this->startStep($application, 7);
             return;
         }

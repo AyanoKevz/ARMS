@@ -98,20 +98,27 @@
                                         <td class="text-center" data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
                                         <td class="text-center">
                                             @php
-                                                $statusName = $app->latestStatus->status->name ?? 'Awaiting Payment';
-                                                if ($statusName === 'Awaiting Payment') {
-                                                    $statusName = 'Recommendation/Payment';
-                                                }
-                                                $badgeClass = 'bg-warning text-dark';
-                                                if ($statusName === 'Approved') {
-                                                    $badgeClass = 'bg-success text-white';
-                                                } elseif ($statusName === 'Rejected') {
-                                                    $badgeClass = 'bg-danger text-white';
-                                                }
-                                            @endphp
-                                            <span class="badge {{ $badgeClass }} fw-bold" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 12px;">
-                                                {{ $statusName }}
-                                            </span>
+                                            $statusName = $app->latestStatus->status->name ?? 'Awaiting Payment';
+                                            if ($statusName === 'Awaiting Payment') {
+                                                $statusLabel = 'Recommendation/Payment';
+                                                $badgeClass  = 'bg-warning text-dark';
+                                            } elseif ($statusName === 'Payment Verification') {
+                                                $statusLabel = 'Payment Verification';
+                                                $badgeClass  = 'bg-success text-white';
+                                            } elseif ($statusName === 'Approved') {
+                                                $statusLabel = 'Approved';
+                                                $badgeClass  = 'bg-success text-white';
+                                            } elseif ($statusName === 'Rejected') {
+                                                $statusLabel = 'Rejected';
+                                                $badgeClass  = 'bg-danger text-white';
+                                            } else {
+                                                $statusLabel = $statusName;
+                                                $badgeClass  = 'bg-secondary text-white';
+                                            }
+                                        @endphp
+                                        <span class="badge {{ $badgeClass }} fw-bold" style="font-size: 0.78rem; padding: 4px 10px; border-radius: 12px;">
+                                            {{ $statusLabel }}
+                                        </span>
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
                                             <a href="{{ route('admin.hcd.applications.show', $app->id) }}"

@@ -61,7 +61,8 @@
 
     <p class="info-box blue">
         <strong>Note:</strong> Please keep your accreditation number on record. You will need it for all 
-        future transactions with OSHC. Your accreditation is valid for <strong>3 years</strong> from the date of issue.
+        future transactions with OSHC. Your accreditation is valid for <strong>3 years</strong> from the date of issue.<br><br>
+        <strong>Certificate Pickup:</strong> We will send you another email notification as soon as your physical certificate is ready to be picked up.
     </p>
     @endif
 

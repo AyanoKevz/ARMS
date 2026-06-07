@@ -71,6 +71,7 @@ class RenewalController extends Controller
                         'For Update',
                         'Scheduled for Interview',
                         'Awaiting Payment',
+                        'Payment Verification',
                     ]);
                 });
             })
@@ -122,6 +123,7 @@ class RenewalController extends Controller
                         'For Update',
                         'Scheduled for Interview',
                         'Awaiting Payment',
+                        'Payment Verification',
                     ]);
                 });
             })
@@ -878,6 +880,17 @@ class RenewalController extends Controller
 
             // ── PCT: Resume the paused Step 7 (payment re-uploaded)
             app(PctService::class)->resumeCurrentStep($application);
+
+            // ── Transition status to 'Payment Verification'
+            $paymentVerificationStatus = ApplicationStatus::where('name', 'Payment Verification')->first();
+            if ($paymentVerificationStatus) {
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $paymentVerificationStatus->id,
+                    'updated_by'     => null,
+                    'remarks'        => 'Proof of payment submitted by applicant. Awaiting verifier review.',
+                ]);
+            }
 
             // Notify Verifiers via Notification system (Email + DB)
             try {

@@ -43,7 +43,8 @@
             'For Update'              => ['bg' => '#dc3545', 'text' => '#fff',    'icon' => 'fa-exclamation-circle'],
             'Scheduled for Interview' => ['bg' => '#0b3d91', 'text' => '#fff',    'icon' => 'fa-calendar-check'],
             'Pending Interview'       => ['bg' => '#17a2b8', 'text' => '#fff',    'icon' => 'fa-calendar-alt'],
-            'Awaiting Payment'        => ['bg' => '#17a2b8', 'text' => '#fff',    'icon' => 'fa-credit-card'],
+            'Awaiting Payment'        => ['bg' => '#f59e0b', 'text' => '#fff',    'icon' => 'fa-credit-card'],
+            'Payment Verification'    => ['bg' => '#16a34a', 'text' => '#fff',    'icon' => 'fa-check-circle'],
             default                   => ['bg' => '#6c757d', 'text' => '#fff',    'icon' => 'fa-circle'],
         };
     @endphp
@@ -61,6 +62,15 @@
                 <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
             @elseif($renewalStatus === 'Awaiting Payment')
                 <p class="text-muted mb-0">Congratulations! Your interview has passed. Please submit the payment details and signatures below to finalize your accreditation.</p>
+            @elseif($renewalStatus === 'Payment Verification')
+                @php
+                    $payment = $pendingRenewal->payment;
+                @endphp
+                @if($payment && $payment->proof_of_payment_status === 'rejected')
+                    <p class="text-danger mb-0 fw-bold">⚠️ Your proof of payment was rejected. Please review the remarks below and upload the corrected file to proceed.</p>
+                @else
+                    <p class="text-muted mb-0">Your proof of payment has been submitted and is currently being reviewed by our verifiers. You will be notified once it has been processed.</p>
+                @endif
             @elseif($renewalStatus === 'Scheduled for Interview' && $pendingRenewal->interview)
                 <p class="text-muted mb-3">Your evaluation interview has been scheduled. Please find the details below:</p>
                 <div class="d-inline-block text-start p-4 rounded mb-0" style="background: #f8f9fa; border: 1px solid #e9ecef !important; max-width: 600px; width: 100%; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border-radius: 8px;">
@@ -511,10 +521,12 @@
     </div>
     @endif
 
-    {{-- ── Payment Requirements Upload Section ── --}}
-    @if($renewalStatus === 'Awaiting Payment' || ($pendingRenewal && $pendingRenewal->payment))
     @php
         $payment = $pendingRenewal->payment;
+    @endphp
+    {{-- ── Payment Requirements Upload Section ── --}}
+    @if($renewalStatus === 'Awaiting Payment' || ($renewalStatus === 'Payment Verification' && $payment && $payment->proof_of_payment_status === 'rejected'))
+    @php
         $reqs = [
             'proof_of_payment' => [
                 'label' => 'Proof of Payment',

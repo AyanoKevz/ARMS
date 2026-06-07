@@ -264,8 +264,8 @@ class ApplicationController extends Controller
         
         if ($isVerifier) {
             $statusName = $application->latestStatus?->status?->name;
-            if (!in_array($statusName, ['Awaiting Payment', 'Approved', 'Rejected'])) {
-                abort(403, 'Unauthorized action. Verifiers can only view applications awaiting payment or completed/archived applications.');
+            if (!in_array($statusName, ['Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected'])) {
+                abort(403, 'Unauthorized action. Verifiers can only view applications awaiting payment, payment verification, or completed/archived applications.');
             }
         }
 
@@ -451,8 +451,13 @@ class ApplicationController extends Controller
             $doc = ApplicationDocument::find($eval['id']);
             if ($doc) {
                 $newStatus = $eval['status'];
-                if ($doc->status === 'approved' && $newStatus === 'pending') {
-                    $newStatus = 'approved';
+
+                // Guard: Never allow an already-approved item to revert to pending.
+                // Accepted documents must stay accepted when sending rejection email.
+                // Only an explicit 'rejected' or 'returned' can change an approved item.
+                if ($doc->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
+                    // Item is already approved and not being deliberately rejected — skip update.
+                    continue;
                 }
 
                 $doc->update([
@@ -470,9 +475,12 @@ class ApplicationController extends Controller
             $inst = \App\Models\Instructor::find($eval['id']);
             if ($inst) {
                 $newStatus = $eval['status'];
-                if ($inst->status === 'approved' && $newStatus === 'pending') {
-                    $newStatus = 'approved';
+
+                // Guard: Never allow an already-approved instructor to revert to pending.
+                if ($inst->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
+                    continue;
                 }
+
                 $inst->update([
                     'status' => $newStatus,
                     'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
@@ -488,9 +496,12 @@ class ApplicationController extends Controller
             $cred = \App\Models\InstructorCredential::find($eval['id']);
             if ($cred) {
                 $newStatus = $eval['status'];
-                if ($cred->status === 'approved' && $newStatus === 'pending') {
-                    $newStatus = 'approved';
+
+                // Guard: Never allow an already-approved credential to revert to pending.
+                if ($cred->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
+                    continue;
                 }
+
                 $cred->update([
                     'status' => $newStatus,
                     'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
@@ -1370,12 +1381,7 @@ class ApplicationController extends Controller
         ])
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {
-                    $q->where('name', 'Awaiting Payment');
-                });
-            })
-            ->when($isEvaluator, function ($query) {
-                $query->whereDoesntHave('payment', function ($q) {
-                    $q->whereNotNull('signed_recommendation_letter');
+                    $q->whereIn('name', ['Awaiting Payment', 'Payment Verification']);
                 });
             })
             ->orderBy('updated_at', 'desc')
@@ -1543,12 +1549,7 @@ class ApplicationController extends Controller
 
         $payment->proof_of_payment_status  = $request->input('proof_of_payment_status');
         $payment->proof_of_payment_remarks = $request->input('proof_of_payment_remarks');
-        if ($payment->proof_of_payment_status === 'rejected') {
-            if ($payment->proof_of_payment && Storage::disk('local')->exists($payment->proof_of_payment)) {
-                Storage::disk('local')->delete($payment->proof_of_payment);
-            }
-            $payment->proof_of_payment = null;
-        }
+
 
         $payment->save();
 
@@ -1660,10 +1661,14 @@ class ApplicationController extends Controller
                     }
                 }
 
+                // Log status: Awaiting Payment (so the applicant can resubmit on their tracker/portal)
+                $awaitingPaymentStatus = ApplicationStatus::where('name', 'Awaiting Payment')->first();
+                $statusId = $awaitingPaymentStatus ? $awaitingPaymentStatus->id : $application->latestStatus->status_id;
+
                 // Add log entry
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
-                    'status_id'      => $application->latestStatus->status_id,
+                    'status_id'      => $statusId,
                     'updated_by'     => auth()->id(),
                     'remarks'        => 'Payment evaluation complete. Proof of payment was rejected, and applicant has been requested to resubmit.',
                 ]);
