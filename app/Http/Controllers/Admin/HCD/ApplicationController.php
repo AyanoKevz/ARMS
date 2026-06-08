@@ -11,6 +11,7 @@ use App\Models\ApplicationStatusLog;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use App\Models\Interview;
+use App\Services\CacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -62,87 +63,105 @@ class ApplicationController extends Controller
         $this->pctService->autoResumeAllScheduledInterviews();
         $selectedYear = $request->input('year', now()->year);
 
-        // ── Statuses we care about ───────────────────────────────────────────
-        $pendingStatuses    = ['Submitted'];
-        $underReviewStatuses = ['Under Evaluation', 'For Update'];
-        $scheduledStatuses  = ['Scheduled for Interview'];
-        $activeFATProStatus = 'active'; // accreditations.status
+        // ── Cache all dashboard stats (busted when application state changes) ──
+        $dashboardData = CacheService::remember(
+            CacheService::dashboardKey((int) $selectedYear),
+            CacheService::TTL_DASHBOARD,
+            function () use ($selectedYear) {
+                // ── Statuses we care about ───────────────────────────────────
+                $pendingStatuses    = ['Submitted'];
+                $underReviewStatuses = ['Under Evaluation', 'For Update'];
+                $scheduledStatuses  = ['Scheduled for Interview'];
+                $activeFATProStatus = 'active';
 
-        // ── Stat Cards ───────────────────────────────────────────────────────
-        $totalActiveFATPro = \App\Models\Accreditation::where('status', $activeFATProStatus)->count();
+                // ── Stat Cards ──────────────────────────────────────────
+                $totalActiveFATPro = \App\Models\Accreditation::where('status', $activeFATProStatus)->count();
 
-        $newPending = Application::where('application_type', 'new')
-            ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
-            ->count();
+                $newPending = Application::where('application_type', 'new')
+                    ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
+                    ->count();
 
-        $newUnderReview = Application::where('application_type', 'new')
-            ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
-            ->count();
+                $newUnderReview = Application::where('application_type', 'new')
+                    ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
+                    ->count();
 
-        $renewalPending = Application::where('application_type', 'renewal')
-            ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
-            ->count();
+                $renewalPending = Application::where('application_type', 'renewal')
+                    ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
+                    ->count();
 
-        $renewalUnderReview = Application::where('application_type', 'renewal')
-            ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
-            ->count();
+                $renewalUnderReview = Application::where('application_type', 'renewal')
+                    ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
+                    ->count();
 
-        $scheduledInterviews = Application::whereHas('latestStatus', fn($q) =>
-            $q->whereHas('status', fn($q2) => $q2->whereIn('name', $scheduledStatuses))
-        )->count();
+                $scheduledInterviews = Application::whereHas('latestStatus', fn($q) =>
+                    $q->whereHas('status', fn($q2) => $q2->whereIn('name', $scheduledStatuses))
+                )->count();
 
-        // ── Monthly Tables & Chart (filter by selected year) ─────────────────
-        // Monthly new applications
-        $monthlyNew = Application::where('application_type', 'new')
-            ->whereYear('created_at', $selectedYear)
-            ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month');
+                // ── Monthly Tables & Chart ──────────────────────────────────
+                $monthlyNew = Application::where('application_type', 'new')
+                    ->whereYear('created_at', $selectedYear)
+                    ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+                    ->groupBy('month')
+                    ->orderBy('month')
+                    ->pluck('total', 'month');
 
-        // Monthly renewal applications
-        $monthlyRenewal = Application::where('application_type', 'renewal')
-            ->whereYear('created_at', $selectedYear)
-            ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month');
+                $monthlyRenewal = Application::where('application_type', 'renewal')
+                    ->whereYear('created_at', $selectedYear)
+                    ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+                    ->groupBy('month')
+                    ->orderBy('month')
+                    ->pluck('total', 'month');
 
-        // Monthly accredited (issued accreditation records)
-        $monthlyAccredited = \App\Models\Accreditation::whereYear('date_of_accreditation', $selectedYear)
-            ->selectRaw('MONTH(date_of_accreditation) as month, COUNT(*) as total')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month');
+                $monthlyAccredited = \App\Models\Accreditation::whereYear('date_of_accreditation', $selectedYear)
+                    ->selectRaw('MONTH(date_of_accreditation) as month, COUNT(*) as total')
+                    ->groupBy('month')
+                    ->orderBy('month')
+                    ->pluck('total', 'month');
 
-        // Build per-month rows (1–12)
-        $monthlyRows = collect(range(1, 12))->map(fn($m) => [
-            'month'      => \Carbon\Carbon::create()->month($m)->format('F'),
-            'new'        => $monthlyNew->get($m, 0),
-            'renewal'    => $monthlyRenewal->get($m, 0),
-            'accredited' => $monthlyAccredited->get($m, 0),
-        ]);
+                $monthlyRows = collect(range(1, 12))->map(fn($m) => [
+                    'month'      => \Carbon\Carbon::create()->month($m)->format('F'),
+                    'new'        => $monthlyNew->get($m, 0),
+                    'renewal'    => $monthlyRenewal->get($m, 0),
+                    'accredited' => $monthlyAccredited->get($m, 0),
+                ]);
 
-        // ── Donut chart: Application status breakdown ────────────────────────
-        $statusBreakdown = \App\Models\ApplicationStatusLog::select('application_statuses.name', \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT application_status_logs.application_id) as total'))
-            ->join('application_statuses', 'application_statuses.id', '=', 'application_status_logs.status_id')
-            ->whereIn('application_status_logs.id', function ($sub) {
-                $sub->selectRaw('MAX(id)')
-                    ->from('application_status_logs')
-                    ->groupBy('application_id');
-            })
-            ->groupBy('application_statuses.name')
-            ->pluck('total', 'name');
+                // ── Status breakdown donut ────────────────────────────────────
+                $statusBreakdown = \App\Models\ApplicationStatusLog::select(
+                        'application_statuses.name',
+                        \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT application_status_logs.application_id) as total')
+                    )
+                    ->join('application_statuses', 'application_statuses.id', '=', 'application_status_logs.status_id')
+                    ->whereIn('application_status_logs.id', function ($sub) {
+                        $sub->selectRaw('MAX(id)')
+                            ->from('application_status_logs')
+                            ->groupBy('application_id');
+                    })
+                    ->groupBy('application_statuses.name')
+                    ->pluck('total', 'name');
 
-        // ── Available years for filter ───────────────────────────────────────
-        $availableYears = Application::selectRaw('YEAR(created_at) as yr')
-            ->groupBy('yr')
-            ->orderByDesc('yr')
-            ->pluck('yr');
+                // ── Available years ─────────────────────────────────────────
+                $availableYears = Application::selectRaw('YEAR(created_at) as yr')
+                    ->groupBy('yr')
+                    ->orderByDesc('yr')
+                    ->pluck('yr');
 
-        if ($availableYears->isEmpty()) {
-            $availableYears = collect([now()->year]);
-        }
+                if ($availableYears->isEmpty()) {
+                    $availableYears = collect([now()->year]);
+                }
+
+                return compact(
+                    'totalActiveFATPro',
+                    'newPending', 'newUnderReview',
+                    'renewalPending', 'renewalUnderReview',
+                    'scheduledInterviews',
+                    'monthlyRows', 'availableYears',
+                    'statusBreakdown'
+                );
+            }
+        );
+
+        // Unpack cached payload for the view
+        extract($dashboardData);
 
         return view('admin.hcd.dashboard', compact(
             'totalActiveFATPro',
@@ -160,22 +179,24 @@ class ApplicationController extends Controller
     public function pending()
     {
         $this->checkVerifierAccess();
-        // Get applications that haven't been evaluated yet
-        // Get applications that are still 'Submitted' based on their latest status log
-        $applications = Application::with([
-            'user.organizationProfile.authorizedRepresentatives',
-            'user.individualProfile',
-            'accreditationType',
-            'latestStatus.status',
-        ])
-            ->where('application_type', 'new')
-            ->whereHas('latestStatus', function ($query) {
-                $query->whereHas('status', function ($q) {
-                    $q->where('name', 'Submitted');
-                });
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $applications = CacheService::remember(
+            CacheService::pendingKey(),
+            CacheService::TTL_LIST,
+            fn () => Application::with([
+                'user.organizationProfile.authorizedRepresentatives',
+                'user.individualProfile',
+                'accreditationType',
+                'latestStatus.status',
+            ])
+                ->where('application_type', 'new')
+                ->whereHas('latestStatus', function ($query) {
+                    $query->whereHas('status', function ($q) {
+                        $q->where('name', 'Submitted');
+                    });
+                })
+                ->orderBy('created_at', 'desc')
+                ->get()
+        );
 
         return view('admin.hcd.pending', compact('applications'));
     }
@@ -222,6 +243,9 @@ class ApplicationController extends Controller
             }
         }
 
+        // Bust listing + dashboard caches
+        CacheService::bustApplicationCaches();
+
         return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation.');
     }
 
@@ -231,24 +255,28 @@ class ApplicationController extends Controller
     public function underReview()
     {
         $this->checkVerifierAccess();
-        $applications = Application::with([
-            'user.organizationProfile',
-            'user.individualProfile',
-            'accreditationType',
-            'latestStatus.status',
-        ])
-            ->where('application_type', 'new')
-            ->whereHas('latestStatus', function ($query) {
-                $query->whereHas('status', function ($q) {
-                    $q->whereIn('name', ['Under Evaluation', 'For Update']);
-                });
-            })
-            // Exclude FATPros who are already accredited (active) — they don't belong here
-            ->whereDoesntHave('user.accreditations', function ($q) {
-                $q->where('status', 'active');
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $applications = CacheService::remember(
+            CacheService::underReviewKey(),
+            CacheService::TTL_LIST,
+            fn () => Application::with([
+                'user.organizationProfile',
+                'user.individualProfile',
+                'accreditationType',
+                'latestStatus.status',
+            ])
+                ->where('application_type', 'new')
+                ->whereHas('latestStatus', function ($query) {
+                    $query->whereHas('status', function ($q) {
+                        $q->whereIn('name', ['Under Evaluation', 'For Update']);
+                    });
+                })
+                // Exclude FATPros who are already accredited (active) — they don't belong here
+                ->whereDoesntHave('user.accreditations', function ($q) {
+                    $q->where('status', 'active');
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get()
+        );
 
         return view('admin.hcd.under_review', compact('applications'));
     }
@@ -596,6 +624,9 @@ class ApplicationController extends Controller
                                         
                 Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
 
+                // Bust caches — status changed to For Update
+                CacheService::bustApplicationCaches();
+
                 return response()->json([
                     'success' => true,
                     'action' => 'rejection_sent',
@@ -682,6 +713,9 @@ class ApplicationController extends Controller
                     \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
                 }
             }
+
+            // Bust caches
+            CacheService::bustApplicationCaches();
 
             return response()->json([
                 'success' => true,
@@ -950,6 +984,9 @@ class ApplicationController extends Controller
             })->get();
             \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\AwaitingPaymentNotification($application));
 
+            // Bust caches — status changed to Awaiting Payment
+            CacheService::bustApplicationCaches();
+
             return back()->with('success', 'Interview passed. Application status updated to Awaiting Payment.');
 
         } else {
@@ -965,7 +1002,7 @@ class ApplicationController extends Controller
             }
 
             // Log status: Rejected (Archived)
-            $rejectedStatus = ApplicationStatus::where('name', 'Rejected')->first();
+            $rejectedStatus = ApplicationStatus::findByName('Rejected');
             if ($rejectedStatus) {
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
@@ -977,6 +1014,9 @@ class ApplicationController extends Controller
 
             // ── PCT: Complete all active steps (final)
             $this->pctService->completeAllSteps($application);
+
+            // Bust caches — application archived
+            CacheService::bustApplicationCaches();
 
             return redirect()->route('admin.hcd.interviews.scheduled')
                 ->with('success', 'Application ' . $trackingNumber . ' has been rejected and archived. The applicant has been notified.');
@@ -1063,21 +1103,25 @@ class ApplicationController extends Controller
     public function renewalPending()
     {
         $this->checkVerifierAccess();
-        $applications = Application::with([
-            'user.organizationProfile.authorizedRepresentatives',
-            'user.individualProfile',
-            'user.accreditations',
-            'accreditationType',
-            'latestStatus.status',
-        ])
-            ->whereIn('application_type', ['renewal', 'reinstatement'])
-            ->whereHas('latestStatus', function ($query) {
-                $query->whereHas('status', function ($q) {
-                    $q->where('name', 'Submitted');
-                });
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $applications = CacheService::remember(
+            CacheService::renewalPendingKey(),
+            CacheService::TTL_LIST,
+            fn () => Application::with([
+                'user.organizationProfile.authorizedRepresentatives',
+                'user.individualProfile',
+                'user.accreditations',
+                'accreditationType',
+                'latestStatus.status',
+            ])
+                ->whereIn('application_type', ['renewal', 'reinstatement'])
+                ->whereHas('latestStatus', function ($query) {
+                    $query->whereHas('status', function ($q) {
+                        $q->where('name', 'Submitted');
+                    });
+                })
+                ->orderBy('created_at', 'desc')
+                ->get()
+        );
 
         return view('admin.hcd.renewal_pending', compact('applications'));
     }
@@ -1088,21 +1132,25 @@ class ApplicationController extends Controller
     public function renewalUnderReview()
     {
         $this->checkVerifierAccess();
-        $applications = Application::with([
-            'user.organizationProfile',
-            'user.individualProfile',
-            'user.accreditations',
-            'accreditationType',
-            'latestStatus.status',
-        ])
-            ->whereIn('application_type', ['renewal', 'reinstatement'])
-            ->whereHas('latestStatus', function ($query) {
-                $query->whereHas('status', function ($q) {
-                    $q->whereIn('name', ['Under Evaluation', 'For Update']);
-                });
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $applications = CacheService::remember(
+            CacheService::renewalUnderReviewKey(),
+            CacheService::TTL_LIST,
+            fn () => Application::with([
+                'user.organizationProfile',
+                'user.individualProfile',
+                'user.accreditations',
+                'accreditationType',
+                'latestStatus.status',
+            ])
+                ->whereIn('application_type', ['renewal', 'reinstatement'])
+                ->whereHas('latestStatus', function ($query) {
+                    $query->whereHas('status', function ($q) {
+                        $q->whereIn('name', ['Under Evaluation', 'For Update']);
+                    });
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get()
+        );
 
         return view('admin.hcd.renewal_under_review', compact('applications'));
     }
@@ -1210,6 +1258,9 @@ class ApplicationController extends Controller
                 \Illuminate\Support\Facades\Log::error('Failed to send accreditation revoked email: ' . $e->getMessage());
             }
         }
+
+        // Bust dashboard and listing caches — accreditation count changed
+        CacheService::bustApplicationCaches();
 
         return back()->with('success', 'Accreditation ' . $accreditation->accreditation_number . ' has been revoked successfully.');
     }

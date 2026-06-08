@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\CacheService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -30,5 +31,20 @@ class DocumentField extends Model
     public function userDocuments()
     {
         return $this->hasMany(UserDocument::class);
+    }
+
+    /**
+     * Retrieve all document fields, from cache when available.
+     * Keyed by 'code' for O(1) lookup.
+     *
+     * @return \Illuminate\Support\Collection<string, static>  (keyed by code)
+     */
+    public static function allCached(): \Illuminate\Support\Collection
+    {
+        return CacheService::remember(
+            CacheService::documentFieldsKey(),
+            CacheService::TTL_REFERENCE,
+            fn () => static::all()->keyBy('code')
+        );
     }
 }

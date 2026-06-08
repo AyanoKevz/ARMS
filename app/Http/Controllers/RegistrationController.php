@@ -17,6 +17,7 @@ use App\Models\OrganizationProfile;
 use App\Models\PendingRegistration;
 use App\Models\User;
 use App\Models\UserDocument;
+use App\Services\CacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -48,7 +49,7 @@ class RegistrationController extends Controller
         }
 
         // ── Build document field validation rules ──────────────────
-        $documentFields = DocumentField::all()->keyBy('code');
+        $documentFields = DocumentField::allCached();
 
         $documentRules = [];
         foreach ($documentFields as $code => $field) {
@@ -123,7 +124,7 @@ class RegistrationController extends Controller
 
         // ── Store regular document fields ──────────────────────────
         $documentsData    = [];
-        $allDocumentFields = DocumentField::all()->keyBy('code');
+        $allDocumentFields = DocumentField::allCached();
 
         foreach ($allDocumentFields as $code => $field) {
             if ($field->input_type === 'file') {
@@ -435,7 +436,7 @@ class RegistrationController extends Controller
                 Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
 
                 // 9. Create initial status log
-                $submittedStatus = ApplicationStatus::where('name', 'Submitted')->first();
+                $submittedStatus = ApplicationStatus::findByName('Submitted');
                 if ($submittedStatus) {
                     ApplicationStatusLog::create([
                         'application_id' => $application->id,
@@ -453,7 +454,10 @@ class RegistrationController extends Controller
                 Log::warning('Verification success email failed to send: ' . $mailEx->getMessage());
             }
 
-            // 11. Notify Admin Evaluators
+            // 11. Bust application listing caches so admin sees the new submission immediately
+            CacheService::bustApplicationCaches();
+
+            // 12. Notify Admin Evaluators
             try {
                 $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
                     $q->where('name', 'Evaluator');

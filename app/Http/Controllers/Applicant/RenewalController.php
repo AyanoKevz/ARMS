@@ -12,6 +12,7 @@ use App\Models\DocumentField;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use App\Models\UserDocument;
+use App\Services\CacheService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -535,6 +536,9 @@ class RenewalController extends Controller
                 Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());
             }
 
+            // Bust listing caches — new application submitted
+            CacheService::bustApplicationCaches();
+
             return redirect()
                 ->route('applicant.renewal.index')
                 ->with('success', 'Your ' . $request->input('application_type') . ' application has been submitted successfully!');
@@ -815,6 +819,9 @@ class RenewalController extends Controller
         // ── PCT: Resume the paused step (applicant has resubmitted)
         app(PctService::class)->resumeCurrentStep($application);
 
+        // Bust caches — status changed back to Under Evaluation
+        CacheService::bustApplicationCaches();
+
         // Notify Admin Evaluators about resubmitted documents
         try {
             $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
@@ -904,6 +911,9 @@ class RenewalController extends Controller
             } catch (\Exception $e) {
                 Log::warning('Verifier notification email failed: ' . $e->getMessage());
             }
+
+            // Bust caches — status changed to Payment Verification
+            CacheService::bustApplicationCaches();
 
             return back()->with('success', 'Payment details uploaded successfully. Your submission is now pending verifier evaluation.');
         }

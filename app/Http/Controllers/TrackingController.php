@@ -7,13 +7,14 @@ use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\UserDocument;
 use App\Models\Accreditation;
+use App\Models\ApplicationStatus;
+use App\Models\ApplicationStatusLog;
+use App\Services\CacheService;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\AdminDocumentsUploadedEmail;
-use App\Models\ApplicationStatus;
-use App\Models\ApplicationStatusLog;
 use App\Services\PctService;
 
 class TrackingController extends Controller
@@ -27,13 +28,19 @@ class TrackingController extends Controller
         $application = null;
 
         if ($request->has('tracking_number')) {
-            $application = Application::with([
-                'latestStatus.status',
-                'documents.documentField.documentType',
-                'documents.userDocument',
-                'interview',
-                'user.instructors.credentials.instructor',
-            ])->where('tracking_number', $request->input('tracking_number'))->first();
+            $trackingNumber = $request->input('tracking_number');
+
+            $application = CacheService::remember(
+                CacheService::trackingKey($trackingNumber),
+                CacheService::TTL_TRACKING,
+                fn () => Application::with([
+                    'latestStatus.status',
+                    'documents.documentField.documentType',
+                    'documents.userDocument',
+                    'interview',
+                    'user.instructors.credentials.instructor',
+                ])->where('tracking_number', $trackingNumber)->first()
+            );
 
             if ($application && strtolower($application->application_type) !== 'new') {
                 return redirect()->route('track')->with('error', 'This tracking number belongs to a ' . ucfirst($application->application_type) . ' application. Please log in to your applicant portal to track its status.');
@@ -247,7 +254,7 @@ class TrackingController extends Controller
         }
 
         // Progress application status back to "Under Evaluation"
-        $underEvaluationStatus = ApplicationStatus::where('name', 'Under Evaluation')->first();
+        $underEvaluationStatus = ApplicationStatus::findByName('Under Evaluation');
         if ($underEvaluationStatus) {
             ApplicationStatusLog::create([
                 'application_id' => $application->id,
@@ -259,6 +266,10 @@ class TrackingController extends Controller
 
         // ── PCT: Resume the paused step (applicant has resubmitted)
         app(PctService::class)->resumeCurrentStep($application);
+
+        // Bust tracking cache and listing caches
+        CacheService::bustTrackingCache($application->tracking_number);
+        CacheService::bustApplicationCaches();
 
         // Notify Admin Evaluators about resubmitted documents
         try {
@@ -324,7 +335,7 @@ class TrackingController extends Controller
             app(PctService::class)->resumeCurrentStep($application);
 
             // ── Transition status to 'Payment Verification'
-            $paymentVerificationStatus = \App\Models\ApplicationStatus::where('name', 'Payment Verification')->first();
+            $paymentVerificationStatus = ApplicationStatus::findByName('Payment Verification');
             if ($paymentVerificationStatus) {
                 \App\Models\ApplicationStatusLog::create([
                     'application_id' => $application->id,
@@ -346,6 +357,10 @@ class TrackingController extends Controller
             } catch (\Exception $e) {
                 Log::warning('Verifier notification email failed: ' . $e->getMessage());
             }
+
+            // Bust tracking and listing caches
+            CacheService::bustTrackingCache($application->tracking_number);
+            CacheService::bustApplicationCaches();
 
             return back()->with('success', 'Payment details uploaded successfully. Your submission is now pending verifier evaluation.');
         }
