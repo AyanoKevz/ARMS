@@ -2,6 +2,41 @@
 
 @section('title', 'Instructor Details')
 
+@push('styles')
+<style>
+    .file-upload-wrapper .custom-file-btn {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+    .real-file-input.is-invalid ~ .file-invalid-feedback {
+        display: block !important;
+    }
+    .was-validated .real-file-input:invalid ~ div .custom-file-btn,
+    .real-file-input.is-invalid ~ div .custom-file-btn {
+        border-color: var(--bs-danger) !important;
+        color: var(--bs-danger) !important;
+        background-color: #fff5f5 !important;
+    }
+    .real-file-input:valid ~ div .custom-file-btn {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: white !important;
+    }
+    input[type="file"]:valid,
+    input[type="file"].is-valid,
+    input[type="file"]:invalid,
+    input[type="file"].is-invalid {
+        background-image: none !important;
+        padding-right: 0 !important;
+    }
+    .file-name-text.text-truncate {
+        display: inline-block;
+        vertical-align: middle;
+    }
+</style>
+@endpush
+
 
 
 @section('content')
@@ -142,15 +177,20 @@
                     {{-- Update form: only when admin requested AND service_agreement is in the fields list --}}
                     @if($isUpdateMode && in_array('service_agreement', $requestedFields))
                     <div class="update-section mt-2">
-                        <div class="d-flex align-items-end gap-2">
-                            <div class="flex-grow-1">
-                                <label class="form-label">Replace Service Agreement PDF <span class="text-danger">*</span> (max 10MB)</label>
-                                <input type="file" name="service_agreement" class="form-control form-control-sm" accept=".pdf" required>
+                        <label class="form-label mb-1">Replace Service Agreement PDF <span class="text-danger">*</span></label>
+                        <div class="file-upload-wrapper mt-1">
+                            <input class="real-file-input visually-hidden" type="file" name="service_agreement" id="service_agreement" accept=".pdf" required>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="service_agreement" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                    <i class="fas fa-upload me-1"></i> Choose PDF
+                                </label>
+                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
                             </div>
+                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                         </div>
-                        <small class="text-muted mt-1 d-block">
+                        <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Uploading will replace the existing file and submit for admin re-review.
+                            Uploading will replace the existing file and submit for admin re-review (max 10MB).
                         </small>
                     </div>
                     @endif
@@ -276,15 +316,20 @@
                             </div>
                             @endif
                         </div>
-                        <div class="d-flex align-items-end gap-2">
-                            <div class="flex-grow-1">
-                                <label class="form-label">Replace Credential PDF (optional, max 10MB)</label>
-                                <input type="file" name="credentials[{{ $credential->id }}][pdf_file]" class="form-control form-control-sm" accept=".pdf">
+                        <label class="form-label mb-1">Replace Credential PDF (optional)</label>
+                        <div class="file-upload-wrapper mt-1">
+                            <input class="real-file-input visually-hidden" type="file" name="credentials[{{ $credential->id }}][pdf_file]" id="cred_pdf_{{ $credential->id }}" accept=".pdf">
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="cred_pdf_{{ $credential->id }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                    <i class="fas fa-upload me-1"></i> Choose PDF
+                                </label>
+                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
                             </div>
+                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                         </div>
-                        <small class="text-muted mt-1 d-block">
+                        <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Saving will reset this credential to <strong>Pending</strong> for admin re-review.
+                            Saving will reset this credential to <strong>Pending</strong> for admin re-review (max 10MB).
                         </small>
                     </div>
                     @endif
@@ -318,6 +363,60 @@
 @push('scripts')
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        function bindFileInputs(container = document) {
+            container.querySelectorAll('.real-file-input').forEach(input => {
+                if (input.dataset.bound === 'true') return;
+                input.dataset.bound = 'true';
+                
+                input.addEventListener('change', function () {
+                    const wrapper  = this.closest('.file-upload-wrapper');
+                    if (!wrapper) return;
+                    const nameSpan = wrapper.querySelector('.file-name-text');
+                    const fileBtn  = wrapper.querySelector('.custom-file-btn');
+
+                    if (this.files && this.files.length > 0) {
+                        const file = this.files[0];
+                        if (!file.name.toLowerCase().endsWith('.pdf')) {
+                            alert('Only PDF files are allowed.');
+                            this.value = '';
+                            if (nameSpan) {
+                                nameSpan.textContent = 'No file chosen';
+                                nameSpan.classList.add('text-muted');
+                                nameSpan.classList.remove('text-primary', 'fw-semibold');
+                            }
+                            if (fileBtn) {
+                                fileBtn.classList.add('btn-outline-primary');
+                                fileBtn.classList.remove('btn-primary', 'text-white');
+                            }
+                            return;
+                        }
+                        
+                        if (nameSpan) {
+                            nameSpan.textContent = file.name;
+                            nameSpan.classList.remove('text-muted');
+                            nameSpan.classList.add('text-primary', 'fw-semibold');
+                        }
+                        if (fileBtn) {
+                            fileBtn.classList.remove('btn-outline-primary');
+                            fileBtn.classList.add('btn-primary', 'text-white');
+                        }
+                    } else {
+                        if (nameSpan) {
+                            nameSpan.textContent = 'No file chosen';
+                            nameSpan.classList.add('text-muted');
+                            nameSpan.classList.remove('text-primary', 'fw-semibold');
+                        }
+                        if (fileBtn) {
+                            fileBtn.classList.add('btn-outline-primary');
+                            fileBtn.classList.remove('btn-primary', 'text-white');
+                        }
+                    }
+                });
+            });
+        }
+
+        bindFileInputs(document);
+
         const form = document.querySelector('form[action="{{ route("applicant.instructors.batch_update", $instructor->id) }}"]');
         if (form) {
             form.addEventListener('submit', function(e) {
@@ -325,6 +424,12 @@
                     e.preventDefault();
                     e.stopPropagation();
                     this.classList.add('was-validated');
+                    
+                    const firstInvalid = this.querySelector(':invalid');
+                    if (firstInvalid) {
+                        firstInvalid.focus();
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 } else {
                     this.classList.add('was-validated');
                     const btn = document.getElementById('batchUpdateBtn');

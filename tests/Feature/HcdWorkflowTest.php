@@ -19,6 +19,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed();
+    $this->fatproTypeId = \App\Models\AccreditationType::firstOrCreate(['name' => 'First Aid Training Providers'])->id;
 });
 
 test('evaluator show page self-heals missing PCT entries', function () {
@@ -52,7 +53,7 @@ test('evaluator show page self-heals missing PCT entries', function () {
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-01',
     ]);
@@ -107,7 +108,7 @@ test('finalizeEvaluation blocks transition if there are rejected documents', fun
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-02',
     ]);
@@ -175,7 +176,7 @@ test('resubmitAll blocks uploads if application status is not For Update', funct
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-03',
     ]);
@@ -207,7 +208,7 @@ test('submitReupload blocks uploads if application status is not For Update', fu
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-04',
     ]);
@@ -263,7 +264,7 @@ test('verifier can upload and view scanned certificate', function () {
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-05',
     ]);
@@ -277,7 +278,7 @@ test('verifier can upload and view scanned certificate', function () {
     $accreditation = \App\Models\Accreditation::create([
         'user_id' => $applicant->id,
         'application_id' => $application->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'accreditation_number' => 'FATPRO-TEST-05',
         'date_of_accreditation' => now()->format('Y-m-d'),
         'validity_date' => now()->addYears(2)->format('Y-m-d'),
@@ -342,7 +343,7 @@ test('approve/reject buttons are hidden and remarks are readonly when status is 
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-06',
     ]);
@@ -402,11 +403,18 @@ test('applicant track and renewal pages display original statuses like "Requires
         'profile_type' => 'Organization',
     ]);
 
-    $application = Application::create([
+    $newApplication = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-BADGES-NEW',
+    ]);
+
+    $renewalApplication = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'renewal',
-        'tracking_number' => 'ARMS-TEST-BADGES',
+        'tracking_number' => 'ARMS-TEST-BADGES-REN',
     ]);
 
     $docType = DocumentType::firstOrCreate([
@@ -428,8 +436,16 @@ test('applicant track and renewal pages display original statuses like "Requires
         'file_path' => 'dummy.pdf',
     ]);
 
-    $appDoc = ApplicationDocument::create([
-        'application_id' => $application->id,
+    $appDocNew = ApplicationDocument::create([
+        'application_id' => $newApplication->id,
+        'document_field_id' => $field->id,
+        'user_document_id' => $userDoc->id,
+        'status' => 'rejected',
+        'remarks' => 'Requires re-upload remarks',
+    ]);
+
+    $appDocRen = ApplicationDocument::create([
+        'application_id' => $renewalApplication->id,
         'document_field_id' => $field->id,
         'user_document_id' => $userDoc->id,
         'status' => 'rejected',
@@ -439,12 +455,16 @@ test('applicant track and renewal pages display original statuses like "Requires
     // Set status to For Update
     $status = ApplicationStatus::firstOrCreate(['name' => 'For Update']);
     ApplicationStatusLog::create([
-        'application_id' => $application->id,
+        'application_id' => $newApplication->id,
+        'status_id' => $status->id,
+    ]);
+    ApplicationStatusLog::create([
+        'application_id' => $renewalApplication->id,
         'status_id' => $status->id,
     ]);
 
     // 1. Check public tracking page
-    $trackResponse = $this->get(route('track', ['tracking_number' => $application->tracking_number]));
+    $trackResponse = $this->get(route('track', ['tracking_number' => $newApplication->tracking_number]));
     $trackResponse->assertStatus(200);
     $trackHtml = $trackResponse->getContent();
     expect($trackHtml)->toContain('Requires Resubmission');
@@ -490,7 +510,7 @@ test('pending interview table displays "Pending" status label', function () {
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-TBL',
     ]);
@@ -544,7 +564,7 @@ test('finalizeEvaluation preserves already approved items and does not reset the
 
     $application = Application::create([
         'user_id' => $applicant->id,
-        'accreditation_type_id' => 7,
+        'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
         'tracking_number' => 'ARMS-TEST-SAFEGUARD',
     ]);

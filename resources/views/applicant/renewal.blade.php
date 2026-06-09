@@ -853,14 +853,35 @@
                                 @if($type === 'BOSH')
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}" required></div>
                                 @endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label><input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
+                                <div class="col-12">
+                                    <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label>
+                                    <div class="file-upload-wrapper mt-1">
+                                        <input class="real-file-input visually-hidden" type="file" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" id="inst_{{ $idx }}_{{ $type }}_pdf" accept=".pdf" required>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label for="inst_{{ $idx }}_{{ $type }}_pdf" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                <i class="fas fa-upload me-1"></i> Choose File
+                                            </label>
+                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                        </div>
+                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the {{ $type }} certificate PDF.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         @endforeach
 
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span> <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[{{ $idx }}][service_agreement]" accept=".pdf" required>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[{{ $idx }}][service_agreement]" id="inst_{{ $idx }}_sa" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_{{ $idx }}_sa" class="btn btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border:1px solid #d4ac4b;color:#7a5c00;">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the Service Agreement PDF.</div>
+                            </div>
                         </div>
                     </div>
                     @endforeach
@@ -883,13 +904,34 @@
                                 @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][issued_date]" required></div>@endif
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][validity_date]" required></div>
                                 @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][training_dates]" required></div>@endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label><input type="file" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
+                                <div class="col-12">
+                                    <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                    <div class="file-upload-wrapper mt-1">
+                                        <input class="real-file-input visually-hidden" type="file" name="instructors[0][credentials][{{ $type }}][pdf]" id="inst_0_{{ $type }}_pdf" accept=".pdf" required>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label for="inst_0_{{ $type }}_pdf" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                <i class="fas fa-upload me-1"></i> Choose File
+                                            </label>
+                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                        </div>
+                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the {{ $type }} certificate PDF.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         @endforeach
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[0][service_agreement]" accept=".pdf" required>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[0][service_agreement]" id="inst_0_sa" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_0_sa" class="btn btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border:1px solid #d4ac4b;color:#7a5c00;">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the Service Agreement PDF.</div>
+                            </div>
                         </div>
                     </div>
                     @endif
@@ -921,13 +963,34 @@
                                 @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][issued_date]" required></div>@endif
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][validity_date]" required></div>
                                 @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][training_dates]" required></div>@endif
-                                <div class="col-12"><label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label><input type="file" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][pdf]" accept=".pdf" required></div>
+                                <div class="col-12">
+                                    <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
+                                    <div class="file-upload-wrapper mt-1">
+                                        <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][{{ $type }}][pdf]" id="inst_{{ $type }}_pdf___IDX__" accept=".pdf" required>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label for="inst_{{ $type }}_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                                <i class="fas fa-upload me-1"></i> Choose File
+                                            </label>
+                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                        </div>
+                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the {{ $type }} certificate PDF.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         @endforeach
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
-                            <input type="file" class="form-control form-control-sm" name="instructors[__IDX__][service_agreement]" accept=".pdf" required>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][service_agreement]" id="inst_sa___IDX__" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_sa___IDX__" class="btn btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border:1px solid #d4ac4b;color:#7a5c00;">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the Service Agreement PDF.</div>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -1012,7 +1075,16 @@
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif
-                            <input type="file" class="form-control form-control-sm" name="documents[{{ $f['code'] }}]" accept=".pdf" @if($f['required'] && !$existing) required @endif>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required']) required @endif>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                        <i class="fas fa-upload me-1"></i> Choose File
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                            </div>
                         </div>
                         @endforeach
 
@@ -1060,6 +1132,76 @@ document.addEventListener('DOMContentLoaded', function() {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
     }
+
+    function bindFileInputs(container = document) {
+        container.querySelectorAll('.real-file-input').forEach(input => {
+            if (input.dataset.bound === 'true') return;
+            input.dataset.bound = 'true';
+            
+            input.addEventListener('change', function () {
+                const wrapper  = this.closest('.file-upload-wrapper');
+                if (!wrapper) return;
+                const nameSpan = wrapper.querySelector('.file-name-text');
+                const fileBtn  = wrapper.querySelector('.custom-file-btn');
+
+                if (this.files && this.files.length > 0) {
+                    const file = this.files[0];
+                    if (!file.name.toLowerCase().endsWith('.pdf')) {
+                        alert('Only PDF files are allowed.');
+                        this.value = '';
+                        if (nameSpan) {
+                            nameSpan.textContent = 'No file chosen';
+                            nameSpan.classList.add('text-muted');
+                            nameSpan.classList.remove('text-primary', 'fw-semibold');
+                        }
+                        if (fileBtn) {
+                            fileBtn.classList.add('btn-outline-primary');
+                            fileBtn.classList.remove('btn-primary', 'text-white');
+                            if (fileBtn.style.color) {
+                                fileBtn.style.backgroundColor = '';
+                                fileBtn.style.borderColor = '#d4ac4b';
+                                fileBtn.style.color = '#7a5c00';
+                            }
+                        }
+                        return;
+                    }
+                    
+                    if (nameSpan) {
+                        nameSpan.textContent = file.name;
+                        nameSpan.classList.remove('text-muted');
+                        nameSpan.classList.add('text-primary', 'fw-semibold');
+                    }
+                    if (fileBtn) {
+                        fileBtn.classList.remove('btn-outline-primary');
+                        fileBtn.classList.add('btn-primary', 'text-white');
+                        if (fileBtn.style.color) {
+                            fileBtn.style.backgroundColor = '#198754';
+                            fileBtn.style.borderColor = '#198754';
+                            fileBtn.style.color = '#fff';
+                        }
+                    }
+                } else {
+                    if (nameSpan) {
+                        nameSpan.textContent = 'No file chosen';
+                        nameSpan.classList.add('text-muted');
+                        nameSpan.classList.remove('text-primary', 'fw-semibold');
+                    }
+                    if (fileBtn) {
+                        fileBtn.classList.add('btn-outline-primary');
+                        fileBtn.classList.remove('btn-primary', 'text-white');
+                        if (fileBtn.style.color) {
+                            fileBtn.style.backgroundColor = '';
+                            fileBtn.style.borderColor = '#d4ac4b';
+                            fileBtn.style.color = '#7a5c00';
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    // Bind file inputs on initial page load
+    bindFileInputs(document);
 
     const container = document.getElementById('instructorCardsContainer');
     if (container) {
@@ -1130,6 +1272,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const clone = sourceNode.querySelector('.instructor-card').cloneNode(true);
 
             reindexElement(clone, idx);
+            bindFileInputs(clone);
 
             clone.querySelector('.remove-instructor-btn').addEventListener('click', function() {
                 clone.remove();

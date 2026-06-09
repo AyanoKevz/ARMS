@@ -23,14 +23,14 @@ class AdminUserSeeder extends Seeder
         }
 
         // Get Admin Role
-        $adminRole = Role::where('name', 'Admin')->first();
+        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
 
         // Get HCD Division
-        $hcdDivision = Division::where('name', 'HCD')->first();
+        $hcdDivision = Division::firstOrCreate(['name' => 'HCD']);
 
         // Get Admin Roles
-        $evaluatorRole = \App\Models\AdminRole::where('name', 'Evaluator')->first();
-        $verifierRole  = \App\Models\AdminRole::where('name', 'Verifier')->first();
+        $evaluatorRole = \App\Models\AdminRole::firstOrCreate(['name' => 'Evaluator']);
+        $verifierRole  = \App\Models\AdminRole::firstOrCreate(['name' => 'Verifier']);
 
         // Create Admin 1: Evaluator
         $evaluator = User::updateOrCreate(

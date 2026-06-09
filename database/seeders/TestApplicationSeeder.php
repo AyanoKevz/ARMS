@@ -27,6 +27,12 @@ class TestApplicationSeeder extends Seeder
      */
     public function run()
     {
+        $applicantRole = \App\Models\Role::firstOrCreate(['name' => 'Applicant']);
+        $applicantRoleId = $applicantRole->id;
+
+        $fatproType = \App\Models\AccreditationType::firstOrCreate(['name' => 'First Aid Training Providers']);
+        $fatproTypeId = $fatproType->id;
+
         // We will create 2 test registrations
         for ($i = 1; $i <= 2; $i++) {
             $email = "testprovider{$i}@example.com";
@@ -37,7 +43,7 @@ class TestApplicationSeeder extends Seeder
                 'email' => $email,
                 'email_verified_at' => Carbon::now(),
                 'password' => Hash::make('Password123!'),
-                'role_id' => 1, // Applicant role
+                'role_id' => $applicantRoleId, // Applicant role
                 'profile_type' => 'Organization',
             ]);
 
@@ -66,7 +72,7 @@ class TestApplicationSeeder extends Seeder
             $sequence = str_pad(mt_rand(1, 9999), 6, '0', STR_PAD_LEFT);
             $application = Application::create([
                 'user_id' => $user->id,
-                'accreditation_type_id' => 7, // FATPro
+                'accreditation_type_id' => $fatproTypeId, // FATPro
                 'application_type' => 'new', // New Registration
                 'tracking_number' => "ARMS{$year}-{$sequence}",
                 'submitted_at' => Carbon::now(),
@@ -147,7 +153,7 @@ class TestApplicationSeeder extends Seeder
             'email' => $accEmail,
             'email_verified_at' => Carbon::now(),
             'password' => Hash::make('Password123!'),
-            'role_id' => 1,
+            'role_id' => $applicantRoleId,
             'profile_type' => 'Organization',
         ]);
 
@@ -175,7 +181,7 @@ class TestApplicationSeeder extends Seeder
         $accYear = date('Y') - 3;
         $accApplication = Application::create([
             'user_id' => $accUser->id,
-            'accreditation_type_id' => 7, // FATPro
+            'accreditation_type_id' => $fatproTypeId, // FATPro
             'application_type' => 'new',
             'tracking_number' => "ARMS{$accYear}-000470",
             'submitted_at' => Carbon::now()->subYears(2)->subMonths(9),
@@ -261,7 +267,7 @@ class TestApplicationSeeder extends Seeder
         \App\Models\Accreditation::create([
             'user_id' => $accUser->id,
             'application_id' => $accApplication->id,
-            'accreditation_type_id' => 7, // FATPro
+            'accreditation_type_id' => $fatproTypeId, // FATPro
             'accreditation_number' => '235-' . Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->format('ymd') . '-047',
             'date_of_accreditation' => Carbon::now()->subYears(2)->subMonths(9)->addWeeks(2)->toDateString(),
             'validity_date' => Carbon::now()->addMonths(3)->toDateString(),
