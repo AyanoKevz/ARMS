@@ -1146,8 +1146,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (this.files && this.files.length > 0) {
                     const file = this.files[0];
-                    if (!file.name.toLowerCase().endsWith('.pdf')) {
-                        alert('Only PDF files are allowed.');
+                    const accept = this.getAttribute('accept');
+                    let isValid = false;
+                    let allowedMsg = 'PDF';
+                    if (accept) {
+                        const allowedExtensions = accept.split(',').map(ext => ext.trim().toLowerCase());
+                        const fileNameLower = file.name.toLowerCase();
+                        isValid = allowedExtensions.some(ext => fileNameLower.endsWith(ext));
+                        allowedMsg = allowedExtensions.map(ext => ext.replace('.', '').toUpperCase()).join(', ');
+                    } else {
+                        isValid = file.name.toLowerCase().endsWith('.pdf');
+                    }
+
+                    if (!isValid) {
+                        alert('Only ' + allowedMsg + ' files are allowed.');
                         this.value = '';
                         if (nameSpan) {
                             nameSpan.textContent = 'No file chosen';

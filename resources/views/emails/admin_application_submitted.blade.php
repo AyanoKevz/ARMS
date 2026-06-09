@@ -34,8 +34,14 @@
     <p>Please log in to the admin portal to evaluate this application.</p>
 
     <div class="btn-wrap">
-        <a href="{{ route('admin.hcd.applications.show', $application->id) }}" class="btn-primary">
-            View Application Details
-        </a>
+        @if(in_array($application->application_type, ['renewal', 'reinstatement']))
+            <a href="{{ route('admin.hcd.renewal.pending') }}" class="btn-primary">
+                View Pending Renewals
+            </a>
+        @else
+            <a href="{{ route('admin.hcd.applications.pending') }}" class="btn-primary">
+                View Pending Applications
+            </a>
+        @endif
     </div>
 @endsection
