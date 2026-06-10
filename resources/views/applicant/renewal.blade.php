@@ -31,6 +31,16 @@
     {{-- Guard: already has pending renewal --}}
     @if($pendingRenewal)
     @php
+        // Filter out optional documents that have no uploaded file
+        $filteredDocs = $pendingRenewal->documents->reject(function ($doc) {
+            $code = $doc->documentField?->code;
+            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
+                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            }
+            return false;
+        });
+        $pendingRenewal->setRelation('documents', $filteredDocs);
+
         $renewalStatus = $pendingRenewal->latestStatus?->status?->name ?? 'Submitted';
         $displayStatus = $renewalStatus;
         if ($renewalStatus === 'Scheduled for Interview' && !$pendingRenewal->interview) {

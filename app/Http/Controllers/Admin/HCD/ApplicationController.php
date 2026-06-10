@@ -354,8 +354,14 @@ class ApplicationController extends Controller
 
         $application = $document->application;
 
-        // Re-load all documents for this application to check if all are approved
-        $allDocs   = $application->documents()->get();
+        // Re-load all documents for this application to check if all are approved (excluding unuploaded optional ones)
+        $allDocs = $application->documents()->with('userDocument', 'documentField')->get()->reject(function ($doc) {
+            $code = $doc->documentField?->code;
+            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
+                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            }
+            return false;
+        });
         $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
 
         $statusChanged = false;
@@ -686,8 +692,15 @@ class ApplicationController extends Controller
         }
 
         // ── New / Renewal / Reinstatement path ──────────────────────────────
-        // Check if all are approved (secondary safety check)
-        $allApproved = $application->documents()->get()->every(fn($d) => $d->status === 'approved');
+        // Check if all are approved (secondary safety check) (excluding unuploaded optional ones)
+        $allDocs = $application->documents()->with('userDocument', 'documentField')->get()->reject(function ($doc) {
+            $code = $doc->documentField?->code;
+            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
+                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            }
+            return false;
+        });
+        $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
         $allInstApproved = $application->user->instructors()->get()->every(fn($i) => $i->status === 'approved');
         $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
 

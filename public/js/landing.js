@@ -472,7 +472,92 @@
                 summaryHtml += `<li class="list-group-item px-0"><strong>Sex:</strong> ${document.getElementById('sex').value}</li>`;
                 summaryHtml += `<li class="list-group-item px-0"><strong>Address:</strong> ${document.getElementById('address_ind').value}, ${document.getElementById('city_ind').value}, ${document.getElementById('region_ind').value}</li>`;
             }
-            summaryHtml += '</ul><p class="mt-3 text-muted" style="font-size:0.8rem;">Note: The uploaded PDF documents will be included in your final submission.</p>';
+            summaryHtml += '</ul>';
+
+            // Gather instructors from the DOM
+            const instructorCardsContainer = document.getElementById('instructorCardsContainer');
+            if (instructorCardsContainer) {
+                const instructorCards = instructorCardsContainer.querySelectorAll('.instructor-card');
+                if (instructorCards.length > 0) {
+                    summaryHtml += `<div class="mt-4 pt-3 border-top">`;
+                    summaryHtml += `<h5 class="fw-bold text-primary mb-3" style="font-size: 1.1rem;"><i class="bi bi-people-fill me-2"></i>Instructors &amp; Credentials Summary</h5>`;
+                    
+                    instructorCards.forEach((card, i) => {
+                        const firstName = card.querySelector('input[name$="[first_name]"]')?.value || '';
+                        const middleName = card.querySelector('input[name$="[middle_name]"]')?.value || '';
+                        const lastName = card.querySelector('input[name$="[last_name]"]')?.value || '';
+                        const fullName = `${firstName} ${middleName} ${lastName}`.trim().replace(/\s+/g, ' ');
+                        
+                        // Service Agreement
+                        const saInput = card.querySelector('input[name$="[service_agreement]"]');
+                        const saFileName = saInput && saInput.files && saInput.files.length > 0 ? saInput.files[0].name : '';
+                        
+                        summaryHtml += `<div class="instructor-summary-card mb-3 p-3 border rounded bg-white shadow-sm" style="border-left: 4px solid #0b3d91 !important;">`;
+                        summaryHtml += `<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">`;
+                        summaryHtml += `<span class="fw-bold text-dark" style="font-size: 0.95rem;"><i class="bi bi-person-badge-fill text-primary me-2"></i>Instructor #${i + 1}: ${fullName}</span>`;
+                        
+                        if (saFileName) {
+                            summaryHtml += `<span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2" style="font-size: 0.75rem;"><i class="bi bi-file-earmark-check-fill me-1"></i>Agreement Attached</span>`;
+                        } else {
+                            summaryHtml += `<span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2" style="font-size: 0.75rem;"><i class="bi bi-file-earmark-x-fill me-1"></i>No Agreement</span>`;
+                        }
+                        summaryHtml += `</div>`;
+                        
+                        if (saFileName) {
+                            summaryHtml += `<div class="mb-3 small text-muted"><i class="bi bi-paperclip me-1"></i>Service Agreement PDF: <strong>${saFileName}</strong></div>`;
+                        }
+
+                        // Grid for credentials
+                        summaryHtml += `<div class="row g-2">`;
+                        let hasCreds = false;
+                        
+                        ['EMS', 'TM1', 'NTTC', 'BOSH'].forEach(type => {
+                            const number = card.querySelector(`input[name$="[credentials][${type}][number]"]`)?.value || '';
+                            const issuedDate = card.querySelector(`input[name$="[credentials][${type}][issued_date]"]`)?.value || '';
+                            const validityDate = card.querySelector(`input[name$="[credentials][${type}][validity_date]"]`)?.value || '';
+                            const trainingDates = card.querySelector(`input[name$="[credentials][${type}][training_dates]"]`)?.value || '';
+                            const pdfInput = card.querySelector(`input[name$="[credentials][${type}][pdf]`);
+                            const pdfName = pdfInput && pdfInput.files && pdfInput.files.length > 0 ? pdfInput.files[0].name : '';
+
+                            if (number || issuedDate || validityDate || trainingDates || pdfName) {
+                                hasCreds = true;
+                                summaryHtml += `<div class="col-md-6">`;
+                                summaryHtml += `<div class="card h-100 border-0 shadow-none bg-light p-2 rounded-2" style="border-left: 3px solid #6c757d !important;">`;
+                                summaryHtml += `<div class="fw-bold mb-1 text-dark" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;">${type === 'EMS' ? 'TESDA EMS NC II/III' : type === 'TM1' ? 'TESDA TM1' : type === 'NTTC' ? 'TESDA NTTC' : 'BOSH SO1/SO2'}</div>`;
+                                
+                                summaryHtml += `<table class="table table-sm table-borderless mb-0" style="font-size: 0.78rem; line-height: 1.3; background: transparent;">`;
+                                if (number) {
+                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Number:</td><td class="fw-semibold text-dark p-0 py-0.5" style="background: transparent;">${number}</td></tr>`;
+                                }
+                                if (type === 'BOSH' && trainingDates) {
+                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Training:</td><td class="text-dark p-0 py-0.5" style="background: transparent;">${trainingDates}</td></tr>`;
+                                } else if (issuedDate) {
+                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Issued:</td><td class="text-dark p-0 py-0.5" style="background: transparent;">${issuedDate}</td></tr>`;
+                                }
+                                if (validityDate) {
+                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Validity:</td><td class="text-dark p-0 py-0.5" style="background: transparent;">${validityDate}</td></tr>`;
+                                }
+                                if (pdfName) {
+                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">PDF:</td><td class="text-primary fw-semibold p-0 py-0.5 text-truncate" style="max-width: 150px; background: transparent;" title="${pdfName}"><i class="bi bi-file-pdf me-1"></i>${pdfName}</td></tr>`;
+                                }
+                                summaryHtml += `</table>`;
+                                summaryHtml += `</div>`;
+                                summaryHtml += `</div>`;
+                            }
+                        });
+                        
+                        if (!hasCreds) {
+                            summaryHtml += `<div class="col-12"><div class="text-muted small italic p-2 bg-light rounded border text-center">No credential details added.</div></div>`;
+                        }
+                        
+                        summaryHtml += `</div>`; // end row g-2
+                        summaryHtml += `</div>`; // end instructor-summary-card
+                    });
+                    summaryHtml += `</div>`;
+                }
+            }
+
+            summaryHtml += '<p class="mt-3 text-muted" style="font-size:0.8rem;">Note: The uploaded PDF documents will be included in your final submission.</p>';
             
             if (reviewCont) reviewCont.innerHTML = summaryHtml;
             toggleReviewMode(true);
@@ -501,7 +586,7 @@
         if (!alertEl || !alertMsg) return;
 
         alertEl.className = `alert alert-${type} alert-dismissible fade show shadow`;
-        alertMsg.textContent = message;
+        alertMsg.innerHTML = message;
         alertEl.classList.remove('d-none');
 
         // Scroll to alert — use GSAP to avoid conflict with ScrollSmoother
@@ -534,21 +619,59 @@
         rep_position: 'rep_position',
         rep_contact_number: 'rep_contact',
         rep_email: 'rep_email',
+        first_name: 'first_name',
+        middle_name: 'middle_name',
+        last_name: 'last_name',
+        sex: 'sex',
+        birthday: 'birthday',
+        region: 'region_ind',
+        city: 'city_ind',
+        address: 'address_ind',
     };
 
     function renderFieldErrors(errors) {
+        let errorMessages = [];
+        
         Object.entries(errors).forEach(([field, messages]) => {
             const inputId = fieldMap[field] || field;
             const input   = document.getElementById(inputId);
+            
             if (input) {
                 input.classList.add('is-invalid');
                 const fb = input.closest('.col-12, .col-md-4, .col-md-6, .input-group')?.querySelector('.invalid-feedback') || 
                            input.parentElement?.querySelector('.invalid-feedback');
                 if (fb) fb.textContent = messages[0];
+                
+                // Get human readable field label
+                const labelEl = input.closest('.col-12, .col-md-4, .col-md-6')?.querySelector('label.form-label');
+                const labelText = labelEl ? labelEl.textContent.replace('*', '').trim() : field;
+                errorMessages.push(`<strong>${labelText}</strong>: ${messages[0]}`);
             } else {
-                showTopAlert(messages[0], 'danger');
+                // Handle nested validation keys like instructors.0.first_name
+                let niceField = field;
+                const instMatch = field.match(/^instructors\.(\d+)\.(.+)$/);
+                if (instMatch) {
+                    const index = parseInt(instMatch[1]) + 1;
+                    let subField = instMatch[2].replace(/\./g, ' ').replace(/_/g, ' ');
+                    // Capitalize subfield words
+                    subField = subField.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    niceField = `Instructor #${index} - ${subField}`;
+                } else {
+                    niceField = field.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                }
+                errorMessages.push(`<strong>${niceField}</strong>: ${messages[0]}`);
             }
         });
+
+        if (errorMessages.length > 0) {
+            let alertHtml = '<div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please correct the following errors:</div>';
+            alertHtml += '<ul class="mb-0 ps-3 mt-1 text-start">';
+            errorMessages.forEach(msg => {
+                alertHtml += `<li>${msg}</li>`;
+            });
+            alertHtml += '</ul>';
+            showTopAlert(alertHtml, 'danger');
+        }
     }
 
     function clearAllFieldErrors() {
@@ -689,7 +812,7 @@
             } else if (response.status === 422 && data.errors) {
                 renderFieldErrors(data.errors);
                 this.classList.add('was-validated');
-                showTopAlert('Please correct the highlighted errors.', 'warning');
+                toggleReviewMode(false);
             } else {
                 showTopAlert(data.message || 'An unexpected error occurred. Please try again.', 'danger');
             }

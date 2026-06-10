@@ -243,7 +243,7 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="head_name" class="form-label fw-semibold">
-                                                    Name of Head / Director <span class="text-danger">*</span>
+                                                   Full Name of Head / Director <span class="text-danger">*</span>
                                                 </label>
                                                 <input type="text" class="form-control" id="head_name"
                                                     name="head_name" placeholder="Full name">

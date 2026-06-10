@@ -13,6 +13,16 @@ $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
 $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 $isVerifier  = strtolower($isAdminRole) === 'verifier';
 
+// Filter out optional documents that have no uploaded file
+$filteredDocs = $application->documents->reject(function ($doc) {
+    $code = $doc->documentField?->code;
+    if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
+        return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+    }
+    return false;
+});
+$application->setRelation('documents', $filteredDocs);
+
 $user = $application->user;
 $isOrg = $user->profile_type === 'Organization';
 $org = $user->organizationProfile;

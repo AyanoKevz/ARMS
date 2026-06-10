@@ -57,6 +57,17 @@
                 {{-- Track Results --}}
                 @if(request()->has('tracking_number'))
                 @if($application)
+                @php
+                    // Filter out optional documents that have no uploaded file
+                    $filteredDocs = $application->documents->reject(function ($doc) {
+                        $code = $doc->documentField?->code;
+                        if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
+                            return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+                        }
+                        return false;
+                    });
+                    $application->setRelation('documents', $filteredDocs);
+                @endphp
                 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden;">
                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
                         <h4 class="mb-0" style="color: #0b3d91; font-weight: 700;">Application Details</h4>

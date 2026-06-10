@@ -111,6 +111,16 @@ class RegistrationController extends Controller
             'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
 
+            // Individual fields
+            'first_name'         => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'middle_name'        => ['nullable', 'string', 'max:255'],
+            'last_name'          => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'sex'                => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'birthday'           => ['required_if:profile_type,Individual', 'nullable', 'date'],
+            'region'             => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'city'               => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'address'            => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:500'],
+
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
         ], $documentRules, $instructorRules), [
