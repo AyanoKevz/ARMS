@@ -49,6 +49,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
     // ── Profile routes (available to any authenticated user) ──────────
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/change-password', [ProfileController::class, 'changePassword'])->name('profile.change_password');
     Route::get('/profile/{user}', [ProfileController::class, 'show'])->name('profile.show');
 
     Route::prefix('applicant')->name('applicant.')->group(function () {
@@ -59,6 +60,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
+        Route::post('/instructors/{instructor}/update-name', [ApplicantInstructorController::class, 'updateName'])->name('instructors.update_name');
         Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update')->middleware('throttle:5,1');
         // Note: instructor update requests are now admin-initiated only
 

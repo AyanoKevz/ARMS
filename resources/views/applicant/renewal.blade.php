@@ -9,7 +9,7 @@
     $ind   = $user->individualProfile;
     $reps  = $org?->authorizedRepresentatives ?? collect();
     $rep   = $reps->first();
-    $instructors = $user->instructors;
+    $instructors = $instructors ?? $user->instructors;
 @endphp
 
 <div class="">
@@ -31,13 +31,16 @@
     {{-- Guard: already has pending renewal --}}
     @if($pendingRenewal)
     @php
-        // Filter out optional documents that have no uploaded file
+        // Filter out documents that have no uploaded file/value
         $filteredDocs = $pendingRenewal->documents->reject(function ($doc) {
-            $code = $doc->documentField?->code;
-            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
-                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            $field = $doc->documentField;
+            if (!$field) return false;
+            
+            $userDoc = $doc->userDocument;
+            if ($field->input_type === 'file') {
+                return !$userDoc || is_null($userDoc->file_path) || $userDoc->file_path === '';
             }
-            return false;
+            return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
         });
         $pendingRenewal->setRelation('documents', $filteredDocs);
 
@@ -137,14 +140,12 @@
     </div>
 
     {{-- Submitted Documents & Credentials Summary Panel --}}
-    <div class="x_panel mt-4" style="border-left: 4px solid #2a3f54; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff;">
-        <div class="x_title d-flex justify-content-between align-items-center pb-2 border-bottom">
-            <h2 class="fw-bold mb-0 text-primary" style="color: #2a3f54 !important; font-size: 1.15rem; border: none; float: none; padding: 0; margin: 0;">
+    <div class="x_panel mt-4" style="border-left: 4px solid #0b3d91; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff;">
+        <div class="x_title d-flex justify-content-between align-items-center pb-2 border-bottom" style="cursor: pointer; user-select: none;" data-bs-toggle="collapse" data-bs-target="#submittedDocsCollapse" aria-expanded="true" aria-controls="submittedDocsCollapse">
+            <h2 class="fw-bold mb-0 text-primary" style="color: #0b3d91 !important; font-size: 1.15rem; border: none; float: none; padding: 0; margin: 0;">
                 Submitted Documents & Instructor Credentials
             </h2>
-            <button type="button" class="btn btn-sm btn-outline-dark px-3" data-bs-toggle="collapse" data-bs-target="#submittedDocsCollapse" aria-expanded="true" aria-controls="submittedDocsCollapse">
-                View Submitted Files
-            </button>
+            <i class="fas fa-chevron-up text-secondary" id="submittedDocsChevron" style="font-size: 1.1rem; transition: transform 0.2s;"></i>
             <div class="clearfix"></div>
         </div>
         <div class="x_content collapse show mt-3" id="submittedDocsCollapse">
@@ -233,20 +234,13 @@
                         2. Instructor Credentials & Agreements
                     </h6>
                     
-                    @php $appInstructors = $pendingRenewal->user ? $pendingRenewal->user->instructors : collect(); @endphp
+                    @php $appInstructors = $pendingRenewal->instructors ?? collect(); @endphp
                     
                     <div class="d-flex flex-column gap-3">
                         @forelse($appInstructors as $inst)
                             <div class="border rounded shadow-sm bg-white mb-3" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
                                 <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.83rem; border-bottom: 1px solid #e2e8f0;">
                                     <span>{{ $inst->first_name }} {{ $inst->last_name }}</span>
-                                    @if($inst->service_agreement_path)
-                                        <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
-                                            <i class="fa fa-file-contract me-1"></i>Agreement
-                                        </a>
-                                    @else
-                                        <span class="text-danger small" style="font-size: 0.72rem;">No Agreement</span>
-                                    @endif
                                 </div>
                                 <div class="list-group list-group-flush">
                                     @foreach($inst->credentials as $cred)
@@ -284,6 +278,51 @@
                                             </div>
                                         </div>
                                     @endforeach
+
+                                    {{-- Service Agreement Row --}}
+                                    @if($inst->service_agreement_path)
+                                        @php
+                                            $saStatus = $inst->status ?: 'pending';
+                                            $saStatusClass = match($saStatus) {
+                                                'approved' => 'badge bg-success text-white',
+                                                'rejected', 'returned' => 'badge bg-danger text-white',
+                                                default => 'badge bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
+                                                    Service Agreement PDF
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="{{ $saStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($saStatus) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                    <i class="fa fa-eye me-1"></i>View
+                                                </a>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
+                                                    Service Agreement PDF
+                                                </div>
+                                                <div>
+                                                    <span class="text-danger small" style="font-size: 0.72rem;">No Agreement Uploaded</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="text-muted small">No File</span>
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         @empty
@@ -301,10 +340,10 @@
         $rejectedDocs = $application->documents->filter(
             fn($d) => in_array($d->status, ['rejected','returned'])
         );
-        $rejectedInstructors = $application->user ? $application->user->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
+        $rejectedInstructors = $application->instructors ? $application->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
         $rejectedCredentials = collect();
-        if ($application->user) {
-            foreach ($application->user->instructors as $inst) {
+        if ($application->instructors) {
+            foreach ($application->instructors as $inst) {
                 foreach ($inst->credentials as $cred) {
                     if (in_array($cred->status, ['rejected','returned'])) {
                         $rejectedCredentials->push($cred);
@@ -1570,6 +1609,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
                 }
             }
+        });
+    }
+
+    // Toggle chevron on Submitted Documents collapse
+    const submittedDocsCollapse = document.getElementById('submittedDocsCollapse');
+    const submittedDocsChevron = document.getElementById('submittedDocsChevron');
+    if (submittedDocsCollapse && submittedDocsChevron) {
+        submittedDocsCollapse.addEventListener('show.bs.collapse', function () {
+            submittedDocsChevron.classList.remove('fa-chevron-down');
+            submittedDocsChevron.classList.add('fa-chevron-up');
+        });
+        submittedDocsCollapse.addEventListener('hide.bs.collapse', function () {
+            submittedDocsChevron.classList.remove('fa-chevron-up');
+            submittedDocsChevron.classList.add('fa-chevron-down');
         });
     }
 });

@@ -40,6 +40,9 @@
             <div class="collapse navbar-collapse" id="navMain">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url('/') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="https://oshc.dole.gov.ph/about-us/" target="_blank">About OSHC</a>
                     </li>
                     <li class="nav-item">

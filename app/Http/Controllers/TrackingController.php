@@ -38,7 +38,7 @@ class TrackingController extends Controller
                     'documents.documentField.documentType',
                     'documents.userDocument',
                     'interview',
-                    'user.instructors.credentials.instructor',
+                    'instructors.credentials',
                 ])->where('tracking_number', $trackingNumber)->first()
             );
 
@@ -65,7 +65,7 @@ class TrackingController extends Controller
      */
     public function resubmitAll(Request $request)
     {
-        $application = Application::with(['user.instructors.credentials', 'accreditationType', 'latestStatus.status'])->find($request->input('application_id'));
+        $application = Application::with(['instructors.credentials', 'accreditationType', 'latestStatus.status'])->find($request->input('application_id'));
         if (!$application) {
             return back()->with('error', 'Application not found.');
         }
@@ -115,9 +115,7 @@ class TrackingController extends Controller
             $field = $appDoc->documentField;
             if (! $field || $field->input_type === 'file') continue;
 
-            $userDoc = UserDocument::where('user_id', $userId)
-                ->where('document_field_id', $field->id)
-                ->first();
+            $userDoc = $appDoc->userDocument;
 
             if ($userDoc) {
                 $userDoc->update(['value' => $value]);
@@ -156,9 +154,7 @@ class TrackingController extends Controller
             $subFolder = $baseDocPath;
             $finalPath = "{$subFolder}/{$filename}";
 
-            $userDoc = UserDocument::where('user_id', $userId)
-                ->where('document_field_id', $field->id)
-                ->first();
+            $userDoc = $appDoc->userDocument;
 
             if ($userDoc && $userDoc->file_path) {
                 if (Storage::disk('local')->exists($userDoc->file_path)) {
@@ -188,7 +184,7 @@ class TrackingController extends Controller
         }
 
         foreach ($instructorFiles as $instructorId => $file) {
-            $instructor = $application->user->instructors->firstWhere('id', $instructorId);
+            $instructor = $application->instructors->firstWhere('id', $instructorId);
             if (! $instructor || ! in_array($instructor->status, ['rejected', 'returned'])) continue;
 
             $timestamp = time();
@@ -216,7 +212,7 @@ class TrackingController extends Controller
         foreach ($credentialFiles as $credentialId => $file) {
             $credential = null;
             $instModel = null;
-            foreach ($application->user->instructors as $inst) {
+            foreach ($application->instructors as $inst) {
                 $cred = $inst->credentials->firstWhere('id', $credentialId);
                 if ($cred) {
                     $credential = $cred;

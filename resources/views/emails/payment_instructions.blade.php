@@ -16,10 +16,10 @@
         Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
     <p>
-        Congratulations on your accreditation as a First Aid Training Provider!
+        Congratulations on passing the evaluation and interview for your accreditation as a First Aid Training Provider!
     </p>
     <p>
-        We would like to inform you that your accreditation as First Aid Training Provider is approved by the Office of the Executive Director.
+        We are pleased to inform you that your application has been approved by the Office of the Executive Director.
     </p>
     <p>
         Here are the steps you need to follow for payment and document submission:
@@ -74,9 +74,15 @@
     </p>
 
     <div class="btn-wrap">
-        <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-primary">
-            Submit Payment Details
-        </a>
+        @if ($application->application_type === 'new')
+            <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-primary">
+                Submit Payment Details
+            </a>
+        @else
+            <a href="{{ route('applicant.dashboard') }}" class="btn-primary">
+                Submit Payment Details
+            </a>
+        @endif
     </div>
 
     <p>

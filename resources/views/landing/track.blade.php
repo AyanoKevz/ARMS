@@ -58,13 +58,16 @@
                 @if(request()->has('tracking_number'))
                 @if($application)
                 @php
-                    // Filter out optional documents that have no uploaded file
+                    // Filter out documents that have no uploaded file/value
                     $filteredDocs = $application->documents->reject(function ($doc) {
-                        $code = $doc->documentField?->code;
-                        if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
-                            return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+                        $field = $doc->documentField;
+                        if (!$field) return false;
+                        
+                        $userDoc = $doc->userDocument;
+                        if ($field->input_type === 'file') {
+                            return !$userDoc || is_null($userDoc->file_path) || $userDoc->file_path === '';
                         }
-                        return false;
+                        return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
                     });
                     $application->setRelation('documents', $filteredDocs);
                 @endphp
@@ -192,8 +195,8 @@
                                         $remarks = $payment ? $payment->{"{$key}_remarks"} : '';
                                         @endphp
                                         <div class="p-3 bg-white border rounded shadow-sm" style="border-color: #f1f3f5 !important;">
-                                            <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-                                                <div class="flex-grow-1">
+                                            <div class="d-flex flex-column gap-2">
+                                                <div>
                                                     <h6 class="mb-1 fw-bold text-dark" style="font-size: .92rem;">{{ $info['label'] }}</h6>
                                                     <small class="text-muted d-block" style="font-size: .8rem;">{{ $info['desc'] }}</small>
 
@@ -222,8 +225,17 @@
 
                                                 @if($status === 'missing' || $status === 'rejected')
                                                 @php $needsUpload = true; @endphp
-                                                <div style="min-width: 250px;">
-                                                    <input type="file" name="{{ $key }}" id="input-{{ $key }}" class="form-control form-control-sm" accept="{{ $info['accept'] }}" required>
+                                                <div class="mt-2">
+                                                    <div class="file-upload-wrapper">
+                                                        <input type="file" name="{{ $key }}" id="input-{{ $key }}" class="real-file-input payment-file-input visually-hidden" accept="{{ $info['accept'] }}" required>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <label for="input-{{ $key }}" class="btn btn-outline-warning btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#d97706; color:#d97706;">
+                                                                <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                            </label>
+                                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 300px;">No file chosen</span>
+                                                        </div>
+                                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid file.</div>
+                                                    </div>
                                                 </div>
                                                 @endif
                                             </div>
@@ -701,12 +713,15 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Show filename next to each file input after selection
-        document.querySelectorAll('.batch-file-input').forEach(function(input) {
+        document.querySelectorAll('.batch-file-input, .payment-file-input').forEach(function(input) {
             input.addEventListener('change', function() {
                 const wrapper = this.closest('div.file-upload-wrapper');
                 const hint = wrapper.querySelector('.file-name-text');
                 const btn = wrapper.querySelector('.custom-file-btn');
                 const sectionLabel = wrapper.parentElement.querySelector('label.form-label');
+                const isPayment = this.classList.contains('payment-file-input');
+                const defaultOutlineClass = isPayment ? 'btn-outline-warning' : 'btn-outline-danger';
+                const defaultColor = isPayment ? '#d97706' : '#842029';
 
                 if (this.files.length > 0) {
                     if (hint) {
@@ -715,7 +730,7 @@
                         hint.classList.add('text-success', 'fw-bold');
                     }
                     if (btn) {
-                        btn.classList.remove('btn-outline-danger');
+                        btn.classList.remove(defaultOutlineClass);
                         btn.classList.add('btn-success');
                         btn.style.cssText = 'border-color: #198754 !important; background-color: #198754 !important; color: white !important;';
                         btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> File Selected';
@@ -731,14 +746,14 @@
                         hint.classList.remove('text-success', 'fw-bold');
                     }
                     if (btn) {
-                        btn.classList.add('btn-outline-danger');
+                        btn.classList.add(defaultOutlineClass);
                         btn.classList.remove('btn-success');
-                        btn.style.cssText = 'border-color:#842029; color:#842029; background-color: transparent;';
+                        btn.style.cssText = `border-color:${defaultColor}; color:${defaultColor}; background-color: transparent;`;
                         btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Choose File';
                     }
                     if (sectionLabel) {
                         sectionLabel.innerHTML = 'Upload Replacement (PDF) <span class="text-danger">*</span>';
-                        sectionLabel.style.cssText = 'color: #842029 !important;';
+                        sectionLabel.style.cssText = `color: ${defaultColor} !important;`;
                     }
                 }
             });

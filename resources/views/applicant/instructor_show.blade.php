@@ -3,38 +3,7 @@
 @section('title', 'Instructor Details')
 
 @push('styles')
-<style>
-    .file-upload-wrapper .custom-file-btn {
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-    .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
-    .real-file-input.is-invalid ~ .file-invalid-feedback {
-        display: block !important;
-    }
-    .was-validated .real-file-input:invalid ~ div .custom-file-btn,
-    .real-file-input.is-invalid ~ div .custom-file-btn {
-        border-color: var(--bs-danger) !important;
-        color: var(--bs-danger) !important;
-        background-color: #fff5f5 !important;
-    }
-    .real-file-input:valid ~ div .custom-file-btn {
-        background-color: #198754 !important;
-        border-color: #198754 !important;
-        color: white !important;
-    }
-    input[type="file"]:valid,
-    input[type="file"].is-valid,
-    input[type="file"]:invalid,
-    input[type="file"].is-invalid {
-        background-image: none !important;
-        padding-right: 0 !important;
-    }
-    .file-name-text.text-truncate {
-        display: inline-block;
-        vertical-align: middle;
-    }
-</style>
+<link rel="stylesheet" href="{{ asset('css/instructor-show.css') }}?v={{ filemtime(public_path('css/instructor-show.css')) }}">
 @endpush
 
 
@@ -42,13 +11,16 @@
 @section('content')
 <div class="">
     <div class="page-title d-flex justify-content-between align-items-center">
-        <div class="title_left">
-            <h3>
+        <div class="title_left d-flex align-items-center">
+            <h3 class="mb-0 me-2">
                 {{ $instructor->last_name }}, {{ $instructor->first_name }}
                 @if($instructor->middle_name) {{ $instructor->middle_name }} @endif
             </h3>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editNameModal" title="Edit Instructor Name">
+                <i class="bi bi-pencil"></i>
+            </button>
         </div>
-        <a href="{{ route('applicant.instructors.index') }}" class="btn btn-secondary btn-sm mt-3">
+        <a href="{{ route('applicant.instructors.index') }}" class="btn btn-secondary btn-sm">
             Back
         </a>
     </div>
@@ -119,7 +91,7 @@
     <div class="row pt-2">
         <div class="col-12">
             @if($isUpdateMode)
-            <form action="{{ route('applicant.instructors.batch_update', $instructor->id) }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('applicant.instructors.batch_update', $instructor->id) }}" method="POST" enctype="multipart/form-data" id="batch-update-form">
                 @csrf
             @endif
 
@@ -358,89 +330,41 @@
         </div>
     </div>
 </div>
+
+{{-- Edit Name Modal --}}
+<div class="modal fade" id="editNameModal" tabindex="-1" aria-labelledby="editNameModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editNameModalLabel">Edit Instructor Name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('applicant.instructors.update_name', $instructor->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="first_name" class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="first_name" name="first_name" value="{{ old('first_name', $instructor->first_name) }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="middle_name" class="form-label">Middle Name</label>
+                        <input type="text" class="form-control" id="middle_name" name="middle_name" value="{{ old('middle_name', $instructor->middle_name) }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="last_name" class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="last_name" name="last_name" value="{{ old('last_name', $instructor->last_name) }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        function bindFileInputs(container = document) {
-            container.querySelectorAll('.real-file-input').forEach(input => {
-                if (input.dataset.bound === 'true') return;
-                input.dataset.bound = 'true';
-                
-                input.addEventListener('change', function () {
-                    const wrapper  = this.closest('.file-upload-wrapper');
-                    if (!wrapper) return;
-                    const nameSpan = wrapper.querySelector('.file-name-text');
-                    const fileBtn  = wrapper.querySelector('.custom-file-btn');
-
-                    if (this.files && this.files.length > 0) {
-                        const file = this.files[0];
-                        if (!file.name.toLowerCase().endsWith('.pdf')) {
-                            alert('Only PDF files are allowed.');
-                            this.value = '';
-                            if (nameSpan) {
-                                nameSpan.textContent = 'No file chosen';
-                                nameSpan.classList.add('text-muted');
-                                nameSpan.classList.remove('text-primary', 'fw-semibold');
-                            }
-                            if (fileBtn) {
-                                fileBtn.classList.add('btn-outline-primary');
-                                fileBtn.classList.remove('btn-primary', 'text-white');
-                            }
-                            return;
-                        }
-                        
-                        if (nameSpan) {
-                            nameSpan.textContent = file.name;
-                            nameSpan.classList.remove('text-muted');
-                            nameSpan.classList.add('text-primary', 'fw-semibold');
-                        }
-                        if (fileBtn) {
-                            fileBtn.classList.remove('btn-outline-primary');
-                            fileBtn.classList.add('btn-primary', 'text-white');
-                        }
-                    } else {
-                        if (nameSpan) {
-                            nameSpan.textContent = 'No file chosen';
-                            nameSpan.classList.add('text-muted');
-                            nameSpan.classList.remove('text-primary', 'fw-semibold');
-                        }
-                        if (fileBtn) {
-                            fileBtn.classList.add('btn-outline-primary');
-                            fileBtn.classList.remove('btn-primary', 'text-white');
-                        }
-                    }
-                });
-            });
-        }
-
-        bindFileInputs(document);
-
-        const form = document.querySelector('form[action="{{ route("applicant.instructors.batch_update", $instructor->id) }}"]');
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                if (!this.checkValidity()) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.classList.add('was-validated');
-                    
-                    const firstInvalid = this.querySelector(':invalid');
-                    if (firstInvalid) {
-                        firstInvalid.focus();
-                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                } else {
-                    this.classList.add('was-validated');
-                    const btn = document.getElementById('batchUpdateBtn');
-                    const text = document.getElementById('batchUpdateText');
-                    const spinner = document.getElementById('batchUpdateSpinner');
-                    if(btn) btn.disabled = true;
-                    if(text) text.classList.add('d-none');
-                    if(spinner) spinner.classList.remove('d-none');
-                }
-            });
-        }
-    });
-</script>
+<script src="{{ asset('js/instructor-show.js') }}?v={{ filemtime(public_path('js/instructor-show.js')) }}"></script>
 @endpush

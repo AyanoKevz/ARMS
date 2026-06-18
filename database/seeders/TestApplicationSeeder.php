@@ -121,6 +121,7 @@ class TestApplicationSeeder extends Seeder
             // 6. Create Instructor
             $instructor = Instructor::create([
                 'user_id' => $user->id,
+                'application_id' => $application->id,
                 'first_name' => "John {$i}",
                 'middle_name' => 'Test',
                 'last_name' => 'Doe',
@@ -232,6 +233,7 @@ class TestApplicationSeeder extends Seeder
         // 6. Create Approved Instructor
         $accInstructor = Instructor::create([
             'user_id' => $accUser->id,
+            'application_id' => $accApplication->id,
             'first_name' => "Safety",
             'middle_name' => 'Instructor',
             'last_name' => 'John',

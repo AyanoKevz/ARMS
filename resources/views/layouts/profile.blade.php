@@ -3,57 +3,7 @@
 @section('title', 'My Profile')
 
 @push('styles')
-<style>
-    /* ── Profile Split Layout ── */
-    .profile-card {
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,.04);
-        padding: 30px;
-        border-top: 4px solid var(--portal-gold);
-    }
-    .profile-avatar-wrapper {
-        text-align: center;
-        margin-bottom: 25px;
-        padding-bottom: 25px;
-        border-bottom: 1px solid #eef0f3;
-    }
-    .profile-avatar-wrapper img {
-        width: 140px;
-        height: 140px;
-        object-fit: cover;
-        border-radius: 50%;
-        border: 4px solid #fff;
-        box-shadow: 0 4px 12px rgba(0,0,0,.1);
-        margin-bottom: 15px;
-    }
-    .btn-file {
-        position: relative;
-        overflow: hidden;
-    }
-    .btn-file input[type=file] {
-        position: absolute;
-        top: 0; right: 0;
-        min-width: 100%; min-height: 100%;
-        font-size: 100px;
-        text-align: right;
-        filter: alpha(opacity=0);
-        opacity: 0;
-        outline: none;
-        background: white;
-        cursor: inherit;
-        display: block;
-    }
-    .form-label {
-        font-weight: 600;
-        color: #2A3F54;
-        font-size: .88rem;
-    }
-    .form-control:focus {
-        border-color: var(--portal-gold);
-        box-shadow: 0 0 0 0.2rem rgba(212,172,75,.25);
-    }
-</style>
+<link rel="stylesheet" href="{{ asset('css/profile.css') }}?v={{ filemtime(public_path('css/profile.css')) }}">
 @endpush
 
 @section('content')
@@ -258,7 +208,10 @@
                             @endif
 
                             @if(!$readOnly)
-                            <div class="col-12 mt-4 text-end">
+                            <div class="col-12 mt-4 text-end d-flex justify-content-end gap-2">
+                                <button type="button" class="btn px-4" style="background: #1A4A8A; color: #fff; border: none;" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                                    <i class="bi bi-shield-lock me-1"></i> Change Password
+                                </button>
                                 <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Save Changes</button>
                             </div>
                             @endif
@@ -272,102 +225,101 @@
         </div>
     </div>
 </div>
+
+@if(!$readOnly)
+{{-- ── Change Password Modal ── --}}
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden;">
+
+            {{-- Modal Header --}}
+            <div class="modal-header" style="background: linear-gradient(135deg,#1A4A8A,#0D2B55); border-bottom: none; padding: 20px 24px;">
+                <div class="d-flex align-items-center gap-2">
+                    <div>
+                        <h5 class="modal-title mb-0" id="changePasswordModalLabel" style="color: #fff; font-weight: 700; font-size: 1.1rem;">Change Password</h5>
+                        <p class="mb-0" style="color: rgba(255,255,255,.6); font-size: 0.78rem;">Update your account security credentials</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            {{-- Modal Body --}}
+            <div class="modal-body" style="padding: 24px;">
+
+
+
+                @if(session('password_error') || $errors->has('current_password') || $errors->has('new_password'))
+                    <div class="text-danger mb-3 fw-semibold" style="font-size: 0.85rem;">
+                        @foreach($errors->get('current_password') as $error)
+                            <div>{{ $error }}</div>
+                        @endforeach
+                        @foreach($errors->get('new_password') as $error)
+                            <div>{{ $error }}</div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <form action="{{ route('profile.change_password') }}" method="POST" id="changePasswordForm" novalidate>
+                    @csrf
+
+                    <div class="row g-3">
+                        {{-- Current Password --}}
+                        <div class="col-12">
+                            <label for="current_password" class="form-label fw-semibold" style="color: #2A3F54; font-size: .88rem;">Current Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="current_password" name="current_password" placeholder="Enter your current password" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleCurrentPass" title="Show/hide password">
+                                    <i class="bi bi-eye" id="toggleCurrentPassIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- New Password --}}
+                        <div class="col-12">
+                            <label for="new_password" class="form-label fw-semibold" style="color: #2A3F54; font-size: .88rem;">New Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="new_password" name="new_password" placeholder="Min. 8 characters, letters & numbers" minlength="8" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleNewPass" title="Show/hide password">
+                                    <i class="bi bi-eye" id="toggleNewPassIcon"></i>
+                                </button>
+                            </div>
+                            <div id="pwStrengthFeedback" class="mt-2" style="font-size: 0.82rem; line-height: 1.5;">
+                                <div class="text-secondary" id="pw-rule-length"><i class="bi bi-circle me-2"></i>At least 8 characters</div>
+                                <div class="text-secondary" id="pw-rule-letter"><i class="bi bi-circle me-2"></i>Contains letters</div>
+                                <div class="text-secondary" id="pw-rule-number"><i class="bi bi-circle me-2"></i>Contains numbers</div>
+                            </div>
+                        </div>
+
+                        {{-- Confirm New Password --}}
+                        <div class="col-12">
+                            <label for="new_password_confirmation" class="form-label fw-semibold" style="color: #2A3F54; font-size: .88rem;">Confirm New Password <span class="text-danger">*</span></label>
+                            <div class="input-group has-validation">
+                                <input type="password" class="form-control" id="new_password_confirmation" name="new_password_confirmation" placeholder="Re-enter new password" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleConfirmNewPass" title="Show/hide password">
+                                    <i class="bi bi-eye" id="toggleConfirmNewPassIcon"></i>
+                                </button>
+                                <div class="invalid-feedback" id="confirmNewPwFeedback">Passwords do not match.</div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {{-- Modal Footer --}}
+            <div class="modal-footer" style="border-top: 1px solid #eef0f3; padding: 16px 24px;">
+                <button type="button" class="btn btn-light px-3" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="changePasswordForm" class="btn px-4" id="changePwBtn" style="background: linear-gradient(135deg,#1A4A8A,#0D2B55); color: #fff; border: none; font-weight: 600;">
+                    <i class="bi bi-shield-check me-1"></i> Update Password
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection
 
 @push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const photoInput = document.getElementById('photoInput');
-        const photoPreview = document.getElementById('photoPreview');
-
-        if(photoInput) {
-            photoInput.addEventListener('change', function() {
-                const file = this.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        photoPreview.src = e.target.result;
-                    }
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        /* ── Live Validation for Telephone, Fax, and Rep Contact ── */
-        const telInput = document.getElementById('telephone');
-        const faxInput = document.getElementById('fax');
-        const repContactInput = document.getElementById('rep_contact');
-
-        function validateLandline(input, typeName) {
-            let val = input.value.replace(/[^0-9]/g, '');
-            input.value = val;
-            
-            if (val.length === 10) {
-                input.classList.remove('is-invalid');
-                input.classList.add('is-valid');
-                input.setCustomValidity('');
-            } else if (val.length === 0) {
-                input.classList.remove('is-invalid', 'is-valid');
-                input.setCustomValidity('');
-            } else {
-                input.classList.remove('is-valid');
-                input.classList.add('is-invalid');
-                input.setCustomValidity(`Enter a valid 10-digit ${typeName} number (e.g. 0281234567).`);
-            }
-        }
-
-        function validateRepContact(input) {
-            let val = input.value.replace(/[^\d+]/g, '');
-            if (val.startsWith('+')) {
-                val = '+' + val.slice(1).replace(/\+/g, '');
-            } else {
-                val = val.replace(/\+/g, '');
-            }
-            input.value = val;
-
-            const pattern = /^(09|\+639)\d{9}$/;
-            if (val.length === 0) {
-                if (input.hasAttribute('required')) {
-                    input.classList.remove('is-valid');
-                    input.classList.add('is-invalid');
-                    input.setCustomValidity('Contact number is required.');
-                } else {
-                    input.classList.remove('is-invalid', 'is-valid');
-                    input.setCustomValidity('');
-                }
-            } else {
-                if (pattern.test(val)) {
-                    input.classList.remove('is-invalid');
-                    input.classList.add('is-valid');
-                    input.setCustomValidity('');
-                } else {
-                    input.classList.remove('is-valid');
-                    input.classList.add('is-invalid');
-                    input.setCustomValidity('Enter a valid PH mobile number (e.g. 09171234567).');
-                }
-            }
-        }
-
-        if (telInput) {
-            if (telInput.value) validateLandline(telInput, 'telephone');
-            telInput.addEventListener('input', function() {
-                validateLandline(this, 'telephone');
-            });
-        }
-
-        if (faxInput) {
-            if (faxInput.value) validateLandline(faxInput, 'facsimile');
-            faxInput.addEventListener('input', function() {
-                validateLandline(this, 'facsimile');
-            });
-        }
-
-        if (repContactInput) {
-            if (repContactInput.value) validateRepContact(repContactInput);
-            repContactInput.addEventListener('input', function() {
-                validateRepContact(this);
-            });
-        }
-    });
-</script>
+<script src="{{ asset('js/profile.js') }}?v={{ filemtime(public_path('js/profile.js')) }}"></script>
 @endpush

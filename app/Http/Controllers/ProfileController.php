@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\PasswordChangedEmail;
 
 class ProfileController extends Controller
 {
@@ -31,7 +34,7 @@ class ProfileController extends Controller
         }
 
         $readOnly = false;
-        return view('profile.index', compact('user', 'profile', 'layout', 'readOnly'));
+        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly'));
     }
 
     /**
@@ -65,7 +68,7 @@ class ProfileController extends Controller
         }
 
         $readOnly = true;
-        return view('profile.index', compact('user', 'profile', 'layout', 'readOnly'));
+        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly'));
     }
 
     /**
@@ -188,5 +191,58 @@ class ProfileController extends Controller
         }
 
         return back()->with('success', 'Profile updated successfully.');
+    }
+
+    /**
+     * Change the authenticated user's password.
+     */
+    public function changePassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'current_password'      => 'required',
+            'new_password'          => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[A-Za-z]/',    // must contain letters
+                'regex:/[0-9]/',       // must contain numbers
+                'confirmed',
+            ],
+        ], [
+            'new_password.min'       => 'New password must be at least 8 characters.',
+            'new_password.regex'     => 'New password must contain both letters and numbers.',
+            'new_password.confirmed' => 'Password confirmation does not match.',
+        ]);
+
+        // Verify old password matches
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors([
+                'current_password' => 'The current password you entered is incorrect.',
+            ])->with('password_error', true);
+        }
+
+        // Prevent reusing the same password
+        if (Hash::check($request->new_password, $user->password)) {
+            return back()->withErrors([
+                'new_password' => 'New password must be different from your current password.',
+            ])->with('password_error', true);
+        }
+
+        // Update password
+        $user->update([
+            'password' => Hash::make($request->new_password),
+        ]);
+
+        // Send password changed notification email
+        try {
+            Mail::to($user->email)->send(new PasswordChangedEmail($user));
+        } catch (\Exception $e) {
+            // Log error but don't block the password change
+            \Log::warning('Failed to send password changed email: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Your password has been changed successfully.');
     }
 }

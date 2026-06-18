@@ -79,7 +79,7 @@ class RenewalController extends Controller
             ->with([
                 'documents.documentField.documentType',
                 'documents.userDocument',
-                'user.instructors.credentials.instructor',
+                'instructors.credentials.instructor',
                 'payment',
                 'interview',
             ])
@@ -91,16 +91,36 @@ class RenewalController extends Controller
             ->first();
 
         // Get existing user documents grouped by document field code
-        $existingDocs = $user->userDocuments->keyBy(function ($doc) {
-            return $doc->documentField->code ?? null;
-        });
+        $existingDocs = collect();
+        if ($accreditation && $accreditation->application) {
+            $accreditation->application->load(['documents.userDocument', 'documents.documentField']);
+            $existingDocs = $accreditation->application->documents->mapWithKeys(function ($appDoc) {
+                if ($appDoc->userDocument && $appDoc->documentField) {
+                    return [$appDoc->documentField->code => $appDoc->userDocument];
+                }
+                return [];
+            })->filter();
+        } else {
+            $existingDocs = $user->userDocuments->keyBy(function ($doc) {
+                return $doc->documentField->code ?? null;
+            });
+        }
+
+        // Get instructors for renewal form
+        $instructors = collect();
+        if ($accreditation && $accreditation->application && $accreditation->application->instructors()->exists()) {
+            $instructors = $accreditation->application->instructors()->with('credentials')->get();
+        } else {
+            $instructors = $user->instructors()->with('credentials')->get();
+        }
 
         return view('applicant.renewal', compact(
             'user',
             'accreditation',
             'pendingRenewal',
             'pendingInstructorUpdate',
-            'existingDocs'
+            'existingDocs',
+            'instructors'
         ));
     }
 
@@ -204,7 +224,7 @@ class RenewalController extends Controller
             $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
 
             if ($field->input_type === 'file') {
-                if ($isRequired) {
+                if ($isRequired && (!$existing || !$existing->file_path)) {
                     $documentRules[$key] = ['required', 'file', 'mimes:pdf', 'max:10240'];
                 } else {
                     $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
@@ -341,30 +361,18 @@ class RenewalController extends Controller
                 foreach ($allFields as $code => $field) {
                     $filePath  = null;
                     $textValue = null;
-                    $hasNew    = false;
+                    $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
 
                     if ($field->input_type === 'file') {
                         if ($request->hasFile("documents.{$code}")) {
-                            $hasNew  = true;
                             $newFile = $request->file("documents.{$code}");
-
-                            // Delete old file first
-                            $existingDoc = UserDocument::where('user_id', $user->id)
-                                ->where('document_field_id', $field->id)
-                                ->first();
-
-                            if ($existingDoc && $existingDoc->file_path) {
-                                if (Storage::disk('local')->exists($existingDoc->file_path)) {
-                                    Storage::disk('local')->delete($existingDoc->file_path);
-                                }
-                            }
-
                             $filePath = "{$baseDocPath}/{$code}_{$timestamp}.pdf";
                             $newFile->storeAs($baseDocPath, "{$code}_{$timestamp}.pdf", 'local');
-                        } else {
-                            // Keep existing file
+                        } elseif ($isRequired) {
+                            // Keep existing file path from the latest document (only if required)
                             $existingDoc = UserDocument::where('user_id', $user->id)
                                 ->where('document_field_id', $field->id)
+                                ->orderBy('id', 'desc')
                                 ->first();
                             $filePath = $existingDoc?->file_path;
                         }
@@ -372,10 +380,10 @@ class RenewalController extends Controller
                         $val = $request->input("documents.{$code}");
                         if (!is_null($val) && $val !== '') {
                             $textValue = $val;
-                            $hasNew = true;
-                        } else {
+                        } elseif ($isRequired) {
                             $existingDoc = UserDocument::where('user_id', $user->id)
                                 ->where('document_field_id', $field->id)
+                                ->orderBy('id', 'desc')
                                 ->first();
                             $textValue = $existingDoc?->value;
                         }
@@ -383,10 +391,12 @@ class RenewalController extends Controller
 
                     // Only create application_document if user has data for this field
                     if ($filePath || $textValue) {
-                        $userDoc = UserDocument::updateOrCreate(
-                            ['user_id' => $user->id, 'document_field_id' => $field->id],
-                            ['file_path' => $filePath, 'value' => $textValue]
-                        );
+                        $userDoc = UserDocument::create([
+                            'user_id'           => $user->id,
+                            'document_field_id' => $field->id,
+                            'file_path'         => $filePath,
+                            'value'             => $textValue,
+                        ]);
 
                         ApplicationDocument::create([
                             'application_id'    => $application->id,
@@ -399,29 +409,11 @@ class RenewalController extends Controller
 
                 // ── 5. Handle instructors & credentials ───────────
                 $instructorsInput = $request->input('instructors', []);
-                
-                // Get all submitted instructor IDs that are not null/empty
-                $submittedIds = collect($instructorsInput)->pluck('id')->filter()->toArray();
 
-                // Find existing instructors of the user that were explicitly removed (not in submitted IDs)
-                $toDelete = $user->instructors()->whereNotIn('id', $submittedIds)->get();
-                foreach ($toDelete as $oldInst) {
-                    foreach ($oldInst->credentials as $cred) {
-                        if ($cred->pdf_path && Storage::disk('local')->exists($cred->pdf_path)) {
-                            Storage::disk('local')->delete($cred->pdf_path);
-                        }
-                        $cred->delete();
-                    }
-                    if ($oldInst->service_agreement_path && Storage::disk('local')->exists($oldInst->service_agreement_path)) {
-                        Storage::disk('local')->delete($oldInst->service_agreement_path);
-                    }
-                    $oldInst->delete();
-                }
-
-                // Process instructors input (updating or creating)
+                // Process instructors input (always create new ones for isolation)
                 foreach ($instructorsInput as $i => $instData) {
                     $instructorId = $instData['id'] ?? null;
-                    $existingInst = $instructorId ? $user->instructors()->find($instructorId) : null;
+                    $existingInst = $instructorId ? Instructor::where('id', $instructorId)->where('user_id', $user->id)->first() : null;
 
                     $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['first_name'] ?? ''));
                     $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instData['last_name'] ?? ''));
@@ -429,35 +421,21 @@ class RenewalController extends Controller
                     // Handle service agreement file
                     $saPermanent = $existingInst ? $existingInst->service_agreement_path : null;
                     if ($request->hasFile("instructors.{$i}.service_agreement")) {
-                        if ($saPermanent && Storage::disk('local')->exists($saPermanent)) {
-                            Storage::disk('local')->delete($saPermanent);
-                        }
                         $saFile = $request->file("instructors.{$i}.service_agreement");
                         $saPermanent = "{$baseCredPath}/sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
                         $saFile->storeAs($baseCredPath, "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
                     }
 
-                    if ($existingInst) {
-                        $existingInst->update([
-                            'first_name'             => $instData['first_name'] ?? '',
-                            'middle_name'            => $instData['middle_name'] ?? null,
-                            'last_name'              => $instData['last_name'] ?? '',
-                            'service_agreement_path' => $saPermanent,
-                            'status'                 => 'pending',
-                            'remarks'                => null,
-                        ]);
-                        $instructor = $existingInst;
-                    } else {
-                        $instructor = Instructor::create([
-                            'user_id'                => $user->id,
-                            'first_name'             => $instData['first_name'] ?? '',
-                            'middle_name'            => $instData['middle_name'] ?? null,
-                            'last_name'              => $instData['last_name'] ?? '',
-                            'service_agreement_path' => $saPermanent,
-                            'status'                 => 'pending',
-                            'remarks'                => null,
-                        ]);
-                    }
+                    $instructor = Instructor::create([
+                        'user_id'                => $user->id,
+                        'application_id'         => $application->id,
+                        'first_name'             => $instData['first_name'] ?? '',
+                        'middle_name'            => $instData['middle_name'] ?? null,
+                        'last_name'              => $instData['last_name'] ?? '',
+                        'service_agreement_path' => $saPermanent,
+                        'status'                 => 'pending',
+                        'remarks'                => null,
+                    ]);
 
                     // Credentials
                     foreach (self::CREDENTIAL_TYPES as $type) {
@@ -467,9 +445,6 @@ class RenewalController extends Controller
                         $credPermanent = $existingCred ? $existingCred->pdf_path : null;
 
                         if ($request->hasFile("instructors.{$i}.credentials.{$type}.pdf")) {
-                            if ($credPermanent && Storage::disk('local')->exists($credPermanent)) {
-                                Storage::disk('local')->delete($credPermanent);
-                            }
                             $credFile = $request->file("instructors.{$i}.credentials.{$type}.pdf");
                             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $type));
                             $credPermanent = "{$baseCredPath}/{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
@@ -483,23 +458,17 @@ class RenewalController extends Controller
                             || $credPermanent);
 
                         if ($hasData) {
-                            InstructorCredential::updateOrCreate(
-                                ['instructor_id' => $instructor->id, 'type' => $type],
-                                [
-                                    'number'         => $credData['number'] ?? null,
-                                    'issued_date'    => $credData['issued_date'] ?? null,
-                                    'validity_date'  => $credData['validity_date'] ?? null,
-                                    'training_dates' => $credData['training_dates'] ?? null,
-                                    'pdf_path'       => $credPermanent,
-                                    'status'         => 'pending',
-                                    'remarks'        => null,
-                                ]
-                            );
-                        } elseif ($existingCred) {
-                            if ($existingCred->pdf_path && Storage::disk('local')->exists($existingCred->pdf_path)) {
-                                Storage::disk('local')->delete($existingCred->pdf_path);
-                            }
-                            $existingCred->delete();
+                            InstructorCredential::create([
+                                'instructor_id'  => $instructor->id,
+                                'type'           => $type,
+                                'number'         => $credData['number'] ?? null,
+                                'issued_date'    => $credData['issued_date'] ?? null,
+                                'validity_date'  => $credData['validity_date'] ?? null,
+                                'training_dates' => $credData['training_dates'] ?? null,
+                                'pdf_path'       => $credPermanent,
+                                'status'         => 'pending',
+                                'remarks'        => null,
+                            ]);
                         }
                     }
                 }
@@ -571,7 +540,7 @@ class RenewalController extends Controller
                 'accreditationType',
                 'documents.documentField',
                 'documents.userDocument',
-                'user.instructors.credentials.instructor',
+                'instructors.credentials.instructor',
                 'latestStatus.status',
             ])
             ->first();
@@ -599,14 +568,12 @@ class RenewalController extends Controller
 
         // Strict backend validation: Make sure all rejected/returned items are provided in the upload
         $rejectedDocs = $application->documents->filter(fn($d) => in_array($d->status, ['rejected','returned']));
-        $rejectedInstructors = $application->user ? $application->user->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned'])) : collect();
+        $rejectedInstructors = $application->instructors->filter(fn($i) => in_array($i->status, ['rejected','returned']));
         $rejectedCredentials = collect();
-        if ($application->user) {
-            foreach ($application->user->instructors as $inst) {
-                foreach ($inst->credentials as $cred) {
-                    if (in_array($cred->status, ['rejected','returned'])) {
-                        $rejectedCredentials->push($cred);
-                    }
+        foreach ($application->instructors as $inst) {
+            foreach ($inst->credentials as $cred) {
+                if (in_array($cred->status, ['rejected','returned'])) {
+                    $rejectedCredentials->push($cred);
                 }
             }
         }
@@ -668,9 +635,7 @@ class RenewalController extends Controller
             $field = $appDoc->documentField;
             if (!$field || $field->input_type === 'file') continue;
 
-            $userDoc = UserDocument::where('user_id', $user->id)
-                ->where('document_field_id', $field->id)
-                ->first();
+            $userDoc = $appDoc->userDocument;
 
             if ($userDoc) {
                 $userDoc->update(['value' => $value]);
@@ -708,9 +673,7 @@ class RenewalController extends Controller
             $filename  = "{$code}_{$timestamp}.pdf";
             $finalPath = "{$baseDocPath}/{$filename}";
 
-            $userDoc = UserDocument::where('user_id', $user->id)
-                ->where('document_field_id', $field->id)
-                ->first();
+            $userDoc = $appDoc->userDocument;
 
             if ($userDoc && $userDoc->file_path) {
                 if (Storage::disk('local')->exists($userDoc->file_path)) {
@@ -741,7 +704,7 @@ class RenewalController extends Controller
 
         // Instructor service agreements
         foreach ($instructorFiles as $instructorId => $file) {
-            $instructor = $application->user->instructors->firstWhere('id', $instructorId);
+            $instructor = $application->instructors->firstWhere('id', $instructorId);
             if (!$instructor || !in_array($instructor->status, ['rejected', 'returned'])) continue;
 
             $timestamp = time();
@@ -769,7 +732,7 @@ class RenewalController extends Controller
         foreach ($credentialFiles as $credentialId => $file) {
             $credential = null;
             $instModel = null;
-            foreach ($application->user->instructors as $inst) {
+            foreach ($application->instructors as $inst) {
                 $cred = $inst->credentials->firstWhere('id', $credentialId);
                 if ($cred) {
                     $credential = $cred;

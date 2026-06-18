@@ -121,4 +121,12 @@ class Application extends Model
         }
         return round($totalSeconds / 32400, 1);
     }
+
+    /**
+     * Get the instructors associated with this application.
+     */
+    public function instructors()
+    {
+        return $this->hasMany(Instructor::class);
+    }
 }

@@ -3,7 +3,7 @@
 @section('title', 'Application – ' . $application->tracking_number)
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('css/show-application.css') }}">
+<link rel="stylesheet" href="{{ asset('css/show-application.css') }}?v={{ filemtime(public_path('css/show-application.css')) }}">
 @endpush
 
 @section('content')
@@ -13,13 +13,30 @@ $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
 $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 $isVerifier  = strtolower($isAdminRole) === 'verifier';
 
-// Filter out optional documents that have no uploaded file
+// Check if this is an approved/active application and if there is a pending renewal/reinstatement application
+$pendingRenewalOrReinstatement = null;
+$isApprovedOrAccredited = ($application->latestStatus?->status?->name === 'Approved' || $application->accreditation);
+if ($isApprovedOrAccredited && $application->user) {
+    $pendingRenewalOrReinstatement = \App\Models\Application::where('user_id', $application->user_id)
+        ->whereIn('application_type', ['renewal', 'reinstatement'])
+        ->whereHas('latestStatus', function($q) {
+            $q->whereHas('status', function($q2) {
+                $q2->whereNotIn('name', ['Approved', 'Rejected']);
+            });
+        })
+        ->first();
+}
+
+// Filter out documents that have no uploaded file/value
 $filteredDocs = $application->documents->reject(function ($doc) {
-    $code = $doc->documentField?->code;
-    if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
-        return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+    $field = $doc->documentField;
+    if (!$field) return false;
+    
+    $userDoc = $doc->userDocument;
+    if ($field->input_type === 'file') {
+        return !$userDoc || is_null($userDoc->file_path) || $userDoc->file_path === '';
     }
-    return false;
+    return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
 });
 $application->setRelation('documents', $filteredDocs);
 
@@ -40,8 +57,9 @@ $grouped = $application->documents
 $currentStatus = $application->latestStatus?->status?->name ?? 'Under Evaluation';
 $isScheduled = $currentStatus === 'Scheduled for Interview';
 $docApproved = $application->documents->count() === 0 || $application->documents->every(fn($d) => $d->status === 'approved');
-$instApproved = !$application->user || $application->user->instructors->count() === 0 || $application->user->instructors->every(fn($i) => $i->status === 'approved');
-$credApproved = !$application->user || $application->user->instructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+$applicationInstructors = $application->instructors()->exists() ? $application->instructors : ($application->user ? $application->user->instructors()->whereNull('application_id')->with('credentials')->get() : collect());
+$instApproved = $applicationInstructors->count() === 0 || $applicationInstructors->every(fn($i) => $i->status === 'approved');
+$credApproved = $applicationInstructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $applicationInstructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
 $allApproved = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
 
 $interview = $application->interview;
@@ -49,10 +67,7 @@ $isAccredited = (bool) $application->accreditation;
 $isApproved = $currentStatus === 'Approved';
 $isRejected = $currentStatus === 'Rejected';
 
-$hasPendingUpdate = false;
-if ($application->user && $application->user->instructors) {
-$hasPendingUpdate = $application->user->instructors->contains('update_request_status', 'pending_review');
-}
+$hasPendingUpdate = $applicationInstructors->contains('update_request_status', 'pending_review');
 
 $activePct = $application->activePctEntry;
 $activeStep = $activePct->step_number ?? 0;
@@ -111,7 +126,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             </span>
             @if($isVerifier)
             <button type="button"
-               class="btn btn-success btn-sm m-0 fw-semibold"
+               class="btn btn-success btn-sm m-0 fw-semibold {{ !$application->accreditation->scanned_certificate ? 'btn-pulse-highlight' : '' }}"
                style="border-radius:8px;font-size:.82rem;background:#15803d;border-color:#166534;"
                data-bs-toggle="modal"
                data-bs-target="#certDirectorModal"
@@ -265,13 +280,36 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             @foreach($pctSummary['steps'] as $step)
             @php
                 $stepStatus = $step['status'];
-                $stepColorClass = match($stepStatus) {
+                
+                $isWorkingHours = true;
+                $now = \Carbon\Carbon::now();
+                if ($now->isWeekend()) {
+                    $isWorkingHours = false;
+                } else {
+                    $holidays = \App\Services\PctService::getHolidays($now->year, $now->year);
+                    if (in_array($now->format('Y-m-d'), $holidays)) {
+                        $isWorkingHours = false;
+                    } else {
+                        $workStart = $now->copy()->setTime(8, 0, 0);
+                        $workEnd   = $now->copy()->setTime(17, 0, 0);
+                        if ($now->lessThan($workStart) || $now->greaterThanOrEqualTo($workEnd)) {
+                            $isWorkingHours = false;
+                        }
+                    }
+                }
+                
+                $displayStatus = $stepStatus;
+                if ($stepStatus === 'active' && !$isWorkingHours) {
+                    $displayStatus = 'paused';
+                }
+
+                $stepColorClass = match($displayStatus) {
                     'completed' => 'pct-step-completed',
                     'active'    => 'pct-step-active',
                     'paused'    => 'pct-step-paused',
                     default     => 'pct-step-pending',
                 };
-                $stepIcon = match($stepStatus) {
+                $stepIcon = match($displayStatus) {
                     'completed' => 'bi-check-circle-fill',
                     'active'    => 'bi-play-circle-fill',
                     'paused'    => 'bi-pause-circle-fill',
@@ -287,6 +325,36 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                         $stepSlaClass = 'pct-sla-ok';
                     }
                 }
+
+                $pausedReason = '';
+                if ($displayStatus === 'paused') {
+                    if ($stepStatus === 'paused') {
+                        if ($step['number'] == 3) {
+                            $pausedReason = 'Waiting for applicant';
+                        } elseif ($step['number'] == 5) {
+                            $pausedReason = 'Waiting for scheduled interview';
+                        } elseif ($step['number'] == 7) {
+                            $pausedReason = 'Waiting for applicant';
+                        } else {
+                            $pausedReason = 'Waiting for applicant';
+                        }
+                    } else {
+                        if ($now->isWeekend()) {
+                            $pausedReason = 'Weekend';
+                        } else {
+                            $holidays = \App\Services\PctService::getHolidays($now->year, $now->year);
+                            if (in_array($now->format('Y-m-d'), $holidays)) {
+                                $pausedReason = 'Holiday';
+                            } else {
+                                $workStart = $now->copy()->setTime(8, 0, 0);
+                                $workEnd   = $now->copy()->setTime(17, 0, 0);
+                                if ($now->lessThan($workStart) || $now->greaterThanOrEqualTo($workEnd)) {
+                                    $pausedReason = 'Past Working Hours';
+                                }
+                            }
+                        }
+                    }
+                }
             @endphp
             <div class="pct-step {{ $stepColorClass }}">
                 <div class="pct-step-connector"></div>
@@ -296,7 +364,9 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 <div class="pct-step-content">
                     <div class="pct-step-header">
                         <span class="pct-step-number">Step {{ $step['number'] }}</span>
-                        <span class="pct-step-name">{{ $step['name'] }}</span>
+                        <span class="pct-step-name">
+                            {{ $step['name'] }}<span @if($stepStatus === 'active') id="pct-paused-reason-live" @endif class="text-warning fw-semibold ms-1 pct-paused-reason-text" style="{{ $pausedReason ? '' : 'display: none;' }}">@if($pausedReason) — {{ $pausedReason }} @endif</span>
+                        </span>
                         @if($stepStatus !== 'pending')
                         @php
                             $s = $step['elapsed_seconds'] ?? 0;
@@ -348,93 +418,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const pctBody = document.getElementById('pctTimelineBody');
-    const pctChevron = document.getElementById('pctChevron');
-    if (pctBody && pctChevron) {
-        pctBody.addEventListener('show.bs.collapse', () => pctChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-        pctBody.addEventListener('hide.bs.collapse', () => pctChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-    }
-
-    const docsBody = document.getElementById('submittedDocumentsBody');
-    const docsChevron = document.getElementById('docsChevron');
-    if (docsBody && docsChevron) {
-        docsBody.addEventListener('show.bs.collapse', () => docsChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-        docsBody.addEventListener('hide.bs.collapse', () => docsChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-    }
-
-    const credsBody = document.getElementById('instructorCredentialsBody');
-    const credsChevron = document.getElementById('credsChevron');
-    if (credsBody && credsChevron) {
-        credsBody.addEventListener('show.bs.collapse', () => credsChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-        credsBody.addEventListener('hide.bs.collapse', () => credsChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-    }
-
-    // Dynamic chevrons for subfolders
-    document.querySelectorAll('[id^="folder-body-"]').forEach(body => {
-        const typeId = body.id.replace('folder-body-', '');
-        const chevron = document.getElementById(`folder-chevron-${typeId}`);
-        if (chevron) {
-            body.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-            body.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-        }
-    });
-
-    // Dynamic chevrons for instructors
-    document.querySelectorAll('[id^="instructor-body-"]').forEach(body => {
-        const instructorId = body.id.replace('instructor-body-', '');
-        const chevron = document.getElementById(`instructor-chevron-${instructorId}`);
-        if (chevron) {
-            body.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-            body.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-        }
-    });
-
-    // Live Ticker for Active Step
-    const liveCounter = document.getElementById('livePctCounter');
-    if (liveCounter) {
-        let seconds = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
-        const targetDays = liveCounter.getAttribute('data-target');
-        const holidaysList = {!! json_encode(\App\Services\PctService::getHolidays(now()->year - 1, now()->year + 1)) !!};
-        
-        setInterval(() => {
-            const now = new Date();
-            
-            // 1. Working days: Monday - Friday (exclude weekends)
-            const day = now.getDay();
-            if (day === 0 || day === 6) return;
-            
-            // 2. Holidays: Exclude declared holidays
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            const dateStr = `${yyyy}-${mm}-${dd}`;
-            if (holidaysList.includes(dateStr)) return;
-            
-            // 3. Working hours: 8:00 AM – 5:00 PM
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            const secondsOfDay = hours * 3600 + minutes * 60 + now.getSeconds();
-            const startSeconds = 8 * 3600;  // 8:00 AM
-            const endSeconds = 17 * 3600;  // 5:00 PM
-            if (secondsOfDay < startSeconds || secondsOfDay >= endSeconds) return;
-            
-            // Increment working seconds
-            seconds++;
-            
-            const days = (seconds / 32400).toFixed(1);
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            
-            let liveTime = `${hrs}h ${mins}m ${secs}s`;
-            
-            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
-        }, 1000);
-    }
-});
-</script>
 @endif
 
 {{-- ══ Org / Reps Card ══ --}}
@@ -550,7 +533,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <th class="text-center">Date Accredited</th>
                         <th class="text-center">Valid Until</th>
                         <th class="text-center">Status</th>
-                        <th class="text-center no-sort" style="width: 80px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -571,18 +553,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             @endphp
                             <span class="badge {{ $histBadge }}">{{ ucfirst($histAcc->status) }}</span>
                         </td>
-                        <td class="text-center" style="white-space: nowrap;">
-                            @if($isVerifier)
-                            <button type="button"
-                               class="btn btn-xs btn-outline-success m-0 px-2 py-0"
-                               style="font-size:.72rem;" title="View Certificate"
-                               data-bs-toggle="modal"
-                               data-bs-target="#certDirectorModal"
-                               onclick="setCertUrl('{{ route('admin.hcd.accreditations.certificate', $histAcc->id) }}')">
-                                <i class="bi bi-file-earmark-pdf"></i> PDF
-                            </button>
-                            @endif
-                        </td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -590,16 +560,6 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const historyBody = document.getElementById('accreditationHistoryBody');
-        const chevron = document.getElementById('historyChevron');
-        if (historyBody && chevron) {
-            historyBody.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
-            historyBody.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
-        }
-    });
-</script>
 @endif
 
 {{-- ══ Evaluation Form ══ --}}
@@ -607,6 +567,25 @@ document.addEventListener('DOMContentLoaded', function() {
     data-url="{{ route('admin.hcd.applications.finalize_evaluation', $application->id) }}">
     @csrf
 
+    @if ($pendingRenewalOrReinstatement)
+        <div class="ai-card mb-4" style="border-left: 5px solid #1A4A8A;">
+            <div class="ai-card-body p-4 text-center">
+                <div style="width: 56px; height: 56px; background: #e8f0fe; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+                    <i class="bi bi-info-circle fs-3" style="color: #1A4A8A;"></i>
+                </div>
+                <h5 class="fw-bold mb-2" style="color: #1A4A8A; font-family: 'Outfit', sans-serif;">Currently Applying for {{ ucfirst($pendingRenewalOrReinstatement->application_type) }}</h5>
+                <p class="text-muted mb-0" style="max-width: 600px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">
+                    This First Aid Training Provider has submitted a pending <strong>{{ ucfirst($pendingRenewalOrReinstatement->application_type) }}</strong> application.
+                    The active accredited documents and instructor credentials are hidden because a new application is currently in progress.
+                </p>
+                <div class="mt-4">
+                    <a href="{{ route('admin.hcd.applications.show', $pendingRenewalOrReinstatement->id) }}" class="btn btn-primary btn-sm fw-bold px-4 py-2" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(13,110,253,0.15);">
+                        <i class="bi bi-arrow-right-circle me-1"></i> View Pending {{ ucfirst($pendingRenewalOrReinstatement->application_type) }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    @else
     {{-- ── Documents Card ── --}}
     @php
         $totalDocs = $application->documents->count();
@@ -767,13 +746,14 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>
     </div>
+    @endif
 
     {{-- ── Instructor Credentials Card ── --}}
-    @if($application->user && $application->user->instructors && $application->user->instructors->count() > 0)
+    @if(!$pendingRenewalOrReinstatement && $applicationInstructors && $applicationInstructors->count() > 0)
     @php
         $totalInstructorItems = 0;
         $approvedInstructorItems = 0;
-        foreach($application->user->instructors as $inst) {
+        foreach($applicationInstructors as $inst) {
             $totalInstructorItems += $inst->credentials->count() + 1;
             $approvedInstructorItems += $inst->credentials->where('status', 'approved')->count();
             if ($inst->status === 'approved') {
@@ -799,7 +779,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div id="instructorCredentialsBody" class="collapse {{ $isAccredited || $isApproved || $isRejected ? '' : 'show' }}">
             <div class="pt-2">
                 <div class="row g-3">
-                    @foreach($application->user->instructors as $instructor)
+                    @foreach($applicationInstructors as $instructor)
                     @php
                         $totalInstItems = $instructor->credentials->count() + 1;
                         $approvedInstItems = $instructor->credentials->where('status', 'approved')->count() + ($instructor->status === 'approved' ? 1 : 0);
@@ -1154,10 +1134,13 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="bi bi-play-circle-fill me-1 text-primary"></i>
             The interview is scheduled. Click below when it actually begins:
         </p>
-        <form action="{{ route('admin.hcd.applications.start_interview', $application->id) }}" method="POST">
+        <form id="start-interview-form" action="{{ route('admin.hcd.applications.start_interview', $application->id) }}" method="POST">
             @csrf
             <button type="submit" class="btn btn-primary btn-sm fw-bold px-4" style="border-radius:8px;">
-                <i class="bi bi-play-fill me-1"></i> Start Interview
+                <span class="btn-text"><i class="bi bi-play-fill me-1"></i> Start Interview</span>
+                <span class="btn-spinner d-none">
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span> Starting...
+                </span>
             </button>
         </form>
     </div>
@@ -1417,9 +1400,16 @@ document.addEventListener('DOMContentLoaded', function() {
 {{-- ══ Certificate Issuance Panel (Step 8) ══ --}}
 @if($isAccredited)
     <div class="ai-card mb-4 mt-4" style="border-left: 4px solid #16a34a; background-color: #f0fdf4;">
-        <div class="ai-card-header">
-            <i class="bi bi-file-earmark-check fs-5 text-dark"></i>
-            <h5 class="fw-bold text-dark mb-0">Certificate Issuance</h5>
+        <div class="ai-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-check fs-5 text-dark"></i>
+                <h5 class="fw-bold text-dark mb-0">Certificate Issuance</h5>
+            </div>
+            @if($isVerifier && !$application->accreditation->scanned_certificate)
+            <button type="button" class="btn btn-sm btn-warning btn-pulse-highlight fw-bold shadow-sm" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                <i class="bi bi-arrow-up-circle me-1"></i> Go to View Certificate PDF
+            </button>
+            @endif
         </div>
         <div class="x_content p-3 mt-2">
             <p class="text-muted small">
@@ -1722,7 +1712,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {{-- ══ Shared variables for modal applicant details partial ══ --}}
 @php
-$modalInstructors = $user->instructors ?? collect();
+$modalInstructors = $applicationInstructors;
 $applicantName = $isOrg ? ($org->name ?? 'N/A') : ($user->name ?? 'N/A');
 $applicantEmail = $isOrg ? ($org->email ?? $user->email) : $user->email;
 $accTypeName = $application->accreditationType->name ?? '—';
@@ -1926,8 +1916,8 @@ $accTypeName = $application->accreditationType->name ?? '—';
 @endif
 
 {{-- ══ Request Update Modals (outside main form to avoid nesting issues) ══ --}}
-@if($application->user && $application->user->instructors)
-@foreach($application->user->instructors as $instructor)
+@if($applicationInstructors)
+@foreach($applicationInstructors as $instructor)
 @if($isAccredited && in_array($instructor->update_request_status, ['none', 'completed']))
 <div class="modal fade" id="reqModal-inst-{{ $instructor->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -2032,39 +2022,7 @@ $accTypeName = $application->accreditationType->name ?? '—';
         </div>
     </div>
 </div>
-<script>
-var _certBaseUrl = '';
-function setCertUrl(url) {
-    _certBaseUrl = url;
-    var nameInput = document.getElementById('cert-director-name');
-    if (nameInput) {
-        nameInput.value = 'JOSE MARIA S. BATINO';
-        nameInput.classList.remove('is-invalid');
-    }
-}
-function generateCert() {
-    var nameInput = document.getElementById('cert-director-name');
-    var name = nameInput ? nameInput.value.trim() : '';
-    if (!name) {
-        if (nameInput) nameInput.classList.add('is-invalid');
-        return;
-    }
-    var url = _certBaseUrl + '?executive_director=' + encodeURIComponent(name);
-    window.open(url, '_blank');
-    
-    // Close modal programmatically by clicking the modal's close/cancel button
-    var modalEl = document.getElementById('certDirectorModal');
-    if (modalEl) {
-        var cancelBtn = modalEl.querySelector('[data-bs-dismiss="modal"]');
-        if (cancelBtn) {
-            cancelBtn.click();
-        }
-    }
-}
-document.getElementById('cert-director-name').addEventListener('input', function () {
-    this.classList.remove('is-invalid');
-});
-</script>
+
 
 @endsection
 
@@ -2083,124 +2041,9 @@ document.getElementById('cert-director-name').addEventListener('input', function
     window.ARMS.evaluateItemUrl = '{{ route("admin.hcd.applications.evaluate_item", $application->id) }}';
     window.ARMS.applicationStatus = '{{ $currentStatus }}';
     window.ARMS.applicationId = {{ $application->id }};
+    @if($pctSummary['has_entries'])
+    window.ARMS.holidays = {!! json_encode(\App\Services\PctService::getHolidays(now()->year - 1, now()->year + 1)) !!};
+    @endif
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
-<script>
-    // ── Interview Slot Conflict Checker ──────────────────────────────────────
-    (function() {
-        'use strict';
-
-        const dateInput = document.getElementById('interview-date');
-        const timeInput = document.getElementById('interview-time');
-        const warningBox = document.getElementById('slot-conflict-warning');
-        const warningMsg = document.getElementById('slot-conflict-msg');
-        const submitBtn = document.querySelector('#schedule-interview-form button[type="submit"], button[form="schedule-interview-form"]');
-
-        if (!dateInput || !timeInput) return;
-
-        let checkTimeout = null;
-
-        function checkSlot() {
-            const date = dateInput.value;
-            const time = timeInput.value;
-
-            // Only check when both fields are filled
-            if (!date || !time) {
-                hideWarning();
-                return;
-            }
-
-            clearTimeout(checkTimeout);
-            checkTimeout = setTimeout(async function() {
-                try {
-                    const url = new URL(window.ARMS.checkSlotUrl, window.location.origin);
-                    url.searchParams.set('date', date);
-                    url.searchParams.set('time', time);
-                    url.searchParams.set('application_id', window.ARMS.applicationId);
-
-                    const res = await fetch(url.toString(), {
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-                    const data = await res.json();
-
-                    if (!data.available) {
-                        showWarning(data.message);
-                    } else {
-                        hideWarning();
-                    }
-                } catch (err) {
-                    console.error('Slot check failed:', err);
-                    hideWarning();
-                }
-            }, 350); // debounce 350ms
-        }
-
-        function showWarning(msg) {
-            if (warningBox) {
-                warningMsg.textContent = msg;
-                warningBox.classList.remove('d-none');
-                warningBox.classList.add('d-flex');
-            }
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.5';
-                submitBtn.style.cursor = 'not-allowed';
-            }
-        }
-
-        function hideWarning() {
-            if (warningBox) {
-                warningBox.classList.add('d-none');
-                warningBox.classList.remove('d-flex');
-            }
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'pointer';
-            }
-        }
-
-        dateInput.addEventListener('change', checkSlot);
-        timeInput.addEventListener('change', checkSlot);
-    })();
-</script>
-<script>
-    // Request Update modal — show/hide reason input when checkbox is checked
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('req-chk')) {
-            const targetId = e.target.dataset.target;
-            const box = document.getElementById(targetId);
-            if (box) {
-                box.style.display = e.target.checked ? 'block' : 'none';
-                const input = box.querySelector('input, textarea');
-                if (input) input.required = e.target.checked;
-            }
-        }
-    });
-
-    // Approval and Rejection modal submission loaders
-    (function() {
-        'use strict';
-        const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form'];
-        forms.forEach(function(formId) {
-            const form = document.getElementById(formId);
-            if (form) {
-                form.addEventListener('submit', function() {
-                    const btn = form.querySelector('button[type="submit"]');
-                    if (btn) {
-                        btn.disabled = true;
-                        btn.style.opacity = '0.85';
-                        btn.style.cursor = 'not-allowed';
-                        const textSpan = btn.querySelector('.btn-text');
-                        const spinnerSpan = btn.querySelector('.btn-spinner');
-                        if (textSpan) textSpan.classList.add('d-none');
-                        if (spinnerSpan) spinnerSpan.classList.remove('d-none');
-                    }
-                });
-            }
-        });
-    })();
-</script>
 @endpush

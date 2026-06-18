@@ -213,6 +213,12 @@
         const btnText  = document.getElementById('btn-schedule-text');
         if (!btn) return;
 
+        // If the application is already approved or scheduled in the database,
+        // we do not want to manage the save-approvals states, as the button is used for scheduling.
+        if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
+            return;
+        }
+
         if (rejected > 0) {
             // ── State 2: Some rejected → Send Rejection Email ──
             btn.disabled = false;
@@ -601,8 +607,302 @@
         // Hide eval buttons (belt-and-suspenders alongside blade guard)
         document.querySelectorAll('.doc-eval-actions').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.reject-panel').forEach(el => el.style.display = 'none');
-    } else {
-        refreshState();
+    } // end if (allApproved || isScheduled)
+
+    /* ─── Chevrons / Panel Collapses ──────────────────────── */
+    const pctBody = document.getElementById('pctTimelineBody');
+    const pctChevron = document.getElementById('pctChevron');
+    if (pctBody && pctChevron) {
+        pctBody.addEventListener('show.bs.collapse', () => pctChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+        pctBody.addEventListener('hide.bs.collapse', () => pctChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
     }
+
+    const docsBody = document.getElementById('submittedDocumentsBody');
+    const docsChevron = document.getElementById('docsChevron');
+    if (docsBody && docsChevron) {
+        docsBody.addEventListener('show.bs.collapse', () => docsChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+        docsBody.addEventListener('hide.bs.collapse', () => docsChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+    }
+
+    const credsBody = document.getElementById('instructorCredentialsBody');
+    const credsChevron = document.getElementById('credsChevron');
+    if (credsBody && credsChevron) {
+        credsBody.addEventListener('show.bs.collapse', () => credsChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+        credsBody.addEventListener('hide.bs.collapse', () => credsChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+    }
+
+    // Dynamic chevrons for subfolders
+    document.querySelectorAll('[id^="folder-body-"]').forEach(body => {
+        const typeId = body.id.replace('folder-body-', '');
+        const chevron = document.getElementById(`folder-chevron-${typeId}`);
+        if (chevron) {
+            body.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+            body.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+        }
+    });
+
+    const historyBody = document.getElementById('accreditationHistoryBody');
+    const historyChevron = document.getElementById('historyChevron');
+    if (historyBody && historyChevron) {
+        historyBody.addEventListener('show.bs.collapse', () => historyChevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+        historyBody.addEventListener('hide.bs.collapse', () => historyChevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+    }
+
+    /* ─── Certificate Generation ──────────────────────────── */
+    let certBaseUrl = '';
+    window.setCertUrl = function(url) {
+        certBaseUrl = url;
+        const nameInput = document.getElementById('cert-director-name');
+        if (nameInput) {
+            nameInput.value = 'JOSE MARIA S. BATINO';
+            nameInput.classList.remove('is-invalid');
+        }
+    };
+
+    window.generateCert = function() {
+        const nameInput = document.getElementById('cert-director-name');
+        const name = nameInput ? nameInput.value.trim() : '';
+        if (!name) {
+            if (nameInput) nameInput.classList.add('is-invalid');
+            return;
+        }
+        const url = certBaseUrl + '?executive_director=' + encodeURIComponent(name);
+        window.open(url, '_blank');
+        
+        // Close modal programmatically by clicking the modal's close/cancel button
+        const modalEl = document.getElementById('certDirectorModal');
+        if (modalEl) {
+            const cancelBtn = modalEl.querySelector('[data-bs-dismiss="modal"]');
+            if (cancelBtn) {
+                cancelBtn.click();
+            }
+        }
+    };
+
+    const certDirNameInput = document.getElementById('cert-director-name');
+    if (certDirNameInput) {
+        certDirNameInput.addEventListener('input', function () {
+            this.classList.remove('is-invalid');
+        });
+    }
+
+    /* ─── Interview Slot Conflict Checker ─────────────────── */
+    const dateInput = document.getElementById('interview-date');
+    const timeInput = document.getElementById('interview-time');
+    const warningBox = document.getElementById('slot-conflict-warning');
+    const warningMsg = document.getElementById('slot-conflict-msg');
+    const submitBtn = document.querySelector('#schedule-interview-form button[type="submit"], button[form="schedule-interview-form"]');
+
+    if (dateInput && timeInput) {
+        let checkTimeout = null;
+
+        const checkSlot = function() {
+            const date = dateInput.value;
+            const time = timeInput.value;
+
+            // Only check when both fields are filled
+            if (!date || !time) {
+                hideWarning();
+                return;
+            }
+
+            clearTimeout(checkTimeout);
+            checkTimeout = setTimeout(async function() {
+                try {
+                    const checkSlotUrl = window.ARMS?.checkSlotUrl;
+                    const appId = window.ARMS?.applicationId;
+                    if (!checkSlotUrl || !appId) return;
+
+                    const url = new URL(checkSlotUrl, window.location.origin);
+                    url.searchParams.set('date', date);
+                    url.searchParams.set('time', time);
+                    url.searchParams.set('application_id', appId);
+
+                    const res = await fetch(url.toString(), {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    const data = await res.json();
+
+                    if (!data.available) {
+                        showWarning(data.message);
+                    } else {
+                        hideWarning();
+                    }
+                } catch (err) {
+                    console.error('Slot check failed:', err);
+                    hideWarning();
+                }
+            }, 350); // debounce 350ms
+        };
+
+        const showWarning = function(msg) {
+            if (warningBox) {
+                warningMsg.textContent = msg;
+                warningBox.classList.remove('d-none');
+                warningBox.classList.add('d-flex');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+            }
+        };
+
+        const hideWarning = function() {
+            if (warningBox) {
+                warningBox.classList.add('d-none');
+                warningBox.classList.remove('d-flex');
+            }
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+        };
+
+        dateInput.addEventListener('change', checkSlot);
+        timeInput.addEventListener('change', checkSlot);
+    }
+
+    /* ─── Request Update Reasons Modal & Submission Loaders ─ */
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('req-chk')) {
+            const targetId = e.target.dataset.target;
+            const box = document.getElementById(targetId);
+            if (box) {
+                box.style.display = e.target.checked ? 'block' : 'none';
+                const input = box.querySelector('input, textarea');
+                if (input) input.required = e.target.checked;
+            }
+        }
+    });
+
+    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form', 'start-interview-form'];
+    forms.forEach(function(formId) {
+        const form = document.getElementById(formId);
+        if (form) {
+            form.addEventListener('submit', function() {
+                const btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.85';
+                    btn.style.cursor = 'not-allowed';
+                    const textSpan = btn.querySelector('.btn-text');
+                    const spinnerSpan = btn.querySelector('.btn-spinner');
+                    if (textSpan) textSpan.classList.add('d-none');
+                    if (spinnerSpan) spinnerSpan.classList.remove('d-none');
+                }
+            });
+        }
+    });
+
+    // Dynamic chevrons for instructors
+    document.querySelectorAll('[id^="instructor-body-"]').forEach(body => {
+        const instructorId = body.id.replace('instructor-body-', '');
+        const chevron = document.getElementById(`instructor-chevron-${instructorId}`);
+        if (chevron) {
+            body.addEventListener('show.bs.collapse', () => chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'));
+            body.addEventListener('hide.bs.collapse', () => chevron.classList.replace('bi-chevron-up', 'bi-chevron-down'));
+        }
+    });
+
+    // Live Ticker for Active Step
+    const liveCounter = document.getElementById('livePctCounter');
+    if (liveCounter) {
+        let seconds = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
+        const targetDays = liveCounter.getAttribute('data-target');
+        const holidaysList = window.ARMS?.holidays || [];
+        
+        setInterval(() => {
+            const now = new Date();
+            
+            // 1. Working days: Monday - Friday (exclude weekends)
+            const day = now.getDay();
+            let isWorking = true;
+            let jsPausedReason = '';
+            if (day === 0 || day === 6) {
+                isWorking = false;
+                jsPausedReason = 'Weekend';
+            }
+            
+            // 2. Holidays: Exclude declared holidays
+            if (isWorking) {
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+                if (holidaysList.includes(dateStr)) {
+                    isWorking = false;
+                    jsPausedReason = 'Holiday';
+                }
+            }
+            
+            // 3. Working hours: 8:00 AM – 5:00 PM
+            if (isWorking) {
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+                const secondsOfDay = hours * 3600 + minutes * 60 + now.getSeconds();
+                const startSeconds = 8 * 3600;  // 8:00 AM
+                const endSeconds = 17 * 3600;  // 5:00 PM
+                if (secondsOfDay < startSeconds || secondsOfDay >= endSeconds) {
+                    isWorking = false;
+                    jsPausedReason = 'Past Working Hours';
+                }
+            }
+            
+            if (!isWorking) {
+                const stepEl = liveCounter.closest('.pct-step');
+                if (stepEl && stepEl.classList.contains('pct-step-active')) {
+                    stepEl.classList.remove('pct-step-active');
+                    stepEl.classList.add('pct-step-paused');
+                    const iconEl = stepEl.querySelector('.pct-step-icon i');
+                    if (iconEl) {
+                        iconEl.classList.remove('bi-play-circle-fill');
+                        iconEl.classList.add('bi-pause-circle-fill');
+                    }
+                }
+                const reasonEl = document.getElementById('pct-paused-reason-live');
+                if (reasonEl) {
+                    reasonEl.textContent = ` — ${jsPausedReason}`;
+                    reasonEl.style.display = 'inline';
+                }
+                return;
+            } else {
+                const stepEl = liveCounter.closest('.pct-step');
+                if (stepEl && stepEl.classList.contains('pct-step-paused')) {
+                    stepEl.classList.remove('pct-step-paused');
+                    stepEl.classList.add('pct-step-active');
+                    const iconEl = stepEl.querySelector('.pct-step-icon i');
+                    if (iconEl) {
+                        iconEl.classList.remove('bi-pause-circle-fill');
+                        iconEl.classList.add('bi-play-circle-fill');
+                    }
+                }
+                const reasonEl = document.getElementById('pct-paused-reason-live');
+                if (reasonEl) {
+                    reasonEl.textContent = '';
+                    reasonEl.style.display = 'none';
+                }
+            }
+            
+            // Increment working seconds
+            seconds++;
+            
+            const days = (seconds / 32400).toFixed(1);
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            let liveTime = `${hrs}h ${mins}m ${secs}s`;
+            
+            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
+        }, 1000);
+    }
+
+    // Always run refreshState on page load so the evaluation button
+    // is correctly initialised regardless of approval/schedule state.
+    refreshState();
 
 })();

@@ -15,7 +15,7 @@ background: linear-gradient(135deg, #e0f2fe, #bae6fd);
   Dear {{ $application->user->name }},
 </p>
 <p>
-  Your {{ $application->application_type }} application with tracking number <strong>{{ $application->tracking_number }}</strong>is now <strong>Under Evaluation</strong>.
+  Your {{ $application->application_type }} application with tracking number <strong>{{ $application->tracking_number }}</strong> is now <strong>Under Evaluation</strong>.
 </p>
 
 <div class="tracking-card">

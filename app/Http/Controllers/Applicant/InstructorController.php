@@ -15,10 +15,17 @@ class InstructorController extends Controller
      */
     public function index()
     {
+        // Get all instructors belonging to the user, ordered by ID desc so the latest version is first.
+        // Then filter duplicates in memory keeping only the latest version, and sort alphabetically by last_name.
         $instructors = Instructor::where('user_id', auth()->id())
             ->with('credentials')
-            ->orderBy('last_name')
-            ->get();
+            ->orderBy('id', 'desc')
+            ->get()
+            ->unique(function ($item) {
+                return strtolower(trim($item->first_name) . '|' . trim($item->middle_name) . '|' . trim($item->last_name));
+            })
+            ->sortBy('last_name')
+            ->values();
 
         return view('applicant.instructor_list', compact('instructors'));
     }
@@ -36,6 +43,29 @@ class InstructorController extends Controller
         $isAccredited = auth()->user()->accreditations()->where('status', 'active')->exists();
 
         return view('applicant.instructor_show', compact('instructor', 'isAccredited'));
+    }
+
+    /**
+     * Update the instructor's name.
+     */
+    public function updateName(Request $request, Instructor $instructor)
+    {
+        abort_if($instructor->user_id !== auth()->id(), 403);
+
+        $request->validate([
+            'first_name'  => 'required|string|max:255',
+            'last_name'   => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+        ]);
+
+        $instructor->update([
+            'first_name'  => $request->input('first_name'),
+            'last_name'   => $request->input('last_name'),
+            'middle_name' => $request->input('middle_name'),
+        ]);
+
+        return redirect()->route('applicant.instructors.show', $instructor->id)
+            ->with('success', 'Instructor name updated successfully.');
     }
 
     /**

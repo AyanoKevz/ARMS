@@ -42,9 +42,15 @@
     </p>
 
     <div class="btn-wrap">
-        <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-primary" style="background-color: #dc3545;">
-            Re-upload Payment Details
-        </a>
+        @if ($application->application_type === 'new')
+            <a href="{{ url('/track-application?tracking_number=' . $application->tracking_number) }}" class="btn-primary" style="background-color: #dc3545;">
+                Re-upload Payment Details
+            </a>
+        @else
+            <a href="{{ route('applicant.dashboard') }}" class="btn-primary" style="background-color: #dc3545;">
+                Re-upload Payment Details
+            </a>
+        @endif
     </div>
 
     <p style="font-size:0.85rem; color:#888;">

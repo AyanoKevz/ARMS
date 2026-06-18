@@ -259,7 +259,7 @@ class ApplicationController extends Controller
             CacheService::underReviewKey(),
             CacheService::TTL_LIST,
             fn () => Application::with([
-                'user.organizationProfile',
+                'user.organizationProfile.authorizedRepresentatives',
                 'user.individualProfile',
                 'accreditationType',
                 'latestStatus.status',
@@ -309,7 +309,7 @@ class ApplicationController extends Controller
             'documents.userDocument',
             'interview',
             'accreditation',
-            'user.instructors.credentials',
+            'instructors.credentials',
             'pctEntries',
         ]);
 
@@ -354,13 +354,16 @@ class ApplicationController extends Controller
 
         $application = $document->application;
 
-        // Re-load all documents for this application to check if all are approved (excluding unuploaded optional ones)
+        // Re-load all documents for this application to check if all are approved (excluding unuploaded ones)
         $allDocs = $application->documents()->with('userDocument', 'documentField')->get()->reject(function ($doc) {
-            $code = $doc->documentField?->code;
-            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
-                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            $field = $doc->documentField;
+            if (!$field) return false;
+            
+            $userDoc = $doc->userDocument;
+            if ($field->input_type === 'file') {
+                return !$userDoc || is_null($userDoc->file_path) || $userDoc->file_path === '';
             }
-            return false;
+            return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
         });
         $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
 
@@ -429,12 +432,10 @@ class ApplicationController extends Controller
         if ($itemType === 'document') {
             $item = ApplicationDocument::where('application_id', $application->id)->findOrFail($itemId);
         } elseif ($itemType === 'instructor') {
-            $item = \App\Models\Instructor::whereHas('user.applications', function ($q) use ($application) {
-                $q->where('id', $application->id);
-            })->findOrFail($itemId);
+            $item = \App\Models\Instructor::where('application_id', $application->id)->findOrFail($itemId);
         } else {
-            $item = \App\Models\InstructorCredential::whereHas('instructor.user.applications', function ($q) use ($application) {
-                $q->where('id', $application->id);
+            $item = \App\Models\InstructorCredential::whereHas('instructor', function ($q) use ($application) {
+                $q->where('application_id', $application->id);
             })->findOrFail($itemId);
         }
 
@@ -549,12 +550,10 @@ class ApplicationController extends Controller
 
         // Hardened Backend Guardrail: Check if there are any rejected items already in the database
         $hasRejectionsInDb = $application->documents()->whereIn('status', ['rejected', 'returned'])->exists()
-            || ($application->user && (
-                $application->user->instructors()->whereIn('status', ['rejected', 'returned'])->exists()
-                || \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
-                    ->whereIn('status', ['rejected', 'returned'])
-                    ->exists()
-            ));
+            || $application->instructors()->whereIn('status', ['rejected', 'returned'])->exists()
+            || \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
+                ->whereIn('status', ['rejected', 'returned'])
+                ->exists();
 
         if ($hasRejectionsInDb) {
             $hasRejections = true;
@@ -624,8 +623,8 @@ class ApplicationController extends Controller
 
                 // Send Email
                 $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
-                $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
-                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                $rejectedInstructors = $application->instructors()->where('status', 'rejected')->get();
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
                 Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
@@ -692,17 +691,20 @@ class ApplicationController extends Controller
         }
 
         // ── New / Renewal / Reinstatement path ──────────────────────────────
-        // Check if all are approved (secondary safety check) (excluding unuploaded optional ones)
+        // Check if all are approved (secondary safety check) (excluding unuploaded ones)
         $allDocs = $application->documents()->with('userDocument', 'documentField')->get()->reject(function ($doc) {
-            $code = $doc->documentField?->code;
-            if (in_array($code, ['LEGAL_07', 'TRAIN_02', 'QA_01'])) {
-                return !$doc->userDocument || is_null($doc->userDocument->file_path) || $doc->userDocument->file_path === '';
+            $field = $doc->documentField;
+            if (!$field) return false;
+            
+            $userDoc = $doc->userDocument;
+            if ($field->input_type === 'file') {
+                return !$userDoc || is_null($userDoc->file_path) || $userDoc->file_path === '';
             }
-            return false;
+            return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
         });
         $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
-        $allInstApproved = $application->user->instructors()->get()->every(fn($i) => $i->status === 'approved');
-        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+        $allInstApproved = $application->instructors()->get()->every(fn($i) => $i->status === 'approved');
+        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
 
         if ($allApproved && $allInstApproved && $allCredApproved) {
             // Status: Scheduled for Interview (ID 4)
@@ -719,21 +721,28 @@ class ApplicationController extends Controller
             // ── PCT: Complete Step 3 (Evaluation), Start Step 4 (Pending Interview)
             $this->pctService->transitionToStep($application, 4);
 
+            $emailSent = true;
             if ($application->user && $application->user->email) {
                 try {
                     Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
+                    $emailSent = false;
                 }
             }
 
             // Bust caches
             CacheService::bustApplicationCaches();
 
+            $message = 'All documents approved! You can now schedule the interview.';
+            if (!$emailSent) {
+                $message .= ' (Warning: Email notification failed to send. Please check mailer/network settings.)';
+            }
+
             return response()->json([
                 'success' => true,
                 'action' => 'proceed_to_interview',
-                'message' => 'All documents approved! You can now schedule the interview.',
+                'message' => $message,
                 'new_status' => 'Scheduled for Interview'
             ]);
         }
@@ -829,7 +838,7 @@ class ApplicationController extends Controller
             $query->where('application_id', '!=', $request->input('application_id'));
         }
 
-        $sameDayInterviews = $query->with('application.user.organizationProfile', 'application.user.individualProfile')->get();
+        $sameDayInterviews = $query->with('application.user.organizationProfile.authorizedRepresentatives', 'application.user.individualProfile')->get();
 
         $conflict = null;
         foreach ($sameDayInterviews as $existing) {
@@ -871,7 +880,7 @@ class ApplicationController extends Controller
         $this->checkVerifierAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
             'latestStatus.status',
@@ -897,7 +906,7 @@ class ApplicationController extends Controller
         $this->checkVerifierAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
             'latestStatus.status',
@@ -1149,7 +1158,7 @@ class ApplicationController extends Controller
             CacheService::renewalUnderReviewKey(),
             CacheService::TTL_LIST,
             fn () => Application::with([
-                'user.organizationProfile',
+                'user.organizationProfile.authorizedRepresentatives',
                 'user.individualProfile',
                 'user.accreditations',
                 'accreditationType',
@@ -1184,7 +1193,7 @@ class ApplicationController extends Controller
                 $query->where('name', 'like', '%FATPro%')
                       ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
-            ->with(['user.organizationProfile', 'accreditationType', 'application'])
+            ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -1203,7 +1212,7 @@ class ApplicationController extends Controller
                 $q->where('name', 'like', '%FATPro%')
                   ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
-            ->with(['user.organizationProfile', 'accreditationType', 'application']);
+            ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application']);
 
         if ($status === 'revoked') {
             $query->where('status', 'revoked');
@@ -1222,7 +1231,7 @@ class ApplicationController extends Controller
     public function downloadCertificate(Request $request, \App\Models\Accreditation $accreditation)
     {
         $accreditation->load([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
         ]);
@@ -1411,7 +1420,7 @@ class ApplicationController extends Controller
     public function archived()
     {
         $applications = Application::with([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
             'latestStatus.status',
@@ -1437,7 +1446,7 @@ class ApplicationController extends Controller
 
         // Allow both Verifiers and Evaluators to access the list so they can view and print the recommendation form.
         $applications = Application::with([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
             'latestStatus.status',
@@ -1462,7 +1471,7 @@ class ApplicationController extends Controller
         $this->checkEvaluatorAccess(); // Block evaluators, only allow verifiers
 
         $applications = Application::with([
-            'user.organizationProfile',
+            'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
             'latestStatus.status',
@@ -1512,7 +1521,7 @@ class ApplicationController extends Controller
             return redirect()->route('admin.hcd.applications.generate_recommendation', $application->id);
         }
 
-        $application->load(['user.organizationProfile', 'user.individualProfile', 'accreditationType', 'interview']);
+        $application->load(['user.organizationProfile.authorizedRepresentatives', 'user.individualProfile', 'accreditationType', 'interview']);
 
         // Resolve applicant display name
         $user = $application->user;
@@ -1634,27 +1643,37 @@ class ApplicationController extends Controller
             $today = now()->toDateString();
 
             if ($isRenewalOrReinstatement) {
-                // For renewal/reinstatement: update the existing accreditation record
+                // For renewal/reinstatement: mark previous accreditation as expired and create a new one
                 $prevAccreditation = Accreditation::where('user_id', $application->user_id)
                     ->orderBy('id', 'desc')
                     ->first();
 
                 if ($prevAccreditation) {
-                    // Delete old scanned certificate file so Step 8 is not skipped
-                    if ($prevAccreditation->scanned_certificate && Storage::disk('local')->exists($prevAccreditation->scanned_certificate)) {
-                        Storage::disk('local')->delete($prevAccreditation->scanned_certificate);
+                    $oldAccNumber = $prevAccreditation->accreditation_number;
+                    $parts = explode('-', $oldAccNumber);
+                    $suffix = '000';
+                    if (count($parts) > 0) {
+                        $lastPart = end($parts);
+                        preg_match('/\d+$/', $lastPart, $matches);
+                        $suffix = isset($matches[0]) ? str_pad(substr($matches[0], -3), 3, '0', STR_PAD_LEFT) : '000';
                     }
+                    $accNumber = "235-{$datePrefix}-{$suffix}";
 
+                    // Mark previous accreditation as expired
                     $prevAccreditation->update([
+                        'status' => 'expired',
+                    ]);
+
+                    $accreditation = Accreditation::create([
+                        'user_id'               => $application->user_id,
                         'application_id'        => $application->id,
                         'accreditation_type_id' => $application->accreditation_type_id,
+                        'accreditation_number'  => $accNumber,
                         'date_of_accreditation' => $today,
                         'validity_date'         => now()->addYears(3)->toDateString(),
                         'status'                => 'active',
                         'scanned_certificate'   => null,
                     ]);
-                    $accreditation = $prevAccreditation;
-                    $accNumber = $prevAccreditation->accreditation_number;
                 } else {
                     // Edge case: no previous accreditation found, create a new one
                     $accNumber = $this->generateNewAccreditationNumber($datePrefix);

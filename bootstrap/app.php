@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('accreditation:expiry-check')->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        // Inject security response headers on every web request.
+        $middleware->web(prepend: [
+            \App\Http\Middleware\SecurityHeaders::class,
+        ]);
+
         $middleware->alias([
             'prevent-back-history' => \App\Http\Middleware\PreventBackHistory::class,
         ]);

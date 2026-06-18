@@ -1,0 +1,30 @@
+.file-upload-wrapper .custom-file-btn {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+.real-file-input.is-invalid ~ .file-invalid-feedback {
+    display: block !important;
+}
+.was-validated .real-file-input:invalid ~ div .custom-file-btn,
+.real-file-input.is-invalid ~ div .custom-file-btn {
+    border-color: var(--bs-danger) !important;
+    color: var(--bs-danger) !important;
+    background-color: #fff5f5 !important;
+}
+.real-file-input:valid ~ div .custom-file-btn {
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+    color: white !important;
+}
+input[type="file"]:valid,
+input[type="file"].is-valid,
+input[type="file"]:invalid,
+input[type="file"].is-invalid {
+    background-image: none !important;
+    padding-right: 0 !important;
+}
+.file-name-text.text-truncate {
+    display: inline-block;
+    vertical-align: middle;
+}

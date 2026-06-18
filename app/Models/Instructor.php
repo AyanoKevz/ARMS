@@ -11,6 +11,7 @@ class Instructor extends Model
 
     protected $fillable = [
         'user_id',
+        'application_id',
         'first_name',
         'middle_name',
         'last_name',
@@ -32,6 +33,14 @@ class Instructor extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The application this instructor belongs to.
+     */
+    public function application()
+    {
+        return $this->belongsTo(Application::class);
     }
 
     /**

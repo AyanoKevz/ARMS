@@ -12,6 +12,7 @@ return new class extends Migration
         Schema::create('instructors', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('application_id')->nullable()->constrained()->cascadeOnDelete();
             // Belongs to the FATPro applicant (Organization user)
 
             $table->string('first_name');

@@ -87,10 +87,42 @@ class PctService
     }
 
     /**
+     * Clean up duplicate PCT entries for the same step.
+     */
+    public function cleanupDuplicateEntries(Application $application): void
+    {
+        $groups = $application->pctEntries()
+            ->get()
+            ->groupBy('step_number');
+
+        $hasDeleted = false;
+        foreach ($groups as $stepNumber => $entries) {
+            if ($entries->count() > 1) {
+                // Keep the latest one, delete the rest
+                $sorted = $entries->sortByDesc('id');
+                $keep = $sorted->first();
+                foreach ($sorted as $entry) {
+                    if ($entry->id !== $keep->id) {
+                        $entry->delete();
+                        $hasDeleted = true;
+                    }
+                }
+            }
+        }
+
+        if ($hasDeleted) {
+            $application->unsetRelation('pctEntries');
+        }
+    }
+
+    /**
      * Auto-initialize missing PCT entries for historical or skipped applications.
      */
     public function initializeMissingEntries(Application $application): void
     {
+        // ── Clean up any duplicate entries for the same step ──
+        $this->cleanupDuplicateEntries($application);
+
         if ($application->pctEntries()->exists()) {
             return;
         }
@@ -154,7 +186,7 @@ class PctService
     {
         $stepDef = self::STEPS[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
 
-        return PctEntry::create([
+        $newStep = PctEntry::create([
             'application_id' => $application->id,
             'step_name'      => $stepDef['name'],
             'step_number'    => $stepNumber,
@@ -163,6 +195,9 @@ class PctService
             'is_active'      => true,
             'elapsed_seconds' => 0,
         ]);
+
+        $application->unsetRelation('pctEntries');
+        return $newStep;
     }
 
     /**
@@ -173,6 +208,7 @@ class PctService
         $active = $application->pctEntries()->active()->first();
         if ($active) {
             $active->complete();
+            $application->unsetRelation('pctEntries');
         }
         return $active;
     }
@@ -182,6 +218,20 @@ class PctService
      */
     public function transitionToStep(Application $application, int $nextStepNumber): PctEntry
     {
+        // Guard: if the next step is already active/paused, just complete the current one (if different) and return it
+        $existing = $application->pctEntries()
+            ->where('step_number', $nextStepNumber)
+            ->whereNull('completed_at')
+            ->first();
+
+        if ($existing) {
+            $active = $application->pctEntries()->active()->first();
+            if ($active && $active->step_number !== $nextStepNumber) {
+                $active->complete();
+            }
+            return $existing;
+        }
+
         $this->completeCurrentStep($application);
         return $this->startStep($application, $nextStepNumber);
     }
@@ -350,6 +400,9 @@ class PctService
      */
     public function getSummary(Application $application): array
     {
+        // ── Clean up any duplicate entries for the same step ──
+        $this->cleanupDuplicateEntries($application);
+
         // ── Auto-Resume Step 5 (Interview) if scheduled time is reached or passed ──
         $this->autoResumeInterviewIfScheduled($application);
 

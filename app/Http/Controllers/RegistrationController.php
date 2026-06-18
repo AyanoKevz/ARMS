@@ -217,7 +217,12 @@ class RegistrationController extends Controller
         ]);
 
         // ── Create pending registration ────────────────────────────
-        PendingRegistration::where('email', $request->email)->delete();
+        // Clean up any old pending registrations and directories for this email
+        $oldPending = PendingRegistration::where('email', $request->email)->get();
+        foreach ($oldPending as $old) {
+            Storage::disk('local')->deleteDirectory("pending/{$old->token}");
+            $old->delete();
+        }
 
         $pending = PendingRegistration::create([
             'token'                 => $token,
@@ -275,7 +280,8 @@ class RegistrationController extends Controller
             // Already processed by an email scanner's prefetch or a previous click.
             $app = \App\Models\Application::where('user_id', $existingUser->id)->first();
             
-            // Clean up the pending record now that the user actually clicked it
+            // Clean up the pending record and directory
+            Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
             $pending->delete();
             
             return view('landing.verify-result', [
@@ -285,6 +291,7 @@ class RegistrationController extends Controller
         }
 
         if ($pending->isExpired()) {
+            Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
             $pending->delete();
             return view('landing.verify-result', [
                 'status'  => 'error',
@@ -416,6 +423,7 @@ class RegistrationController extends Controller
 
                     $instructor = Instructor::create([
                         'user_id'                => $user->id,
+                        'application_id'         => $application->id,
                         'first_name'             => $instData['first_name']  ?? '',
                         'middle_name'            => $instData['middle_name'] ?? null,
                         'last_name'              => $instData['last_name']   ?? '',

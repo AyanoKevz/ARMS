@@ -50,7 +50,9 @@ return new class extends Migration
             $table->string('file_path')->nullable();
             $table->text('value')->nullable();
             $table->timestamps();
-            $table->unique(['user_id', 'document_field_id']);
+
+            $table->index('user_id');
+            $table->index('document_field_id');
         });
 
         Schema::create('application_documents', function (Blueprint $table) {

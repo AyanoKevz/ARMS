@@ -651,3 +651,364 @@ test('finalizeEvaluation preserves already approved items and does not reset the
     $appDoc2->refresh();
     expect($appDoc2->status)->toBe('rejected');
 });
+
+test('approved application hides documents and credentials if there is a pending renewal', function () {
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'eval_test_pending_ren@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_pending_ren@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Active approved application
+    $approvedApp = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-APPROVED-01',
+    ]);
+
+    $approvedStatus = ApplicationStatus::firstOrCreate(['name' => 'Approved']);
+    ApplicationStatusLog::create([
+        'application_id' => $approvedApp->id,
+        'status_id' => $approvedStatus->id,
+    ]);
+
+    // Link it to an active accreditation
+    \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $approvedApp->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => 'FATPRO-APPROVED-01',
+        'date_of_accreditation' => now()->format('Y-m-d'),
+        'validity_date' => now()->addYears(2)->format('Y-m-d'),
+        'status' => 'active',
+    ]);
+
+    // Pending renewal application
+    $renewalApp = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-TEST-RENEWAL-01',
+    ]);
+
+    $underEvalStatus = ApplicationStatus::firstOrCreate(['name' => 'Under Evaluation']);
+    ApplicationStatusLog::create([
+        'application_id' => $renewalApp->id,
+        'status_id' => $underEvalStatus->id,
+    ]);
+
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.applications.show', $approvedApp->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+
+    expect($html)->toContain('Currently Applying for Renewal');
+    expect($html)->not->toContain('Submitted Documents</h5>');
+    expect($html)->not->toContain('Instructor Credentials</h5>');
+});
+
+test('applicant instructor list deduplicates instructors and shows the latest version', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_dedup@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Active approved application instructor
+    $oldInstructor = \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'status' => 'approved',
+    ]);
+
+    // Cloned renewal application instructor (newer)
+    $newInstructor = \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'first_name' => 'John',
+        'last_name' => 'Doe',
+        'status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.instructors.index'));
+
+    $response->assertStatus(200);
+
+    // Retrieve the view data
+    $instructors = $response->viewData('instructors');
+
+    expect($instructors->count())->toBe(1);
+    expect($instructors->first()->id)->toBe($newInstructor->id);
+    expect($instructors->first()->status)->toBe('pending');
+});
+
+test('accreditation number middle part updates to current date on renewal', function () {
+    $this->withoutExceptionHandling();
+    Mail::fake();
+
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $verifierAdminRole = AdminRole::firstOrCreate(['name' => 'Verifier']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $verifier = User::forceCreate([
+        'email' => 'eval_test_renewal_num@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $verifier->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Verifier',
+        'position' => 'Verifier',
+        'admin_role_id' => $verifierAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_renewal_num@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Create a previous application
+    $prevApplication = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-PREV',
+    ]);
+
+    // 1. Create a previous active accreditation for the user linked to prevApplication
+    $prevAccreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $prevApplication->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-048',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    // 2. Create a renewal application
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-TEST-REN-NUM',
+    ]);
+
+    // Set status to Payment Verification
+    $status = ApplicationStatus::firstOrCreate(['name' => 'Payment Verification']);
+    ApplicationStatusLog::create([
+        'application_id' => $application->id,
+        'status_id' => $status->id,
+    ]);
+
+    // Create payment record
+    $payment = \App\Models\ApplicationPayment::create([
+        'application_id' => $application->id,
+        'proof_of_payment' => 'dummy_payment.pdf',
+        'proof_of_payment_status' => 'pending',
+    ]);
+
+    // Mock PDF file upload
+    $file = \Illuminate\Http\UploadedFile::fake()->create('signed_recommendation.pdf', 100, 'application/pdf');
+
+    // Submit payment evaluation approving the payment
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($verifier)
+        ->post(route('admin.hcd.applications.evaluate_payment', $application->id), [
+            'signed_recommendation_letter' => $file,
+            'proof_of_payment_status' => 'approved',
+            'proof_of_payment_remarks' => 'Looks good',
+        ]);
+
+    $response->assertRedirect();
+
+    // Verify the old accreditation is expired and has kept its number
+    $prevAccreditation->refresh();
+    expect($prevAccreditation->status)->toBe('expired');
+    expect($prevAccreditation->accreditation_number)->toBe('235-240101-048');
+
+    // Verify a new accreditation record was created with the updated middle part and correct suffix
+    $newAccreditation = \App\Models\Accreditation::where('application_id', $application->id)->first();
+    expect($newAccreditation)->not->toBeNull();
+    $expectedDatePrefix = now()->format('ymd');
+    expect($newAccreditation->accreditation_number)->toBe("235-{$expectedDatePrefix}-048");
+    expect($newAccreditation->status)->toBe('active');
+
+    // Clean up mock file
+    if ($payment->signed_recommendation_letter && \Illuminate\Support\Facades\Storage::disk('local')->exists($payment->signed_recommendation_letter)) {
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($payment->signed_recommendation_letter);
+    }
+});
+
+test('optional documents not uploaded in renewal are not created and thus hidden from admin show page', function () {
+    $this->withoutExceptionHandling();
+    Mail::fake();
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_opt_docs@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Create organization profile
+    \App\Models\OrganizationProfile::create([
+        'user_id' => $applicant->id,
+        'name' => 'Test Organization',
+        'address' => 'Test Address',
+        'email' => 'app_test_opt_docs@example.com',
+        'head_name' => 'Head Name',
+        'designation' => 'Director',
+    ]);
+
+    // Create previous application
+    $prevApplication = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-OPT-PREV',
+    ]);
+
+    // Create previous active accreditation
+    \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $prevApplication->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-048',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    // Seed document fields: one optional (LEGAL_07) and one required (LEGAL_01)
+    $optField = DocumentField::where('code', 'LEGAL_07')->first();
+    $reqField = DocumentField::where('code', 'LEGAL_01')->first();
+
+    // Let's seed UserDocument for ALL document fields for the user
+    $documentFields = DocumentField::all();
+    foreach ($documentFields as $field) {
+        $val = null;
+        $filePath = null;
+        if ($field->input_type === 'file') {
+            $filePath = "dummy_files/test_document_{$field->code}.pdf";
+        } elseif ($field->input_type === 'date') {
+            $val = '2026-01-01';
+        } else {
+            $val = 'test value';
+        }
+
+        UserDocument::create([
+            'user_id' => $applicant->id,
+            'document_field_id' => $field->id,
+            'file_path' => $filePath,
+            'value' => $val,
+        ]);
+    }
+
+
+
+    $file = \Illuminate\Http\UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf');
+
+    // Post to renewal store without submitting the optional document
+    $response = $this->actingAs($applicant)
+        ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->post(route('applicant.renewal.store'), [
+            'application_type' => 'renewal',
+            'org_name' => 'Test Organization',
+            'org_address' => 'Test Address',
+            'head_name' => 'Head Name',
+            'org_email' => 'app_test_opt_docs@example.com',
+            'rep_full_name' => 'Rep Full Name',
+            'rep_position' => 'Rep Position',
+            'rep_contact_number' => '09171234567',
+            'rep_email' => 'rep@example.com',
+            'instructors' => [
+                [
+                    'first_name' => 'John',
+                    'last_name' => 'Doe',
+                    'service_agreement' => $file,
+                    'credentials' => [
+                        'EMS' => [
+                            'number' => 'EMS-123',
+                            'issued_date' => '2026-01-01',
+                            'validity_date' => '2028-01-01',
+                            'pdf' => $file,
+                        ],
+                        'TM1' => [
+                            'number' => 'TM1-123',
+                            'issued_date' => '2026-01-01',
+                            'validity_date' => '2028-01-01',
+                            'pdf' => $file,
+                        ],
+                        'NTTC' => [
+                            'number' => 'NTTC-123',
+                            'issued_date' => '2026-01-01',
+                            'validity_date' => '2028-01-01',
+                            'pdf' => $file,
+                        ],
+                        'BOSH' => [
+                            'number' => 'BOSH-123',
+                            'validity_date' => '2028-01-01',
+                            'training_dates' => 'Jan 1-5, 2026',
+                            'pdf' => $file,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+    $response->assertRedirect();
+
+    // Verify a new renewal application is created
+    $renewalApp = Application::where('user_id', $applicant->id)->where('application_type', 'renewal')->first();
+    expect($renewalApp)->not->toBeNull();
+
+    // Verify ApplicationDocument for LEGAL_01 was created (copied because it's required)
+    $reqAppDoc = ApplicationDocument::where('application_id', $renewalApp->id)
+        ->where('document_field_id', $reqField->id)
+        ->first();
+    expect($reqAppDoc)->not->toBeNull();
+
+    // Verify ApplicationDocument for LEGAL_07 was NOT created (optional and not uploaded)
+    $optAppDoc = ApplicationDocument::where('application_id', $renewalApp->id)
+        ->where('document_field_id', $optField->id)
+        ->first();
+    expect($optAppDoc)->toBeNull();
+});
+
+
