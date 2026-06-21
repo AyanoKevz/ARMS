@@ -68,26 +68,26 @@
 @endphp
 
 <!-- HCD Admin Sidebar -->
-<li class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
-<li class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
-<li class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.admins') }}"><i class="fas fa-users-cog"></i> HCD Admin List </a></li>
+<li id="tour-step-dashboard" class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
+<li id="tour-step-profile" class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
+<li id="tour-step-admin-list" class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.admins') }}"><i class="fas fa-users-cog"></i> HCD Admin List </a></li>
 
 @if(!$isVerifier)
-<li class="{{ $newAppsParentActive ? 'active' : '' }}"><a><i class="fas fa-folder-plus"></i>New Applications <span class="fas fa-chevron-down"></span></a>
+<li id="tour-step-new-apps" class="{{ $newAppsParentActive ? 'active' : '' }}"><a><i class="fas fa-folder-plus"></i>New Applications <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $newAppsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $newPendingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.applications.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
         <li class="{{ $newUnderReviewActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.applications.under_review') }}"><i class="fas fa-search"></i> Under Review</a></li>
     </ul>
 </li>
 
-<li class="{{ $renewalParentActive ? 'active' : '' }}"><a><i class="fas fa-sync-alt"></i> Renewal / Reinstatement <span class="fas fa-chevron-down"></span></a>
+<li id="tour-step-renewal" class="{{ $renewalParentActive ? 'active' : '' }}"><a><i class="fas fa-sync-alt"></i> Renewal / Reinstatement <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $renewalParentActive ? 'display: block;' : '' }}">
         <li class="{{ $renewalPendingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.renewal.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
         <li class="{{ $renewalUnderReviewActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.renewal.under_review') }}"><i class="fas fa-search"></i> Under Review</a></li>
     </ul>
 </li>
 
-<li class="{{ $interviewsParentActive ? 'active' : '' }}"><a><i class="fas fa-calendar-check"></i> Schedule Interviews <span class="fas fa-chevron-down"></span></a>
+<li id="tour-step-interviews" class="{{ $interviewsParentActive ? 'active' : '' }}"><a><i class="fas fa-calendar-check"></i> Schedule Interviews <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $interviewsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $intPendingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.interviews.pending') }}"><i class="fas fa-clock"></i> Pending to Schedule</a></li>
         <li class="{{ $intScheduledActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.interviews.scheduled') }}"><i class="fas fa-calendar-check"></i> Scheduled Interviews</a></li>
@@ -96,11 +96,11 @@
 @endif
 
 @if($isVerifier)
-<li class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
-<li class="{{ $releasingActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.releasing') }}"><i class="fas fa-file-signature"></i> Releasing </a></li>
+<li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
+<li id="tour-step-releasing" class="{{ $releasingActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.releasing') }}"><i class="fas fa-file-signature"></i> Releasing </a></li>
 @elseif($isEvaluator)
-<li class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
+<li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
 @endif
-<li class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
-<li class="{{ $inactiveFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
-<li class="{{ $archivedActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>
+<li id="tour-step-active-fatpro" class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
+<li id="tour-step-inactive-fatpro" class="{{ $inactiveFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
+<li id="tour-step-archived" class="{{ $archivedActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>

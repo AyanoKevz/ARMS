@@ -568,3 +568,304 @@ body.nav-sm .sidebar-footer #real-time-date {
     }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   FILE VIEWER MODAL
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#fileViewerModal .modal-dialog {
+    max-width: 92vw !important;
+    height: 90vh !important;
+    margin: 4vh auto !important;
+}
+
+#fileViewerModal .modal-content {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#fileViewerModal .modal-body {
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    position: relative;
+}
+
+#fileViewerFrame {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+/* Loading spinner shown while iframe loads */
+#fileViewerModal .modal-body::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 40px; height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 3px solid #e5e7eb;
+    border-top-color: var(--portal-gold);
+    border-radius: 50%;
+    animation: fvSpin 0.8s linear infinite;
+    z-index: 0;
+}
+
+#fileViewerFrame { z-index: 1; background: #fff; }
+
+@keyframes fvSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SIDEBAR QUICK TOUR — Intro.js Overrides & Custom Styles
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Intro.js tooltip box ── */
+.introjs-tooltip {
+    background: #ffffff !important;
+    color: #2A3F54 !important;
+    border: 1px solid var(--portal-gold) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18), 0 0 0 1px rgba(212,172,75,.25) !important;
+    min-width: 300px !important;
+    max-width: 340px !important;
+    padding: 0 !important;
+    font-family: 'Poppins', sans-serif !important;
+    animation: tourFadeSlide 0.28s ease !important;
+}
+
+@keyframes tourFadeSlide {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Tooltip header band ── */
+.introjs-tooltip-header {
+    background: linear-gradient(135deg, #0D2B55, #1A4A8A) !important;
+    border-bottom: 2px solid var(--portal-gold) !important;
+    border-radius: 14px 14px 0 0 !important;
+    padding: 12px 18px 10px !important;
+}
+
+.introjs-tooltip-title {
+    color: var(--portal-gold) !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .02em !important;
+}
+
+/* ── Close (×) button in header ── */
+.introjs-skipbutton {
+    color: rgba(255,255,255,.55) !important;
+    font-size: 1.2rem !important;
+    line-height: 1 !important;
+    top: 10px !important;
+    right: 14px !important;
+    transition: color 0.2s !important;
+}
+.introjs-skipbutton:hover {
+    color: #fff !important;
+}
+
+/* ── Tooltip body text ── */
+.introjs-tooltiptext {
+    color: #4a5568 !important;
+    font-size: 0.84rem !important;
+    line-height: 1.65 !important;
+    padding: 14px 18px 10px !important;
+    background: #ffffff !important;
+}
+
+/* ── Progress bar (step dots row) ── */
+.introjs-bullets {
+    padding: 4px 18px 8px !important;
+    background: #ffffff !important;
+}
+.introjs-bullets ul li a {
+    background: rgba(212,172,75,.35) !important;
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    transition: background 0.2s !important;
+}
+.introjs-bullets ul li a.active,
+.introjs-bullets ul li a:hover {
+    background: var(--portal-gold) !important;
+    width: 20px !important;
+    border-radius: 4px !important;
+}
+
+/* ── Step counter text ── */
+.introjs-progress {
+    background: #e5e7eb !important;
+    border-radius: 4px !important;
+    height: 4px !important;
+    margin: 0 18px 10px !important;
+}
+.introjs-progressbar {
+    background: var(--portal-gold) !important;
+    border-radius: 4px !important;
+}
+
+/* ── Footer buttons row ── */
+.introjs-tooltipbuttons {
+    border-top: 1px solid rgba(212,172,75,.3) !important;
+    background: linear-gradient(135deg, #0D2B55, #1A4A8A) !important;
+    border-radius: 0 0 14px 14px !important;
+    padding: 12px 18px 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* Nav buttons row (Back + Next) */
+.tour-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Skip + Never show again row */
+.tour-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+
+/* Skip & Don't show again — pill button */
+.tour-skip-link {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 20px;
+    padding: 4px 16px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(255,255,255,.6);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    font-family: 'Poppins', sans-serif;
+    white-space: nowrap;
+}
+.tour-skip-link:hover {
+    background: rgba(255,255,255,.18);
+    border-color: rgba(255,255,255,.35);
+    color: #fff;
+}
+
+/* ── Prev / Next / Done buttons ── */
+.introjs-button {
+    border-radius: 8px !important;
+    font-size: 0.80rem !important;
+    font-weight: 600 !important;
+    padding: 6px 16px !important;
+    text-shadow: none !important;
+    transition: all 0.2s !important;
+    border: none !important;
+    cursor: pointer !important;
+}
+
+.introjs-nextbutton,
+.introjs-donebutton {
+    background: var(--portal-gold) !important;
+    color: #0D2B55 !important;
+    border: none !important;
+}
+.introjs-nextbutton:hover,
+.introjs-donebutton:hover {
+    background: #e8c55e !important;
+    color: #0D2B55 !important;
+}
+
+.introjs-prevbutton {
+    background: rgba(255,255,255,.1) !important;
+    color: rgba(255,255,255,.8) !important;
+    border: 1px solid rgba(255,255,255,.2) !important;
+}
+.introjs-prevbutton:hover {
+    background: rgba(255,255,255,.2) !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,.35) !important;
+}
+
+.introjs-disabled,
+.introjs-prevbutton.introjs-disabled {
+    background: rgba(255,255,255,.04) !important;
+    color: rgba(255,255,255,.25) !important;
+    border-color: rgba(255,255,255,.08) !important;
+    cursor: not-allowed !important;
+}
+
+/* ── Overlay backdrop ── */
+.introjs-overlay {
+    background: rgba(8, 20, 40, 0.72) !important;
+}
+
+/* ── Highlight box around each sidebar item ── */
+.introjs-helperLayer {
+    border-radius: 8px !important;
+    border: 2px solid var(--portal-gold) !important;
+    box-shadow:
+        0 0 0 2000px rgba(8,20,40,.72),
+        0 0 22px 4px rgba(212,172,75,.5) !important;
+    animation: tourGlow 1.8s ease-in-out infinite !important;
+}
+
+@keyframes tourGlow {
+    0%, 100% { box-shadow: 0 0 0 2000px rgba(8,20,40,.72), 0 0 18px 3px rgba(212,172,75,.4); }
+    50%       { box-shadow: 0 0 0 2000px rgba(8,20,40,.72), 0 0 30px 8px rgba(212,172,75,.75); }
+}
+
+/* ── Arrow colours ── */
+.introjs-arrow.right          { border-left-color:  #1A4A8A !important; }
+.introjs-arrow.left           { border-right-color: #1A4A8A !important; }
+.introjs-arrow.top            { border-bottom-color:#1A4A8A !important; }
+.introjs-arrow.bottom         { border-top-color:   #1A4A8A !important; }
+.introjs-arrow.right-bottom   { border-left-color:  #1A4A8A !important; }
+
+/* ── Tour trigger button (floating, bottom-left of sidebar footer) ── */
+#arms-tour-trigger {
+    display: none; /* shown by JS once dismissed */
+    position: fixed;
+    bottom: 52px; /* just above sidebar footer */
+    left: 0;
+    width: 250px;
+    z-index: 1031;
+    background: none;
+    border: none;
+    padding: 5px 10px;
+    text-align: left;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+#arms-tour-trigger span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(212,172,75,.6);
+    letter-spacing: .04em;
+    transition: color 0.2s;
+}
+#arms-tour-trigger:hover span {
+    color: var(--portal-gold);
+}
+body.nav-sm #arms-tour-trigger {
+    width: 100px;
+    justify-content: center;
+}
+body.nav-sm #arms-tour-trigger span {
+    font-size: 0;
+    gap: 0;
+}
+body.nav-sm #arms-tour-trigger span i {
+    font-size: 14px;
+}
+

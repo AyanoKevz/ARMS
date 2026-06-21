@@ -209,7 +209,7 @@
                                             <div>
                                                 @if($isPdf)
                                                     @if($doc->userDocument?->file_path)
-                                                        <a href="{{ route('applicant.documents.view', $doc->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
+                                                        <a href="{{ route('applicant.documents.view', $doc->id) }}" data-file-modal data-file-title="{{ $field?->name ?? 'Document' }}" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
                                                             <i class="fa fa-eye me-1"></i>View
                                                         </a>
                                                     @else
@@ -269,7 +269,7 @@
                                             </div>
                                             <div>
                                                 @if($cred->pdf_path)
-                                                    <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                    <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" data-file-modal data-file-title="{{ $cred->type }} Credential" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
                                                         <i class="fa fa-eye me-1"></i>View
                                                     </a>
                                                 @else
@@ -302,7 +302,7 @@
                                                 </div>
                                             </div>
                                             <div>
-                                                <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
                                                     <i class="fa fa-eye me-1"></i>View
                                                 </a>
                                             </div>
@@ -417,7 +417,7 @@
                                             @endif
                                             @if($rdoc->documentField?->input_type === 'file' && $rdoc->userDocument?->file_path)
                                             <div class="mt-2">
-                                                <a href="{{ route('applicant.documents.view', $rdoc->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                                <a href="{{ route('applicant.documents.view', $rdoc->id) }}" data-file-modal data-file-title="{{ $rdoc->documentField?->name ?? 'Document' }}" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
                                                     <i class="bi bi-eye-fill me-1"></i> View Current File
                                                 </a>
                                             </div>
@@ -483,7 +483,7 @@
                                 @endif
                                 @if($rInst->service_agreement_path)
                                 <div class="mt-2">
-                                    <a href="{{ route('applicant.instructors.service_agreement.view', $rInst->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                    <a href="{{ route('applicant.instructors.service_agreement.view', $rInst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $rInst->first_name }} {{ $rInst->last_name }}" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
                                         <i class="bi bi-eye-fill me-1"></i> View Current File
                                     </a>
                                 </div>
@@ -523,7 +523,7 @@
                                 @endif
                                 @if($rCred->pdf_path)
                                 <div class="mt-2">
-                                    <a href="{{ route('applicant.instructors.credentials.view', $rCred->id) }}" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                    <a href="{{ route('applicant.instructors.credentials.view', $rCred->id) }}" data-file-modal data-file-title="{{ $rCred->type }} Credential" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
                                         <i class="bi bi-eye-fill me-1"></i> View Current File
                                     </a>
                                 </div>
@@ -903,7 +903,7 @@
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}" required></div>
                                 @endif
                                 <div class="col-12">
-                                    <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label>
+                                    <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" data-file-modal data-file-title="{{ $type }} Certificate PDF" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label>
                                     <div class="file-upload-wrapper mt-1">
                                         <input class="real-file-input visually-hidden" type="file" name="instructors[{{ $idx }}][credentials][{{ $type }}][pdf]" id="inst_{{ $idx }}_{{ $type }}_pdf" accept=".pdf" required>
                                         <div class="d-flex align-items-center gap-2">
@@ -920,7 +920,7 @@
                         @endforeach
 
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
-                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span> <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span> <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
                             <div class="file-upload-wrapper mt-1">
                                 <input class="real-file-input visually-hidden" type="file" name="instructors[{{ $idx }}][service_agreement]" id="inst_{{ $idx }}_sa" accept=".pdf" required>
                                 <div class="d-flex align-items-center gap-2">
@@ -1120,7 +1120,7 @@
                             <label class="form-label fw-bold mb-1" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
                             <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                             @if($existing && $existing->file_path)
-                                <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }} <a href="{{ route('applicant.user_documents.view', $existing->id) }}" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a></div>
+                                <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }} <a href="{{ route('applicant.user_documents.view', $existing->id) }}" data-file-modal data-file-title="{{ $f['title'] }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a></div>
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif

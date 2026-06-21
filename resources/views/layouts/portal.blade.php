@@ -17,6 +17,8 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Intro.js — Sidebar Quick Tour -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css">
 
     <!-- Portal UI Overrides -->
     <link rel="stylesheet" href="{{ asset('css/portal.css') }}">
@@ -274,6 +276,42 @@
             }
         });
     </script>
+    <!-- ══ File Viewer Modal ══ -->
+    <div class="modal fade" id="fileViewerModal" tabindex="-1" aria-labelledby="fileViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width:92vw; height:92vh;">
+            <div class="modal-content" style="height:100%; border:none; border-radius:12px; overflow:hidden;">
+                <!-- Header -->
+                <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0D2B55,#1A4A8A); border-bottom:2px solid var(--portal-gold); flex-shrink:0;">
+                    <div class="d-flex align-items-center gap-2 overflow-hidden">
+                        <i class="fas fa-file-alt" style="color:var(--portal-gold); font-size:1rem; flex-shrink:0;"></i>
+                        <span id="fileViewerModalLabel" class="fw-semibold text-white text-truncate" style="font-size:0.9rem; max-width:55vw;"></span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <a id="fileViewerDownload" href="#" target="_blank" class="btn btn-sm px-3 fw-semibold"
+                           style="background:var(--portal-gold); color:#0D2B55; border:none; font-size:0.78rem; border-radius:6px;">
+                            <i class="fas fa-external-link-alt me-1"></i> Open in Tab
+                        </a>
+                        <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <!-- Body: iframe fills all remaining height -->
+                <div class="modal-body p-0" style="flex:1 1 auto; overflow:hidden;">
+                    <iframe id="fileViewerFrame"
+                            src="about:blank"
+                            style="width:100%; height:100%; border:none; display:block;"
+                            allowfullscreen>
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ══ /File Viewer Modal ══ -->
+
+    <!-- Intro.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+    <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
+    <script src="{{ asset('js/portal.js') }}"></script>
     @stack('scripts')
+    @stack('tour')
 </body>
 </html>

@@ -135,7 +135,7 @@
                                             {{ basename($instructor->service_agreement_path) }}
                                         </span>
                                         <a href="{{ route('applicant.instructors.service_agreement.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp }}"
-                                           target="_blank" class="btn btn-sm btn-outline-primary">
+                                           data-file-modal data-file-title="Service Agreement – {{ $instructor->first_name }} {{ $instructor->last_name }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye me-1"></i> View PDF
                                         </a>
                                     </div>
@@ -247,7 +247,7 @@
                                             {{ basename($credential->pdf_path) }}
                                         </span>
                                         <a href="{{ route('applicant.instructors.credentials.view', $credential->id) }}?v={{ $credential->updated_at->timestamp }}"
-                                           target="_blank" class="btn btn-sm btn-outline-primary">
+                                           data-file-modal data-file-title="{{ $credLabels[$credential->type] ?? $credential->type }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye me-1"></i> View PDF
                                         </a>
                                     </div>

@@ -692,7 +692,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($inputType === 'file' && $filePath)
                                     <div class="doc-actions">
                                         <a href="{{ route('admin.hcd.documents.view', $doc->id) }}?v={{ $doc->updated_at->timestamp ?? time() }}"
-                                            target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0"
+                                            data-file-modal data-file-title="{{ $field?->name ?? 'Document' }}"
+                                            class="btn btn-outline-primary btn-xs px-2 py-0"
                                             style="font-size:.78rem;">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
@@ -913,7 +914,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($credential->pdf_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                                     <div class="doc-actions">
                                         @if($credential->pdf_path)
-                                        <a href="{{ route('admin.hcd.instructors.credentials.view', $credential->id) }}?v={{ $credential->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
+                                        <a href="{{ route('admin.hcd.instructors.credentials.view', $credential->id) }}?v={{ $credential->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="{{ $credential->type }} Credential" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
                                         @endif
@@ -993,7 +994,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($instructor->service_agreement_path || ($isAccredited && $allApproved && $instructor->update_request_status === 'none'))
                                     <div class="doc-actions">
                                         @if($instructor->service_agreement_path)
-                                        <a href="{{ route('admin.hcd.instructors.service_agreement.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" target="_blank" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
+                                        <a href="{{ route('admin.hcd.instructors.service_agreement.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="Service Agreement – {{ $instructor->first_name }} {{ $instructor->last_name }}" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
                                         @endif
@@ -1294,7 +1295,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                             @if($application->payment && $application->payment->signed_recommendation_letter)
                             <div class="mt-2 d-flex align-items-center gap-2">
                                 <span class="text-success fw-semibold small"><i class="fas fa-check-circle"></i> Already uploaded:</span>
-                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" target="_blank" class="btn btn-sm btn-outline-success px-3 py-0" style="font-size:.78rem;">
+                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" data-file-modal data-file-title="Signed Recommendation Letter" class="btn btn-sm btn-outline-success px-3 py-0" style="font-size:.78rem;">
                                     <i class="bi bi-eye me-1"></i>View
                                 </a>
                             </div>
@@ -1324,7 +1325,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                         <h6 class="fw-bold text-dark mb-2">{{ $label }}</h6>
                         <div class="mt-2 mb-2 text-center" style="min-height: 50px;">
                             @if($filePath && $status !== 'rejected')
-                            <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" target="_blank" class="btn btn-outline-primary btn-xs mt-2 px-3 py-1 fw-semibold">
+                            <a href="{{ route('admin.hcd.payments.view', ['payment' => $payment->id, 'fileType' => $key]) }}" data-file-modal data-file-title="{{ $label }}" class="btn btn-outline-primary btn-xs mt-2 px-3 py-1 fw-semibold">
                                 <i class="fas fa-eye me-1"></i> View {{ $label }}
                             </a>
                             <div class="text-muted small mt-2" style="font-size: 0.72rem; word-break: break-all;">
@@ -1436,7 +1437,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                             </div>
                         </div>
                         <div>
-                            <a href="{{ route('admin.hcd.accreditations.view_scanned', $application->accreditation->id) }}" target="_blank" class="btn btn-outline-success btn-sm fw-semibold px-3">
+                            <a href="{{ route('admin.hcd.accreditations.view_scanned', $application->accreditation->id) }}" data-file-modal data-file-title="Scanned Accreditation Certificate" class="btn btn-outline-success btn-sm fw-semibold px-3">
                                 <i class="fas fa-eye me-1"></i> View Scanned Certificate
                             </a>
                         </div>

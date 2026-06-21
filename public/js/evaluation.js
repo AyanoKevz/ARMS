@@ -213,9 +213,9 @@
         const btnText  = document.getElementById('btn-schedule-text');
         if (!btn) return;
 
-        // If the application is already approved or scheduled in the database,
+        // If the application is already scheduled in the database,
         // we do not want to manage the save-approvals states, as the button is used for scheduling.
-        if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
+        if (isScheduled && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
             return;
         }
 
@@ -590,8 +590,8 @@
     });
 
     /* ─── Init ────────────────────────────────────────────── */
-    if ((allApproved || isScheduled) && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
-        // Already all approved or scheduled — enable button directly
+    if (isScheduled && !window.ARMS?.hasPendingUpdate && window.ARMS?.canUpdateSchedule) {
+        // Already scheduled — enable button directly
         const btn     = document.getElementById('btn-open-schedule');
         const btnText = document.getElementById('btn-schedule-text');
         if (btn) {
@@ -607,7 +607,7 @@
         // Hide eval buttons (belt-and-suspenders alongside blade guard)
         document.querySelectorAll('.doc-eval-actions').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.reject-panel').forEach(el => el.style.display = 'none');
-    } // end if (allApproved || isScheduled)
+    } // end if (isScheduled)
 
     /* ─── Chevrons / Panel Collapses ──────────────────────── */
     const pctBody = document.getElementById('pctTimelineBody');
