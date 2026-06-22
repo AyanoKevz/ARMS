@@ -2042,6 +2042,7 @@ $accTypeName = $application->accreditationType->name ?? '—';
     window.ARMS.evaluateItemUrl = '{{ route("admin.hcd.applications.evaluate_item", $application->id) }}';
     window.ARMS.applicationStatus = '{{ $currentStatus }}';
     window.ARMS.applicationId = {{ $application->id }};
+    window.ARMS.serverTime = {{ now()->timestamp * 1000 }};
     @if($pctSummary['has_entries'])
     window.ARMS.holidays = {!! json_encode(\App\Services\PctService::getHolidays(now()->year - 1, now()->year + 1)) !!};
     @endif

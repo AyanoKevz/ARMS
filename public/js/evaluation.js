@@ -811,47 +811,106 @@
     // Live Ticker for Active Step
     const liveCounter = document.getElementById('livePctCounter');
     if (liveCounter) {
-        let seconds = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
+        const secondsOnLoad = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
         const targetDays = liveCounter.getAttribute('data-target');
         const holidaysList = window.ARMS?.holidays || [];
-        
-        setInterval(() => {
-            const now = new Date();
+        const serverTimeOnLoad = window.ARMS?.serverTime || Date.now();
+        const timeOffset = serverTimeOnLoad - Date.now();
+
+        // Helper to get components in Asia/Manila (UTC+8)
+        const getManilaDateComponents = (timestampMs) => {
+            const d = new Date(timestampMs + 8 * 3600 * 1000);
+            return {
+                year: d.getUTCFullYear(),
+                month: d.getUTCMonth() + 1,
+                date: d.getUTCDate(),
+                day: d.getUTCDay(), // 0=Sunday, 6=Saturday
+                hours: d.getUTCHours(),
+                minutes: d.getUTCMinutes(),
+                seconds: d.getUTCSeconds(),
+                timeOfDaySeconds: d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds()
+            };
+        };
+
+        // Helper to calculate working seconds between two timestamps in Manila timezone
+        const calculateWorkingSecondsJS = (startMs, endMs) => {
+            if (startMs >= endMs) {
+                return 0;
+            }
+
+            let totalSeconds = 0;
+            const startComp = getManilaDateComponents(startMs);
+            const endComp = getManilaDateComponents(endMs);
+
+            let currentDayStartMs = Date.UTC(startComp.year, startComp.month - 1, startComp.date) - 8 * 3600 * 1000;
+            const endDayStartMs = Date.UTC(endComp.year, endComp.month - 1, endComp.date) - 8 * 3600 * 1000;
+            const oneDayMs = 24 * 3600 * 1000;
+
+            while (currentDayStartMs <= endDayStartMs) {
+                const comp = getManilaDateComponents(currentDayStartMs);
+                const isWeekend = comp.day === 0 || comp.day === 6;
+                const yyyy = comp.year;
+                const mm = String(comp.month).padStart(2, '0');
+                const dd = String(comp.date).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+                const isHoliday = holidaysList.includes(dateStr);
+
+                if (!isWeekend && !isHoliday) {
+                    const workStartMs = currentDayStartMs + 8 * 3600 * 1000;
+                    const workEndMs   = currentDayStartMs + 17 * 3600 * 1000;
+
+                    const effectiveStartMs = Math.max(startMs, workStartMs);
+                    const effectiveEndMs   = Math.min(endMs, workEndMs);
+
+                    if (effectiveStartMs < effectiveEndMs) {
+                        totalSeconds += Math.floor((effectiveEndMs - effectiveStartMs) / 1000);
+                    }
+                }
+                currentDayStartMs += oneDayMs;
+            }
+
+            return totalSeconds;
+        };
+
+        const updateLiveTicker = () => {
+            const serverNow = Date.now() + timeOffset;
             
-            // 1. Working days: Monday - Friday (exclude weekends)
-            const day = now.getDay();
+            // Calculate current components for checking if working hours/days
+            const currentComp = getManilaDateComponents(serverNow);
+            const isWeekend = currentComp.day === 0 || currentComp.day === 6;
+            const yyyy = currentComp.year;
+            const mm = String(currentComp.month).padStart(2, '0');
+            const dd = String(currentComp.date).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
+            const isHoliday = holidaysList.includes(dateStr);
+
             let isWorking = true;
             let jsPausedReason = '';
-            if (day === 0 || day === 6) {
+
+            if (isWeekend) {
                 isWorking = false;
                 jsPausedReason = 'Weekend';
+            } else if (isHoliday) {
+                isWorking = false;
+                jsPausedReason = 'Holiday';
+            } else if (currentComp.timeOfDaySeconds < 8 * 3600 || currentComp.timeOfDaySeconds >= 17 * 3600) {
+                isWorking = false;
+                jsPausedReason = 'Past Working Hours';
             }
-            
-            // 2. Holidays: Exclude declared holidays
-            if (isWorking) {
-                const yyyy = now.getFullYear();
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
-                const dateStr = `${yyyy}-${mm}-${dd}`;
-                if (holidaysList.includes(dateStr)) {
-                    isWorking = false;
-                    jsPausedReason = 'Holiday';
-                }
-            }
-            
-            // 3. Working hours: 8:00 AM – 5:00 PM
-            if (isWorking) {
-                const hours = now.getHours();
-                const minutes = now.getMinutes();
-                const secondsOfDay = hours * 3600 + minutes * 60 + now.getSeconds();
-                const startSeconds = 8 * 3600;  // 8:00 AM
-                const endSeconds = 17 * 3600;  // 5:00 PM
-                if (secondsOfDay < startSeconds || secondsOfDay >= endSeconds) {
-                    isWorking = false;
-                    jsPausedReason = 'Past Working Hours';
-                }
-            }
-            
+
+            // Calculate the working seconds since load and total seconds
+            const workingSecondsSinceLoad = calculateWorkingSecondsJS(serverTimeOnLoad, serverNow);
+            const seconds = secondsOnLoad + workingSecondsSinceLoad;
+
+            // Format days/hours/minutes/seconds
+            const days = (seconds / 32400).toFixed(1);
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            const liveTime = `${hrs}h ${mins}m ${secs}s`;
+
+            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
+
             if (!isWorking) {
                 const stepEl = liveCounter.closest('.pct-step');
                 if (stepEl && stepEl.classList.contains('pct-step-active')) {
@@ -868,7 +927,6 @@
                     reasonEl.textContent = ` — ${jsPausedReason}`;
                     reasonEl.style.display = 'inline';
                 }
-                return;
             } else {
                 const stepEl = liveCounter.closest('.pct-step');
                 if (stepEl && stepEl.classList.contains('pct-step-paused')) {
@@ -886,19 +944,11 @@
                     reasonEl.style.display = 'none';
                 }
             }
-            
-            // Increment working seconds
-            seconds++;
-            
-            const days = (seconds / 32400).toFixed(1);
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            
-            let liveTime = `${hrs}h ${mins}m ${secs}s`;
-            
-            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
-        }, 1000);
+        };
+
+        // Run immediately on load and then every 1000ms
+        updateLiveTicker();
+        setInterval(updateLiveTicker, 1000);
     }
 
     // Always run refreshState on page load so the evaluation button

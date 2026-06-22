@@ -77,21 +77,21 @@
 
         <div class="col-xl-3 col-md-6">
             @if($isVerifier)
-            <div class="stat-card stat-card-violet" style="cursor: default;">
-                <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
+            <div class="stat-card stat-card-red" style="cursor: default;">
+                <div class="stat-card-icon red"><i class="bi bi-x-circle-fill"></i></div>
                 <div class="stat-card-body">
-                    <div class="stat-card-num">{{ $scheduledInterviews }}</div>
-                    <div class="stat-card-label">Scheduled Interviews</div>
-                    <div class="stat-card-sub">Pending interview clearance</div>
+                    <div class="stat-card-num">{{ $totalRejected }}</div>
+                    <div class="stat-card-label">Rejected Applications</div>
+                    <div class="stat-card-sub">Did not pass (Archived)</div>
                 </div>
             </div>
             @else
-            <a href="{{ route('admin.hcd.interviews.scheduled') }}" class="stat-card stat-card-violet">
-                <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
+            <a href="{{ route('admin.hcd.applications.archived') }}" class="stat-card stat-card-red">
+                <div class="stat-card-icon red"><i class="bi bi-x-circle-fill"></i></div>
                 <div class="stat-card-body">
-                    <div class="stat-card-num">{{ $scheduledInterviews }}</div>
-                    <div class="stat-card-label">Scheduled Interviews</div>
-                    <div class="stat-card-sub">Pending interview clearance</div>
+                    <div class="stat-card-num">{{ $totalRejected }}</div>
+                    <div class="stat-card-label">Rejected Applications</div>
+                    <div class="stat-card-sub">Did not pass (Archived)</div>
                 </div>
             </a>
             @endif

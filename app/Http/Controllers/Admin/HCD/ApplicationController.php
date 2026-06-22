@@ -97,6 +97,10 @@ class ApplicationController extends Controller
                     $q->whereHas('status', fn($q2) => $q2->whereIn('name', $scheduledStatuses))
                 )->count();
 
+                $totalRejected = Application::whereHas('latestStatus', fn($q) =>
+                    $q->whereHas('status', fn($q2) => $q2->where('name', 'Rejected'))
+                )->count();
+
                 // ── Monthly Tables & Chart ──────────────────────────────────
                 $monthlyNew = Application::where('application_type', 'new')
                     ->whereYear('created_at', $selectedYear)
@@ -153,7 +157,7 @@ class ApplicationController extends Controller
                     'totalActiveFATPro',
                     'newPending', 'newUnderReview',
                     'renewalPending', 'renewalUnderReview',
-                    'scheduledInterviews',
+                    'scheduledInterviews', 'totalRejected',
                     'monthlyRows', 'availableYears',
                     'statusBreakdown'
                 );
@@ -167,7 +171,7 @@ class ApplicationController extends Controller
             'totalActiveFATPro',
             'newPending', 'newUnderReview',
             'renewalPending', 'renewalUnderReview',
-            'scheduledInterviews',
+            'scheduledInterviews', 'totalRejected',
             'monthlyRows', 'selectedYear', 'availableYears',
             'statusBreakdown'
         ));

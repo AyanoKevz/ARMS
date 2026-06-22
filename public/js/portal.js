@@ -382,7 +382,7 @@
        via window.ARMSTour.init(tourType)
     ───────────────────────────────────────────── */
     window.ARMSTour = {
-        init: function (tourType) {
+        init: function (tourType, sessionId) {
             if (!TOUR_STEPS[tourType]) {
                 console.warn('[ARMS Tour] Unknown tourType:', tourType);
                 return;
@@ -390,10 +390,29 @@
 
             document.addEventListener('DOMContentLoaded', function () {
                 if (isDismissed(tourType)) {
-                    // Already dismissed — show the re-launch button instead
+                    // Already dismissed permanently — show the re-launch button instead
                     showTriggerButton(tourType);
                     return;
                 }
+
+                // Check session storage to ensure it only auto-runs once per login session
+                var sessionKey = 'arms_sidebar_tour_shown_' + tourType + (sessionId ? '_' + sessionId : '');
+                var alreadyShownThisSession = false;
+                try {
+                    alreadyShownThisSession = sessionStorage.getItem(sessionKey) === 'true';
+                } catch (e) { /* sessionStorage unavailable */ }
+
+                if (alreadyShownThisSession) {
+                    // Already shown in this session — show the re-launch button instead of auto-starting
+                    showTriggerButton(tourType);
+                    return;
+                }
+
+                // Mark as shown in this session immediately so subsequent page loads don't auto-start it
+                try {
+                    sessionStorage.setItem(sessionKey, 'true');
+                } catch (e) { /* sessionStorage unavailable */ }
+
                 // Small delay so Gentelella sidebar JS finishes rendering
                 setTimeout(function () {
                     startTour(tourType);

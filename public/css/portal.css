@@ -357,6 +357,7 @@ body.nav-sm footer {
 .stat-card-green            { border-left-color: #27ae60; }
 .stat-card-amber            { border-left-color: #e67e22; }
 .stat-card-violet           { border-left-color: #8e44ad; }
+.stat-card-red              { border-left-color: #dc3545; }
 
 .stat-card-icon {
     font-size: 2rem;
@@ -367,6 +368,7 @@ body.nav-sm footer {
 .stat-card-icon.green       { color: #27ae60; }
 .stat-card-icon.amber       { color: #e67e22; }
 .stat-card-icon.violet      { color: #8e44ad; }
+.stat-card-icon.red         { color: #dc3545; }
 
 .stat-card-body             { flex: 1; min-width: 0; }
 .stat-card-num              { font-size: 2rem; font-weight: 700; line-height: 1; color: #2A3F54; }
