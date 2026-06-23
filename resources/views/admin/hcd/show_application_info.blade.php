@@ -2043,6 +2043,9 @@ $accTypeName = $application->accreditationType->name ?? '—';
     window.ARMS.applicationStatus = '{{ $currentStatus }}';
     window.ARMS.applicationId = {{ $application->id }};
     window.ARMS.serverTime = {{ now()->timestamp * 1000 }};
+    window.ARMS.activeStep = {{ $activeStep }};
+    window.ARMS.pctStatus = '{{ $pctStatus }}';
+    window.ARMS.interviewTimestampMs = {{ $interview ? \Carbon\Carbon::parse($interview->interview_date->format('Y-m-d') . ' ' . $interview->interview_time, 'Asia/Manila')->timestamp * 1000 : 'null' }};
     @if($pctSummary['has_entries'])
     window.ARMS.holidays = {!! json_encode(\App\Services\PctService::getHolidays(now()->year - 1, now()->year + 1)) !!};
     @endif

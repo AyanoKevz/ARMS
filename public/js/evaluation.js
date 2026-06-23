@@ -811,6 +811,7 @@
     // Live Ticker for Active Step
     const liveCounter = document.getElementById('livePctCounter');
     if (liveCounter) {
+        let isSubmittingInterview = false;
         const secondsOnLoad = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
         const targetDays = liveCounter.getAttribute('data-target');
         const holidaysList = window.ARMS?.holidays || [];
@@ -874,6 +875,28 @@
 
         const updateLiveTicker = () => {
             const serverNow = Date.now() + timeOffset;
+
+            // Auto start the interview if scheduled time is met/passed
+            if (window.ARMS?.activeStep === 5 && 
+                window.ARMS?.pctStatus === 'paused' && 
+                window.ARMS?.interviewTimestampMs && 
+                serverNow >= window.ARMS.interviewTimestampMs && 
+                !isSubmittingInterview) {
+                
+                isSubmittingInterview = true;
+                const startForm = document.getElementById('start-interview-form');
+                if (startForm) {
+                    const btnText = startForm.querySelector('.btn-text');
+                    const btnSpinner = startForm.querySelector('.btn-spinner');
+                    if (btnText && btnSpinner) {
+                        btnText.classList.add('d-none');
+                        btnSpinner.classList.remove('d-none');
+                    }
+                    startForm.submit();
+                } else {
+                    window.location.reload();
+                }
+            }
             
             // Calculate current components for checking if working hours/days
             const currentComp = getManilaDateComponents(serverNow);
