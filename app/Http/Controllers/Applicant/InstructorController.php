@@ -42,7 +42,11 @@ class InstructorController extends Controller
 
         $isAccredited = auth()->user()->accreditations()->where('status', 'active')->exists();
 
-        return view('applicant.instructor_show', compact('instructor', 'isAccredited'));
+        $accreditation = auth()->user()->accreditations()
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return view('applicant.instructor_show', compact('instructor', 'isAccredited', 'accreditation'));
     }
 
     /**

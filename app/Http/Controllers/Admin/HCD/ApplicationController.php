@@ -76,6 +76,7 @@ class ApplicationController extends Controller
 
                 // ── Stat Cards ──────────────────────────────────────────
                 $totalActiveFATPro = \App\Models\Accreditation::where('status', $activeFATProStatus)->count();
+                $totalRevokedFATPro = \App\Models\Accreditation::where('status', 'revoked')->count();
 
                 $newPending = Application::where('application_type', 'new')
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
@@ -155,6 +156,7 @@ class ApplicationController extends Controller
 
                 return compact(
                     'totalActiveFATPro',
+                    'totalRevokedFATPro',
                     'newPending', 'newUnderReview',
                     'renewalPending', 'renewalUnderReview',
                     'scheduledInterviews', 'totalRejected',
@@ -169,6 +171,7 @@ class ApplicationController extends Controller
 
         return view('admin.hcd.dashboard', compact(
             'totalActiveFATPro',
+            'totalRevokedFATPro',
             'newPending', 'newUnderReview',
             'renewalPending', 'renewalUnderReview',
             'scheduledInterviews', 'totalRejected',
