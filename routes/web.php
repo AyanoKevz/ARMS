@@ -11,6 +11,7 @@ use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 use App\Http\Controllers\Applicant\RenewalController;
+use App\Http\Controllers\Applicant\NtcController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -70,6 +71,11 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::get('/renewal/reupload', [RenewalController::class, 'reupload'])->name('renewal.reupload');
         Route::post('/renewal/reupload', [RenewalController::class, 'submitReupload'])->name('renewal.reupload.store')->middleware('throttle:5,1');
         Route::post('/renewal/submit-payment', [RenewalController::class, 'submitPaymentPortal'])->name('renewal.submit_payment')->middleware('throttle:5,1');
+
+        // Notice to Conduct (NTC)
+        Route::get('/ntc', [NtcController::class, 'index'])->name('ntc.index');
+        Route::post('/ntc', [NtcController::class, 'store'])->name('ntc.store')->middleware('throttle:10,1');
+        Route::get('/ntc/documents/{document}/view', [NtcController::class, 'serveDocument'])->name('ntc.document.view');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {

@@ -4,7 +4,7 @@
 
 <li id="tour-step-submission"><a><i class="fas fa-file-invoice"></i> Submission report <span class="fa fa-chevron-down"></span></a>
     <ul class="nav child_menu">
-        <li><a href="#">Notice Conduct</a></li>
+        <li><a href="{{ route('applicant.ntc.index') }}">Notice to Conduct</a></li>
         <li><a href="#">Report to Changes</a></li>
         <li><a href="#">Post Training Report</a></li>
     </ul>
