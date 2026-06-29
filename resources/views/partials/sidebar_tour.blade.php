@@ -22,5 +22,5 @@
 
 {{-- Bootstrap the tour for the given role --}}
 <script>
-    window.ARMSTour && window.ARMSTour.init('{{ $tourType }}');
+    window.ARMSTour && window.ARMSTour.init('{{ $tourType }}', '{{ session()->getId() }}');
 </script>

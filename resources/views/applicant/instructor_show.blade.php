@@ -10,6 +10,48 @@
 
 @section('content')
 <div class="">
+    {{-- Accreditation Summary --}}
+    @if($accreditation)
+    <div class="x_panel mb-4" style="border-left:4px solid var(--portal-gold, #d4ac4b); border-top:none;">
+        <div class="x_title border-0 mb-0 pb-0">
+            <h2 class="fw-bold" style="color:#2A3F54;"><i class="fas fa-award text-warning me-2"></i>Current Accreditation</h2>
+            <div class="clearfix"></div>
+        </div>
+        <div class="x_content mt-2">
+            <div class="row text-center text-md-start">
+                <div class="col-md mb-2 border-end">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Accreditation Number</p>
+                    <p class="fw-bold fs-5 mb-0" style="color:#0b3d91;">{{ $accreditation->accreditation_number ?? 'N/A' }}</p>
+                </div>
+                <div class="col-md mb-2 border-end">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Date Accredited</p>
+                    <p class="fw-bold fs-5 mb-0" style="color:#2A3F54;">{{ $accreditation->date_of_accreditation ? \Carbon\Carbon::parse($accreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}</p>
+                </div>
+                <div class="col-md mb-2 border-end">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Validity Period</p>
+                    <p class="fw-bold fs-5 mb-0" style="color:#2A3F54;">{{ $accreditation->validity_date ? \Carbon\Carbon::parse($accreditation->validity_date)->format('F d, Y') : 'N/A' }}</p>
+                </div>
+                @if($accreditation->status === 'revoked')
+                <div class="col-md mb-2 border-end">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Revoked Date</p>
+                    <p class="fw-bold fs-5 mb-0 text-danger">{{ $accreditation->updated_at ? $accreditation->updated_at->format('F d, Y') : 'N/A' }}</p>
+                </div>
+                @endif
+                <div class="col-md">
+                    <p class="text-muted mb-1" style="font-size:.85rem;text-transform:uppercase;">Status</p>
+                    @if($accreditation->status === 'active')
+                        <span class="badge bg-success" style="font-size:.9rem;padding:6px 12px;">Active</span>
+                    @elseif($accreditation->status === 'expired')
+                        <span class="badge bg-warning text-dark" style="font-size:.9rem;padding:6px 12px;">Expired</span>
+                    @elseif($accreditation->status === 'revoked')
+                        <span class="badge bg-danger" style="font-size:.9rem;padding:6px 12px;">Revoked</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="page-title d-flex justify-content-between align-items-center">
         <div class="title_left d-flex align-items-center">
             <h3 class="mb-0 me-2">

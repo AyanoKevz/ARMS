@@ -294,13 +294,17 @@
                         <button type="button" class="btn-close btn-close-white btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                 </div>
-                <!-- Body: iframe fills all remaining height -->
-                <div class="modal-body p-0" style="flex:1 1 auto; overflow:hidden;">
+                <!-- Body: iframe/img fills all remaining height -->
+                <div class="modal-body p-0" style="flex:1 1 auto; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#121824;">
                     <iframe id="fileViewerFrame"
                             src="about:blank"
                             style="width:100%; height:100%; border:none; display:block;"
                             allowfullscreen>
                     </iframe>
+                    <img id="fileViewerImage"
+                         src=""
+                         style="max-width:100%; max-height:100%; object-fit:contain; display:none;"
+                         alt="Image Preview">
                 </div>
             </div>
         </div>

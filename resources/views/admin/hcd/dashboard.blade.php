@@ -20,8 +20,9 @@
 
     {{-- ── Stat Cards ── --}}
     <div class="row mb-4">
-        <div class="col-xl-3 col-md-6">
-            <a href="#" class="stat-card stat-card-blue" style="cursor: default;">
+        {{-- Card 1: Total Active FATPro --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            <a href="{{ route('admin.hcd.directory.fatpros') }}" class="stat-card stat-card-blue">
                 <div class="stat-card-icon blue"><i class="bi bi-patch-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalActiveFATPro }}</div>
@@ -31,7 +32,8 @@
             </a>
         </div>
 
-        <div class="col-xl-3 col-md-6">
+        {{-- Card 2: New Applications --}}
+        <div class="col-xl-4 col-md-6 mb-3">
             @if($isVerifier)
             <div class="stat-card stat-card-green" style="cursor: default;">
                 <div class="stat-card-icon green"><i class="bi bi-file-earmark-plus-fill"></i></div>
@@ -53,7 +55,8 @@
             @endif
         </div>
 
-        <div class="col-xl-3 col-md-6">
+        {{-- Card 3: Renewal Applications --}}
+        <div class="col-xl-4 col-md-6 mb-3">
             @if($isVerifier)
             <div class="stat-card stat-card-amber" style="cursor: default;">
                 <div class="stat-card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
@@ -75,26 +78,62 @@
             @endif
         </div>
 
-        <div class="col-xl-3 col-md-6">
+        {{-- Card 4: Scheduled Interviews --}}
+        <div class="col-xl-4 col-md-6 mb-3">
             @if($isVerifier)
             <div class="stat-card stat-card-violet" style="cursor: default;">
-                <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
+                <div class="stat-card-icon violet"><i class="bi bi-calendar2-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $scheduledInterviews }}</div>
                     <div class="stat-card-label">Scheduled Interviews</div>
-                    <div class="stat-card-sub">Pending interview clearance</div>
+                    <div class="stat-card-sub">Pending interview completion</div>
                 </div>
             </div>
             @else
             <a href="{{ route('admin.hcd.interviews.scheduled') }}" class="stat-card stat-card-violet">
-                <div class="stat-card-icon violet"><i class="bi bi-calendar-check-fill"></i></div>
+                <div class="stat-card-icon violet"><i class="bi bi-calendar2-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $scheduledInterviews }}</div>
                     <div class="stat-card-label">Scheduled Interviews</div>
-                    <div class="stat-card-sub">Pending interview clearance</div>
+                    <div class="stat-card-sub">Pending interview completion</div>
                 </div>
             </a>
             @endif
+        </div>
+
+        {{-- Card 5: Rejected Applications --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            @if($isVerifier)
+            <div class="stat-card stat-card-red" style="cursor: default;">
+                <div class="stat-card-icon red"><i class="bi bi-x-circle-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $totalRejected }}</div>
+                    <div class="stat-card-label">Rejected Applications</div>
+                    <div class="stat-card-sub">Did not pass (Archived)</div>
+                </div>
+            </div>
+            @else
+            <a href="{{ route('admin.hcd.applications.archived') }}" class="stat-card stat-card-red">
+                <div class="stat-card-icon red"><i class="bi bi-x-circle-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $totalRejected }}</div>
+                    <div class="stat-card-label">Rejected Applications</div>
+                    <div class="stat-card-sub">Did not pass (Archived)</div>
+                </div>
+            </a>
+            @endif
+        </div>
+
+        {{-- Card 6: Total Revoked FATPro --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            <a href="{{ route('admin.hcd.directory.fatpros.inactive') }}" class="stat-card stat-card-red">
+                <div class="stat-card-icon red"><i class="bi bi-slash-circle-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $totalRevokedFATPro }}</div>
+                    <div class="stat-card-label">Total Revoked FATPro</div>
+                    <div class="stat-card-sub">Accreditation revoked</div>
+                </div>
+            </a>
         </div>
     </div>
 

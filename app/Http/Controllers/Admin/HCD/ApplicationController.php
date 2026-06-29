@@ -76,6 +76,7 @@ class ApplicationController extends Controller
 
                 // ── Stat Cards ──────────────────────────────────────────
                 $totalActiveFATPro = \App\Models\Accreditation::where('status', $activeFATProStatus)->count();
+                $totalRevokedFATPro = \App\Models\Accreditation::where('status', 'revoked')->count();
 
                 $newPending = Application::where('application_type', 'new')
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
@@ -95,6 +96,10 @@ class ApplicationController extends Controller
 
                 $scheduledInterviews = Application::whereHas('latestStatus', fn($q) =>
                     $q->whereHas('status', fn($q2) => $q2->whereIn('name', $scheduledStatuses))
+                )->count();
+
+                $totalRejected = Application::whereHas('latestStatus', fn($q) =>
+                    $q->whereHas('status', fn($q2) => $q2->where('name', 'Rejected'))
                 )->count();
 
                 // ── Monthly Tables & Chart ──────────────────────────────────
@@ -151,9 +156,10 @@ class ApplicationController extends Controller
 
                 return compact(
                     'totalActiveFATPro',
+                    'totalRevokedFATPro',
                     'newPending', 'newUnderReview',
                     'renewalPending', 'renewalUnderReview',
-                    'scheduledInterviews',
+                    'scheduledInterviews', 'totalRejected',
                     'monthlyRows', 'availableYears',
                     'statusBreakdown'
                 );
@@ -165,9 +171,10 @@ class ApplicationController extends Controller
 
         return view('admin.hcd.dashboard', compact(
             'totalActiveFATPro',
+            'totalRevokedFATPro',
             'newPending', 'newUnderReview',
             'renewalPending', 'renewalUnderReview',
-            'scheduledInterviews',
+            'scheduledInterviews', 'totalRejected',
             'monthlyRows', 'selectedYear', 'availableYears',
             'statusBreakdown'
         ));

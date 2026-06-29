@@ -15,6 +15,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         var modal   = document.getElementById('fileViewerModal');
         var frame   = document.getElementById('fileViewerFrame');
+        var img     = document.getElementById('fileViewerImage');
         var label   = document.getElementById('fileViewerModalLabel');
         var dlLink  = document.getElementById('fileViewerDownload');
 
@@ -33,17 +34,84 @@
             if (label)  label.textContent = title;
             if (dlLink) dlLink.href = url;
 
-            // Set iframe src first, then show modal
-            frame.src = url;
+            // Check if the URL points to an image
+            var isImage = /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(url.split('?')[0]);
+
+            if (isImage && img) {
+                frame.style.display = 'none';
+                frame.src = 'about:blank';
+                img.src = url;
+                img.style.display = 'block';
+            } else {
+                if (img) {
+                    img.src = '';
+                    img.style.display = 'none';
+                }
+                frame.src = url;
+                frame.style.display = 'block';
+            }
 
             if (window.bootstrap && window.bootstrap.Modal) {
                 bootstrap.Modal.getOrCreateInstance(modal).show();
             }
         });
 
-        // Clear iframe on modal close to stop PDF/media loading
+        // Clear elements on modal close to stop PDF/media loading
         modal.addEventListener('hidden.bs.modal', function () {
             frame.src = 'about:blank';
+            frame.style.display = 'block';
+            if (img) {
+                img.src = '';
+                img.style.display = 'none';
+            }
+        });
+
+        // Center image inside iframe if browser wraps direct image response (for dynamic routes)
+        frame.addEventListener('load', function () {
+            try {
+                var doc = frame.contentDocument || frame.contentWindow.document;
+                if (!doc || !doc.body) return;
+
+                var imgEl = doc.querySelector('img');
+                if (imgEl) {
+                    var bodyText = doc.body.textContent ? doc.body.textContent.trim() : '';
+                    var hasOnlyImg = (doc.body.children.length === 1 && doc.body.firstElementChild.tagName === 'IMG') ||
+                                     (doc.body.children.length === 0 && bodyText === '') ||
+                                     (doc.contentType && doc.contentType.indexOf('image/') === 0);
+
+                    // Check for nested wrapper elements in some browser representations
+                    if (!hasOnlyImg && doc.body.children.length > 0) {
+                        var nonImgElements = Array.from(doc.body.querySelectorAll('*')).filter(function(el) {
+                            return el.tagName !== 'IMG' && el.tagName !== 'STYLE' && el.tagName !== 'HEAD' && el.tagName !== 'BODY';
+                        });
+                        if (nonImgElements.length === 0 && bodyText === '') {
+                            hasOnlyImg = true;
+                        }
+                    }
+
+                    if (hasOnlyImg) {
+                        doc.body.style.display = 'flex';
+                        doc.body.style.alignItems = 'center';
+                        doc.body.style.justifyContent = 'center';
+                        doc.body.style.margin = '0';
+                        doc.body.style.padding = '20px';
+                        doc.body.style.height = '100vh';
+                        doc.body.style.boxSizing = 'border-box';
+                        doc.body.style.backgroundColor = '#121824';
+
+                        imgEl.style.maxWidth = '100%';
+                        imgEl.style.maxHeight = '100%';
+                        imgEl.style.width = 'auto';
+                        imgEl.style.height = 'auto';
+                        imgEl.style.objectFit = 'contain';
+                        imgEl.style.margin = '0';
+                        imgEl.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                        imgEl.style.borderRadius = '4px';
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not style iframe body (possibly cross-origin):', err);
+            }
         });
     });
 
@@ -382,7 +450,7 @@
        via window.ARMSTour.init(tourType)
     ───────────────────────────────────────────── */
     window.ARMSTour = {
-        init: function (tourType) {
+        init: function (tourType, sessionId) {
             if (!TOUR_STEPS[tourType]) {
                 console.warn('[ARMS Tour] Unknown tourType:', tourType);
                 return;
@@ -390,10 +458,29 @@
 
             document.addEventListener('DOMContentLoaded', function () {
                 if (isDismissed(tourType)) {
-                    // Already dismissed — show the re-launch button instead
+                    // Already dismissed permanently — show the re-launch button instead
                     showTriggerButton(tourType);
                     return;
                 }
+
+                // Check session storage to ensure it only auto-runs once per login session
+                var sessionKey = 'arms_sidebar_tour_shown_' + tourType + (sessionId ? '_' + sessionId : '');
+                var alreadyShownThisSession = false;
+                try {
+                    alreadyShownThisSession = sessionStorage.getItem(sessionKey) === 'true';
+                } catch (e) { /* sessionStorage unavailable */ }
+
+                if (alreadyShownThisSession) {
+                    // Already shown in this session — show the re-launch button instead of auto-starting
+                    showTriggerButton(tourType);
+                    return;
+                }
+
+                // Mark as shown in this session immediately so subsequent page loads don't auto-start it
+                try {
+                    sessionStorage.setItem(sessionKey, 'true');
+                } catch (e) { /* sessionStorage unavailable */ }
+
                 // Small delay so Gentelella sidebar JS finishes rendering
                 setTimeout(function () {
                     startTour(tourType);

@@ -67,7 +67,7 @@
                                     @php
                                         $org  = $app->user->organizationProfile;
                                         $isOrg = $app->user->profile_type === 'Organization';
-                                        $accreditation = $app->user->accreditations->first();
+                                        $accreditation = $app->user->accreditations->sortByDesc('id')->first();
                                     @endphp
                                     <tr class="even pointer">
                                         <td><strong>{{ $app->tracking_number }}</strong></td>
