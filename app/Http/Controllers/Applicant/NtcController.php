@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Applicant;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminNtcSubmittedEmail;
 use App\Models\Accreditation;
+use App\Models\Application;
 use App\Models\NtcDocument;
 use App\Models\NtcDocumentType;
 use App\Models\NtcReport;
@@ -27,6 +28,28 @@ class NtcController extends Controller
     {
         $user = Auth::user();
 
+        // Block access if there is an ongoing renewal/reinstatement application
+        $hasOngoingRenewal = Application::where('user_id', $user->id)
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($q) {
+                $q->whereHas('status', function ($q2) {
+                    $q2->whereIn('name', [
+                        'Submitted',
+                        'Under Evaluation',
+                        'For Update',
+                        'Scheduled for Interview',
+                        'Awaiting Payment',
+                        'Payment Verification',
+                    ]);
+                });
+            })
+            ->exists();
+
+        if ($hasOngoingRenewal) {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'You cannot access or submit a Notice to Conduct while you have an ongoing renewal or reinstatement application.');
+        }
+
         // Only active accreditations can submit NTC
         $accreditation = Accreditation::where('user_id', $user->id)
             ->where('status', 'active')
@@ -47,7 +70,7 @@ class NtcController extends Controller
         // Earliest allowed training start date (10 working days from today)
         $earliestStartDate = NtcReport::earliestAllowedStartDate()->format('Y-m-d');
 
-        return view('applicant.ntc.index', compact(
+        return view('applicant.ntc', compact(
             'accreditation',
             'ntcReports',
             'trainingTypes',
@@ -63,6 +86,28 @@ class NtcController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
+
+        // Block submission if there is an ongoing renewal/reinstatement application
+        $hasOngoingRenewal = Application::where('user_id', $user->id)
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($q) {
+                $q->whereHas('status', function ($q2) {
+                    $q2->whereIn('name', [
+                        'Submitted',
+                        'Under Evaluation',
+                        'For Update',
+                        'Scheduled for Interview',
+                        'Awaiting Payment',
+                        'Payment Verification',
+                    ]);
+                });
+            })
+            ->exists();
+
+        if ($hasOngoingRenewal) {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'You cannot submit a Notice to Conduct while you have an ongoing renewal or reinstatement application.');
+        }
 
         // Verify active accreditation
         $accreditation = Accreditation::where('user_id', $user->id)
@@ -119,8 +164,10 @@ class NtcController extends Controller
                         $file = $request->file($inputName);
                         $docType = NtcDocumentType::where('code', $docCode)->first();
 
-                        // Store in private disk under ntc_documents/{ntcReport->id}/
-                        $path = $file->store("ntc_documents/{$ntcReport->id}", 'local');
+                        // Build folder: first_aid_training_providers/{fatpro_name}/reports/ntc/{report_id}/
+                        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
+                        $storagePath = "first_aid_training_providers/{$sanitizedFatPro}/reports/ntc/{$ntcReport->id}";
+                        $path = $file->store($storagePath, 'local');
 
                         NtcDocument::create([
                             'ntc_report_id'        => $ntcReport->id,

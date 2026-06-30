@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationContro
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 use App\Http\Controllers\Applicant\RenewalController;
 use App\Http\Controllers\Applicant\NtcController;
+use App\Http\Controllers\Admin\HCD\NtcController as AdminNtcController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -135,6 +136,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             // Renewal / Reinstatement
             Route::get('/renewal/pending', [HCDApplicationController::class, 'renewalPending'])->name('renewal.pending');
             Route::get('/renewal/under-review', [HCDApplicationController::class, 'renewalUnderReview'])->name('renewal.under_review');
+
+            // Reports
+            Route::get('/reports/ntc', [AdminNtcController::class, 'index'])->name('reports.ntc.index');
         });
     });
 });
@@ -150,6 +154,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/hcd/instructors/credentials/{credential}/view', [HCDApplicationController::class, 'serveInstructorCredential'])->name('admin.hcd.instructors.credentials.view');
     Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
+    Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
 
     // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');

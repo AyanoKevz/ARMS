@@ -45,32 +45,85 @@
     </div>
 @else
 
+{{-- ── ROW 0a: ACCREDITATION SUMMARY CARD (dashboard-style) ── --}}
 <div class="row">
+    <div class="col-md-12 col-sm-12">
+        <div class="x_panel" style="border-left: 4px solid var(--portal-gold); border-top: none;">
+            <div class="x_title border-0 mb-0 pb-0">
+                <h2 class="fw-bold" style="color: #2A3F54;"><i class="fas fa-award text-warning me-2"></i> Accreditation Summary</h2>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content mt-2">
+                <div class="row text-center text-md-start">
+                    <div class="col-md mb-2 mb-md-0 border-end">
+                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Accreditation Number</p>
+                        <p class="fw-bold fs-5 mb-0" style="color: #0b3d91;">{{ $accreditation->accreditation_number ?? 'N/A' }}</p>
+                    </div>
+                    <div class="col-md mb-2 mb-md-0 border-end">
+                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Date Accredited</p>
+                        <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
+                            {{ $accreditation->date_of_accreditation ? \Carbon\Carbon::parse($accreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}
+                        </p>
+                    </div>
+                    <div class="col-md mb-2 mb-md-0 border-end">
+                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Validity Period</p>
+                        <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
+                            {{ $accreditation->validity_date ? \Carbon\Carbon::parse($accreditation->validity_date)->format('F d, Y') : 'N/A' }}
+                        </p>
+                    </div>
+                    <div class="col-md">
+                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Status</p>
+                        <p class="mb-0 mt-1">
+                            <span class="badge bg-success" style="font-size: 0.9rem; padding: 6px 12px;">Active</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    {{-- ── SUBMIT NEW NTC FORM ─────────────────────────────── --}}
-    <div class="col-md-5">
+{{-- ── ROW 0b: REGULATORY REMINDER ────────────────────────────── --}}
+<div class="row" style="margin-bottom: 20px;">
+    <div class="col-md-12">
+        <div style="
+            background: #fff8e6;
+            border: 1px solid #f5d98a;
+            border-left: 5px solid #D4AC4B;
+            border-radius: 8px;
+            padding: 14px 18px;
+            font-size: 0.87rem;
+            color: #7a5c00;
+            display: block;
+            visibility: visible;
+            opacity: 1;
+        ">
+            <div style="margin-bottom: 6px;">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 5px;"></i>
+                <strong>Regulatory Reminder (OSHC MC 04 Series 2025):</strong>
+            </div>
+            <p style="margin-bottom: 6px;">
+                Notice to Conduct must be submitted at least <strong>ten (10) working days</strong> before the first training day
+                using the <strong>DOLE-OSHC-STO-RTCMan</strong> and <strong>DOLE-OSHC-STO-PROG</strong> forms as per <strong>OSHC MC 04 Series 2025</strong>.
+            </p>
+            <p style="margin-bottom: 0;">
+                <i class="fas fa-calendar-check" style="margin-right: 5px;"></i>
+                Earliest allowed training start date:
+                <strong>{{ \Carbon\Carbon::parse($earliestStartDate)->format('F d, Y') }}</strong>.
+            </p>
+        </div>
+    </div>
+</div>
+
+{{-- ── ROW 1: SUBMIT NEW NTC FORM ──────────────────────────── --}}
+<div class="row">
+    <div class="col-md-12">
         <div class="x_panel" style="border-top: 3px solid var(--portal-gold);">
             <div class="x_title">
                 <h2><i class="fas fa-paper-plane me-2" style="color: var(--portal-gold);"></i>Submit New NTC</h2>
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
-
-                {{-- Accreditation Info Banner --}}
-                <div class="alert mb-3 py-2 px-3" style="background: #eef5ff; border: 1px solid #b8d4ff; border-radius: 8px; font-size: 0.875rem;">
-                    <i class="fas fa-id-badge me-1" style="color: #0b3d91;"></i>
-                    <strong>Accreditation:</strong> {{ $accreditation->accreditation_number }}
-                    &nbsp;|&nbsp;
-                    <span class="badge bg-success" style="font-size:0.75rem;">Active</span>
-                </div>
-
-                {{-- 10-day rule notice --}}
-                <div class="alert py-2 px-3 mb-3" style="background: #fff8e6; border: 1px solid #f5d98a; border-radius: 8px; font-size: 0.84rem; color: #7a5c00;">
-                    <i class="fas fa-info-circle me-1"></i>
-                    <strong>Reminder:</strong> NTC must be submitted at least <strong>10 working days</strong> before the first training day.
-                    The earliest allowed training start date is
-                    <strong>{{ \Carbon\Carbon::parse($earliestStartDate)->format('F d, Y') }}</strong>.
-                </div>
 
                 <form method="POST"
                       action="{{ route('applicant.ntc.store') }}"
@@ -225,12 +278,14 @@
             </div>
         </div>
     </div>
+</div>
 
-    {{-- ── NTC SUBMISSION HISTORY ──────────────────────────── --}}
-    <div class="col-md-7">
-        <div class="x_panel" style="border-top: 3px solid #0b3d91;">
+{{-- ── ROW 2: NTC SUBMISSION HISTORY ────────────────────────── --}}
+<div class="row">
+    <div class="col-md-12">
+        <div class="x_panel" style="border-top: 3px solid var(--portal-gold);">
             <div class="x_title">
-                <h2><i class="fas fa-history me-2" style="color: #0b3d91;"></i>My NTC Submissions</h2>
+                <h2><i class="fas fa-history me-2" style="color: var(--portal-gold);"></i>My NTC Submissions</h2>
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
@@ -308,7 +363,6 @@
             </div>
         </div>
     </div>
-
 </div>
 @endif
 

@@ -65,6 +65,10 @@
 
     // 11. Archived
     $archivedActive = request()->routeIs('admin.hcd.applications.archived') || ($routeShow && $isArchivedApp);
+
+    // 12. Reports
+    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index');
+    $reportsParentActive = $ntcReportActive;
 @endphp
 
 <!-- HCD Admin Sidebar -->
@@ -101,6 +105,17 @@
 @elseif($isEvaluator)
 <li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
 @endif
+
+@if($isEvaluator)
+<li id="tour-step-reports" class="{{ $reportsParentActive ? 'active' : '' }}"><a><i class="fas fa-chart-bar"></i> Reports <span class="fas fa-chevron-down"></span></a>
+    <ul class="nav child_menu" style="{{ $reportsParentActive ? 'display: block;' : '' }}">
+        <li class="{{ $ntcReportActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.ntc.index') }}"><i class="fas fa-clipboard-list"></i> Notice to Conduct</a></li>
+        <li><a href="#"><i class="fas fa-exchange-alt"></i> Report of Changes</a></li>
+        <li><a href="#"><i class="fas fa-flag-checkered"></i> Post Training Report</a></li>
+    </ul>
+</li>
+@endif
+
 <li id="tour-step-active-fatpro" class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
 <li id="tour-step-inactive-fatpro" class="{{ $inactiveFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
 <li id="tour-step-archived" class="{{ $archivedActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>
