@@ -14,11 +14,16 @@ class NtcDocument extends Model
         'mime_type',
         'file_size',
         'uploaded_at',
+        'status',
+        'remarks',
+        'evaluated_by',
+        'evaluated_at',
     ];
 
     protected $casts = [
-        'uploaded_at' => 'datetime',
-        'file_size'   => 'integer',
+        'uploaded_at'  => 'datetime',
+        'evaluated_at' => 'datetime',
+        'file_size'    => 'integer',
     ];
 
     public function ntcReport()
@@ -29,5 +34,10 @@ class NtcDocument extends Model
     public function documentType()
     {
         return $this->belongsTo(NtcDocumentType::class, 'ntc_document_type_id');
+    }
+
+    public function evaluatedByUser()
+    {
+        return $this->belongsTo(User::class, 'evaluated_by');
     }
 }

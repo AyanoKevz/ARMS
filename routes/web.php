@@ -77,6 +77,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::get('/ntc', [NtcController::class, 'index'])->name('ntc.index');
         Route::post('/ntc', [NtcController::class, 'store'])->name('ntc.store')->middleware('throttle:10,1');
         Route::get('/ntc/documents/{document}/view', [NtcController::class, 'serveDocument'])->name('ntc.document.view');
+        Route::post('/ntc/documents/{document}/reupload', [NtcController::class, 'reuploadDocument'])->name('ntc.document.reupload')->middleware('throttle:10,1');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -139,6 +140,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Reports
             Route::get('/reports/ntc', [AdminNtcController::class, 'index'])->name('reports.ntc.index');
+            Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
+            Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
         });
     });
 });

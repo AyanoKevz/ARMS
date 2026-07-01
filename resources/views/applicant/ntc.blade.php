@@ -305,14 +305,24 @@
                                     <th style="color: #0b3d91;">Mode</th>
                                     <th style="color: #0b3d91;">Training Period</th>
                                     <th style="color: #0b3d91;">Status</th>
-                                    <th style="color: #0b3d91;">Files</th>
+                                    <th style="color: #0b3d91;">Documents</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($ntcReports as $ntc)
-                                <tr>
+                                @php
+                                    $hasRejected = $ntc->documents->contains(fn($d) => in_array($d->status, ['rejected', 'returned']));
+                                @endphp
+                                <tr class="{{ $hasRejected ? 'table-warning' : '' }}">
                                     <td class="fw-bold" style="color: #0b3d91;">
                                         NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}
+                                        @if($hasRejected)
+                                            <div style="margin-top:3px;">
+                                                <span class="badge bg-danger" style="font-size:.7rem;">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>Action Required
+                                                </span>
+                                            </div>
+                                        @endif
                                     </td>
                                     <td>
                                         <span class="badge"
@@ -328,10 +338,12 @@
                                         <div>{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</div>
                                     </td>
                                     <td>
-                                        @if($ntc->status === 'submitted')
-                                            <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
-                                        @elseif($ntc->status === 'acknowledged')
+                                        @if($ntc->status === 'acknowledged')
                                             <span class="badge bg-success" style="font-size:0.75rem;">Acknowledged</span>
+                                        @elseif($hasRejected)
+                                            <span class="badge bg-danger" style="font-size:0.75rem;">Requires Re-submission</span>
+                                        @elseif($ntc->status === 'submitted')
+                                            <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
                                         @else
                                             <span class="badge bg-secondary" style="font-size:0.75rem;">{{ ucfirst($ntc->status) }}</span>
                                         @endif
@@ -343,14 +355,65 @@
                                     </td>
                                     <td>
                                         @foreach($ntc->documents as $doc)
-                                            <a href="{{ route('applicant.ntc.document.view', $doc->id) }}"
-                                               target="_blank"
-                                               title="{{ $doc->documentType->name ?? $doc->original_filename }}"
-                                               class="btn btn-sm mb-1"
-                                               style="background: #f1f3f8; border: 1px solid #dde; color: #0b3d91; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">
-                                                <i class="fas fa-file-alt me-1"></i>
-                                                {{ $doc->documentType->code ?? 'DOC' }}
-                                            </a>
+                                        @php
+                                            $docStatus = $doc->status ?? 'pending';
+                                            $docBadge  = match($docStatus) {
+                                                'approved' => ['bg-success', 'Approved'],
+                                                'rejected' => ['bg-danger',  'Rejected'],
+                                                'returned' => ['bg-warning text-dark', 'Awaiting Review'],
+                                                default    => ['bg-secondary', 'Pending'],
+                                            };
+                                        @endphp
+                                        <div style="margin-bottom: 8px;">
+                                            <div class="d-flex align-items-center gap-1 mb-1" style="flex-wrap:wrap;">
+                                                @if($doc->file_path)
+                                                <a href="{{ route('applicant.ntc.document.view', $doc->id) }}"
+                                                   target="_blank"
+                                                   class="btn btn-sm"
+                                                   style="background: #f1f3f8; border: 1px solid #dde; color: #0b3d91; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">
+                                                    <i class="fas fa-file-alt me-1"></i>
+                                                    {{ $doc->documentType->code ?? 'DOC' }}
+                                                </a>
+                                                @else
+                                                <span style="font-size:.72rem; color:#6b7280; font-style:italic;">
+                                                    <i class="fas fa-trash me-1"></i>File removed
+                                                </span>
+                                                @endif
+                                                <span class="badge {{ $docBadge[0] }}" style="font-size:.7rem;">{{ $docBadge[1] }}</span>
+                                            </div>
+                                            @if(in_array($docStatus, ['rejected', 'returned']))
+                                                @if($doc->remarks)
+                                                <div style="font-size:.75rem; color:#991b1b; background:#fff5f5; border-radius:5px; padding:4px 8px; margin-bottom:5px; border:1px solid #fecaca;">
+                                                    <i class="fas fa-comment me-1"></i><strong>Remarks:</strong> {{ $doc->remarks }}
+                                                </div>
+                                                @endif
+                                                @if($docStatus === 'rejected')
+                                                <form method="POST"
+                                                      action="{{ route('applicant.ntc.document.reupload', $doc->id) }}"
+                                                      enctype="multipart/form-data"
+                                                      style="margin-top: 4px;">
+                                                    @csrf
+                                                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                                        <input type="file"
+                                                               name="file"
+                                                               accept=".pdf,.doc,.docx"
+                                                               required
+                                                               style="font-size:.75rem; max-width:180px;"
+                                                               class="form-control form-control-sm">
+                                                        <button type="submit"
+                                                                class="btn btn-danger btn-sm fw-semibold"
+                                                                style="font-size:.75rem; padding: 3px 10px; border-radius:6px; white-space:nowrap;">
+                                                            <i class="fas fa-upload me-1"></i> Re-upload
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                                @elseif($docStatus === 'returned')
+                                                <span style="font-size:.72rem; color:#92400e;">
+                                                    <i class="fas fa-hourglass-half me-1"></i> Awaiting admin re-evaluation
+                                                </span>
+                                                @endif
+                                            @endif
+                                        </div>
                                         @endforeach
                                     </td>
                                 </tr>

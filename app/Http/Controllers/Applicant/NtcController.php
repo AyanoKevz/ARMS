@@ -109,9 +109,10 @@ class NtcController extends Controller
                 ->with('error', 'You cannot submit a Notice to Conduct while you have an ongoing renewal or reinstatement application.');
         }
 
-        // Verify active accreditation
+        // Verify active accreditation (with type for path building)
         $accreditation = Accreditation::where('user_id', $user->id)
             ->where('status', 'active')
+            ->with('accreditationType')
             ->latest()
             ->first();
 
@@ -159,15 +160,22 @@ class NtcController extends Controller
                     'file_prog'   => 'PROG',
                 ];
 
+                // Build base path using the same convention as application documents:
+                // public/{accreditation_type}/{fatpro_name}/reports/ntc/
+                $accreditationType   = $accreditation->accreditationType;
+                $accreditationName   = $accreditationType ? $accreditationType->name : 'Unknown';
+                $sanitizedAccType    = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+                $sanitizedFatPro     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
+                $ntcBasePath         = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+
                 foreach ($fileFields as $inputName => $docCode) {
                     if ($request->hasFile($inputName)) {
-                        $file = $request->file($inputName);
+                        $file    = $request->file($inputName);
                         $docType = NtcDocumentType::where('code', $docCode)->first();
 
-                        // Build folder: first_aid_training_providers/{fatpro_name}/reports/ntc/{report_id}/
-                        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
-                        $storagePath = "first_aid_training_providers/{$sanitizedFatPro}/reports/ntc/{$ntcReport->id}";
-                        $path = $file->store($storagePath, 'local');
+                        $ext      = $file->getClientOriginalExtension() ?: 'pdf';
+                        $filename = strtolower($docCode) . '_' . time() . '.' . $ext;
+                        $path     = $file->storeAs($ntcBasePath, $filename, 'local');
 
                         NtcDocument::create([
                             'ntc_report_id'        => $ntcReport->id,
@@ -227,7 +235,7 @@ class NtcController extends Controller
             abort(403);
         }
 
-        if (!Storage::disk('local')->exists($document->file_path)) {
+        if (!$document->file_path || !Storage::disk('local')->exists($document->file_path)) {
             abort(404, 'File not found.');
         }
 
@@ -236,5 +244,73 @@ class NtcController extends Controller
             $document->original_filename,
             ['Content-Type' => $document->mime_type]
         );
+    }
+
+    /**
+     * Re-upload a rejected NTC document.
+     */
+    public function reuploadDocument(Request $request, NtcDocument $document)
+    {
+        $user = Auth::user();
+
+        // Security: document must belong to this user
+        $belongsToUser = $document->ntcReport->accreditation->user_id === $user->id;
+        if (!$belongsToUser) {
+            abort(403);
+        }
+
+        // Only allow re-upload if the document is rejected/returned
+        if (!in_array($document->status, ['rejected', 'returned'])) {
+            return back()->withErrors(['error' => 'This document is not eligible for re-upload.']);
+        }
+
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+        ], [
+            'file.required' => 'Please select a file to upload.',
+            'file.mimes'    => 'Accepted formats: PDF, DOC, DOCX.',
+            'file.max'      => 'File must not exceed 100 MB.',
+        ]);
+
+        try {
+            $file = $request->file('file');
+
+            // Build path using same convention as application docs:
+            // public/{accreditation_type}/{fatpro_name}/reports/ntc/
+            $ntcReport           = $document->ntcReport->loadMissing('accreditation.accreditationType');
+            $accreditationType   = $ntcReport->accreditation->accreditationType;
+            $accreditationName   = $accreditationType ? $accreditationType->name : 'Unknown';
+            $sanitizedAccType    = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+            $sanitizedFatPro     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
+            $ntcBasePath         = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+
+            // Delete old file — no stacking
+            if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                Storage::disk('local')->delete($document->file_path);
+            }
+
+            $ext      = $file->getClientOriginalExtension() ?: 'pdf';
+            $docCode  = strtolower($document->documentType->code ?? 'doc');
+            $filename = $docCode . '_' . time() . '.' . $ext;
+            $path     = $file->storeAs($ntcBasePath, $filename, 'local');
+
+            $document->update([
+                'file_path'         => $path,
+                'original_filename' => $file->getClientOriginalName(),
+                'mime_type'         => $file->getMimeType(),
+                'file_size'         => $file->getSize(),
+                'uploaded_at'       => Carbon::now(),
+                'status'            => 'returned', // awaiting re-evaluation by admin
+                'remarks'           => null,
+                'evaluated_by'      => null,
+                'evaluated_at'      => null,
+            ]);
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Your document has been re-uploaded successfully. Admin has been notified for re-evaluation.');
+        } catch (\Exception $e) {
+            Log::error('NTC document re-upload failed: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while uploading your document. Please try again.']);
+        }
     }
 }

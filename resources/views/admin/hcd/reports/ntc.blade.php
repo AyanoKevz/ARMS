@@ -45,7 +45,7 @@
                                     <th class="column-title text-center">Training Period</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title text-center">Submitted</th>
-                                    <th class="column-title no-link last text-center no-sort">Files / Action</th>
+                                    <th class="column-title no-link last text-center no-sort">Action</th>
                                 </tr>
                             </thead>
 
@@ -88,15 +88,10 @@
                                             {{ $ntc->submitted_at ? $ntc->submitted_at->format('M d, Y') : '—' }}
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
-                                            @foreach($ntc->documents as $doc)
-                                                <a href="{{ route('admin.hcd.reports.ntc.document.view', $doc->id) }}"
-                                                   target="_blank"
-                                                   title="{{ $doc->documentType->name ?? $doc->original_filename }}"
-                                                   class="btn btn-info btn-xs me-1 mb-1">
-                                                    <i class="fas fa-eye me-1"></i>
-                                                    {{ $doc->documentType->code ?? 'DOC' }}
-                                                </a>
-                                            @endforeach
+                                            <a href="{{ route('admin.hcd.reports.ntc.show', $ntc->id) }}"
+                                               class="btn btn-primary btn-xs">
+                                                <i class="fas fa-eye me-1"></i> View
+                                            </a>
                                         </td>
                                     </tr>
                                 @endforeach
