@@ -273,7 +273,33 @@
                         }
                     }
                 }, true); // Use capture phase to intercept BEFORE Gentelella event handler
+
+                // Reposition flyout submenu when scrolling minimized sidebar
+                sidebarMenu.addEventListener('scroll', function() {
+                    if (!document.body.classList.contains('nav-sm')) return;
+                    const activeHoverLi = sidebarMenu.querySelector('.nav.side-menu > li:hover');
+                    if (activeHoverLi) {
+                        const menu = activeHoverLi.querySelector('ul.child_menu');
+                        if (menu) {
+                            const rect = activeHoverLi.getBoundingClientRect();
+                            menu.style.top = rect.top + 'px';
+                        }
+                    }
+                });
             }
+
+            // Collapsed sidebar flyout positioning to prevent clipping with scrollbar
+            document.addEventListener('mouseover', function(e) {
+                if (!document.body.classList.contains('nav-sm')) return;
+                const li = e.target.closest('body.nav-sm .nav.side-menu > li');
+                if (li) {
+                    const menu = li.querySelector('ul.child_menu');
+                    if (menu) {
+                        const rect = li.getBoundingClientRect();
+                        menu.style.top = rect.top + 'px';
+                    }
+                }
+            });
         });
     </script>
     <!-- ══ File Viewer Modal ══ -->

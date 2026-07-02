@@ -142,6 +142,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/reports/ntc', [AdminNtcController::class, 'index'])->name('reports.ntc.index');
             Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
+            Route::post('/reports/ntc/{ntcReport}/finalize-evaluation', [AdminNtcController::class, 'finalizeEvaluation'])->name('reports.ntc.finalize_evaluation');
         });
     });
 });

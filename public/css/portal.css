@@ -64,29 +64,29 @@ body.nav-md .top_nav {
     padding-bottom: 10px !important;
 }
 
-/* Enable scroll in expanded (body.nav-md) mode */
-body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
+/* Enable scroll in expanded (body.nav-md) and collapsed (body.nav-sm) modes */
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
     overflow-y: auto !important;
     overflow-x: visible !important;
 }
 
-/* Disable scroll and allow overflow in collapsed (body.nav-sm) mode so flyout submenus aren't clipped */
-body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
-    overflow: visible !important;
-}
-
-/* Custom scrollbar styling for sidebar menu in expanded mode */
-body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar {
+/* Custom scrollbar styling for sidebar menu */
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar {
     width: 4px;
 }
-body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-track {
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-track,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.1);
 }
-body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-thumb {
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-thumb,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu::-webkit-scrollbar-thumb {
     background: var(--portal-gold);
     border-radius: 2px;
 }
-body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
+body.nav-md .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu,
+body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
     scrollbar-width: thin;
     scrollbar-color: var(--portal-gold) rgba(0, 0, 0, 0.1);
 }
@@ -539,8 +539,7 @@ body.nav-sm .nav.side-menu > li > a span.fa-chevron-down {
 
 /* Correct positioning & alignment for the flyout submenu in collapsed mode */
 body.nav-sm ul.nav.child_menu {
-    position: absolute !important;
-    top: 0 !important;
+    position: fixed !important;
     left: 100px !important;
     width: 220px !important;
     background-color: var(--portal-bg) !important;
@@ -831,43 +830,56 @@ body.nav-sm .sidebar-footer #real-time-date {
 .introjs-arrow.bottom         { border-top-color:   #1A4A8A !important; }
 .introjs-arrow.right-bottom   { border-left-color:  #1A4A8A !important; }
 
-/* ── Tour trigger button (floating, bottom-left of sidebar footer) ── */
+/* ── Tour trigger button (floating, bottom-left of content area next to footer) ── */
 #arms-tour-trigger {
     display: none; /* shown by JS once dismissed */
     position: fixed;
-    bottom: 52px; /* just above sidebar footer */
-    left: 0;
-    width: 250px;
+    bottom: 15px;
+    left: 270px; /* sidebar width 250px + 20px */
     z-index: 1031;
-    background: none;
-    border: none;
-    padding: 5px 10px;
-    text-align: left;
+    background: #0d2b55;
+    border: 1px solid var(--portal-gold);
+    border-radius: 20px;
+    padding: 6px 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: all 0.2s ease, left 0.3s ease;
+    text-align: center;
 }
 #arms-tour-trigger span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(212,172,75,.6);
-    letter-spacing: .04em;
+    color: var(--portal-gold);
+    letter-spacing: .02em;
     transition: color 0.2s;
 }
+#arms-tour-trigger:hover {
+    background: #1a4a8a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
 #arms-tour-trigger:hover span {
-    color: var(--portal-gold);
+    color: #fff;
 }
 body.nav-sm #arms-tour-trigger {
-    width: 100px;
-    justify-content: center;
+    left: 120px; /* minimized sidebar 100px + 20px */
+    width: auto;
+    text-align: center;
 }
 body.nav-sm #arms-tour-trigger span {
-    font-size: 0;
-    gap: 0;
+    font-size: 0.75rem;
+    gap: 6px;
 }
 body.nav-sm #arms-tour-trigger span i {
-    font-size: 14px;
+    font-size: inherit;
+}
+@media (max-width: 991px) {
+    #arms-tour-trigger {
+        left: 20px !important;
+        bottom: 15px !important;
+    }
 }
 

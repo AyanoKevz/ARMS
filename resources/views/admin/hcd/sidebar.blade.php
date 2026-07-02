@@ -67,7 +67,7 @@
     $archivedActive = request()->routeIs('admin.hcd.applications.archived') || ($routeShow && $isArchivedApp);
 
     // 12. Reports
-    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index');
+    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || request()->routeIs('admin.hcd.reports.ntc.show');
     $reportsParentActive = $ntcReportActive;
 @endphp
 

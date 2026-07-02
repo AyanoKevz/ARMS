@@ -974,8 +974,236 @@
         setInterval(updateLiveTicker, 1000);
     }
 
+    /* ─── NTC Document Evaluation (Single Button Workflow) ─── */
+    window.setNtcDocStatus = function (docId, status) {
+        const input = document.getElementById('ntc-status-input-' + docId);
+        if (!input) return;
+
+        // Toggle status
+        if (input.value === status) {
+            input.value = 'pending';
+        } else {
+            input.value = status;
+        }
+
+        const currentVal = input.value;
+
+        // Update Button Classes
+        const btnApprove = document.getElementById('btn-approve-' + docId);
+        const btnReject = document.getElementById('btn-reject-' + docId);
+
+        if (btnApprove) btnApprove.classList.toggle('active', currentVal === 'approved');
+        if (btnReject) btnReject.classList.toggle('active', currentVal === 'rejected');
+
+        // Update badge
+        const badge = document.getElementById('ntc-badge-' + docId);
+        if (badge) {
+            badge.classList.remove('ntc-badge-approved', 'ntc-badge-rejected', 'ntc-badge-returned', 'ntc-badge-pending');
+            
+            let label = 'Pending';
+            let cls = 'ntc-badge-pending';
+
+            if (currentVal === 'approved') {
+                label = 'Approved';
+                cls = 'ntc-badge-approved';
+            } else if (currentVal === 'rejected') {
+                label = 'Rejected';
+                cls = 'ntc-badge-rejected';
+            } else if (input.getAttribute('data-db-status') === 'returned') {
+                label = 'Awaiting Re-upload';
+                cls = 'ntc-badge-returned';
+            }
+
+            badge.className = `badge ${cls} px-2 py-1`;
+            badge.style.cssText = 'font-size:.75rem;border-radius:20px;white-space:nowrap;';
+            badge.textContent = label;
+        }
+
+        // Toggle Remarks Panel
+        const panel = document.getElementById('ntc-reject-panel-' + docId);
+        if (panel) {
+            panel.style.display = currentVal === 'rejected' ? 'block' : 'none';
+        }
+
+        refreshNtcState();
+    };
+
+    window.refreshNtcState = function () {
+        const inputs = Array.from(document.querySelectorAll('input[id^="ntc-status-input-"]'));
+        const total = inputs.length;
+
+        const approved = inputs.filter(i => i.value === 'approved').length;
+        const awaitingUpdate = inputs.filter(i => i.getAttribute('data-db-status') === 'rejected' || i.getAttribute('data-db-status') === 'returned').length;
+        const rejected = inputs.filter(i => i.value === 'rejected').length;
+        const pending = total - approved - rejected - awaitingUpdate;
+
+        const progressEl = document.getElementById('ntc-docs-progress');
+        if (progressEl) {
+            progressEl.textContent = `${approved} / ${total} Accepted`;
+        }
+
+        const btn = document.getElementById('btn-ntc-submit');
+        const btnText = document.getElementById('btn-ntc-text');
+        if (!btn) return;
+
+        if (rejected > 0) {
+            btn.disabled = false;
+            btn.className = 'btn btn-danger btn-sm fw-semibold px-4';
+            btn.style.cssText = 'border-radius:6px;';
+            btn.setAttribute('data-bs-toggle', 'modal');
+            btn.setAttribute('data-bs-target', '#ntcRejectionConfirmModal');
+            btn.onclick = null;
+            if (btnText) btnText.textContent = `Send Rejection Email (${rejected} rejected)`;
+        } else if (pending > 0 || awaitingUpdate > 0) {
+            btn.disabled = true;
+            btn.className = 'btn btn-outline-secondary btn-sm fw-semibold px-4';
+            btn.style.cssText = 'border-radius:6px;';
+            btn.removeAttribute('data-bs-toggle');
+            btn.removeAttribute('data-bs-target');
+            btn.onclick = null;
+            if (btnText) {
+                if (awaitingUpdate > 0 && pending === 0) {
+                    btnText.textContent = `Awaiting Applicant Re-upload (${awaitingUpdate} remaining)`;
+                } else {
+                    btnText.textContent = `Pending Documents (${pending + awaitingUpdate} remaining)`;
+                }
+            }
+        } else {
+            btn.disabled = false;
+            btn.className = 'btn btn-success btn-sm fw-semibold px-4';
+            btn.style.cssText = 'border-radius:6px;';
+            btn.removeAttribute('data-bs-toggle');
+            btn.removeAttribute('data-bs-target');
+            btn.onclick = submitNtcApproved;
+            if (btnText) btnText.textContent = 'Acknowledge Notice to Conduct';
+        }
+    };
+
+    window.submitNtcApproved = function () {
+        const btn = document.getElementById('btn-ntc-submit');
+        const btnText = document.getElementById('btn-ntc-text');
+        if (btn) {
+            btn.disabled = true;
+            if (btnText) btnText.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing…';
+        }
+
+        submitNtcForm();
+    };
+
+    window.submitNtcRejection = function () {
+        const modalEl = document.getElementById('ntcRejectionConfirmModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        const btn = document.getElementById('btn-ntc-submit');
+        const btnText = document.getElementById('btn-ntc-text');
+        if (btn) {
+            btn.disabled = true;
+            if (btnText) btnText.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending Email…';
+        }
+
+        submitNtcForm();
+    };
+
+    function submitNtcForm() {
+        const form = document.getElementById('ntc-evaluation-form');
+        if (!form) return;
+
+        const url = form.getAttribute('data-url');
+
+        // Map evaluations array into expected JSON structure
+        const json = { evaluations: [] };
+        const inputs = form.querySelectorAll('input[id^="ntc-status-input-"]');
+        inputs.forEach(input => {
+            const id = input.id.replace('ntc-status-input-', '');
+            const status = input.value;
+            const remarks = document.getElementById('ntc-remarks-' + id)?.value ?? '';
+            json.evaluations.push({ id, status, remarks });
+        });
+
+        const csrfToken = window.ARMS?.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(json),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Evaluation failed');
+
+            if (data.has_rejections) {
+                showToast(data.message || 'Rejection email sent!', 'success');
+            } else {
+                showToast(data.message || 'Evaluation saved successfully.', 'success');
+            }
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        })
+        .catch(err => {
+            console.error(err);
+            showToast(err.message || 'Something went wrong. Please try again.', 'danger');
+            refreshNtcState();
+        });
+    }
+
+    // Modal populate listener for NTC Rejection
+    const ntcRejectionModalEl = document.getElementById('ntcRejectionConfirmModal');
+    if (ntcRejectionModalEl) {
+        ntcRejectionModalEl.addEventListener('show.bs.modal', function () {
+            const list = document.getElementById('ntc-rejection-doc-list');
+            if (list) {
+                list.innerHTML = '';
+                document.querySelectorAll('input[id^="ntc-status-input-"]').forEach(input => {
+                    if (input.value !== 'rejected') return;
+
+                    const docId = input.id.replace('ntc-status-input-', '');
+                    const row = document.getElementById('ntc-doc-row-' + docId);
+                    const nameEl = row?.querySelector('.ntc-doc-name');
+                    const remarks = document.getElementById('ntc-remarks-' + docId)?.value?.trim() ?? '';
+
+                    // Get document type name, stripping any metadata details
+                    let docName = 'Document #' + docId;
+                    if (nameEl) {
+                        const clone = nameEl.cloneNode(true);
+                        const meta = clone.querySelector('.ntc-doc-meta');
+                        if (meta) clone.removeChild(meta);
+                        const bubble = clone.querySelector('div');
+                        if (bubble) clone.removeChild(bubble);
+                        docName = clone.textContent.replace(/[\n\r]/g, '').trim();
+                    }
+
+                    const item = document.createElement('div');
+                    item.style.cssText = 'background:#fff;border-radius:8px;border:1px solid #f5c6cb;padding:10px 14px;';
+                    item.innerHTML = `
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <i class="bi bi-file-earmark-x text-danger"></i>
+                            <span class="fw-semibold" style="font-size:.88rem;color:#2A3F54;">${docName}</span>
+                        </div>
+                        ${remarks
+                            ? `<div class="text-muted" style="font-size:.8rem;padding-left:22px;">
+                                   <i class="bi bi-chat-left-text me-1"></i>${remarks}
+                               </div>`
+                            : `<div class="text-muted fst-italic" style="font-size:.78rem;padding-left:22px;">No remarks provided</div>`
+                        }
+                    `;
+                    list.appendChild(item);
+                });
+            }
+        });
+    }
+
     // Always run refreshState on page load so the evaluation button
     // is correctly initialised regardless of approval/schedule state.
     refreshState();
+    if (document.getElementById('btn-ntc-submit')) {
+        refreshNtcState();
+    }
 
 })();

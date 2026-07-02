@@ -106,7 +106,7 @@ return new class extends Migration
                 ->restrictOnDelete();
             // Which form: RTCMAN or PROG
 
-            $table->string('file_path');
+            $table->string('file_path')->nullable();
             // Storage path to the uploaded file
 
             $table->string('original_filename');
