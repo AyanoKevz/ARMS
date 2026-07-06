@@ -277,25 +277,25 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
         {{-- Step Timeline --}}
         <div class="pct-timeline">
+            @php
+                {{-- Compute holidays ONCE before the loop (avoids repeated array_merge on each step) --}}
+                $pctNow = \Carbon\Carbon::now();
+                $pctTodayHolidays = \App\Services\PctService::getHolidays($pctNow->year, $pctNow->year);
+                $pctIsTodayHoliday = in_array($pctNow->format('Y-m-d'), $pctTodayHolidays);
+                $pctWorkStart = $pctNow->copy()->setTime(8, 0, 0);
+                $pctWorkEnd   = $pctNow->copy()->setTime(17, 0, 0);
+            @endphp
             @foreach($pctSummary['steps'] as $step)
             @php
                 $stepStatus = $step['status'];
-                
+                $now = $pctNow;
                 $isWorkingHours = true;
-                $now = \Carbon\Carbon::now();
                 if ($now->isWeekend()) {
                     $isWorkingHours = false;
-                } else {
-                    $holidays = \App\Services\PctService::getHolidays($now->year, $now->year);
-                    if (in_array($now->format('Y-m-d'), $holidays)) {
-                        $isWorkingHours = false;
-                    } else {
-                        $workStart = $now->copy()->setTime(8, 0, 0);
-                        $workEnd   = $now->copy()->setTime(17, 0, 0);
-                        if ($now->lessThan($workStart) || $now->greaterThanOrEqualTo($workEnd)) {
-                            $isWorkingHours = false;
-                        }
-                    }
+                } elseif ($pctIsTodayHoliday) {
+                    $isWorkingHours = false;
+                } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
+                    $isWorkingHours = false;
                 }
                 
                 $displayStatus = $stepStatus;
@@ -341,17 +341,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                     } else {
                         if ($now->isWeekend()) {
                             $pausedReason = 'Weekend';
-                        } else {
-                            $holidays = \App\Services\PctService::getHolidays($now->year, $now->year);
-                            if (in_array($now->format('Y-m-d'), $holidays)) {
-                                $pausedReason = 'Holiday';
-                            } else {
-                                $workStart = $now->copy()->setTime(8, 0, 0);
-                                $workEnd   = $now->copy()->setTime(17, 0, 0);
-                                if ($now->lessThan($workStart) || $now->greaterThanOrEqualTo($workEnd)) {
-                                    $pausedReason = 'Past Working Hours';
-                                }
-                            }
+                        } elseif ($pctIsTodayHoliday) {
+                            $pausedReason = 'Holiday';
+                        } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
+                            $pausedReason = 'Past Working Hours';
                         }
                     }
                 }
@@ -727,8 +720,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="evaluations[{{ $doc->id }}][remarks]"
                                                 id="remarks-{{ $doc->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2"
-                                                {{ ($doc->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                                                rows="2">{{ $doc->remarks }}</textarea>
                                         </div>
                                     @endif
 
@@ -945,8 +937,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="credential_evaluations[{{ $credential->id }}][remarks]"
                                                 id="remarks-cred-{{ $credential->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2"
-                                                {{ ($credential->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
+                                                rows="2">{{ $credential->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -1025,8 +1016,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="instructor_evaluations[{{ $instructor->id }}][remarks]"
                                                 id="remarks-inst-{{ $instructor->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2"
-                                                {{ ($instructor->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
+                                                rows="2">{{ $instructor->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>

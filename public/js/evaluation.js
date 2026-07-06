@@ -518,6 +518,10 @@
     // Debounce timer for remarks auto-save
     let remarksDebounceTimer = null;
 
+    // AbortController map: tracks in-flight fetch per textarea id so we can
+    // cancel a previous request when a newer one starts for the same field.
+    const remarksAbortControllers = {};
+
     function saveRemarks(ta) {
         const isNtc = ta.id.startsWith('ntc-remarks-');
         const docId = isNtc ? ta.id.replace('ntc-remarks-', '') : ta.id.replace('remarks-', '');
@@ -527,6 +531,17 @@
 
             const statusInput = document.getElementById(`ntc-status-input-${docId}`);
             const status = statusInput ? statusInput.value : 'rejected';
+
+            // Only save when the document has been explicitly evaluated
+            if (!status || status === 'pending') return;
+
+            // Cancel any previous in-flight request for this textarea
+            if (remarksAbortControllers[ta.id]) {
+                remarksAbortControllers[ta.id].abort();
+                // activeSavesCount was already decremented in the finally of the aborted request
+            }
+            const controller = new AbortController();
+            remarksAbortControllers[ta.id] = controller;
 
             activeSavesCount++;
             updateActiveSavesIndicator();
@@ -540,16 +555,21 @@
             fetch(url, {
                 method: 'POST',
                 body: formData,
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
             }).then(async (res) => {
                 const data = await res.json();
                 if (!data.success) {
                     showToast('Failed to auto-save remarks.', 'danger');
                 }
             }).catch(err => {
-                console.error('Auto-save remarks error:', err);
-                showToast('Network error during remarks auto-save.', 'danger');
+                // AbortError is expected when a newer request cancels this one — don't show toast
+                if (err.name !== 'AbortError') {
+                    console.error('Auto-save remarks error:', err);
+                    showToast('Network error during remarks auto-save.', 'danger');
+                }
             }).finally(() => {
+                delete remarksAbortControllers[ta.id];
                 activeSavesCount--;
                 updateActiveSavesIndicator();
             });
@@ -572,6 +592,16 @@
 
             if (!window.ARMS || !window.ARMS.evaluateItemUrl) return;
 
+            // Only save when the document has been explicitly evaluated
+            if (!status || status === 'pending') return;
+
+            // Cancel any previous in-flight request for this textarea
+            if (remarksAbortControllers[ta.id]) {
+                remarksAbortControllers[ta.id].abort();
+            }
+            const controller = new AbortController();
+            remarksAbortControllers[ta.id] = controller;
+
             activeSavesCount++;
             updateActiveSavesIndicator();
 
@@ -585,27 +615,33 @@
             fetch(window.ARMS.evaluateItemUrl, {
                 method: 'POST',
                 body: formData,
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
             }).then(async (res) => {
                 const data = await res.json();
                 if (!data.success) {
                     showToast('Failed to auto-save remarks.', 'danger');
                 }
             }).catch(err => {
-                console.error('Auto-save remarks error:', err);
-                showToast('Network error during remarks auto-save.', 'danger');
+                // AbortError is expected when a newer request cancels this one — don't show toast
+                if (err.name !== 'AbortError') {
+                    console.error('Auto-save remarks error:', err);
+                    showToast('Network error during remarks auto-save.', 'danger');
+                }
             }).finally(() => {
+                delete remarksAbortControllers[ta.id];
                 activeSavesCount--;
                 updateActiveSavesIndicator();
             });
         }
     }
 
-    // Save remarks on input (debounced) and immediately on blur
+    // Save remarks on input (debounced to 1500ms) and immediately on blur.
+    // The longer debounce reduces the number of in-flight requests while typing.
     document.addEventListener('input', function (e) {
         if (e.target && e.target.classList.contains('reject-remarks-input')) {
             clearTimeout(remarksDebounceTimer);
-            remarksDebounceTimer = setTimeout(() => saveRemarks(e.target), 900);
+            remarksDebounceTimer = setTimeout(() => saveRemarks(e.target), 1500);
         }
     });
     document.addEventListener('blur', function (e) {

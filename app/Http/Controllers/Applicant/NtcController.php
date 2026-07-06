@@ -313,4 +313,108 @@ class NtcController extends Controller
             return back()->withErrors(['error' => 'An error occurred while uploading your document. Please try again.']);
         }
     }
+
+    /**
+     * Batch re-upload rejected NTC documents.
+     */
+    public function reuploadBatch(Request $request, NtcReport $ntcReport)
+    {
+        $user = Auth::user();
+
+        // Security check: must belong to this user
+        if ($ntcReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $request->validate([
+            'files' => ['required', 'array'],
+            'files.*' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+        ], [
+            'files.*.required' => 'Please select a file to upload.',
+            'files.*.mimes'    => 'Accepted formats: PDF, DOC, DOCX.',
+            'files.*.max'      => 'File must not exceed 100 MB.',
+        ]);
+
+        $filesUploaded = 0;
+        try {
+            $accreditationType = $ntcReport->accreditation->accreditationType;
+            $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+            $sanitizedAccType  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+            $sanitizedFatPro   = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
+            $ntcBasePath       = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+
+            $reuploadedDocsInfo = [];
+            foreach ($request->file('files') as $docId => $file) {
+                $document = NtcDocument::where('ntc_report_id', $ntcReport->id)->find($docId);
+                if ($document && in_array($document->status, ['rejected', 'returned'])) {
+                    // Delete old file
+                    if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                        Storage::disk('local')->delete($document->file_path);
+                    }
+
+                    $ext      = $file->getClientOriginalExtension() ?: 'pdf';
+                    $docCode  = strtolower($document->documentType->code ?? 'doc');
+                    $filename = $docCode . '_' . time() . '_' . $docId . '.' . $ext;
+                    $path     = $file->storeAs($ntcBasePath, $filename, 'local');
+
+                    $document->update([
+                        'file_path'         => $path,
+                        'original_filename' => $file->getClientOriginalName(),
+                        'mime_type'         => $file->getMimeType(),
+                        'file_size'         => $file->getSize(),
+                        'uploaded_at'       => Carbon::now(),
+                        'status'            => 'returned',
+                        'remarks'           => null,
+                        'evaluated_by'      => null,
+                        'evaluated_at'      => null,
+                    ]);
+                    $filesUploaded++;
+
+                    $reuploadedDocsInfo[] = [
+                        'type' => $document->documentType->name ?? 'Document',
+                        'filename' => $file->getClientOriginalName()
+                    ];
+                }
+            }
+
+            if ($filesUploaded > 0) {
+                // Find all Evaluators
+                $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                    $q->where('name', 'Evaluator');
+                })->get();
+
+                if ($evaluators->isNotEmpty()) {
+                    // Send Email
+                    try {
+                        $evaluatorEmails = $evaluators->pluck('email');
+                        Mail::to($evaluatorEmails)->send(new \App\Mail\AdminNtcReuploadedEmail($ntcReport, $reuploadedDocsInfo));
+                    } catch (\Exception $mailEx) {
+                        Log::warning('Admin NTC re-upload email notification failed: ' . $mailEx->getMessage());
+                    }
+
+                    // Send database/in-app portal notifications
+                    foreach ($evaluators as $evaluator) {
+                        $evaluator->notifications()->create([
+                            'id' => \Illuminate\Support\Str::uuid(),
+                            'type' => 'App\Notifications\NtcReuploadedNotification',
+                            'data' => [
+                                'ntc_report_id' => $ntcReport->id,
+                                'reference_number' => 'NTC-' . str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT),
+                                'message' => 'NTC report NTC-' . str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT) . ' has been updated with re-uploaded documents by ' . $user->name . ' and is ready for re-evaluation.',
+                                'link' => "/admin/hcd/reports/ntc/{$ntcReport->id}"
+                            ],
+                            'read_at' => null,
+                        ]);
+                    }
+                }
+            }
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Your documents have been re-uploaded successfully. Admin has been notified for re-evaluation.');
+        } catch (\Exception $e) {
+            Log::error('NTC document batch re-upload failed: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while uploading your documents. Please try again.']);
+        }
+    }
 }
+

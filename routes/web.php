@@ -78,6 +78,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/ntc', [NtcController::class, 'store'])->name('ntc.store')->middleware('throttle:10,1');
         Route::get('/ntc/documents/{document}/view', [NtcController::class, 'serveDocument'])->name('ntc.document.view');
         Route::post('/ntc/documents/{document}/reupload', [NtcController::class, 'reuploadDocument'])->name('ntc.document.reupload')->middleware('throttle:10,1');
+        Route::post('/ntc/{ntcReport}/reupload', [NtcController::class, 'reuploadBatch'])->name('ntc.reupload_batch')->middleware('throttle:10,1');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {

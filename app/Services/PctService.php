@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Application;
 use App\Models\PctEntry;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class PctService
 {
@@ -496,9 +497,20 @@ class PctService
 
     /**
      * Bulk auto-resume Step 5 (Interview) for any applications that have reached their scheduled time.
+     * Throttled via cache to run at most once every 2 minutes to avoid a DB hit on every page load.
      */
     public function autoResumeAllScheduledInterviews()
     {
+        $cacheKey = 'pct_auto_resume_ran';
+
+        // Skip if we already ran this within the last 2 minutes
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+
+        // Mark as run for the next 2 minutes
+        Cache::put($cacheKey, true, now()->addMinutes(2));
+
         // Find all active PCT entries for Step 5 that are paused
         $pausedEntries = PctEntry::where('step_number', 5)
             ->where('is_active', true)
@@ -511,13 +523,13 @@ class PctService
             $application = $entry->application;
             if ($application && $application->interview) {
                 $date = $application->interview->interview_date;
-                $dateStr = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
+                $dateStr = $date instanceof Carbon ? $date->format('Y-m-d') : $date;
                 $scheduledTimeStr = $dateStr . ' ' . $application->interview->interview_time;
                 try {
-                    $scheduledTime = \Carbon\Carbon::parse($scheduledTimeStr);
+                    $scheduledTime = Carbon::parse($scheduledTimeStr);
                     if (now()->greaterThanOrEqualTo($scheduledTime)) {
                         $entry->resume();
-                        
+
                         if ($application) {
                             $application->unsetRelation('pctEntries');
                             $application->unsetRelation('activePctEntry');

@@ -547,8 +547,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                                   name="evaluations[{{ $doc->id }}][remarks]"
                                   id="ntc-remarks-{{ $doc->id }}"
                                   placeholder="Explain why this document was rejected…"
-                                  rows="2"
-                                  {{ !$doc->file_path ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                                  rows="2">{{ $doc->remarks }}</textarea>
                     </div>
                     @endif
 

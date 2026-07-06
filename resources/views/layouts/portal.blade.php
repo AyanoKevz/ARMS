@@ -11,6 +11,10 @@
     <title>@yield('title', 'ARMS') | Portal</title>
     <link rel="icon" href="{{ asset('images/oshc-icon.ico') }}" type="image/x-icon">
 
+    <!-- DNS preconnect so the browser starts handshakes with CDN hosts immediately -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
     <!-- Gentelella CSS Base -->
     <link rel="stylesheet" href="{{ asset('gentelella/assets/init-Cvid-qA8.css') }}">
 
@@ -181,6 +185,7 @@
     </div>
 
     <!-- Gentelella Base JS (Core dependencies and initialization) -->
+    <!-- type="module" scripts are deferred by the browser spec (non-blocking) -->
     <script type="module" src="{{ asset('gentelella/js/vendor-core-BT4uIdWA.js') }}"></script>
     <script type="module" src="{{ asset('gentelella/js/vendor-forms-35DJolKh.js') }}"></script>
     <script type="module" src="{{ asset('gentelella/js/purify.es-BRHCahJ2.js') }}"></script>
@@ -189,21 +194,22 @@
     <script type="module" src="{{ asset('gentelella/js/main-minimal-Ba_GM_Ws.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Prevent Gentelella's JS height calculation feedback loop from stretching the page
+            // Prevent Gentelella's JS height calculation from stretching the page.
+            // We disconnect the observer before mutating and reconnect after to avoid
+            // triggering the observer on our own changes (infinite loop prevention).
             const rightCol = document.querySelector('.right_col');
             if (rightCol) {
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.attributeName === 'style') {
-                            if (rightCol.style.minHeight && rightCol.style.minHeight !== 'auto') {
-                                observer.disconnect();
-                                rightCol.style.minHeight = 'auto';
-                                observer.observe(rightCol, { attributes: true, attributeFilter: ['style'] });
-                            }
-                        }
-                    });
+                let rightColObserverActive = true;
+                const rightColObserver = new MutationObserver(() => {
+                    if (!rightColObserverActive) return;
+                    if (rightCol.style.minHeight && rightCol.style.minHeight !== 'auto') {
+                        rightColObserverActive = false;
+                        rightCol.style.minHeight = 'auto';
+                        // Re-enable on next frame so our own write doesn't recurse
+                        requestAnimationFrame(() => { rightColObserverActive = true; });
+                    }
                 });
-                observer.observe(rightCol, { attributes: true, attributeFilter: ['style'] });
+                rightColObserver.observe(rightCol, { attributes: true, attributeFilter: ['style'] });
                 rightCol.style.minHeight = 'auto';
             }
 
@@ -217,20 +223,19 @@
                     scrollView.style.height = '100%';
                     scrollView.style.minHeight = '0';
                 }
-                const sidebarObserver = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.attributeName === 'style') {
-                            sidebarObserver.disconnect();
-                            leftCol.style.height = '100vh';
-                            leftCol.style.minHeight = '100vh';
-                            leftCol.style.position = 'fixed';
-                            if (scrollView) {
-                                scrollView.style.height = '100%';
-                                scrollView.style.minHeight = '0';
-                            }
-                            sidebarObserver.observe(leftCol, { attributes: true, attributeFilter: ['style'] });
-                        }
-                    });
+                // Use a flag to avoid the observer firing on its own writes
+                let sidebarObserverActive = true;
+                const sidebarObserver = new MutationObserver(() => {
+                    if (!sidebarObserverActive) return;
+                    sidebarObserverActive = false;
+                    leftCol.style.height = '100vh';
+                    leftCol.style.minHeight = '100vh';
+                    leftCol.style.position = 'fixed';
+                    if (scrollView) {
+                        scrollView.style.height = '100%';
+                        scrollView.style.minHeight = '0';
+                    }
+                    requestAnimationFrame(() => { sidebarObserverActive = true; });
                 });
                 sidebarObserver.observe(leftCol, { attributes: true, attributeFilter: ['style'] });
             }
@@ -343,10 +348,10 @@
     </div>
     <!-- ══ /File Viewer Modal ══ -->
 
-    <!-- Intro.js library -->
-    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js"></script>
+    <!-- Intro.js library (defer — non-critical, only needed for the tour) -->
+    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js" defer></script>
     <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
-    <script src="{{ asset('js/portal.js') }}"></script>
+    <script src="{{ asset('js/portal.js') }}" defer></script>
     @stack('scripts')
     @stack('tour')
 </body>

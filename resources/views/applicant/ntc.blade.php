@@ -363,6 +363,17 @@
                                         @endif
                                     </td>
                                     <td class="pe-4">
+                                        @php
+                                            $rejectedDocsForBatch = $ntc->documents->filter(fn($d) => $d->status === 'rejected' && !$d->file_path);
+                                        @endphp
+
+                                        @if($rejectedDocsForBatch->isNotEmpty())
+                                        <form method="POST"
+                                              action="{{ route('applicant.ntc.reupload_batch', $ntc->id) }}"
+                                              enctype="multipart/form-data">
+                                            @csrf
+                                        @endif
+
                                         @foreach($ntc->documents as $doc)
                                         @php
                                             $isTrueRejected = ($doc->status === 'rejected' && !$doc->file_path);
@@ -385,12 +396,12 @@
                                                    target="_blank"
                                                    class="btn btn-xs ntc-doc-btn fw-bold px-2 py-1 d-inline-flex align-items-center gap-1"
                                                    style="font-size: 0.72rem; border-radius: 6px;">
-                                                    <i class="far fa-file-pdf text-danger"></i>
+                                                    <i class="far fa-file-pdf text-dark"></i>
                                                     {{ $doc->documentType->code ?? 'DOC' }}
                                                 </a>
                                                 @else
                                                 <span class="text-danger fw-semibold" style="font-size:.75rem;">
-                                                    <i class="fas fa-trash-alt me-1"></i>File removed
+                                                    <i class="fas fa-trash-alt me-1"></i>File removed ({{ $doc->documentType->code ?? 'DOC' }})
                                                 </span>
                                                 @endif
                                                 <span class="badge {{ $docBadge[0] }}" style="font-size:.68rem; padding: 4px 8px; border-radius: 12px;">{{ $docBadge[1] }}</span>
@@ -402,25 +413,14 @@
                                                 </div>
                                                 @endif
                                                 @if($isTrueRejected)
-                                                <form method="POST"
-                                                      action="{{ route('applicant.ntc.document.reupload', $doc->id) }}"
-                                                      enctype="multipart/form-data"
-                                                      class="mt-2">
-                                                    @csrf
-                                                    <div class="d-flex gap-2 align-items-center flex-wrap">
-                                                        <input type="file"
-                                                               name="file"
-                                                               accept=".pdf,.doc,.docx"
-                                                               required
-                                                               style="font-size:.75rem; max-width:180px; border-radius: 6px;"
-                                                               class="form-control form-control-sm">
-                                                        <button type="submit"
-                                                                class="btn btn-danger btn-sm fw-semibold d-inline-flex align-items-center gap-1"
-                                                                style="font-size:.72rem; padding: 4px 12px; border-radius:6px; white-space:nowrap; border: none; background: #e11d48;">
-                                                            <i class="fas fa-cloud-upload-alt"></i> Re-upload
-                                                        </button>
-                                                    </div>
-                                                </form>
+                                                <div class="mt-2">
+                                                    <input type="file"
+                                                           name="files[{{ $doc->id }}]"
+                                                           accept=".pdf,.doc,.docx"
+                                                           required
+                                                           style="font-size:.75rem; border-radius: 6px;"
+                                                           class="form-control form-control-sm">
+                                                </div>
                                                 @elseif($isReturned)
                                                 <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold" style="font-size:.72rem; color: #d97706 !important;">
                                                     <i class="fas fa-hourglass-half spinner-border-sm"></i> Awaiting admin re-evaluation
@@ -429,6 +429,15 @@
                                             @endif
                                         </div>
                                         @endforeach
+
+                                        @if($rejectedDocsForBatch->isNotEmpty())
+                                            <button type="submit"
+                                                    class="btn btn-danger btn-sm fw-bold w-100 mt-2 d-inline-flex align-items-center justify-content-center gap-1"
+                                                    style="font-size:.75rem; padding: 8px 12px; border-radius:6px; border: none; background: #e11d48; color: #fff;">
+                                                <i class="fas fa-cloud-upload-alt"></i> Submit Re-uploaded Documents
+                                            </button>
+                                        </form>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
