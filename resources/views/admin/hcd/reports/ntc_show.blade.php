@@ -166,11 +166,6 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
             <i class="bi bi-clipboard-data me-1"></i>NTC Reference Number
         </div>
         <h4 class="m-0 fw-bold" style="color:#1e40af;">{{ $ntcReport->reference_number }}</h4>
-        <small style="color:#1d4ed8;">
-            <i class="bi bi-person me-1"></i>{{ $fatproName }}
-            &nbsp;&bull;&nbsp;
-            <i class="bi bi-card-text me-1"></i>{{ $ntcReport->accreditation->accreditation_number ?? '—' }}
-        </small>
     </div>
     <div class="d-flex flex-column align-items-end gap-1">
         @if($isAcknowledged)
@@ -520,8 +515,8 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     </div>
                     @endif
 
-                    {{-- Evaluate buttons (only when not acknowledged) --}}
-                    @if(!$isAcknowledged && !in_array($docStatus, ['rejected', 'returned']))
+                    {{-- Evaluate buttons (only when not acknowledged and file exists) --}}
+                    @if(!$isAcknowledged && $doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <button type="button"
                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -536,14 +531,14 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                             <i class="bi bi-x-circle-fill"></i> Reject
                         </button>
                     </div>
-                    @elseif(!$isAcknowledged && in_array($docStatus, ['rejected', 'returned']))
+                    @elseif(!$isAcknowledged && !$doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <span class="badge bg-secondary" style="font-size:.75rem;">Awaiting re-upload from FATPro</span>
                     </div>
                     @endif
 
                     {{-- Rejection panel --}}
-                    @if(!$isAcknowledged && !in_array($docStatus, ['rejected', 'returned']))
+                    @if(!$isAcknowledged)
                     <div class="reject-panel w-100" id="ntc-reject-panel-{{ $doc->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
                         <label class="reject-remarks-label">
                             <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
@@ -552,7 +547,8 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                                   name="evaluations[{{ $doc->id }}][remarks]"
                                   id="ntc-remarks-{{ $doc->id }}"
                                   placeholder="Explain why this document was rejected…"
-                                  rows="2">{{ $doc->remarks }}</textarea>
+                                  rows="2"
+                                  {{ !$doc->file_path ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
                     </div>
                     @endif
 

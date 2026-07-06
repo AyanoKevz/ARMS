@@ -1011,4 +1011,353 @@ test('optional documents not uploaded in renewal are not created and thus hidden
     expect($optAppDoc)->toBeNull();
 });
 
+test('ntc document evaluation auto-saves immediately without deleting file or sending mail', function () {
+    $this->withoutExceptionHandling();
+    Mail::fake();
+
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'evaluator_ntc@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'NTC',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-01',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-049',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    $document = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc.pdf',
+        'original_filename' => 'test_ntc.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'pending',
+    ]);
+
+    // Send single document evaluate POST request
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.reports.ntc.documents.evaluate', $document->id), [
+            'status' => 'rejected',
+            'remarks' => 'Incorrect form filled',
+        ]);
+
+    $response->assertStatus(200);
+    $response->assertJson([
+        'success' => true,
+        'status' => 'rejected',
+        'remarks' => 'Incorrect form filled',
+    ]);
+
+    $document->refresh();
+    expect($document->status)->toBe('rejected');
+    expect($document->remarks)->toBe('Incorrect form filled');
+    // Ensure the file was not deleted during auto-save
+    expect($document->file_path)->toBe('dummy_ntc.pdf');
+
+    // Verify email was not sent yet
+    Mail::assertNothingSent();
+});
+
+test('ntc document evaluation buttons and remarks are visible when rejected but file exists, and hidden/readonly when file is deleted', function () {
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'evaluator_ntc_ui@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'NTC UI',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_ui@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-UI-01',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-050',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    // Document 1: status is rejected but file exists
+    $document1 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc1.pdf',
+        'original_filename' => 'test_ntc1.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'rejected',
+    ]);
+
+    // Document 2: status is rejected and file path is null (rejection finalized)
+    $document2 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => null,
+        'original_filename' => 'test_ntc2.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'rejected',
+    ]);
+
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.show', $ntcReport->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+
+    // Document 1: should contain evaluate buttons and NOT contain readonly
+    expect($html)->toContain('onclick="setNtcDocStatus(' . $document1->id . ', \'approved\')"');
+    expect($html)->toContain('id="ntc-remarks-' . $document1->id . '"');
+    $doc1RemarksBlock = substr($html, strpos($html, 'id="ntc-remarks-' . $document1->id . '"'), 300);
+    expect($doc1RemarksBlock)->not->toContain('readonly');
+
+    // Document 2: should NOT contain evaluate buttons, should contain "Awaiting re-upload", and remarks should be readonly
+    expect($html)->not->toContain('onclick="setNtcDocStatus(' . $document2->id . ', \'approved\')"');
+    expect($html)->toContain('Awaiting re-upload from FATPro');
+    $doc2RemarksBlock = substr($html, strpos($html, 'id="ntc-remarks-' . $document2->id . '"'), 300);
+    expect($doc2RemarksBlock)->toContain('readonly');
+});
+
+test('applicant portal ntc view hides rejection status and form early if file still exists', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_portal@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-PORTAL-01',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-051',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    // Document 1: status is rejected but file still exists (not finalized by admin)
+    $document1 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc1.pdf',
+        'original_filename' => 'test_ntc1.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'rejected',
+    ]);
+
+    // Document 2: status is rejected and file path is null (finalized rejection)
+    $document2 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => null,
+        'original_filename' => 'test_ntc2.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'rejected',
+    ]);
+
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+
+    // The NTC report status should show "Requires Re-submission" because document 2 has NO file (finalized rejection)
+    expect($html)->toContain('Requires Re-submission');
+
+    // Document 1: status is rejected but file path is NOT null. So it should show "Under Review" instead of "Rejected"
+    expect($html)->toContain('Under Review');
+    expect($html)->not->toContain('action="' . route('applicant.ntc.document.reupload', $document1->id) . '"');
+
+    // Document 2: status is rejected and file path IS null. So it should show "Rejected" and render the re-upload form
+    expect($html)->toContain('Rejected');
+    expect($html)->toContain('action="' . route('applicant.ntc.document.reupload', $document2->id) . '"');
+});
+
+test('applicant portal ntc report does not show Action Required or Requires Re-submission if all rejections are not finalized', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_portal2@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-PORTAL-02',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-052',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    // Document: status is rejected but file still exists
+    $document = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc1.pdf',
+        'original_filename' => 'test_ntc1.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'rejected',
+    ]);
+
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+
+    // The NTC report status should show "Submitted" and NOT "Requires Re-submission"
+    expect($html)->toContain('Submitted');
+    expect($html)->not->toContain('Requires Re-submission');
+    expect($html)->not->toContain('Action Required');
+});
+
+
 

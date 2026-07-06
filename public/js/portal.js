@@ -368,7 +368,7 @@
     function showTriggerButton(tourType) {
         const btn = document.getElementById('arms-tour-trigger');
         if (!btn) return;
-        btn.style.display = 'block';
+        btn.style.display = 'inline-flex';
         btn.onclick = function () {
             undismiss(tourType);
             btn.style.display = 'none';

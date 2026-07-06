@@ -519,52 +519,86 @@
     let remarksDebounceTimer = null;
 
     function saveRemarks(ta) {
-        const docId = ta.id.replace('remarks-', '');
+        const isNtc = ta.id.startsWith('ntc-remarks-');
+        const docId = isNtc ? ta.id.replace('ntc-remarks-', '') : ta.id.replace('remarks-', '');
 
-        let itemType = 'document';
-        let itemId = docId;
+        if (isNtc) {
+            if (!window.ARMS || !window.ARMS.ntcEvaluateUrlBase) return;
 
-        if (docId.startsWith('cred-')) {
-            itemType = 'credential';
-            itemId = parseInt(docId.replace('cred-', ''), 10);
-        } else if (docId.startsWith('inst-')) {
-            itemType = 'instructor';
-            itemId = parseInt(docId.replace('inst-', ''), 10);
-        } else {
-            itemId = parseInt(docId, 10);
-        }
+            const statusInput = document.getElementById(`ntc-status-input-${docId}`);
+            const status = statusInput ? statusInput.value : 'rejected';
 
-        const statusInput = document.getElementById(`status-input-${docId}`);
-        const status = statusInput ? statusInput.value : 'rejected';
-
-        if (!window.ARMS || !window.ARMS.evaluateItemUrl) return;
-
-        activeSavesCount++;
-        updateActiveSavesIndicator();
-
-        const formData = new FormData();
-        formData.append('_token', window.ARMS.csrfToken);
-        formData.append('item_type', itemType);
-        formData.append('item_id', itemId);
-        formData.append('status', status);
-        formData.append('remarks', ta.value);
-
-        fetch(window.ARMS.evaluateItemUrl, {
-            method: 'POST',
-            body: formData,
-            headers: { 'Accept': 'application/json' }
-        }).then(async (res) => {
-            const data = await res.json();
-            if (!data.success) {
-                showToast('Failed to auto-save remarks.', 'danger');
-            }
-        }).catch(err => {
-            console.error('Auto-save remarks error:', err);
-            showToast('Network error during remarks auto-save.', 'danger');
-        }).finally(() => {
-            activeSavesCount--;
+            activeSavesCount++;
             updateActiveSavesIndicator();
-        });
+
+            const url = `${window.ARMS.ntcEvaluateUrlBase}/${docId}/evaluate`;
+            const formData = new FormData();
+            formData.append('_token', window.ARMS.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content);
+            formData.append('status', status);
+            formData.append('remarks', ta.value);
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            }).then(async (res) => {
+                const data = await res.json();
+                if (!data.success) {
+                    showToast('Failed to auto-save remarks.', 'danger');
+                }
+            }).catch(err => {
+                console.error('Auto-save remarks error:', err);
+                showToast('Network error during remarks auto-save.', 'danger');
+            }).finally(() => {
+                activeSavesCount--;
+                updateActiveSavesIndicator();
+            });
+        } else {
+            let itemType = 'document';
+            let itemId = docId;
+
+            if (docId.startsWith('cred-')) {
+                itemType = 'credential';
+                itemId = parseInt(docId.replace('cred-', ''), 10);
+            } else if (docId.startsWith('inst-')) {
+                itemType = 'instructor';
+                itemId = parseInt(docId.replace('inst-', ''), 10);
+            } else {
+                itemId = parseInt(docId, 10);
+            }
+
+            const statusInput = document.getElementById(`status-input-${docId}`);
+            const status = statusInput ? statusInput.value : 'rejected';
+
+            if (!window.ARMS || !window.ARMS.evaluateItemUrl) return;
+
+            activeSavesCount++;
+            updateActiveSavesIndicator();
+
+            const formData = new FormData();
+            formData.append('_token', window.ARMS.csrfToken);
+            formData.append('item_type', itemType);
+            formData.append('item_id', itemId);
+            formData.append('status', status);
+            formData.append('remarks', ta.value);
+
+            fetch(window.ARMS.evaluateItemUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            }).then(async (res) => {
+                const data = await res.json();
+                if (!data.success) {
+                    showToast('Failed to auto-save remarks.', 'danger');
+                }
+            }).catch(err => {
+                console.error('Auto-save remarks error:', err);
+                showToast('Network error during remarks auto-save.', 'danger');
+            }).finally(() => {
+                activeSavesCount--;
+                updateActiveSavesIndicator();
+            });
+        }
     }
 
     // Save remarks on input (debounced) and immediately on blur
@@ -979,14 +1013,11 @@
         const input = document.getElementById('ntc-status-input-' + docId);
         if (!input) return;
 
-        // Toggle status
-        if (input.value === status) {
-            input.value = 'pending';
-        } else {
-            input.value = status;
-        }
+        const oldStatus = input.value;
+        if (oldStatus === status) return;
 
-        const currentVal = input.value;
+        input.value = status;
+        const currentVal = status;
 
         // Update Button Classes
         const btnApprove = document.getElementById('btn-approve-' + docId);
@@ -1009,9 +1040,6 @@
             } else if (currentVal === 'rejected') {
                 label = 'Rejected';
                 cls = 'ntc-badge-rejected';
-            } else if (input.getAttribute('data-db-status') === 'returned') {
-                label = 'Awaiting Re-upload';
-                cls = 'ntc-badge-returned';
             }
 
             badge.className = `badge ${cls} px-2 py-1`;
@@ -1023,6 +1051,79 @@
         const panel = document.getElementById('ntc-reject-panel-' + docId);
         if (panel) {
             panel.style.display = currentVal === 'rejected' ? 'block' : 'none';
+        }
+
+        if (status === 'rejected') {
+            const ta = document.getElementById(`ntc-remarks-${docId}`);
+            if (ta) ta.focus();
+        }
+
+        // Auto-save via AJAX
+        if (window.ARMS && window.ARMS.ntcEvaluateUrlBase) {
+            activeSavesCount++;
+            updateActiveSavesIndicator();
+
+            const url = `${window.ARMS.ntcEvaluateUrlBase}/${docId}/evaluate`;
+            const formData = new FormData();
+            formData.append('_token', window.ARMS.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content);
+            formData.append('status', status);
+
+            const remarksInput = document.getElementById(`ntc-remarks-${docId}`);
+            if (remarksInput) {
+                formData.append('remarks', remarksInput.value);
+            }
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            }).then(async (res) => {
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Evaluation auto-saved.', 'success');
+                } else {
+                    console.error('NTC Auto-save failed:', data.message);
+                    showToast('Failed to auto-save evaluation. Reverting...', 'danger');
+                    // Revert UI
+                    input.value = oldStatus;
+                    if (btnApprove) btnApprove.classList.toggle('active', oldStatus === 'approved');
+                    if (btnReject) btnReject.classList.toggle('active', oldStatus === 'rejected');
+                    if (badge) {
+                        badge.classList.remove('ntc-badge-approved', 'ntc-badge-rejected', 'ntc-badge-returned', 'ntc-badge-pending');
+                        let label = 'Pending';
+                        let cls = 'ntc-badge-pending';
+                        if (oldStatus === 'approved') { label = 'Approved'; cls = 'ntc-badge-approved'; }
+                        else if (oldStatus === 'rejected') { label = 'Rejected'; cls = 'ntc-badge-rejected'; }
+                        badge.className = `badge ${cls} px-2 py-1`;
+                        badge.style.cssText = 'font-size:.75rem;border-radius:20px;white-space:nowrap;';
+                        badge.textContent = label;
+                    }
+                    if (panel) panel.style.display = oldStatus === 'rejected' ? 'block' : 'none';
+                    refreshNtcState();
+                }
+            }).catch(err => {
+                console.error('NTC Auto-save network error:', err);
+                showToast('Network error during auto-save. Reverting...', 'danger');
+                // Revert UI
+                input.value = oldStatus;
+                if (btnApprove) btnApprove.classList.toggle('active', oldStatus === 'approved');
+                if (btnReject) btnReject.classList.toggle('active', oldStatus === 'rejected');
+                if (badge) {
+                    badge.classList.remove('ntc-badge-approved', 'ntc-badge-rejected', 'ntc-badge-returned', 'ntc-badge-pending');
+                    let label = 'Pending';
+                    let cls = 'ntc-badge-pending';
+                    if (oldStatus === 'approved') { label = 'Approved'; cls = 'ntc-badge-approved'; }
+                    else if (oldStatus === 'rejected') { label = 'Rejected'; cls = 'ntc-badge-rejected'; }
+                    badge.className = `badge ${cls} px-2 py-1`;
+                    badge.style.cssText = 'font-size:.75rem;border-radius:20px;white-space:nowrap;';
+                    badge.textContent = label;
+                }
+                if (panel) panel.style.display = oldStatus === 'rejected' ? 'block' : 'none';
+                refreshNtcState();
+            }).finally(() => {
+                activeSavesCount--;
+                updateActiveSavesIndicator();
+            });
         }
 
         refreshNtcState();

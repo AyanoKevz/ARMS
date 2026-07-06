@@ -12,13 +12,6 @@
     Library  → Intro.js (loaded via CDN in portal.blade.php)
 --}}
 
-{{-- Re-launch button (visible after user dismisses the tour) --}}
-<button id="arms-tour-trigger" aria-label="Relaunch sidebar tour" title="Quick Tour">
-    <span>
-        <i class="fas fa-map-signs"></i>
-        Quick Tour
-    </span>
-</button>
 
 {{-- Bootstrap the tour for the given role --}}
 <script>

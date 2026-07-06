@@ -283,12 +283,13 @@
 {{-- ── ROW 2: NTC SUBMISSION HISTORY ────────────────────────── --}}
 <div class="row">
     <div class="col-md-12">
-        <div class="x_panel" style="border-top: 3px solid var(--portal-gold);">
-            <div class="x_title">
-                <h2><i class="fas fa-history me-2" style="color: var(--portal-gold);"></i>My NTC Submissions</h2>
-                <div class="clearfix"></div>
+        <div class="card ntc-premium-card mb-4">
+            <div class="card-header border-0 bg-transparent py-3 d-flex align-items-center justify-content-between">
+                <h4 class="m-0 fw-bold" style="color: #2A3F54;">
+                    <i class="fas fa-history me-2" style="color: var(--portal-gold);"></i> My NTC Submissions
+                </h4>
             </div>
-            <div class="x_content">
+            <div class="card-body p-0">
 
                 @if($ntcReports->isEmpty())
                     <div class="text-center py-5">
@@ -297,120 +298,133 @@
                     </div>
                 @else
                     <div class="table-responsive">
-                        <table class="table table-hover" style="font-size: 0.88rem;">
-                            <thead style="background: #f1f3f8;">
+                        <table class="table ntc-table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+                            <thead style="background: #f8fafc;">
                                 <tr>
-                                    <th style="color: #0b3d91;">Reference #</th>
-                                    <th style="color: #0b3d91;">Type</th>
-                                    <th style="color: #0b3d91;">Mode</th>
-                                    <th style="color: #0b3d91;">Training Period</th>
-                                    <th style="color: #0b3d91;">Status</th>
-                                    <th style="color: #0b3d91;">Documents</th>
+                                    <th class="ps-4" style="color: #475569; width: 180px;">Reference #</th>
+                                    <th style="color: #475569;">Type</th>
+                                    <th style="color: #475569;">Mode</th>
+                                    <th style="color: #475569;">Training Period</th>
+                                    <th style="color: #475569;">Status</th>
+                                    <th class="pe-4" style="color: #475569; width: 350px;">Documents</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($ntcReports as $ntc)
                                 @php
-                                    $hasRejected = $ntc->documents->contains(fn($d) => in_array($d->status, ['rejected', 'returned']));
+                                    // True rejected: status is rejected AND file has been deleted/removed
+                                    $hasRejected = $ntc->documents->contains(fn($d) => $d->status === 'rejected' && !$d->file_path);
                                 @endphp
-                                <tr class="{{ $hasRejected ? 'table-warning' : '' }}">
-                                    <td class="fw-bold" style="color: #0b3d91;">
-                                        NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}
+                                <tr style="{{ $hasRejected ? 'background: #fff8f8;' : '' }}">
+                                    <td class="ps-4">
+                                        <div class="ntc-ref-link">NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}</div>
                                         @if($hasRejected)
-                                            <div style="margin-top:3px;">
-                                                <span class="badge bg-danger" style="font-size:.7rem;">
-                                                    <i class="fas fa-exclamation-triangle me-1"></i>Action Required
+                                            <div style="margin-top:4px;">
+                                                <span class="badge bg-danger d-inline-flex align-items-center gap-1" style="font-size:.68rem; padding: 4px 8px; border-radius: 4px; font-weight: 700;">
+                                                    <i class="fas fa-exclamation-triangle"></i> Action Required
                                                 </span>
                                             </div>
                                         @endif
                                     </td>
                                     <td>
                                         <span class="badge"
-                                              style="background: #eef5ff; color: #0b3d91; font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600;">
+                                              style="background: #eef5ff; color: #0b3d91; font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600; border: 1px solid #eef2f6;">
                                             {{ $ntc->trainingType->code ?? 'N/A' }}
                                         </span>
-                                        <div style="font-size:0.75rem; color: #666; margin-top:2px;">{{ $ntc->trainingType->name ?? '' }}</div>
+                                        <div class="text-secondary mt-1" style="font-size:0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $ntc->trainingType->name ?? '' }}">
+                                            {{ $ntc->trainingType->name ?? '' }}
+                                        </div>
                                     </td>
-                                    <td>{{ $ntc->trainingMode->name ?? 'N/A' }}</td>
+                                    <td>
+                                        <span class="fw-semibold" style="color: #334155;">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
+                                    </td>
                                     <td style="white-space: nowrap;">
-                                        <div>{{ $ntc->training_start_date ? $ntc->training_start_date->format('M d, Y') : 'N/A' }}</div>
-                                        <div style="font-size:0.75rem; color:#999;">to</div>
-                                        <div>{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</div>
+                                        <div class="ntc-date-container">
+                                            <i class="far fa-calendar-alt text-muted"></i>
+                                            <span class="ntc-date-badge">{{ $ntc->training_start_date ? $ntc->training_start_date->format('M d, Y') : 'N/A' }}</span>
+                                            <span class="text-muted" style="font-size: 0.75rem;">to</span>
+                                            <span class="ntc-date-badge">{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</span>
+                                        </div>
                                     </td>
                                     <td>
                                         @if($ntc->status === 'acknowledged')
-                                            <span class="badge bg-success" style="font-size:0.75rem;">Acknowledged</span>
+                                            <span class="badge badge-premium-success">Acknowledged</span>
                                         @elseif($hasRejected)
-                                            <span class="badge bg-danger" style="font-size:0.75rem;">Requires Re-submission</span>
+                                            <span class="badge badge-premium-danger">Requires Re-submission</span>
                                         @elseif($ntc->status === 'submitted')
-                                            <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
+                                            <span class="badge badge-premium-warning">Submitted</span>
                                         @else
-                                            <span class="badge bg-secondary" style="font-size:0.75rem;">{{ ucfirst($ntc->status) }}</span>
+                                            <span class="badge badge-premium-secondary">{{ ucfirst($ntc->status) }}</span>
                                         @endif
                                         @if($ntc->submitted_at)
-                                            <div style="font-size:0.72rem; color:#999; margin-top:2px;">
-                                                {{ $ntc->submitted_at->format('M d, Y') }}
+                                            <div class="text-muted mt-1" style="font-size:0.7rem;">
+                                                Sub: {{ $ntc->submitted_at->format('M d, Y') }}
                                             </div>
                                         @endif
                                     </td>
-                                    <td>
+                                    <td class="pe-4">
                                         @foreach($ntc->documents as $doc)
                                         @php
-                                            $docStatus = $doc->status ?? 'pending';
-                                            $docBadge  = match($docStatus) {
-                                                'approved' => ['bg-success', 'Approved'],
-                                                'rejected' => ['bg-danger',  'Rejected'],
-                                                'returned' => ['bg-warning text-dark', 'Awaiting Review'],
-                                                default    => ['bg-secondary', 'Pending'],
-                                            };
+                                            $isTrueRejected = ($doc->status === 'rejected' && !$doc->file_path);
+                                            $isReturned = ($doc->status === 'returned');
+                                            
+                                            if ($isTrueRejected) {
+                                                $docBadge = ['badge-premium-danger', 'Rejected'];
+                                            } elseif ($isReturned) {
+                                                $docBadge = ['badge-premium-warning', 'Awaiting Review'];
+                                            } elseif ($doc->status === 'approved') {
+                                                $docBadge = ['badge-premium-success', 'Approved'];
+                                            } else {
+                                                $docBadge = ['badge-premium-secondary', 'Under Review'];
+                                            }
                                         @endphp
-                                        <div style="margin-bottom: 8px;">
-                                            <div class="d-flex align-items-center gap-1 mb-1" style="flex-wrap:wrap;">
+                                        <div class="ntc-doc-item">
+                                            <div class="d-flex align-items-center justify-content-between gap-2 mb-1 flex-wrap">
                                                 @if($doc->file_path)
                                                 <a href="{{ route('applicant.ntc.document.view', $doc->id) }}"
                                                    target="_blank"
-                                                   class="btn btn-sm"
-                                                   style="background: #f1f3f8; border: 1px solid #dde; color: #0b3d91; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">
-                                                    <i class="fas fa-file-alt me-1"></i>
+                                                   class="btn btn-xs ntc-doc-btn fw-bold px-2 py-1 d-inline-flex align-items-center gap-1"
+                                                   style="font-size: 0.72rem; border-radius: 6px;">
+                                                    <i class="far fa-file-pdf text-danger"></i>
                                                     {{ $doc->documentType->code ?? 'DOC' }}
                                                 </a>
                                                 @else
-                                                <span style="font-size:.72rem; color:#6b7280; font-style:italic;">
-                                                    <i class="fas fa-trash me-1"></i>File removed
+                                                <span class="text-danger fw-semibold" style="font-size:.75rem;">
+                                                    <i class="fas fa-trash-alt me-1"></i>File removed
                                                 </span>
                                                 @endif
-                                                <span class="badge {{ $docBadge[0] }}" style="font-size:.7rem;">{{ $docBadge[1] }}</span>
+                                                <span class="badge {{ $docBadge[0] }}" style="font-size:.68rem; padding: 4px 8px; border-radius: 12px;">{{ $docBadge[1] }}</span>
                                             </div>
-                                            @if(in_array($docStatus, ['rejected', 'returned']))
+                                            @if($isTrueRejected || $isReturned)
                                                 @if($doc->remarks)
-                                                <div style="font-size:.75rem; color:#991b1b; background:#fff5f5; border-radius:5px; padding:4px 8px; margin-bottom:5px; border:1px solid #fecaca;">
+                                                <div class="mt-2" style="font-size:.75rem; color:#991b1b; background:#fff5f5; border-radius:6px; padding:6px 10px; border:1px solid #fecaca; line-height: 1.4;">
                                                     <i class="fas fa-comment me-1"></i><strong>Remarks:</strong> {{ $doc->remarks }}
                                                 </div>
                                                 @endif
-                                                @if($docStatus === 'rejected')
+                                                @if($isTrueRejected)
                                                 <form method="POST"
                                                       action="{{ route('applicant.ntc.document.reupload', $doc->id) }}"
                                                       enctype="multipart/form-data"
-                                                      style="margin-top: 4px;">
+                                                      class="mt-2">
                                                     @csrf
-                                                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                                    <div class="d-flex gap-2 align-items-center flex-wrap">
                                                         <input type="file"
                                                                name="file"
                                                                accept=".pdf,.doc,.docx"
                                                                required
-                                                               style="font-size:.75rem; max-width:180px;"
+                                                               style="font-size:.75rem; max-width:180px; border-radius: 6px;"
                                                                class="form-control form-control-sm">
                                                         <button type="submit"
-                                                                class="btn btn-danger btn-sm fw-semibold"
-                                                                style="font-size:.75rem; padding: 3px 10px; border-radius:6px; white-space:nowrap;">
-                                                            <i class="fas fa-upload me-1"></i> Re-upload
+                                                                class="btn btn-danger btn-sm fw-semibold d-inline-flex align-items-center gap-1"
+                                                                style="font-size:.72rem; padding: 4px 12px; border-radius:6px; white-space:nowrap; border: none; background: #e11d48;">
+                                                            <i class="fas fa-cloud-upload-alt"></i> Re-upload
                                                         </button>
                                                     </div>
                                                 </form>
-                                                @elseif($docStatus === 'returned')
-                                                <span style="font-size:.72rem; color:#92400e;">
-                                                    <i class="fas fa-hourglass-half me-1"></i> Awaiting admin re-evaluation
-                                                </span>
+                                                @elseif($isReturned)
+                                                <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold" style="font-size:.72rem; color: #d97706 !important;">
+                                                    <i class="fas fa-hourglass-half spinner-border-sm"></i> Awaiting admin re-evaluation
+                                                </div>
                                                 @endif
                                             @endif
                                         </div>
@@ -495,6 +509,106 @@
     #ntcSubmitBtn:disabled {
         opacity: 0.7;
         cursor: not-allowed;
+    }
+
+    /* ── Premium NTC Table Styles ────────────────────────── */
+    .ntc-premium-card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        background: #fff;
+        overflow: hidden;
+        border-top: 3px solid var(--portal-gold);
+    }
+    .ntc-table th {
+        font-weight: 700;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #eef2f6;
+    }
+    .ntc-table tbody tr {
+        transition: all 0.2s ease-in-out;
+    }
+    .ntc-table tbody tr:hover {
+        background-color: #f8fafc !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    }
+    .ntc-ref-link {
+        font-size: 0.92rem;
+        color: #0b3d91;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+    }
+    .ntc-date-container {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: #475569;
+    }
+    .ntc-date-badge {
+        background: #f1f5f9;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-weight: 600;
+        border: 1px solid #e2e8f0;
+    }
+    .badge-premium-success {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    .badge-premium-danger {
+        background: #fff1f2;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    .badge-premium-warning {
+        background: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    .badge-premium-secondary {
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    .ntc-doc-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        transition: all 0.2s;
+    }
+    .ntc-doc-item:hover {
+        border-color: #cbd5e1;
+        background: #f1f5f9;
+    }
+    .ntc-doc-btn {
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        color: #0b3d91;
+        transition: all 0.2s;
+    }
+    .ntc-doc-btn:hover {
+        background: #0b3d91;
+        color: #fff;
+        border-color: #0b3d91;
     }
 </style>
 @endpush

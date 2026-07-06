@@ -94,13 +94,17 @@ body.nav-sm .col-md-3.left_col > .left_col.scroll-view > #sidebar-menu {
 /* Sidebar Footer - compact, pinned at bottom of sidebar flex container */
 .sidebar-footer {
     padding: 6px 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
+    height: 45px !important;
+    min-height: 45px !important;
     max-height: 45px !important;
     flex-shrink: 0 !important;
     width: 100% !important;
     position: relative !important;
     margin-top: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 .sidebar-footer a {
     background-color: #091e3e !important;
@@ -554,6 +558,11 @@ body.nav-sm .nav.side-menu li:hover > ul.child_menu {
 }
 body.nav-sm .sidebar-footer {
     width: 100px !important;
+    padding: 6px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 body.nav-sm .sidebar-footer #real-time-clock {
     font-size: 0.72rem !important;
@@ -830,56 +839,49 @@ body.nav-sm .sidebar-footer #real-time-date {
 .introjs-arrow.bottom         { border-top-color:   #1A4A8A !important; }
 .introjs-arrow.right-bottom   { border-left-color:  #1A4A8A !important; }
 
-/* ── Tour trigger button (floating, bottom-left of content area next to footer) ── */
+/* ── Tour trigger button (now integrated in the sidebar footer) ── */
 #arms-tour-trigger {
     display: none; /* shown by JS once dismissed */
-    position: fixed;
-    bottom: 15px;
-    left: 270px; /* sidebar width 250px + 20px */
-    z-index: 1031;
-    background: #0d2b55;
-    border: 1px solid var(--portal-gold);
-    border-radius: 20px;
-    padding: 6px 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    cursor: pointer;
-    transition: all 0.2s ease, left 0.3s ease;
-    text-align: center;
+    position: absolute !important;
+    left: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 2px 4px !important;
+    cursor: pointer !important;
+    opacity: 0.55 !important;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out !important;
+    outline: none !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    z-index: 5 !important;
 }
 #arms-tour-trigger span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--portal-gold);
-    letter-spacing: .02em;
-    transition: color 0.2s;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    font-size: 0.62rem !important;
+    font-weight: 500 !important;
+    color: var(--portal-gold) !important;
+    letter-spacing: .01em !important;
+    transition: color 0.2s !important;
 }
 #arms-tour-trigger:hover {
-    background: #1a4a8a;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    opacity: 1.0 !important;
+    transform: translateY(-50%) scale(1.05) !important;
 }
 #arms-tour-trigger:hover span {
-    color: #fff;
+    color: #fff !important;
 }
 body.nav-sm #arms-tour-trigger {
-    left: 120px; /* minimized sidebar 100px + 20px */
-    width: auto;
-    text-align: center;
+    left: 8px !important;
+    padding: 2px !important;
+}
+body.nav-sm #arms-tour-trigger .tour-text {
+    display: none !important;
 }
 body.nav-sm #arms-tour-trigger span {
-    font-size: 0.75rem;
-    gap: 6px;
-}
-body.nav-sm #arms-tour-trigger span i {
-    font-size: inherit;
-}
-@media (max-width: 991px) {
-    #arms-tour-trigger {
-        left: 20px !important;
-        bottom: 15px !important;
-    }
+    gap: 0 !important;
 }
 

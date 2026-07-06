@@ -72,7 +72,13 @@
                     <!-- /sidebar menu -->
 
                     <!-- /menu footer buttons -->
-                    <div class="sidebar-footer hidden-small d-flex flex-column align-items-center justify-content-center" style="background: #091e3e; border-top: 1px solid var(--portal-gold);">
+                    <div class="sidebar-footer hidden-small d-flex flex-column align-items-center justify-content-center" style="background: #091e3e; border-top: 1px solid var(--portal-gold); position: relative; padding: 6px 0;">
+                        <button id="arms-tour-trigger" aria-label="Relaunch sidebar tour" title="Quick Tour" style="display: none;">
+                            <span>
+                                <i class="fas fa-map-signs"></i>
+                                <span class="tour-text">Quick Tour</span>
+                            </span>
+                        </button>
                         <div id="real-time-date" style="font-size: 0.65rem; font-weight: 500; color: var(--portal-gold); text-transform: uppercase; letter-spacing: 0.05em; line-height: 1;"></div>
                         <div id="real-time-clock" style="font-size: 0.8rem; font-weight: 700; color: #fff; line-height: 1.2;"></div>
                     </div>

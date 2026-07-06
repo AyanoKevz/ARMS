@@ -702,7 +702,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
                                     @if(!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
-                                        @if(!in_array($doc->status, ['rejected', 'returned']))
+                                        @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions">
                                             <button type="button"
                                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -929,7 +929,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @endphp
 
                                     @if($showEvalButtons)
-                                        @if(!in_array($credential->status, ['rejected', 'returned']))
+                                        @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions">
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
@@ -1009,7 +1009,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @endphp
 
                                     @if($showSaEvalButtons)
-                                        @if(!in_array($instructor->status, ['rejected', 'returned']))
+                                        @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions">
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
