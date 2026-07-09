@@ -1288,11 +1288,12 @@ test('applicant portal ntc view hides rejection status and form early if file st
 
     // Document 1: status is rejected but file path is NOT null. So it should show "Under Review" instead of "Rejected"
     expect($html)->toContain('Under Review');
-    expect($html)->not->toContain('action="' . route('applicant.ntc.document.reupload', $document1->id) . '"');
+    expect($html)->not->toContain('name="files[' . $document1->id . ']"');
 
     // Document 2: status is rejected and file path IS null. So it should show "Rejected" and render the re-upload form
     expect($html)->toContain('Rejected');
-    expect($html)->toContain('action="' . route('applicant.ntc.document.reupload', $document2->id) . '"');
+    expect($html)->toContain('action="' . route('applicant.ntc.reupload_batch', $ntcReport->id) . '"');
+    expect($html)->toContain('name="files[' . $document2->id . ']"');
 });
 
 test('applicant portal ntc report does not show Action Required or Requires Re-submission if all rejections are not finalized', function () {

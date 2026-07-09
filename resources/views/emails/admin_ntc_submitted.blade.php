@@ -42,7 +42,7 @@
         <p class="value-status">{{ $ntcReport->accreditation->accreditation_number ?? 'N/A' }}</p>
 
         <p class="label">NTC Reference Number</p>
-        <p class="value" style="font-size: 1.05rem; font-weight: bold; color: #0b3d91;">NTC-{{ str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT) }}</p>
+        <p class="value" style="font-size: 1.05rem; font-weight: bold; color: #ffffff;">NTC-{{ str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT) }}</p>
     </div>
 
     <div class="details-box">

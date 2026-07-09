@@ -2,7 +2,6 @@
 
 namespace App\Mail;
 
-use App\Models\NtcDocument;
 use App\Models\NtcReport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -11,14 +10,14 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 
-class NtcDocumentRejectionEmail extends Mailable
+class NtcEvaluationEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public NtcReport $ntcReport;
     public Collection $rejectedDocuments;
 
-    public function __construct(NtcReport $ntcReport, Collection $rejectedDocuments)
+    public function __construct(NtcReport $ntcReport, Collection $rejectedDocuments = null)
     {
         $this->ntcReport = $ntcReport;
         $this->ntcReport->loadMissing([
@@ -28,13 +27,18 @@ class NtcDocumentRejectionEmail extends Mailable
             'trainingMode',
         ]);
 
-        $this->rejectedDocuments = $rejectedDocuments;
+        $this->rejectedDocuments = $rejectedDocuments ?? collect();
         $this->rejectedDocuments->loadMissing(['documentType']);
     }
 
     public function envelope(): Envelope
     {
         $fatproName = $this->ntcReport->accreditation->user->name ?? 'FATPro';
+        if ($this->rejectedDocuments->isEmpty()) {
+            return new Envelope(
+                subject: "Notice to Conduct (NTC) Acknowledged — {$this->ntcReport->reference_number}",
+            );
+        }
         return new Envelope(
             subject: "Action Required: NTC Document Revision Needed — {$fatproName}",
         );
@@ -43,7 +47,7 @@ class NtcDocumentRejectionEmail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.ntc_document_rejection',
+            view: 'emails.ntc_evaluation',
         );
     }
 }

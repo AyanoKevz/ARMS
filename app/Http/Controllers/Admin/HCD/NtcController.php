@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin\HCD;
 
 use App\Http\Controllers\Controller;
-use App\Mail\NtcDocumentRejectionEmail;
+use App\Mail\NtcEvaluationEmail;
 use App\Models\NtcDocument;
 use App\Models\NtcReport;
 use Illuminate\Http\Request;
@@ -159,6 +159,15 @@ class NtcController extends Controller
                 'acknowledged_at' => now(),
                 'acknowledged_by' => $admin->id,
             ]);
+
+            try {
+                $fatproEmail = $ntcReport->accreditation->user->email ?? null;
+                if ($fatproEmail) {
+                    Mail::to($fatproEmail)->send(new \App\Mail\NtcEvaluationEmail($ntcReport));
+                }
+            } catch (\Exception $e) {
+                Log::warning('NTC acknowledgment email failed: ' . $e->getMessage());
+            }
         }
 
         if ($hasRejections) {
@@ -168,7 +177,7 @@ class NtcController extends Controller
 
                 if ($fatproEmail) {
                     Mail::to($fatproEmail)
-                        ->send(new NtcDocumentRejectionEmail($ntcReport, $rejectedDocs));
+                        ->send(new NtcEvaluationEmail($ntcReport, $rejectedDocs));
                 }
             } catch (\Exception $e) {
                 Log::warning('NTC document rejection email failed: ' . $e->getMessage());

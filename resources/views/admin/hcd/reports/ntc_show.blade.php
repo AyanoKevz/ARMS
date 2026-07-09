@@ -153,7 +153,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
         <h3><i class="fas fa-clipboard-list me-2" style="color:var(--portal-gold);"></i> NTC Evaluation</h3>
     </div>
     <a href="{{ route('admin.hcd.reports.ntc.index') }}" class="btn btn-secondary btn-sm mt-3">
-        <i class="bi bi-arrow-left me-1"></i> Back to NTC List
+        Back to NTC List
     </a>
 </div>
 <div class="clearfix"></div>
@@ -470,7 +470,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     {{-- Hidden form inputs --}}
                     <input type="hidden" name="evaluations[{{ $doc->id }}][id]" value="{{ $doc->id }}">
                     <input type="hidden" name="evaluations[{{ $doc->id }}][status]"
-                           id="ntc-status-input-{{ $doc->id }}" value="{{ $evalStatus }}" data-db-status="{{ $doc->status }}">
+                           id="ntc-status-input-{{ $doc->id }}" value="{{ $evalStatus }}" data-db-status="{{ $doc->status }}" data-has-file="{{ $doc->file_path ? 'true' : 'false' }}">
 
                     {{-- Document name & meta --}}
                     <div class="ntc-doc-name">
@@ -547,7 +547,8 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                                   name="evaluations[{{ $doc->id }}][remarks]"
                                   id="ntc-remarks-{{ $doc->id }}"
                                   placeholder="Explain why this document was rejected…"
-                                  rows="2">{{ $doc->remarks }}</textarea>
+                                  rows="2"
+                                  {{ !$doc->file_path ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
                     </div>
                     @endif
 

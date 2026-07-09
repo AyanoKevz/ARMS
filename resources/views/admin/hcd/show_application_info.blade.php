@@ -278,7 +278,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
         {{-- Step Timeline --}}
         <div class="pct-timeline">
             @php
-                {{-- Compute holidays ONCE before the loop (avoids repeated array_merge on each step) --}}
+                // Compute holidays ONCE before the loop (avoids repeated array_merge on each step)
                 $pctNow = \Carbon\Carbon::now();
                 $pctTodayHolidays = \App\Services\PctService::getHolidays($pctNow->year, $pctNow->year);
                 $pctIsTodayHoliday = in_array($pctNow->format('Y-m-d'), $pctTodayHolidays);
@@ -720,7 +720,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="evaluations[{{ $doc->id }}][remarks]"
                                                 id="remarks-{{ $doc->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2">{{ $doc->remarks }}</textarea>
+                                                rows="2"
+                                                {{ ($doc->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
                                         </div>
                                     @endif
 
@@ -937,7 +938,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="credential_evaluations[{{ $credential->id }}][remarks]"
                                                 id="remarks-cred-{{ $credential->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2">{{ $credential->remarks }}</textarea>
+                                                rows="2"
+                                                {{ ($credential->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -1016,7 +1018,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 name="instructor_evaluations[{{ $instructor->id }}][remarks]"
                                                 id="remarks-inst-{{ $instructor->id }}"
                                                 placeholder="Explain why this document was rejected…"
-                                                rows="2">{{ $instructor->remarks }}</textarea>
+                                                rows="2"
+                                                {{ ($instructor->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>

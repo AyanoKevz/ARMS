@@ -1170,9 +1170,29 @@
         const total = inputs.length;
 
         const approved = inputs.filter(i => i.value === 'approved').length;
-        const awaitingUpdate = inputs.filter(i => i.getAttribute('data-db-status') === 'rejected' || i.getAttribute('data-db-status') === 'returned').length;
-        const rejected = inputs.filter(i => i.value === 'rejected').length;
-        const pending = total - approved - rejected - awaitingUpdate;
+        const awaitingUpdate = inputs.filter(i => {
+            const hasFile = i.getAttribute('data-has-file');
+            if (hasFile !== null) {
+                return hasFile === 'false';
+            }
+            return i.getAttribute('data-db-status') === 'rejected' || i.getAttribute('data-db-status') === 'returned';
+        }).length;
+
+        const rejected = inputs.filter(i => {
+            const hasFile = i.getAttribute('data-has-file');
+            if (hasFile !== null) {
+                return hasFile === 'true' && i.value === 'rejected';
+            }
+            return i.value === 'rejected';
+        }).length;
+
+        const pending = inputs.filter(i => {
+            const hasFile = i.getAttribute('data-has-file');
+            if (hasFile !== null) {
+                return hasFile === 'true' && i.value !== 'approved' && i.value !== 'rejected';
+            }
+            return i.value !== 'approved' && i.value !== 'rejected' && i.getAttribute('data-db-status') !== 'rejected' && i.getAttribute('data-db-status') !== 'returned';
+        }).length;
 
         const progressEl = document.getElementById('ntc-docs-progress');
         if (progressEl) {
