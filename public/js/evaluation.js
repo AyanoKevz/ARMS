@@ -1037,6 +1037,27 @@
                     reasonEl.style.display = 'none';
                 }
             }
+
+            // Dynamically show/hide elements that are only allowed during working hours (e.g. Approve/Reject buttons)
+            const workingOnlyEls = document.querySelectorAll('.pct-working-only');
+            workingOnlyEls.forEach(el => {
+                if (isWorking) {
+                    el.style.setProperty('display', '', 'important');
+                } else {
+                    el.style.setProperty('display', 'none', 'important');
+                }
+            });
+
+            // Dynamically toggle readonly state for rejection remarks textareas
+            const rejectRemarksInputs = document.querySelectorAll('.reject-remarks-input');
+            rejectRemarksInputs.forEach(input => {
+                const defaultReadonly = input.getAttribute('data-default-readonly') === 'true';
+                if (!isWorking || defaultReadonly) {
+                    input.readOnly = true;
+                } else {
+                    input.readOnly = false;
+                }
+            });
         };
 
         // Run immediately on load and then every 1000ms

@@ -144,7 +144,7 @@
             {
                 element: '#tour-step-submission',
                 title: 'Submission Report',
-                intro: 'Submit required documents such as <strong>Notice of Conduct</strong>, Reports to Changes, and Post-Training Reports.',
+                intro: 'Submit required reports starting with the <strong>Notice to Conduct</strong>, followed by Report to Changes, and finally the Post-Training Report in the process.',
                 position: 'right',
             },
             {

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'NTC — ' . $ntcReport->reference_number)
+@section('title', ($ntcReport->status === 'report_changes' ? 'Report of Changes' : 'NTC') . ' — ' . $ntcReport->reference_number)
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/show-application.css') }}?v={{ filemtime(public_path('css/show-application.css')) }}">
@@ -150,10 +150,10 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
 {{-- Page header --}}
 <div class="page-title d-flex justify-content-between align-items-center">
     <div class="title_left">
-        <h3><i class="fas fa-clipboard-list me-2" style="color:var(--portal-gold);"></i> NTC Evaluation</h3>
+        <h3><i class="fas {{ $ntcReport->status === 'report_changes' ? 'fa-exchange-alt' : 'fa-clipboard-list' }} me-2" style="color:var(--portal-gold);"></i> {{ $ntcReport->status === 'report_changes' ? 'Report of Changes' : 'NTC' }} Evaluation</h3>
     </div>
-    <a href="{{ route('admin.hcd.reports.ntc.index') }}" class="btn btn-secondary btn-sm mt-3">
-        Back to NTC List
+    <a href="{{ $ntcReport->status === 'report_changes' ? route('admin.hcd.reports.report_changes.index') : route('admin.hcd.reports.ntc.index') }}" class="btn btn-secondary btn-sm mt-3">
+        Back to {{ $ntcReport->status === 'report_changes' ? 'Report of Changes' : 'NTC' }} List
     </a>
 </div>
 <div class="clearfix"></div>
@@ -163,7 +163,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
      style="background: linear-gradient(135deg,#eef5ff,#dbeafe); border: 1px solid #bfdbfe;">
     <div>
         <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#1e3a8a;letter-spacing:.45px;">
-            <i class="bi bi-clipboard-data me-1"></i>NTC Reference Number
+            <i class="bi bi-clipboard-data me-1"></i>Reference Number
         </div>
         <h4 class="m-0 fw-bold" style="color:#1e40af;">{{ $ntcReport->reference_number }}</h4>
     </div>
@@ -171,6 +171,10 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
         @if($isAcknowledged)
         <span class="badge fs-6 px-3 py-2 bg-success">
             <i class="bi bi-check-circle-fill me-1"></i> Acknowledged
+        </span>
+        @elseif($ntcReport->status === 'report_changes')
+        <span class="badge fs-6 px-3 py-2 bg-info text-white">
+            <i class="fas fa-exchange-alt me-1"></i> Report of Changes
         </span>
         @elseif($allDocuments->contains('status', 'rejected'))
         <span class="badge fs-6 px-3 py-2 bg-danger">

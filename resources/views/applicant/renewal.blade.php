@@ -139,201 +139,6 @@
         </div>
     </div>
 
-    {{-- Submitted Documents & Credentials Summary Panel --}}
-    <div class="x_panel mt-4" style="border-left: 4px solid #0b3d91; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff;">
-        <div class="x_title d-flex justify-content-between align-items-center pb-2 border-bottom" style="cursor: pointer; user-select: none;" data-bs-toggle="collapse" data-bs-target="#submittedDocsCollapse" aria-expanded="true" aria-controls="submittedDocsCollapse">
-            <h2 class="fw-bold mb-0 text-primary" style="color: #0b3d91 !important; font-size: 1.15rem; border: none; float: none; padding: 0; margin: 0;">
-                Submitted Documents & Instructor Credentials
-            </h2>
-            <i class="fas fa-chevron-up text-secondary" id="submittedDocsChevron" style="font-size: 1.1rem; transition: transform 0.2s;"></i>
-            <div class="clearfix"></div>
-        </div>
-        <div class="x_content collapse show mt-3" id="submittedDocsCollapse">
-            <div class="row g-4">
-                {{-- FATPro Documents Column --}}
-                <div class="col-md-6 border-end">
-                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
-                        1. FATPro General & Legal Documents
-                    </h6>
-                    @php
-                        // Group documents by their document type (section) and sort by section ID
-                        $grouped = $pendingRenewal->documents
-                            ->sortBy(function ($doc) {
-                                $typeId = $doc->documentField?->documentType?->id ?? 999999;
-                                $fieldId = $doc->documentField?->id ?? 999999;
-                                return sprintf('%08d-%08d', $typeId, $fieldId);
-                            })
-                            ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
-
-                        $sectionCounter = 1;
-                    @endphp
-
-                    <div class="d-flex flex-column gap-3">
-                        @forelse($grouped as $typeId => $docs)
-                            @php
-                                $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'Other Documents';
-                            @endphp
-
-                            <div class="border rounded shadow-sm mb-3 bg-white" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
-                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.8rem; border-bottom: 1px solid #e2e8f0;">
-                                    <span>{{ $sectionCounter }}. {{ $sectionName }}</span>
-                                </div>
-
-                                <div class="list-group list-group-flush">
-                                    @foreach($docs as $doc)
-                                        @php
-                                            $field = $doc->documentField;
-                                            $isPdf = $field?->input_type === 'file';
-                                            $statusClass = match($doc->status) {
-                                                'approved' => 'bg-success text-white',
-                                                'rejected', 'returned' => 'bg-danger text-white',
-                                                default => 'bg-warning text-dark'
-                                            };
-                                        @endphp
-                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.82rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold text-secondary mb-1">
-                                                    {{ $field?->name ?? 'Document' }}
-                                                </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="badge {{ $statusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
-                                                        {{ ucfirst($doc->status) }}
-                                                    </span>
-                                                    @if(!$isPdf && $doc->userDocument?->value)
-                                                        <span class="text-muted small" title="{{ $doc->userDocument->value }}" style="font-size: 0.72rem;">
-                                                            Value: {{ Str::limit($doc->userDocument->value, 30) }}
-                                                        </span>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div>
-                                                @if($isPdf)
-                                                    @if($doc->userDocument?->file_path)
-                                                        <a href="{{ route('applicant.documents.view', $doc->id) }}" data-file-modal data-file-title="{{ $field?->name ?? 'Document' }}" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
-                                                            <i class="fa fa-eye me-1"></i>View
-                                                        </a>
-                                                    @else
-                                                        <span class="text-muted small">No file</span>
-                                                    @endif
-                                                @endif
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                            @php $sectionCounter++; @endphp
-                        @empty
-                            <p class="text-muted text-center py-3">No documents submitted.</p>
-                        @endforelse
-                    </div>
-                </div>
-
-                {{-- Instructor Credentials Column --}}
-                <div class="col-md-6">
-                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
-                        2. Instructor Credentials & Agreements
-                    </h6>
-                    
-                    @php $appInstructors = $pendingRenewal->instructors ?? collect(); @endphp
-                    
-                    <div class="d-flex flex-column gap-3">
-                        @forelse($appInstructors as $inst)
-                            <div class="border rounded shadow-sm bg-white mb-3" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
-                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.83rem; border-bottom: 1px solid #e2e8f0;">
-                                    <span>{{ $inst->first_name }} {{ $inst->last_name }}</span>
-                                </div>
-                                <div class="list-group list-group-flush">
-                                    @foreach($inst->credentials as $cred)
-                                        @php
-                                            $credStatus = $cred->status ?: 'pending';
-                                            $credStatusClass = match($credStatus) {
-                                                'approved' => 'badge bg-success text-white',
-                                                'rejected', 'returned' => 'badge bg-danger text-white',
-                                                default => 'badge bg-warning text-dark'
-                                            };
-                                        @endphp
-                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold text-secondary mb-1">
-                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">{{ $cred->type }}</span>
-                                                    Cert #: {{ $cred->number }}
-                                                </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="{{ $credStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
-                                                        {{ ucfirst($credStatus) }}
-                                                    </span>
-                                                    <span class="text-muted small" style="font-size: 0.72rem;">
-                                                        Validity: {{ $cred->validity_date ? \Carbon\Carbon::parse($cred->validity_date)->format('m/d/Y') : 'N/A' }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                @if($cred->pdf_path)
-                                                    <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" data-file-modal data-file-title="{{ $cred->type }} Credential" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
-                                                        <i class="fa fa-eye me-1"></i>View
-                                                    </a>
-                                                @else
-                                                    <span class="text-muted small">No File</span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    @endforeach
-
-                                    {{-- Service Agreement Row --}}
-                                    @if($inst->service_agreement_path)
-                                        @php
-                                            $saStatus = $inst->status ?: 'pending';
-                                            $saStatusClass = match($saStatus) {
-                                                'approved' => 'badge bg-success text-white',
-                                                'rejected', 'returned' => 'badge bg-danger text-white',
-                                                default => 'badge bg-warning text-dark'
-                                            };
-                                        @endphp
-                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold text-secondary mb-1">
-                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
-                                                    Service Agreement PDF
-                                                </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="{{ $saStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
-                                                        {{ ucfirst($saStatus) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
-                                                    <i class="fa fa-eye me-1"></i>View
-                                                </a>
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-semibold text-secondary mb-1">
-                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
-                                                    Service Agreement PDF
-                                                </div>
-                                                <div>
-                                                    <span class="text-danger small" style="font-size: 0.72rem;">No Agreement Uploaded</span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span class="text-muted small">No File</span>
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-muted text-center py-3 mb-0" style="font-size: 0.85rem;">No instructors submitted.</p>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- ── Batch Resubmission Form (shown only when there are rejected file docs) ── --}}
     @php
         $application = $pendingRenewal;
@@ -569,6 +374,201 @@
         </form>
     </div>
     @endif
+
+    {{-- Submitted Documents & Credentials Summary Panel --}}
+    <div class="x_panel mt-4" style="border-left: 4px solid #0b3d91; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff;">
+        <div class="x_title d-flex justify-content-between align-items-center pb-2 border-bottom" style="cursor: pointer; user-select: none;" data-bs-toggle="collapse" data-bs-target="#submittedDocsCollapse" aria-expanded="true" aria-controls="submittedDocsCollapse">
+            <h2 class="fw-bold mb-0 text-primary" style="color: #0b3d91 !important; font-size: 1.15rem; border: none; float: none; padding: 0; margin: 0;">
+                Submitted Documents & Instructor Credentials
+            </h2>
+            <i class="fas fa-chevron-up text-secondary" id="submittedDocsChevron" style="font-size: 1.1rem; transition: transform 0.2s;"></i>
+            <div class="clearfix"></div>
+        </div>
+        <div class="x_content collapse show mt-3" id="submittedDocsCollapse">
+            <div class="row g-4">
+                {{-- FATPro Documents Column --}}
+                <div class="col-md-6 border-end">
+                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
+                        1. FATPro General & Legal Documents
+                    </h6>
+                    @php
+                        // Group documents by their document type (section) and sort by section ID
+                        $grouped = $pendingRenewal->documents
+                            ->sortBy(function ($doc) {
+                                $typeId = $doc->documentField?->documentType?->id ?? 999999;
+                                $fieldId = $doc->documentField?->id ?? 999999;
+                                return sprintf('%08d-%08d', $typeId, $fieldId);
+                            })
+                            ->groupBy(fn($doc) => optional($doc->documentField?->documentType)->id);
+
+                        $sectionCounter = 1;
+                    @endphp
+
+                    <div class="d-flex flex-column gap-3">
+                        @forelse($grouped as $typeId => $docs)
+                            @php
+                                $sectionName = optional($docs->first()?->documentField?->documentType)->name ?? 'Other Documents';
+                            @endphp
+
+                            <div class="border rounded shadow-sm mb-3 bg-white" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
+                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.8rem; border-bottom: 1px solid #e2e8f0;">
+                                    <span>{{ $sectionCounter }}. {{ $sectionName }}</span>
+                                </div>
+
+                                <div class="list-group list-group-flush">
+                                    @foreach($docs as $doc)
+                                        @php
+                                            $field = $doc->documentField;
+                                            $isPdf = $field?->input_type === 'file';
+                                            $statusClass = match($doc->status) {
+                                                'approved' => 'bg-success text-white',
+                                                'rejected', 'returned' => 'bg-danger text-white',
+                                                default => 'bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.82rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    {{ $field?->name ?? 'Document' }}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge {{ $statusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($doc->status) }}
+                                                    </span>
+                                                    @if(!$isPdf && $doc->userDocument?->value)
+                                                        <span class="text-muted small" title="{{ $doc->userDocument->value }}" style="font-size: 0.72rem;">
+                                                            Value: {{ Str::limit($doc->userDocument->value, 30) }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div>
+                                                @if($isPdf)
+                                                    @if($doc->userDocument?->file_path)
+                                                        <a href="{{ route('applicant.documents.view', $doc->id) }}" data-file-modal data-file-title="{{ $field?->name ?? 'Document' }}" class="btn btn-xs btn-outline-dark py-1 px-2 fw-semibold" style="font-size: 0.72rem; border-radius: 4px;">
+                                                            <i class="fa fa-eye me-1"></i>View
+                                                        </a>
+                                                    @else
+                                                        <span class="text-muted small">No file</span>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @php $sectionCounter++; @endphp
+                        @empty
+                            <p class="text-muted text-center py-3">No documents submitted.</p>
+                        @endforelse
+                    </div>
+                </div>
+
+                {{-- Instructor Credentials Column --}}
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-uppercase text-dark mb-3" style="letter-spacing: 0.5px; font-size: 0.8rem;">
+                        2. Instructor Credentials & Agreements
+                    </h6>
+                    
+                    @php $appInstructors = $pendingRenewal->instructors ?? collect(); @endphp
+                    
+                    <div class="d-flex flex-column gap-3">
+                        @forelse($appInstructors as $inst)
+                            <div class="border rounded shadow-sm bg-white mb-3" style="border-color: #e5e7eb !important; border-radius: 8px; overflow: hidden;">
+                                <div class="px-3 py-2 fw-bold d-flex align-items-center justify-content-between" style="background:#f8fafc; color:#1e293b; font-size:.83rem; border-bottom: 1px solid #e2e8f0;">
+                                    <span>{{ $inst->first_name }} {{ $inst->last_name }}</span>
+                                </div>
+                                <div class="list-group list-group-flush">
+                                    @foreach($inst->credentials as $cred)
+                                        @php
+                                            $credStatus = $cred->status ?: 'pending';
+                                            $credStatusClass = match($credStatus) {
+                                                'approved' => 'badge bg-success text-white',
+                                                'rejected', 'returned' => 'badge bg-danger text-white',
+                                                default => 'badge bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: 1px solid #f1f5f9; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">{{ $cred->type }}</span>
+                                                    Cert #: {{ $cred->number }}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="{{ $credStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($credStatus) }}
+                                                    </span>
+                                                    <span class="text-muted small" style="font-size: 0.72rem;">
+                                                        Validity: {{ $cred->validity_date ? \Carbon\Carbon::parse($cred->validity_date)->format('m/d/Y') : 'N/A' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                @if($cred->pdf_path)
+                                                    <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" data-file-modal data-file-title="{{ $cred->type }} Credential" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                        <i class="fa fa-eye me-1"></i>View
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted small">No File</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+
+                                    {{-- Service Agreement Row --}}
+                                    @if($inst->service_agreement_path)
+                                        @php
+                                            $saStatus = $inst->status ?: 'pending';
+                                            $saStatusClass = match($saStatus) {
+                                                'approved' => 'badge bg-success text-white',
+                                                'rejected', 'returned' => 'badge bg-danger text-white',
+                                                default => 'badge bg-warning text-dark'
+                                            };
+                                        @endphp
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
+                                                    Service Agreement PDF
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="{{ $saStatusClass }}" style="font-size: 0.68rem; padding: 2px 6px; border-radius: 10px;">
+                                                        {{ ucfirst($saStatus) }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                                    <i class="fa fa-eye me-1"></i>View
+                                                </a>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="list-group-item px-3 py-2 d-flex align-items-center justify-content-between gap-2" style="font-size: 0.8rem; border-bottom: none; background: #fff;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold text-secondary mb-1">
+                                                    <span class="badge bg-secondary me-2" style="font-size:.65rem; padding: 2px 4px;">Agreement</span>
+                                                    Service Agreement PDF
+                                                </div>
+                                                <div>
+                                                    <span class="text-danger small" style="font-size: 0.72rem;">No Agreement Uploaded</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="text-muted small">No File</span>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @empty
+                            <p class="text-muted text-center py-3 mb-0" style="font-size: 0.85rem;">No instructors submitted.</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     @php
         $payment = $pendingRenewal->payment;

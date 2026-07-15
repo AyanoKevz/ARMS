@@ -885,3 +885,41 @@ body.nav-sm #arms-tour-trigger span {
     gap: 0 !important;
 }
 
+/* Centering child menu links and styling icons green on hover/active states when sidebar is minimized */
+body.nav-sm .nav.child_menu li a {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 12px 10px !important;
+}
+
+body.nav-sm .nav.child_menu li a i {
+    font-size: 1.8rem !important;
+    margin-bottom: 8px !important;
+    margin-right: 0 !important;
+    display: block !important;
+    transition: color 0.2s ease-in-out !important;
+}
+
+body.nav-sm .nav.child_menu li.current-page > a i,
+body.nav-sm .nav.child_menu li.active > a i {
+    color: #2ecc71 !important;
+}
+
+body.nav-sm .nav.child_menu li a:hover i,
+body.nav-sm .nav.child_menu li:hover > a i {
+    color: var(--portal-gold) !important;
+}
+
+/* Global Font Family & Monospace Consistency */
+body, button, input, select, textarea {
+    font-family: 'Poppins', sans-serif !important;
+}
+
+.font-monospace, code, kbd, pre, samp {
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace !important;
+}
+
+

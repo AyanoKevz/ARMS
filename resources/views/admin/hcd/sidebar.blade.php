@@ -67,8 +67,9 @@
     $archivedActive = request()->routeIs('admin.hcd.applications.archived') || ($routeShow && $isArchivedApp);
 
     // 12. Reports
-    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || request()->routeIs('admin.hcd.reports.ntc.show');
-    $reportsParentActive = $ntcReportActive;
+    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status !== 'report_changes');
+    $reportChangesActive = request()->routeIs('admin.hcd.reports.report_changes.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status === 'report_changes');
+    $reportsParentActive = $ntcReportActive || $reportChangesActive;
 @endphp
 
 <!-- HCD Admin Sidebar -->
@@ -110,7 +111,7 @@
 <li id="tour-step-reports" class="{{ $reportsParentActive ? 'active' : '' }}"><a><i class="fas fa-chart-bar"></i> Reports <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $reportsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $ntcReportActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.ntc.index') }}"><i class="fas fa-clipboard-list"></i> Notice to Conduct</a></li>
-        <li><a href="#"><i class="fas fa-exchange-alt"></i> Report of Changes</a></li>
+        <li class="{{ $reportChangesActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.report_changes.index') }}"><i class="fas fa-exchange-alt"></i> Report of Changes</a></li>
         <li><a href="#"><i class="fas fa-flag-checkered"></i> Post Training Report</a></li>
     </ul>
 </li>

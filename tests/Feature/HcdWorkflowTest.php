@@ -869,6 +869,7 @@ test('accreditation number middle part updates to current date on renewal', func
     expect($newAccreditation->status)->toBe('active');
 
     // Clean up mock file
+    $payment->refresh();
     if ($payment->signed_recommendation_letter && \Illuminate\Support\Facades\Storage::disk('local')->exists($payment->signed_recommendation_letter)) {
         \Illuminate\Support\Facades\Storage::disk('local')->delete($payment->signed_recommendation_letter);
     }
@@ -1359,6 +1360,313 @@ test('applicant portal ntc report does not show Action Required or Requires Re-s
     expect($html)->not->toContain('Requires Re-submission');
     expect($html)->not->toContain('Action Required');
 });
+
+test('applicant with ongoing renewal or reinstatement cannot access ntc page or store ntc', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_block@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Create an ongoing renewal application
+    $renewalApp = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-NTC-REN-01',
+    ]);
+
+    $submittedStatus = ApplicationStatus::firstOrCreate(['name' => 'Submitted']);
+    ApplicationStatusLog::create([
+        'application_id' => $renewalApp->id,
+        'status_id' => $submittedStatus->id,
+    ]);
+
+    // Try to access NTC index page - should be redirected to dashboard with error
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'));
+
+    $response->assertRedirect(route('applicant.dashboard'));
+    $response->assertSessionHas('error', 'You cannot access or submit a Submission report while you have an ongoing renewal or reinstatement application.');
+
+    // Try to store NTC - should be redirected to dashboard with error
+    $responsePost = $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), [
+            'ntc_training_type_id' => 1,
+            'ntc_training_mode_id' => 1,
+            'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+            'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        ]);
+
+    $responsePost->assertRedirect(route('applicant.dashboard'));
+    $responsePost->assertSessionHas('error', 'You cannot submit a Submission report while you have an ongoing renewal or reinstatement application.');
+});
+
+test('applicant with revoked accreditation cannot access ntc page or store ntc', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_revoked@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Create application
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-REVOKED-01',
+    ]);
+
+    // Create a revoked accreditation
+    \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => 'FATPRO-REVOKED-01',
+        'date_of_accreditation' => now()->subYear()->format('Y-m-d'),
+        'validity_date' => now()->addYear()->format('Y-m-d'),
+        'status' => 'revoked',
+    ]);
+
+    // Try to access NTC index page - should be redirected to dashboard with error
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'));
+
+    $response->assertRedirect(route('applicant.dashboard'));
+    $response->assertSessionHas('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+
+    // Try to store NTC - should be redirected to dashboard with error
+    $responsePost = $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), [
+            'ntc_training_type_id' => 1,
+            'ntc_training_mode_id' => 1,
+            'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+            'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        ]);
+
+    $responsePost->assertRedirect(route('applicant.dashboard'));
+    $responsePost->assertSessionHas('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+});
+
+test('approve/reject buttons are hidden outside working hours', function () {
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'eval_test_wh@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_wh@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-WH',
+    ]);
+
+    $docType = DocumentType::firstOrCreate([
+        'code' => 'TEST_TYPE',
+        'name' => 'Test Type',
+    ]);
+
+    $field = DocumentField::firstOrCreate([
+        'code' => 'TEST_01',
+    ], [
+        'name' => 'Test Document',
+        'input_type' => 'file',
+        'document_type_id' => $docType->id,
+    ]);
+
+    $userDoc = UserDocument::create([
+        'user_id' => $applicant->id,
+        'document_field_id' => $field->id,
+        'file_path' => 'dummy.pdf',
+    ]);
+
+    $appDoc = ApplicationDocument::create([
+        'application_id' => $application->id,
+        'document_field_id' => $field->id,
+        'user_document_id' => $userDoc->id,
+        'status' => 'pending',
+    ]);
+
+    // Move application status to Under Evaluation
+    $status = ApplicationStatus::firstOrCreate(['name' => 'Under Evaluation']);
+    ApplicationStatusLog::create([
+        'application_id' => $application->id,
+        'status_id' => $status->id,
+    ]);
+
+    // Scenario 1: Inside Working Hours (e.g. Wednesday 10:00 AM)
+    \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 15, 10, 0, 0, 'Asia/Manila'));
+
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.applications.show', $application->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+    // Verify that pct-working-only elements do NOT have inline style display none
+    expect($html)->toContain('class="doc-eval-actions pct-working-only"');
+    expect($html)->not->toContain('class="doc-eval-actions pct-working-only" style="display: none !important;"');
+
+    // Scenario 2: Outside Working Hours (e.g. Wednesday 6:00 PM)
+    \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 15, 18, 0, 0, 'Asia/Manila'));
+
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.applications.show', $application->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+    // Verify that pct-working-only elements DO have inline style display none
+    expect($html)->toContain('class="doc-eval-actions pct-working-only" style="display: none !important;"');
+
+    // Scenario 3: Weekend (e.g. Sunday 10:00 AM)
+    \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 19, 10, 0, 0, 'Asia/Manila'));
+
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.applications.show', $application->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+    expect($html)->toContain('class="doc-eval-actions pct-working-only" style="display: none !important;"');
+
+    // Reset Carbon test time
+    \Carbon\Carbon::setTestNow();
+});
+
+test('applicant can submit report of changes and evaluation status resets to pending and deletes old files', function () {
+    $this->withoutExceptionHandling();
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Mail::fake();
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_changes@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-CHANGES-01',
+    ]);
+
+    $acc = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => 'ACC-12345',
+        'date_of_accreditation' => now()->subDay()->format('Y-m-d'),
+        'status' => 'active',
+        'validity_date' => now()->addYear(),
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $acc->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15),
+        'training_end_date' => now()->addDays(18),
+        'status' => 'acknowledged',
+    ]);
+
+    $docType1 = \App\Models\NtcDocumentType::where('code', 'RTCMan')->first() ?? \App\Models\NtcDocumentType::first();
+    $docType2 = \App\Models\NtcDocumentType::where('code', 'PROG')->first() ?? \App\Models\NtcDocumentType::first();
+
+    // Create existing approved documents
+    $oldFilePath1 = 'documents/old_rtcman.pdf';
+    $oldFilePath2 = 'documents/old_prog.pdf';
+    \Illuminate\Support\Facades\Storage::disk('local')->put($oldFilePath1, 'old rtcman content');
+    \Illuminate\Support\Facades\Storage::disk('local')->put($oldFilePath2, 'old prog content');
+
+    $doc1 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType1->id,
+        'file_path' => $oldFilePath1,
+        'original_filename' => 'old_rtcman.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'approved',
+    ]);
+
+    $doc2 = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType2->id,
+        'file_path' => $oldFilePath2,
+        'original_filename' => 'old_prog.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'approved',
+    ]);
+
+    // Send Report of Changes request
+    $newFileRtcman = \Illuminate\Http\UploadedFile::fake()->create('new_rtcman.pdf', 500);
+    $newFileProg = \Illuminate\Http\UploadedFile::fake()->create('new_prog.pdf', 500);
+
+    $response = $this->actingAs($applicant)
+        ->post(route('applicant.ntc.report_changes', $ntcReport->id), [
+            'ntc_training_type_id' => $trainingType->id,
+            'ntc_training_mode_id' => $trainingMode->id,
+            'training_start_date' => now()->addDays(20)->format('Y-m-d'),
+            'training_end_date' => now()->addDays(23)->format('Y-m-d'),
+            'file_rtcman' => $newFileRtcman,
+            'file_prog' => $newFileProg,
+        ]);
+
+    $response->assertRedirect(route('applicant.ntc.index'));
+    
+    // Assert status is now report_changes
+    $ntcReport->refresh();
+    expect($ntcReport->status)->toBe('report_changes');
+    expect($ntcReport->training_start_date->format('Y-m-d'))->toBe(now()->addDays(20)->format('Y-m-d'));
+
+    // Assert old files deleted
+    \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($oldFilePath1);
+    \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($oldFilePath2);
+
+    // Assert documents reset to pending
+    $doc1->refresh();
+    $doc2->refresh();
+    expect($doc1->status)->toBe('pending');
+    expect($doc2->status)->toBe('pending');
+    expect($doc1->file_path)->not->toBe($oldFilePath1);
+    expect($doc2->file_path)->not->toBe($oldFilePath2);
+});
+
+
+
 
 
 

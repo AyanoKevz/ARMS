@@ -224,13 +224,25 @@
                         <div class="ntc-file-drop-zone @error('file_rtcman') is-invalid-zone @enderror"
                              id="dropZoneRtcman"
                              data-input="file_rtcman">
-                            <i class="fas fa-file-upload ntc-file-icon"></i>
-                            <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
-                            <p class="ntc-file-selected" id="rtcmanFileName">No file selected</p>
+                            <div class="ntc-drop-zone-content">
+                                <div class="state-empty">
+                                    <i class="fas fa-cloud-upload-alt ntc-file-icon"></i>
+                                    <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
+                                    <p class="ntc-file-selected text-muted">No file selected</p>
+                                </div>
+                                <div class="state-selected d-none">
+                                    <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
+                                    <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
+                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-trash-alt me-1"></i> Clear Selection
+                                    </button>
+                                </div>
+                            </div>
                             <input type="file"
                                    id="file_rtcman"
                                    name="file_rtcman"
-                                   class="ntc-file-hidden"
+                                   class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx"
                                    required>
                         </div>
@@ -250,13 +262,25 @@
                         <div class="ntc-file-drop-zone @error('file_prog') is-invalid-zone @enderror"
                              id="dropZoneProg"
                              data-input="file_prog">
-                            <i class="fas fa-file-upload ntc-file-icon"></i>
-                            <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
-                            <p class="ntc-file-selected" id="progFileName">No file selected</p>
+                            <div class="ntc-drop-zone-content">
+                                <div class="state-empty">
+                                    <i class="fas fa-cloud-upload-alt ntc-file-icon"></i>
+                                    <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
+                                    <p class="ntc-file-selected text-muted">No file selected</p>
+                                </div>
+                                <div class="state-selected d-none">
+                                    <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
+                                    <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
+                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-trash-alt me-1"></i> Clear Selection
+                                    </button>
+                                </div>
+                            </div>
                             <input type="file"
                                    id="file_prog"
                                    name="file_prog"
-                                   class="ntc-file-hidden"
+                                   class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx"
                                    required>
                         </div>
@@ -314,6 +338,8 @@
                                 @php
                                     // True rejected: status is rejected AND file has been deleted/removed
                                     $hasRejected = $ntc->documents->contains(fn($d) => $d->status === 'rejected' && !$d->file_path);
+                                    $rtcmanDoc = $ntc->documents->first(fn($d) => $d->documentType->code === 'RTCMAN');
+                                    $progDoc = $ntc->documents->first(fn($d) => $d->documentType->code === 'PROG');
                                 @endphp
                                 <tr style="{{ $hasRejected ? 'background: #fff8f8;' : '' }}">
                                     <td class="ps-4">
@@ -349,6 +375,24 @@
                                     <td>
                                         @if($ntc->status === 'acknowledged')
                                             <span class="badge badge-premium-success">Acknowledged</span>
+                                            <div class="mt-2">
+                                                <button type="button"
+                                                        class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 mt-1 btn-report-changes"
+                                                        data-id="{{ $ntc->id }}"
+                                                        data-training-type="{{ $ntc->ntc_training_type_id }}"
+                                                        data-training-mode="{{ $ntc->ntc_training_mode_id }}"
+                                                        data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
+                                                        data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
+                                                        data-rtcman-file-name="{{ $rtcmanDoc ? $rtcmanDoc->original_filename : '' }}"
+                                                        data-rtcman-file-url="{{ $rtcmanDoc && $rtcmanDoc->file_path ? route('applicant.ntc.document.view', $rtcmanDoc->id) : '' }}"
+                                                        data-prog-file-name="{{ $progDoc ? $progDoc->original_filename : '' }}"
+                                                        data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}"
+                                                        style="font-size: 0.72rem; border-radius: 6px;">
+                                                    <i class="fas fa-exchange-alt me-1"></i> Report of Changes
+                                                </button>
+                                            </div>
+                                        @elseif($ntc->status === 'report_changes')
+                                            <span class="badge bg-info text-white" style="font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600;">Report of Changes</span>
                                         @elseif($hasRejected)
                                             <span class="badge badge-premium-danger">Requires Re-submission</span>
                                         @elseif($ntc->status === 'submitted')
@@ -413,13 +457,20 @@
                                                 </div>
                                                 @endif
                                                 @if($isTrueRejected)
-                                                <div class="mt-2">
+                                                <div class="ntc-compact-drop-zone mt-2"
+                                                     id="dropZoneReject-{{ $doc->id }}"
+                                                     data-input="file-reject-{{ $doc->id }}">
+                                                    <div class="file-info text-secondary">
+                                                        <i class="fas fa-cloud-upload-alt text-muted fs-6"></i>
+                                                        <span>Click or drag file to re-upload...</span>
+                                                    </div>
+                                                    <button type="button" class="btn-clear d-none no-trigger">Clear</button>
                                                     <input type="file"
+                                                           id="file-reject-{{ $doc->id }}"
                                                            name="files[{{ $doc->id }}]"
+                                                           class="d-none ntc-file-input"
                                                            accept=".pdf,.doc,.docx"
-                                                           required
-                                                           style="font-size:.75rem; border-radius: 6px;"
-                                                           class="form-control form-control-sm">
+                                                           required>
                                                 </div>
                                                 @elseif($isReturned)
                                                 <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold" style="font-size:.72rem; color: #d97706 !important;">
@@ -452,6 +503,189 @@
 </div>
 @endif
 
+{{-- Report of Changes Modal --}}
+<div class="modal fade" id="reportChangesModal" tabindex="-1" aria-labelledby="reportChangesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 12px; overflow: hidden; border-top: 4px solid var(--portal-gold);">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="reportChangesModalLabel" style="color: #2A3F54;">
+                    <i class="fas fa-exchange-alt text-warning me-2"></i> Submit Report of Changes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" id="reportChangesForm" enctype="multipart/form-data" novalidate>
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info py-2" style="font-size: 0.85rem;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Use this form to update the training details and re-upload files for your acknowledged Notice to Conduct.
+                    </div>
+
+                    {{-- Training Type --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="modal_ntc_training_type_id">
+                            Type of Training <span class="text-danger">*</span>
+                        </label>
+                        <select id="modal_ntc_training_type_id"
+                                name="ntc_training_type_id"
+                                class="form-control"
+                                required>
+                            <option value="" disabled selected>— Select Training Type —</option>
+                            @foreach($trainingTypes as $type)
+                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Mode of Training --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="modal_ntc_training_mode_id">
+                            Mode of Training <span class="text-danger">*</span>
+                        </label>
+                        <select id="modal_ntc_training_mode_id"
+                                name="ntc_training_mode_id"
+                                class="form-control"
+                                required>
+                            <option value="" disabled selected>— Select Mode —</option>
+                            @foreach($trainingModes as $mode)
+                                <option value="{{ $mode->id }}">{{ $mode->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Training Dates --}}
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group mb-3">
+                                <label class="fw-semibold" for="modal_training_start_date">
+                                    Training Start Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date"
+                                       id="modal_training_start_date"
+                                       name="training_start_date"
+                                       class="form-control"
+                                       min="{{ $earliestStartDate }}"
+                                       required>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-group mb-3">
+                                <label class="fw-semibold" for="modal_training_end_date">
+                                    Training End Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date"
+                                       id="modal_training_end_date"
+                                       name="training_end_date"
+                                       class="form-control"
+                                       required>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- File: RTCMan Form --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="modal_file_rtcman">
+                            DOLE-OSHC-STO-RTCMan Form <span class="text-secondary">(Optional, will keep current file if left blank)</span>
+                        </label>
+                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                            Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
+                        </p>
+                        <div class="ntc-file-drop-zone"
+                             id="modalDropZoneRtcman"
+                             data-input="modal_file_rtcman">
+                            <div class="ntc-drop-zone-content">
+                                <div class="state-empty">
+                                    <i class="fas fa-cloud-upload-alt ntc-file-icon"></i>
+                                    <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
+                                    <p class="ntc-file-selected text-muted">No file selected</p>
+                                </div>
+                                <div class="state-existing d-none">
+                                    <i class="fas fa-file-alt text-warning fs-4 mb-2"></i>
+                                    <p class="existing-file-title fw-bold text-warning mb-1">Existing file uploaded</p>
+                                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                        <span class="existing-file-name text-dark font-monospace" style="font-size: 0.78rem;"></span>
+                                        <a href="#" target="_blank" class="btn btn-xs btn-outline-secondary btn-view-file no-trigger py-1 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                            <i class="fas fa-external-link-alt me-1"></i> View
+                                        </a>
+                                    </div>
+                                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Drag new file here or click to replace</p>
+                                </div>
+                                <div class="state-replacement d-none">
+                                    <i class="fas fa-exchange-alt text-info fs-4 mb-2"></i>
+                                    <p class="replacement-file-title fw-bold text-info mb-1">Replacement file ready</p>
+                                    <p class="replacement-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-undo-replacement no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-undo me-1"></i> Keep Current File
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="file"
+                                   id="modal_file_rtcman"
+                                   name="file_rtcman"
+                                   class="d-none ntc-file-input"
+                                   accept=".pdf,.doc,.docx">
+                        </div>
+                    </div>
+
+                    {{-- File: PROG Form --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="modal_file_prog">
+                            DOLE-OSHC-STO-PROG Form <span class="text-secondary">(Optional, will keep current file if left blank)</span>
+                        </label>
+                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                            Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
+                        </p>
+                        <div class="ntc-file-drop-zone"
+                             id="modalDropZoneProg"
+                             data-input="modal_file_prog">
+                            <div class="ntc-drop-zone-content">
+                                <div class="state-empty">
+                                    <i class="fas fa-cloud-upload-alt ntc-file-icon"></i>
+                                    <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
+                                    <p class="ntc-file-selected text-muted">No file selected</p>
+                                </div>
+                                <div class="state-existing d-none">
+                                    <i class="fas fa-file-alt text-warning fs-4 mb-2"></i>
+                                    <p class="existing-file-title fw-bold text-warning mb-1">Existing file uploaded</p>
+                                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
+                                        <span class="existing-file-name text-dark font-monospace" style="font-size: 0.78rem;"></span>
+                                        <a href="#" target="_blank" class="btn btn-xs btn-outline-secondary btn-view-file no-trigger py-1 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
+                                            <i class="fas fa-external-link-alt me-1"></i> View
+                                        </a>
+                                    </div>
+                                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Drag new file here or click to replace</p>
+                                </div>
+                                <div class="state-replacement d-none">
+                                    <i class="fas fa-exchange-alt text-info fs-4 mb-2"></i>
+                                    <p class="replacement-file-title fw-bold text-info mb-1">Replacement file ready</p>
+                                    <p class="replacement-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-undo-replacement no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-undo me-1"></i> Keep Current File
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="file"
+                                   id="modal_file_prog"
+                                   name="file_prog"
+                                   class="d-none ntc-file-input"
+                                   accept=".pdf,.doc,.docx">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit"
+                            id="modalSubmitBtn"
+                            class="btn fw-bold"
+                            style="background: linear-gradient(135deg, #D4AC4B, #b8922e); color: #fff; border: none; border-radius: 6px;">
+                        <i class="fas fa-paper-plane me-1"></i> Submit Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('styles')
@@ -460,11 +694,11 @@
     .ntc-file-drop-zone {
         border: 2px dashed #b8c8e8;
         border-radius: 10px;
-        padding: 20px 16px;
+        padding: 24px 20px;
         text-align: center;
         cursor: pointer;
         background: #f7f9fd;
-        transition: border-color 0.2s, background 0.2s;
+        transition: all 0.2s ease-in-out;
         position: relative;
     }
     .ntc-file-drop-zone:hover,
@@ -476,25 +710,25 @@
         border-color: #dc3545;
         background: #fff8f8;
     }
-    .ntc-file-hidden {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
+    .ntc-file-drop-zone.has-file {
+        border-color: #27ae60;
+        background: #f4fbf7;
     }
     .ntc-file-icon {
-        font-size: 1.8rem;
+        font-size: 2rem;
         color: #b8c8e8;
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
         pointer-events: none;
+        transition: all 0.2s;
+    }
+    .ntc-file-drop-zone:hover .ntc-file-icon {
+        transform: translateY(-2px);
     }
     .ntc-file-label {
-        font-size: 0.88rem;
-        color: #666;
-        margin-bottom: 4px;
+        font-size: 0.92rem;
+        color: #475569;
+        margin-bottom: 6px;
         pointer-events: none;
     }
     .ntc-browse-link {
@@ -503,15 +737,53 @@
         text-decoration: underline;
     }
     .ntc-file-selected {
-        font-size: 0.78rem;
-        color: #888;
+        font-size: 0.8rem;
+        color: #64748b;
         margin: 0;
         pointer-events: none;
         word-break: break-all;
     }
-    .ntc-file-selected.has-file {
-        color: #27ae60;
+
+    /* ── Compact Drop Zone (for table row re-uploads) ───── */
+    .ntc-compact-drop-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 10px 14px;
+        background: #f8fafc;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.2s;
+    }
+    .ntc-compact-drop-zone:hover,
+    .ntc-compact-drop-zone.drag-over {
+        border-color: #e11d48;
+        background: #fff5f5;
+    }
+    .ntc-compact-drop-zone .file-info {
+        font-size: 0.78rem;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 80%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+    .ntc-compact-drop-zone .btn-clear {
+        padding: 0;
+        border: none;
+        background: none;
+        color: #e11d48;
+        font-size: 0.78rem;
         font-weight: 600;
+        cursor: pointer;
+    }
+    .ntc-compact-drop-zone .btn-clear:hover {
+        text-decoration: underline;
     }
 
     /* ── Spin loading on submit ─────────────────────────── */
@@ -626,21 +898,34 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // ── File Drop Zone Behaviour ──────────────────────────
-    const dropZones = document.querySelectorAll('.ntc-file-drop-zone');
+    // ── Drop Zone Controller Helper ──────────────────────────
+    function setupFileDropZone(zoneId) {
+        const zone = document.getElementById(zoneId);
+        if (!zone) return null;
 
-    dropZones.forEach(function (zone) {
-        const inputId  = zone.getAttribute('data-input');
-        const input    = document.getElementById(inputId);
-        const label    = zone.querySelector('.ntc-file-selected');
-        const MAX_MB   = 100;
+        const input = zone.querySelector('.ntc-file-input');
+        const stateEmpty = zone.querySelector('.state-empty');
+        const stateSelected = zone.querySelector('.state-selected');
+        const stateExisting = zone.querySelector('.state-existing');
+        const stateReplacement = zone.querySelector('.state-replacement');
+
+        const selectedInfo = zone.querySelector('.selected-file-info');
+        const existingName = zone.querySelector('.existing-file-name');
+        const btnView = zone.querySelector('.btn-view-file');
+        const replacementInfo = zone.querySelector('.replacement-file-info');
+
+        const btnClear = zone.querySelector('.btn-clear-file');
+        const btnUndo = zone.querySelector('.btn-undo-replacement');
+
+        let currentFileState = {
+            hasExisting: false,
+            existingName: '',
+            existingUrl: '',
+            newFile: null
+        };
+
+        const MAX_MB = 100;
         const MAX_BYTES = MAX_MB * 1024 * 1024;
-
-        const validMimes = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        ];
         const validExts = ['.pdf', '.doc', '.docx'];
 
         function formatBytes(bytes) {
@@ -648,58 +933,234 @@ document.addEventListener('DOMContentLoaded', function () {
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
-        function applyFile(file) {
-            if (!file) return;
+        function updateUIState() {
+            // Hide all states first
+            stateEmpty.classList.add('d-none');
+            if (stateSelected) stateSelected.classList.add('d-none');
+            if (stateExisting) stateExisting.classList.add('d-none');
+            if (stateReplacement) stateReplacement.classList.add('d-none');
 
-            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-            if (!validExts.includes(ext)) {
-                label.textContent = '❌ Invalid file type. Use PDF, DOC, or DOCX.';
-                label.classList.remove('has-file');
-                input.value = '';
-                return;
+            if (currentFileState.newFile) {
+                // New file selected
+                if (currentFileState.hasExisting) {
+                    if (stateReplacement) {
+                        stateReplacement.classList.remove('d-none');
+                        replacementInfo.textContent = currentFileState.newFile.name + ' (' + formatBytes(currentFileState.newFile.size) + ')';
+                    }
+                } else {
+                    if (stateSelected) {
+                        stateSelected.classList.remove('d-none');
+                        selectedInfo.textContent = currentFileState.newFile.name + ' (' + formatBytes(currentFileState.newFile.size) + ')';
+                    }
+                }
+                zone.classList.add('has-file');
+            } else if (currentFileState.hasExisting) {
+                // Existing file
+                if (stateExisting) {
+                    stateExisting.classList.remove('d-none');
+                    existingName.textContent = currentFileState.existingName;
+                    if (btnView && currentFileState.existingUrl) {
+                        btnView.href = currentFileState.existingUrl;
+                    }
+                }
+                zone.classList.remove('has-file');
+            } else {
+                // Empty state
+                stateEmpty.classList.remove('d-none');
+                zone.classList.remove('has-file');
             }
-
-            if (file.size > MAX_BYTES) {
-                label.textContent = '❌ File too large. Max 100 MB allowed.';
-                label.classList.remove('has-file');
-                input.value = '';
-                return;
-            }
-
-            label.textContent = '✓ ' + file.name + ' (' + formatBytes(file.size) + ')';
-            label.classList.add('has-file');
         }
 
-        // Click to pick a file
-        zone.addEventListener('click', function (e) {
-            if (e.target !== input) input.click();
+        function validateFile(file) {
+            if (!file) return false;
+            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            if (!validExts.includes(ext)) {
+                alert('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
+                return false;
+            }
+            if (file.size > MAX_BYTES) {
+                alert('File is too large. Maximum size allowed is 100 MB.');
+                return false;
+            }
+            return true;
+        }
+
+        function selectFile(file) {
+            if (validateFile(file)) {
+                currentFileState.newFile = file;
+                updateUIState();
+            } else {
+                clearSelection();
+            }
+        }
+
+        function clearSelection() {
+            input.value = '';
+            currentFileState.newFile = null;
+            updateUIState();
+        }
+
+        function setExistingFile(name, url) {
+            if (name && url) {
+                currentFileState.hasExisting = true;
+                currentFileState.existingName = name;
+                currentFileState.existingUrl = url;
+            } else {
+                currentFileState.hasExisting = false;
+                currentFileState.existingName = '';
+                currentFileState.existingUrl = '';
+            }
+            clearSelection();
+        }
+
+        zone.addEventListener('click', function(e) {
+            if (e.target.closest('.no-trigger')) {
+                return;
+            }
+            input.click();
         });
 
-        // File chosen via picker
-        input.addEventListener('change', function () {
-            applyFile(input.files[0]);
+        input.addEventListener('change', function() {
+            if (input.files && input.files.length > 0) {
+                selectFile(input.files[0]);
+            }
         });
 
-        // Drag & drop
-        zone.addEventListener('dragover', function (e) {
+        zone.addEventListener('dragover', function(e) {
             e.preventDefault();
             zone.classList.add('drag-over');
         });
-        zone.addEventListener('dragleave', function () {
+
+        zone.addEventListener('dragleave', function() {
             zone.classList.remove('drag-over');
         });
-        zone.addEventListener('drop', function (e) {
+
+        zone.addEventListener('drop', function(e) {
             e.preventDefault();
             zone.classList.remove('drag-over');
-            const dt = e.dataTransfer;
-            if (dt && dt.files.length > 0) {
-                // Transfer the file to the hidden input
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
                 const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(dt.files[0]);
+                dataTransfer.items.add(file);
                 input.files = dataTransfer.files;
-                applyFile(dt.files[0]);
+                selectFile(file);
             }
         });
+
+        if (btnClear) {
+            btnClear.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearSelection();
+            });
+        }
+
+        if (btnUndo) {
+            btnUndo.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearSelection();
+            });
+        }
+
+        // Initial UI update
+        updateUIState();
+
+        return {
+            clear: clearSelection,
+            setExisting: setExistingFile,
+            getCurrentState: () => currentFileState
+        };
+    }
+
+    // ── Setup Compact Drop Zones (for individual rejected docs) ───────
+    function setupCompactDropZone(zoneId) {
+        const zone = document.getElementById(zoneId);
+        if (!zone) return;
+
+        const input = zone.querySelector('.ntc-file-input');
+        const fileInfo = zone.querySelector('.file-info');
+        const btnClear = zone.querySelector('.btn-clear');
+
+        const defaultHTML = fileInfo.innerHTML;
+        const MAX_MB = 100;
+        const MAX_BYTES = MAX_MB * 1024 * 1024;
+        const validExts = ['.pdf', '.doc', '.docx'];
+
+        function selectFile(file) {
+            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            if (!validExts.includes(ext)) {
+                alert('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
+                input.value = '';
+                return;
+            }
+            if (file.size > MAX_BYTES) {
+                alert('File is too large. Maximum size allowed is 100 MB.');
+                input.value = '';
+                return;
+            }
+
+            fileInfo.innerHTML = `<i class="fas fa-check-circle text-success fs-6"></i> <span class="text-success fw-bold">${file.name}</span>`;
+            btnClear.classList.remove('d-none');
+        }
+
+        function clearSelection() {
+            input.value = '';
+            fileInfo.innerHTML = defaultHTML;
+            btnClear.classList.add('d-none');
+        }
+
+        zone.addEventListener('click', function(e) {
+            if (e.target.closest('.no-trigger')) {
+                return;
+            }
+            input.click();
+        });
+
+        input.addEventListener('change', function() {
+            if (input.files && input.files.length > 0) {
+                selectFile(input.files[0]);
+            }
+        });
+
+        zone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            zone.classList.add('drag-over');
+        });
+
+        zone.addEventListener('dragleave', function() {
+            zone.classList.remove('drag-over');
+        });
+
+        zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                input.files = dataTransfer.files;
+                selectFile(file);
+            }
+        });
+
+        if (btnClear) {
+            btnClear.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearSelection();
+            });
+        }
+    }
+
+    // Initialize Submit Form drop zones
+    const mainRtcmanCtrl = setupFileDropZone('dropZoneRtcman');
+    const mainProgCtrl = setupFileDropZone('dropZoneProg');
+
+    // Initialize Modal drop zones
+    const modalRtcmanCtrl = setupFileDropZone('modalDropZoneRtcman');
+    const modalProgCtrl = setupFileDropZone('modalDropZoneProg');
+
+    // Initialize all existing compact drop zones
+    document.querySelectorAll('.ntc-compact-drop-zone').forEach(zone => {
+        setupCompactDropZone(zone.id);
     });
 
     // ── Training End Date: enforce >= Start Date ──────────
@@ -707,12 +1168,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const endInput   = document.getElementById('training_end_date');
 
     if (startInput && endInput) {
-        startInput.addEventListener('change', function () {
+        const updateMinEndDate = () => {
             endInput.min = startInput.value;
             if (endInput.value && endInput.value < startInput.value) {
                 endInput.value = startInput.value;
             }
-        });
+        };
+        startInput.addEventListener('change', updateMinEndDate);
+        if (startInput.value) {
+            updateMinEndDate();
+        }
     }
 
     // ── Submit spinner guard ──────────────────────────────
@@ -721,7 +1186,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (form && submitBtn) {
         form.addEventListener('submit', function (e) {
-            // Basic client-side guard
             if (!form.checkValidity()) {
                 e.preventDefault();
                 form.reportValidity();
@@ -729,6 +1193,95 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
+        });
+    }
+
+    // ── Report of Changes Modal Populating ────────────────
+    const reportChangesModalEl = document.getElementById('reportChangesModal');
+    const reportChangesModal = reportChangesModalEl ? new bootstrap.Modal(reportChangesModalEl) : null;
+    const reportChangesForm = document.getElementById('reportChangesForm');
+
+    document.querySelectorAll('.btn-report-changes').forEach(button => {
+        button.addEventListener('click', function () {
+            const id = this.getAttribute('data-id');
+            const trainingType = this.getAttribute('data-training-type');
+            const trainingMode = this.getAttribute('data-training-mode');
+            const startDate = this.getAttribute('data-start-date');
+            const endDate = this.getAttribute('data-end-date');
+
+            const rtcmanName = this.getAttribute('data-rtcman-file-name');
+            const rtcmanUrl = this.getAttribute('data-rtcman-file-url');
+            const progName = this.getAttribute('data-prog-file-name');
+            const progUrl = this.getAttribute('data-prog-file-url');
+
+            if (reportChangesForm) {
+                reportChangesForm.action = `/applicant/ntc/${id}/report-of-changes`;
+
+                const typeSelect = document.getElementById('modal_ntc_training_type_id');
+                if (typeSelect) {
+                    typeSelect.value = trainingType;
+                }
+
+                const modeSelect = document.getElementById('modal_ntc_training_mode_id');
+                if (modeSelect) {
+                    modeSelect.value = trainingMode;
+                }
+                
+                const startInputModal = document.getElementById('modal_training_start_date');
+                const endInputModal = document.getElementById('modal_training_end_date');
+                
+                if (startInputModal) {
+                    startInputModal.value = startDate;
+                }
+                if (endInputModal) {
+                    endInputModal.value = endDate;
+                    if (startInputModal) {
+                        endInputModal.min = startInputModal.value;
+                    }
+                }
+            }
+
+            if (modalRtcmanCtrl) {
+                modalRtcmanCtrl.setExisting(rtcmanName, rtcmanUrl);
+            }
+            if (modalProgCtrl) {
+                modalProgCtrl.setExisting(progName, progUrl);
+            }
+
+            if (reportChangesModal) {
+                reportChangesModal.show();
+            }
+        });
+    });
+
+    // ── Modal Training End Date: enforce >= Start Date ──────────
+    const modalStartInput = document.getElementById('modal_training_start_date');
+    const modalEndInput   = document.getElementById('modal_training_end_date');
+
+    if (modalStartInput && modalEndInput) {
+        const updateModalMinEndDate = () => {
+            modalEndInput.min = modalStartInput.value;
+            if (modalEndInput.value && modalEndInput.value < modalStartInput.value) {
+                modalEndInput.value = modalStartInput.value;
+            }
+        };
+        modalStartInput.addEventListener('change', updateModalMinEndDate);
+        if (modalStartInput.value) {
+            updateModalMinEndDate();
+        }
+    }
+
+    // ── Modal Submit Spinner Guard ────────────────────────
+    const modalSubmitBtn = document.getElementById('modalSubmitBtn');
+    if (reportChangesForm && modalSubmitBtn) {
+        reportChangesForm.addEventListener('submit', function (e) {
+            if (!reportChangesForm.checkValidity()) {
+                e.preventDefault();
+                reportChangesForm.reportValidity();
+                return;
+            }
+            modalSubmitBtn.disabled = true;
+            modalSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
         });
     }
 

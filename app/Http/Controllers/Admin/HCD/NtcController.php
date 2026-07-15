@@ -26,10 +26,30 @@ class NtcController extends Controller
             'trainingMode',
             'documents.documentType',
         ])
+            ->where('status', '!=', 'report_changes')
             ->latest()
             ->get();
 
         return view('admin.hcd.reports.ntc', compact('ntcReports'));
+    }
+
+    /**
+     * List all Report of Changes submissions across all FATPros.
+     */
+    public function reportChangesIndex()
+    {
+        $ntcReports = NtcReport::with([
+            'accreditation.user.organizationProfile',
+            'accreditation.user.individualProfile',
+            'trainingType',
+            'trainingMode',
+            'documents.documentType',
+        ])
+            ->where('status', 'report_changes')
+            ->latest()
+            ->get();
+
+        return view('admin.hcd.reports.report_changes', compact('ntcReports'));
     }
 
     /**
@@ -124,6 +144,7 @@ class NtcController extends Controller
         $evaluations = $request->input('evaluations', []);
         $admin = Auth::user();
         $hasRejections = false;
+        $wasReportChanges = $ntcReport->status === 'report_changes';
 
         foreach ($evaluations as $eval) {
             $doc = NtcDocument::where('ntc_report_id', $ntcReport->id)->find($eval['id']);
@@ -163,7 +184,7 @@ class NtcController extends Controller
             try {
                 $fatproEmail = $ntcReport->accreditation->user->email ?? null;
                 if ($fatproEmail) {
-                    Mail::to($fatproEmail)->send(new \App\Mail\NtcEvaluationEmail($ntcReport));
+                    Mail::to($fatproEmail)->send(new \App\Mail\NtcEvaluationEmail($ntcReport, null, $wasReportChanges));
                 }
             } catch (\Exception $e) {
                 Log::warning('NTC acknowledgment email failed: ' . $e->getMessage());
@@ -177,7 +198,7 @@ class NtcController extends Controller
 
                 if ($fatproEmail) {
                     Mail::to($fatproEmail)
-                        ->send(new NtcEvaluationEmail($ntcReport, $rejectedDocs));
+                        ->send(new NtcEvaluationEmail($ntcReport, $rejectedDocs, $wasReportChanges));
                 }
             } catch (\Exception $e) {
                 Log::warning('NTC document rejection email failed: ' . $e->getMessage());

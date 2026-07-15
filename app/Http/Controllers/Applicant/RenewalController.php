@@ -827,7 +827,7 @@ class RenewalController extends Controller
         $fatProName = $user->name;
         $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
         
-        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+        $proofPaymentPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/proof_of_payments";
 
         $changed = false;
 
@@ -838,7 +838,7 @@ class RenewalController extends Controller
             }
             $ext = $request->file('proof_of_payment')->getClientOriginalExtension();
             $filename = "proof_of_payment_" . time() . ".{$ext}";
-            $path = $request->file('proof_of_payment')->storeAs($baseDocPath, $filename, 'local');
+            $path = $request->file('proof_of_payment')->storeAs($proofPaymentPath, $filename, 'local');
             $payment->proof_of_payment = $path;
             $payment->proof_of_payment_status = 'pending';
             $payment->proof_of_payment_remarks = null;

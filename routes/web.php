@@ -79,6 +79,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::get('/ntc/documents/{document}/view', [NtcController::class, 'serveDocument'])->name('ntc.document.view');
         Route::post('/ntc/documents/{document}/reupload', [NtcController::class, 'reuploadDocument'])->name('ntc.document.reupload')->middleware('throttle:10,1');
         Route::post('/ntc/{ntcReport}/reupload', [NtcController::class, 'reuploadBatch'])->name('ntc.reupload_batch')->middleware('throttle:10,1');
+        Route::post('/ntc/{ntcReport}/report-of-changes', [NtcController::class, 'submitReportChanges'])->name('ntc.report_changes')->middleware('throttle:10,1');
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -141,6 +142,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Reports
             Route::get('/reports/ntc', [AdminNtcController::class, 'index'])->name('reports.ntc.index');
+            Route::get('/reports/report-changes', [AdminNtcController::class, 'reportChangesIndex'])->name('reports.report_changes.index');
             Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
             Route::post('/reports/ntc/{ntcReport}/finalize-evaluation', [AdminNtcController::class, 'finalizeEvaluation'])->name('reports.ntc.finalize_evaluation');

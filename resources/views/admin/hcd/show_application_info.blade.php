@@ -13,6 +13,22 @@ $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
 $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 $isVerifier  = strtolower($isAdminRole) === 'verifier';
 
+// Check if currently within working hours for PCT
+$pctNow = \Carbon\Carbon::now();
+$pctTodayHolidays = \App\Services\PctService::getHolidays($pctNow->year, $pctNow->year);
+$pctIsTodayHoliday = in_array($pctNow->format('Y-m-d'), $pctTodayHolidays);
+$pctWorkStart = $pctNow->copy()->setTime(8, 0, 0);
+$pctWorkEnd   = $pctNow->copy()->setTime(17, 0, 0);
+
+$isWorkingHours = true;
+if ($pctNow->isWeekend()) {
+    $isWorkingHours = false;
+} elseif ($pctIsTodayHoliday) {
+    $isWorkingHours = false;
+} elseif ($pctNow->lessThan($pctWorkStart) || $pctNow->greaterThanOrEqualTo($pctWorkEnd)) {
+    $isWorkingHours = false;
+}
+
 // Check if this is an approved/active application and if there is a pending renewal/reinstatement application
 $pendingRenewalOrReinstatement = null;
 $isApprovedOrAccredited = ($application->latestStatus?->status?->name === 'Approved' || $application->accreditation);
@@ -696,7 +712,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
                                     @if(!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions">
+                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
                                             <button type="button"
                                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
                                                 data-doc-id="{{ $doc->id }}"
@@ -721,7 +737,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 id="remarks-{{ $doc->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ ($doc->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                                                data-default-readonly="{{ ($doc->status === 'returned' || $currentStatus === 'For Update') ? 'true' : 'false' }}"
+                                                {{ ($doc->status === 'returned' || $currentStatus === 'For Update' || !$isWorkingHours) ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
                                         </div>
                                     @endif
 
@@ -923,7 +940,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     @if($showEvalButtons)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions">
+                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
@@ -939,7 +956,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 id="remarks-cred-{{ $credential->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ ($credential->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
+                                                data-default-readonly="{{ ($credential->status === 'returned' || $currentStatus === 'For Update') ? 'true' : 'false' }}"
+                                                {{ ($credential->status === 'returned' || $currentStatus === 'For Update' || !$isWorkingHours) ? 'readonly' : '' }}>{{ $credential->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -1019,7 +1037,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 id="remarks-inst-{{ $instructor->id }}"
                                                 placeholder="Explain why this document was rejected…"
                                                 rows="2"
-                                                {{ ($instructor->status === 'returned' || $currentStatus === 'For Update') ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
+                                                data-default-readonly="{{ ($instructor->status === 'returned' || $currentStatus === 'For Update') ? 'true' : 'false' }}"
+                                                {{ ($instructor->status === 'returned' || $currentStatus === 'For Update' || !$isWorkingHours) ? 'readonly' : '' }}>{{ $instructor->remarks }}</textarea>
                                         </div>
                                     @endif
                                 </div>
@@ -1155,7 +1174,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <i class="bi bi-question-circle-fill me-1 text-primary"></i>
             Please record the outcome of the scheduled interview:
         </p>
-        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2">
+        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2 pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
             {{-- PASSED button --}}
             <button type="button"
                 class="btn btn-success btn-sm fw-bold px-4"

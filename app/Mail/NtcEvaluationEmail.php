@@ -16,8 +16,9 @@ class NtcEvaluationEmail extends Mailable
 
     public NtcReport $ntcReport;
     public Collection $rejectedDocuments;
+    public bool $wasReportChanges;
 
-    public function __construct(NtcReport $ntcReport, Collection $rejectedDocuments = null)
+    public function __construct(NtcReport $ntcReport, Collection $rejectedDocuments = null, bool $wasReportChanges = false)
     {
         $this->ntcReport = $ntcReport;
         $this->ntcReport->loadMissing([
@@ -29,18 +30,21 @@ class NtcEvaluationEmail extends Mailable
 
         $this->rejectedDocuments = $rejectedDocuments ?? collect();
         $this->rejectedDocuments->loadMissing(['documentType']);
+        $this->wasReportChanges = $wasReportChanges;
     }
 
     public function envelope(): Envelope
     {
         $fatproName = $this->ntcReport->accreditation->user->name ?? 'FATPro';
         if ($this->rejectedDocuments->isEmpty()) {
+            $prefix = $this->wasReportChanges ? 'Report of Changes Acknowledged' : 'Notice to Conduct (NTC) Acknowledged';
             return new Envelope(
-                subject: "Notice to Conduct (NTC) Acknowledged — {$this->ntcReport->reference_number}",
+                subject: "{$prefix} — {$this->ntcReport->reference_number}",
             );
         }
+        $prefix = $this->wasReportChanges ? 'Report of Changes Document Revision Needed' : 'NTC Document Revision Needed';
         return new Envelope(
-            subject: "Action Required: NTC Document Revision Needed — {$fatproName}",
+            subject: "Action Required: {$prefix} — {$fatproName}",
         );
     }
 

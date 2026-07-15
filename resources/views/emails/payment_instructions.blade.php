@@ -1,6 +1,6 @@
 @extends('emails.layout')
 
-@section('title', 'Action Required: Submit Recommendation and Payment — ARMS')
+@section('title', 'Action Required: Submit Payment — ARMS')
 
 @section('css')
         .icon-circle.payment {

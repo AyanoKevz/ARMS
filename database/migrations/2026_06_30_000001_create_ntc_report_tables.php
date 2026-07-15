@@ -66,8 +66,7 @@ return new class extends Migration
             $table->date('training_end_date');
             // NTC Training End Date
 
-            $table->enum('status', ['draft', 'submitted', 'acknowledged'])
-                ->default('draft');
+            $table->string('status', 50)->default('draft');
             // Lifecycle: draft → submitted → acknowledged
 
             $table->timestamp('submitted_at')->nullable();

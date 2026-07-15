@@ -28,6 +28,13 @@ class NtcController extends Controller
     {
         $user = Auth::user();
 
+        // Block access if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+        }
+
         // Block access if there is an ongoing renewal/reinstatement application
         $hasOngoingRenewal = Application::where('user_id', $user->id)
             ->whereIn('application_type', ['renewal', 'reinstatement'])
@@ -47,7 +54,7 @@ class NtcController extends Controller
 
         if ($hasOngoingRenewal) {
             return redirect()->route('applicant.dashboard')
-                ->with('error', 'You cannot access or submit a Notice to Conduct while you have an ongoing renewal or reinstatement application.');
+                ->with('error', 'You cannot access or submit a Submission report while you have an ongoing renewal or reinstatement application.');
         }
 
         // Only active accreditations can submit NTC
@@ -87,6 +94,13 @@ class NtcController extends Controller
     {
         $user = Auth::user();
 
+        // Block submission if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+        }
+
         // Block submission if there is an ongoing renewal/reinstatement application
         $hasOngoingRenewal = Application::where('user_id', $user->id)
             ->whereIn('application_type', ['renewal', 'reinstatement'])
@@ -106,7 +120,7 @@ class NtcController extends Controller
 
         if ($hasOngoingRenewal) {
             return redirect()->route('applicant.dashboard')
-                ->with('error', 'You cannot submit a Notice to Conduct while you have an ongoing renewal or reinstatement application.');
+                ->with('error', 'You cannot submit a Submission report while you have an ongoing renewal or reinstatement application.');
         }
 
         // Verify active accreditation (with type for path building)
@@ -229,6 +243,12 @@ class NtcController extends Controller
     {
         $user = Auth::user();
 
+        // Block access if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            abort(403, 'Your accreditation has been revoked.');
+        }
+
         // Ensure the document belongs to this user's NTC report
         $belongsToUser = $document->ntcReport->accreditation->user_id === $user->id;
         if (!$belongsToUser) {
@@ -252,6 +272,13 @@ class NtcController extends Controller
     public function reuploadDocument(Request $request, NtcDocument $document)
     {
         $user = Auth::user();
+
+        // Block if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+        }
 
         // Security: document must belong to this user
         $belongsToUser = $document->ntcReport->accreditation->user_id === $user->id;
@@ -320,6 +347,13 @@ class NtcController extends Controller
     public function reuploadBatch(Request $request, NtcReport $ntcReport)
     {
         $user = Auth::user();
+
+        // Block if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+        }
 
         // Security check: must belong to this user
         if ($ntcReport->accreditation->user_id !== $user->id) {
@@ -414,6 +448,199 @@ class NtcController extends Controller
         } catch (\Exception $e) {
             Log::error('NTC document batch re-upload failed: ' . $e->getMessage());
             return back()->withErrors(['error' => 'An error occurred while uploading your documents. Please try again.']);
+        }
+    }
+
+    /**
+     * Submit a Report of Changes for an acknowledged NTC report.
+     */
+    public function submitReportChanges(Request $request, NtcReport $ntcReport)
+    {
+        $user = Auth::user();
+
+        // Security check: must belong to this user
+        if ($ntcReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        // Only allow if currently acknowledged
+        if ($ntcReport->status !== 'acknowledged') {
+            return back()->withErrors(['error' => 'This Notice to Conduct is not acknowledged and cannot submit a Report of Changes.']);
+        }
+
+        // Block if accreditation is revoked
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'Your accreditation has been revoked. You cannot access or submit a Submission report.');
+        }
+
+        // Block if there is an ongoing renewal/reinstatement application
+        $hasOngoingRenewal = Application::where('user_id', $user->id)
+            ->whereIn('application_type', ['renewal', 'reinstatement'])
+            ->whereHas('latestStatus', function ($q) {
+                $q->whereHas('status', function ($q2) {
+                    $q2->whereIn('name', [
+                        'Submitted',
+                        'Under Evaluation',
+                        'For Update',
+                        'Scheduled for Interview',
+                        'Awaiting Payment',
+                        'Payment Verification',
+                    ]);
+                });
+            })
+            ->exists();
+
+        if ($hasOngoingRenewal) {
+            return redirect()->route('applicant.dashboard')
+                ->with('error', 'You cannot submit a Report of Changes while you have an ongoing renewal or reinstatement application.');
+        }
+
+        $earliestDate = NtcReport::earliestAllowedStartDate()->format('Y-m-d');
+
+        $validated = $request->validate([
+            'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
+            'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
+            'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
+            'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
+            'file_rtcman'          => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+            'file_prog'            => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+        ], [
+            'training_start_date.after_or_equal' =>
+                "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
+            'training_end_date.after_or_equal' =>
+                'The training end date must be on or after the start date.',
+            'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
+            'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated, $request, $ntcReport, $user) {
+                // Update NTC Report details
+                $ntcReport->update([
+                    'ntc_training_type_id' => $validated['ntc_training_type_id'],
+                    'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
+                    'training_start_date'  => $validated['training_start_date'],
+                    'training_end_date'    => $validated['training_end_date'],
+                    'status'               => 'report_changes',
+                    'submitted_at'         => Carbon::now(),
+                    'acknowledged_at'      => null,
+                    'acknowledged_by'      => null,
+                ]);
+
+                $fileFields = [
+                    'file_rtcman' => 'RTCMAN',
+                    'file_prog'   => 'PROG',
+                ];
+
+                $accreditation = $ntcReport->accreditation;
+                $accreditationType = $accreditation->accreditationType;
+                $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
+                $sanitizedAccType  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+                $sanitizedFatPro   = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
+                $ntcBasePath       = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+
+                foreach ($fileFields as $inputName => $docCode) {
+                    $docType = NtcDocumentType::where('code', $docCode)->first();
+                    $document = NtcDocument::where('ntc_report_id', $ntcReport->id)
+                        ->where('ntc_document_type_id', $docType->id)
+                        ->first();
+
+                    if ($request->hasFile($inputName)) {
+                        $file = $request->file($inputName);
+
+                        // Delete old file - no stacking!
+                        if ($document && $document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                            Storage::disk('local')->delete($document->file_path);
+                        }
+
+                        $ext      = $file->getClientOriginalExtension() ?: 'pdf';
+                        $filename = strtolower($docCode) . '_' . time() . '.' . $ext;
+                        $path     = $file->storeAs($ntcBasePath, $filename, 'local');
+
+                        if ($document) {
+                            $document->update([
+                                'file_path'         => $path,
+                                'original_filename' => $file->getClientOriginalName(),
+                                'mime_type'         => $file->getMimeType(),
+                                'file_size'         => $file->getSize(),
+                                'uploaded_at'       => Carbon::now(),
+                                'status'            => 'pending',
+                                'remarks'           => null,
+                                'evaluated_by'      => null,
+                                'evaluated_at'      => null,
+                            ]);
+                        } else {
+                            NtcDocument::create([
+                                'ntc_report_id'        => $ntcReport->id,
+                                'ntc_document_type_id' => $docType->id,
+                                'file_path'            => $path,
+                                'original_filename'    => $file->getClientOriginalName(),
+                                'mime_type'            => $file->getMimeType(),
+                                'file_size'            => $file->getSize(),
+                                'uploaded_at'          => Carbon::now(),
+                                'status'               => 'pending',
+                            ]);
+                        }
+                    } else {
+                        // Even if no new file is uploaded, reset the status to pending for review
+                        if ($document) {
+                            $document->update([
+                                'status'       => 'pending',
+                                'remarks'      => null,
+                                'evaluated_by' => null,
+                                'evaluated_at' => null,
+                            ]);
+                        }
+                    }
+                }
+
+                // Notify Admin Evaluators via email
+                try {
+                    $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                        $q->where('name', 'Evaluator');
+                    })->get();
+
+                    if ($evaluators->isNotEmpty()) {
+                        $ntcReport->loadMissing([
+                            'accreditation.user.organizationProfile',
+                            'accreditation.user.individualProfile',
+                            'trainingType',
+                            'trainingMode',
+                            'documents.documentType',
+                        ]);
+
+                        $evaluatorEmails = $evaluators->pluck('email');
+                        Mail::to($evaluatorEmails)->send(new AdminNtcSubmittedEmail($ntcReport));
+
+                        // Send database/in-app portal notifications
+                        foreach ($evaluators as $evaluator) {
+                            $evaluator->notifications()->create([
+                                'id' => \Illuminate\Support\Str::uuid(),
+                                'type' => 'App\Notifications\NtcReuploadedNotification',
+                                'data' => [
+                                    'ntc_report_id' => $ntcReport->id,
+                                    'reference_number' => 'NTC-' . str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT),
+                                    'message' => 'Report of Changes submitted for NTC-' . str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT) . ' by ' . $user->name . ' and is ready for evaluation.',
+                                    'link' => "/admin/hcd/reports/ntc/{$ntcReport->id}"
+                                ],
+                                'read_at' => null,
+                            ]);
+                        }
+                    }
+                } catch (\Exception $mailEx) {
+                    Log::warning('Admin Report of Changes submission email/notification failed: ' . $mailEx->getMessage());
+                }
+            });
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Your Report of Changes has been successfully submitted. Admin has been notified.');
+        } catch (\Exception $e) {
+            Log::error('Report of Changes submission failed: ' . $e->getMessage());
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'An error occurred while submitting your Report of Changes. Please try again.']);
         }
     }
 }

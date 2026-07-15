@@ -1000,7 +1000,7 @@ class ApplicationController extends Controller
                 try {
                     Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
                         $message->to($application->user->email)
-                            ->subject('Action Required: Submit Recommendation and Payment - ' . $application->tracking_number);
+                            ->subject('Action Required: Submit Payment - ' . $application->tracking_number);
                     });
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send auto payment instructions email: ' . $e->getMessage());
@@ -1573,7 +1573,7 @@ class ApplicationController extends Controller
             try {
                 Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
                     $message->to($application->user->email)
-                        ->subject('Action Required: Submit Recommendation and Payment - ' . $application->tracking_number);
+                        ->subject('Action Required: Submit Payment - ' . $application->tracking_number);
                 });
 
                 // Add log entry
@@ -1615,7 +1615,7 @@ class ApplicationController extends Controller
         $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
         $fatProName = $application->user->name;
         $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+        $recommendationPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/recommendation_letter";
 
         // Upload signed recommendation letter if provided
         if ($request->hasFile('signed_recommendation_letter')) {
@@ -1623,7 +1623,7 @@ class ApplicationController extends Controller
                 Storage::disk('local')->delete($payment->signed_recommendation_letter);
             }
             $filename = "signed_recommendation_" . time() . ".pdf";
-            $path = $request->file('signed_recommendation_letter')->storeAs($baseDocPath, $filename, 'local');
+            $path = $request->file('signed_recommendation_letter')->storeAs($recommendationPath, $filename, 'local');
             $payment->signed_recommendation_letter = $path;
         }
 
@@ -1864,14 +1864,14 @@ class ApplicationController extends Controller
         $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
         $fatProName = $application->user->name;
         $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
+        $certificatePath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/certificate";
 
         if ($request->hasFile('scanned_certificate')) {
             if ($accreditation->scanned_certificate && Storage::disk('local')->exists($accreditation->scanned_certificate)) {
                 Storage::disk('local')->delete($accreditation->scanned_certificate);
             }
             $filename = "scanned_certificate_" . time() . ".pdf";
-            $path = $request->file('scanned_certificate')->storeAs($baseDocPath, $filename, 'local');
+            $path = $request->file('scanned_certificate')->storeAs($certificatePath, $filename, 'local');
             $accreditation->scanned_certificate = $path;
             $accreditation->save();
         }

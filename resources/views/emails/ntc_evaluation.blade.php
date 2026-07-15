@@ -2,9 +2,10 @@
 
 @php
     $isAcknowledged = $rejectedDocuments->isEmpty();
+    $wasReportChanges = $wasReportChanges ?? false;
 @endphp
 
-@section('title', $isAcknowledged ? 'Notice to Conduct (NTC) Acknowledged — ARMS' : 'Action Required: NTC Document Revision — ARMS')
+@section('title', $isAcknowledged ? ($wasReportChanges ? 'Report of Changes Acknowledged — ARMS' : 'Notice to Conduct (NTC) Acknowledged — ARMS') : ($wasReportChanges ? 'Action Required: Report of Changes Revision — ARMS' : 'Action Required: NTC Document Revision — ARMS'))
 
 @section('css')
     @if($isAcknowledged)
@@ -26,21 +27,21 @@
 @section('content')
     @if($isAcknowledged)
         <div class="icon-circle">✅</div>
-        <h2>Notice to Conduct Acknowledged</h2>
+        <h2>{{ $wasReportChanges ? 'Report of Changes Acknowledged' : 'Notice to Conduct Acknowledged' }}</h2>
         <p>
-            We are pleased to inform you that your Notice to Conduct (NTC) submission has been fully reviewed and acknowledged.
+            We are pleased to inform you that your {{ $wasReportChanges ? 'Report of Changes' : 'Notice to Conduct (NTC)' }} submission has been fully reviewed and acknowledged.
         </p>
     @else
         <div class="icon-circle">⚠️</div>
-        <h2>Action Required: NTC Document Revision</h2>
+        <h2>Action Required: {{ $wasReportChanges ? 'Report of Changes Revision' : 'NTC Document Revision' }}</h2>
         <p>
-            We have reviewed your Notice to Conduct submission and found that some of the submitted
-            documents require revision before your NTC can be acknowledged.
+            We have reviewed your {{ $wasReportChanges ? 'Report of Changes' : 'Notice to Conduct' }} submission and found that some of the submitted
+            documents require revision before your {{ $wasReportChanges ? 'Report of Changes' : 'NTC' }} can be acknowledged.
         </p>
     @endif
 
     <div class="tracking-card">
-        <p class="label">NTC Reference Number</p>
+        <p class="label">{{ $wasReportChanges ? 'Reference Number' : 'NTC Reference Number' }}</p>
         <p class="value">{{ $ntcReport->reference_number }}</p>
 
         <p class="label">Training Type</p>
@@ -62,7 +63,7 @@
     @if($isAcknowledged)
         <p>All submitted documents have been approved. You may now proceed with the conduct of this training program as scheduled.</p>
     @else
-        <p>Please review the documents listed below and re-upload the corrected files through your NTC portal.</p>
+        <p>Please review the documents listed below and re-upload the corrected files through your {{ $wasReportChanges ? 'Report of Changes' : 'NTC' }} portal.</p>
 
         {{-- Rejected documents list --}}
         <div class="doc-list">
@@ -81,7 +82,7 @@
     <div class="btn-wrap">
         @if($isAcknowledged)
             <a href="{{ url('/applicant/ntc') }}" class="btn-primary">
-                View My NTC Portal
+                View My {{ $wasReportChanges ? 'Report of Changes' : 'NTC' }} Portal
             </a>
         @else
             <a href="{{ url('/applicant/ntc') }}" class="btn-primary">
@@ -92,7 +93,7 @@
 
     <p style="font-size:0.85rem; color:#888;">
         @if($isAcknowledged)
-            This email serves as the official notification of your Notice to Conduct acknowledgement.
+            This email serves as the official notification of your {{ $wasReportChanges ? 'Report of Changes' : 'Notice to Conduct' }} acknowledgement.
         @else
             If you have any questions, please contact our office directly.
         @endif

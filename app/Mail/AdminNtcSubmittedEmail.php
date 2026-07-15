@@ -30,8 +30,9 @@ class AdminNtcSubmittedEmail extends Mailable
     public function envelope(): Envelope
     {
         $fatproName = $this->ntcReport->accreditation->user->name ?? 'FATPro';
+        $prefix = $this->ntcReport->status === 'report_changes' ? 'Report of Changes' : 'New Notice to Conduct';
         return new Envelope(
-            subject: "[Admin Notification] New Notice to Conduct Submitted — {$fatproName}",
+            subject: "[Admin Notification] {$prefix} Submitted — {$fatproName}",
         );
     }
 

@@ -1,6 +1,6 @@
 @extends('emails.layout')
 
-@section('title', isset($isReupload) && $isReupload ? 'Rejected NTC Documents Re-uploaded — ARMS' : 'New Notice to Conduct Submitted — ARMS')
+@section('title', $ntcReport->status === 'report_changes' ? 'Report of Changes Submitted — ARMS' : (isset($isReupload) && $isReupload ? 'Rejected NTC Documents Re-uploaded — ARMS' : 'New Notice to Conduct Submitted — ARMS'))
 
 @section('css')
     .icon-circle {
@@ -8,7 +8,7 @@
     }
     .badge-ntc {
         display: inline-block;
-        background: {{ isset($isReupload) && $isReupload ? 'linear-gradient(135deg, #d32f2f, #b71c1c)' : 'linear-gradient(135deg, #D4AC4B, #b8922e)' }};
+        background: {{ $ntcReport->status === 'report_changes' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : (isset($isReupload) && $isReupload ? 'linear-gradient(135deg, #d32f2f, #b71c1c)' : 'linear-gradient(135deg, #D4AC4B, #b8922e)') }};
         color: #fff;
         font-weight: 700;
         font-size: 0.75rem;
@@ -21,13 +21,31 @@
 @endsection
 
 @section('content')
-    <div class="icon-circle">{{ isset($isReupload) && $isReupload ? '🔄' : '📋' }}</div>
+    <div class="icon-circle">{{ $ntcReport->status === 'report_changes' ? '🔄' : (isset($isReupload) && $isReupload ? '🔄' : '📋') }}</div>
     <div style="text-align:center; margin-bottom: 10px;">
-        <span class="badge-ntc">{{ isset($isReupload) && $isReupload ? 'NTC Re-upload' : 'Notice to Conduct' }}</span>
+        <span class="badge-ntc">
+            @if($ntcReport->status === 'report_changes')
+                Report of Changes
+            @elseif(isset($isReupload) && $isReupload)
+                NTC Re-upload
+            @else
+                Notice to Conduct
+            @endif
+        </span>
     </div>
-    <h2>{{ isset($isReupload) && $isReupload ? 'Rejected NTC Documents Re-uploaded' : 'New NTC Report Submitted' }}</h2>
+    <h2>
+        @if($ntcReport->status === 'report_changes')
+            Report of Changes Submitted
+        @elseif(isset($isReupload) && $isReupload)
+            Rejected NTC Documents Re-uploaded
+        @else
+            New NTC Report Submitted
+        @endif
+    </h2>
     <p>
-        @if(isset($isReupload) && $isReupload)
+        @if($ntcReport->status === 'report_changes')
+            An accredited FATPRO has submitted a <strong>Report of Changes</strong> for their acknowledged Notice to Conduct (NTC) and is awaiting evaluation.
+        @elseif(isset($isReupload) && $isReupload)
             An accredited FATPRO has re-uploaded the rejected document(s) for <strong>Notice to Conduct (NTC)</strong> report and is awaiting re-evaluation.
         @else
             An accredited FATPRO has submitted a <strong>Notice to Conduct (NTC)</strong> training report and is awaiting acknowledgement.
@@ -41,7 +59,7 @@
         <p class="label">Accreditation Number</p>
         <p class="value-status">{{ $ntcReport->accreditation->accreditation_number ?? 'N/A' }}</p>
 
-        <p class="label">NTC Reference Number</p>
+        <p class="label">{{ $ntcReport->status === 'report_changes' ? 'Reference Number' : 'NTC Reference Number' }}</p>
         <p class="value" style="font-size: 1.05rem; font-weight: bold; color: #ffffff;">NTC-{{ str_pad($ntcReport->id, 6, '0', STR_PAD_LEFT) }}</p>
     </div>
 
@@ -72,11 +90,11 @@
         @endif
     </div>
 
-    <p>Please log in to the admin portal to evaluate or acknowledge this NTC submission.</p>
+    <p>Please log in to the admin portal to evaluate this submission.</p>
 
     <div class="btn-wrap">
         <a href="{{ url('/admin/hcd/reports/ntc/' . $ntcReport->id) }}" class="btn-primary">
-            View NTC Submission
+            View Submission
         </a>
     </div>
 @endsection
