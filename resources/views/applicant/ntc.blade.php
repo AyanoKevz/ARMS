@@ -243,8 +243,10 @@
                                    id="file_rtcman"
                                    name="file_rtcman"
                                    class="d-none ntc-file-input"
-                                   accept=".pdf,.doc,.docx"
-                                   required>
+                                   accept=".pdf,.doc,.docx">
+                        </div>
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_file_rtcman" style="font-size: 0.85rem;">
+                            Please upload the DOLE-OSHC-STO-RTCMan Form.
                         </div>
                         @error('file_rtcman')
                             <div class="text-danger mt-1" style="font-size: 0.85rem;">{{ $message }}</div>
@@ -281,8 +283,10 @@
                                    id="file_prog"
                                    name="file_prog"
                                    class="d-none ntc-file-input"
-                                   accept=".pdf,.doc,.docx"
-                                   required>
+                                   accept=".pdf,.doc,.docx">
+                        </div>
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_file_prog" style="font-size: 0.85rem;">
+                            Please upload the DOLE-OSHC-STO-PROG Form.
                         </div>
                         @error('file_prog')
                             <div class="text-danger mt-1" style="font-size: 0.85rem;">{{ $message }}</div>
@@ -328,6 +332,7 @@
                                     <th class="ps-4" style="color: #475569; width: 180px;">Reference #</th>
                                     <th style="color: #475569;">Type</th>
                                     <th style="color: #475569;">Mode</th>
+                                    <th style="color: #475569;">Submitted</th>
                                     <th style="color: #475569;">Training Period</th>
                                     <th style="color: #475569;">Status</th>
                                     <th class="pe-4" style="color: #475569; width: 350px;">Documents</th>
@@ -364,33 +369,49 @@
                                     <td>
                                         <span class="fw-semibold" style="color: #334155;">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
                                     </td>
-                                    <td style="white-space: nowrap;">
-                                        <div class="ntc-date-container">
-                                            <i class="far fa-calendar-alt text-muted"></i>
-                                            <span class="ntc-date-badge">{{ $ntc->training_start_date ? $ntc->training_start_date->format('M d, Y') : 'N/A' }}</span>
-                                            <span class="text-muted" style="font-size: 0.75rem;">to</span>
-                                            <span class="ntc-date-badge">{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</span>
+                                    <td>
+                                        @if($ntc->submitted_at)
+                                            <div style="font-size: 0.85rem; color: #475569; font-weight: 500; white-space: nowrap;">
+                                                {{ $ntc->submitted_at->format('F d, Y') }}
+                                            </div>
+                                        @else
+                                            <span class="text-muted" style="font-size: 0.85rem;">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.85rem; color: #475569; white-space: nowrap;">
+                                            <span class="fw-semibold text-secondary">Start:</span> {{ $ntc->training_start_date ? $ntc->training_start_date->format('F d, Y') : 'N/A' }}
+                                        </div>
+                                        <div class="mt-1" style="font-size: 0.85rem; color: #475569; white-space: nowrap;">
+                                            <span class="fw-semibold text-secondary">End:</span> {{ $ntc->training_end_date ? $ntc->training_end_date->format('F d, Y') : 'N/A' }}
                                         </div>
                                     </td>
                                     <td>
                                         @if($ntc->status === 'acknowledged')
                                             <span class="badge badge-premium-success">Acknowledged</span>
-                                            <div class="mt-2">
-                                                <button type="button"
-                                                        class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 mt-1 btn-report-changes"
-                                                        data-id="{{ $ntc->id }}"
-                                                        data-training-type="{{ $ntc->ntc_training_type_id }}"
-                                                        data-training-mode="{{ $ntc->ntc_training_mode_id }}"
-                                                        data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
-                                                        data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
-                                                        data-rtcman-file-name="{{ $rtcmanDoc ? $rtcmanDoc->original_filename : '' }}"
-                                                        data-rtcman-file-url="{{ $rtcmanDoc && $rtcmanDoc->file_path ? route('applicant.ntc.document.view', $rtcmanDoc->id) : '' }}"
-                                                        data-prog-file-name="{{ $progDoc ? $progDoc->original_filename : '' }}"
-                                                        data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}"
-                                                        style="font-size: 0.72rem; border-radius: 6px;">
-                                                    <i class="fas fa-exchange-alt me-1"></i> Report of Changes
-                                                </button>
-                                            </div>
+                                            @if($ntc->canSubmitReportChanges())
+                                                <div class="mt-2">
+                                                    <button type="button"
+                                                            class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 mt-1 btn-report-changes"
+                                                            data-id="{{ $ntc->id }}"
+                                                            data-training-type="{{ $ntc->ntc_training_type_id }}"
+                                                            data-training-mode="{{ $ntc->ntc_training_mode_id }}"
+                                                            data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
+                                                            data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
+                                                            data-rtcman-file-name="{{ $rtcmanDoc ? $rtcmanDoc->original_filename : '' }}"
+                                                            data-rtcman-file-url="{{ $rtcmanDoc && $rtcmanDoc->file_path ? route('applicant.ntc.document.view', $rtcmanDoc->id) : '' }}"
+                                                            data-prog-file-name="{{ $progDoc ? $progDoc->original_filename : '' }}"
+                                                            data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}"
+                                                            style="font-size: 0.72rem; border-radius: 6px;">
+                                                        <i class="fas fa-exchange-alt me-1"></i> Report of Changes
+                                                    </button>
+                                                </div>
+                                            @endif
+                                            @if($ntc->reportChangesDeadlineDate())
+                                                <div class="text-muted mt-1" style="font-size:0.7rem;">
+                                                    Changes until: {{ $ntc->reportChangesDeadlineDate()->format('F d, Y') }}
+                                                </div>
+                                            @endif
                                         @elseif($ntc->status === 'report_changes')
                                             <span class="badge bg-info text-white" style="font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600;">Report of Changes</span>
                                         @elseif($hasRejected)
@@ -399,11 +420,6 @@
                                             <span class="badge badge-premium-warning">Submitted</span>
                                         @else
                                             <span class="badge badge-premium-secondary">{{ ucfirst($ntc->status) }}</span>
-                                        @endif
-                                        @if($ntc->submitted_at)
-                                            <div class="text-muted mt-1" style="font-size:0.7rem;">
-                                                Sub: {{ $ntc->submitted_at->format('M d, Y') }}
-                                            </div>
                                         @endif
                                     </td>
                                     <td class="pe-4">
@@ -414,7 +430,7 @@
                                         @if($rejectedDocsForBatch->isNotEmpty())
                                         <form method="POST"
                                               action="{{ route('applicant.ntc.reupload_batch', $ntc->id) }}"
-                                              enctype="multipart/form-data">
+                                              enctype="multipart/form-data" class="ntc-reupload-form" novalidate>
                                             @csrf
                                         @endif
 
@@ -470,7 +486,7 @@
                                                            name="files[{{ $doc->id }}]"
                                                            class="d-none ntc-file-input"
                                                            accept=".pdf,.doc,.docx"
-                                                           required>
+                                                           >
                                                 </div>
                                                 @elseif($isReturned)
                                                 <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold" style="font-size:.72rem; color: #d97706 !important;">
@@ -516,7 +532,19 @@
             <form method="POST" id="reportChangesForm" enctype="multipart/form-data" novalidate>
                 @csrf
                 <div class="modal-body">
-                    <div class="alert alert-info py-2" style="font-size: 0.85rem;">
+                    <div class="alert alert-warning alert-important py-2 mb-3" style="
+                        background: #fff8e6;
+                        border: 1px solid #f5d98a;
+                        border-left: 5px solid #D4AC4B;
+                        border-radius: 8px;
+                        font-size: 0.87rem;
+                        color: #7a5c00;
+                    ">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>Important Reminder:</strong> Reports of changes must be submitted at least three (3) working days before the first training day using the DOLE-OSHC-STO-RTCMan as per OSHC MC 04 series 2025.
+                    </div>
+
+                    <div class="alert alert-info alert-important py-2" style="font-size: 0.85rem;">
                         <i class="fas fa-info-circle me-1"></i>
                         Use this form to update the training details and re-upload files for your acknowledged Notice to Conduct.
                     </div>
@@ -585,8 +613,12 @@
                     {{-- File: RTCMan Form --}}
                     <div class="form-group mb-3">
                         <label class="fw-semibold" for="modal_file_rtcman">
-                            DOLE-OSHC-STO-RTCMan Form <span class="text-secondary">(Optional, will keep current file if left blank)</span>
+                            DOLE-OSHC-STO-RTCMan Form <span class="text-danger">*</span>
                         </label>
+                        <div id="modal_rtcman_current_container" class="mb-2" style="font-size: 0.8rem; display: none;">
+                            <span class="text-muted">Current file:</span>
+                            <a href="#" id="modal_rtcman_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>
+                        </div>
                         <p class="text-muted mb-1" style="font-size:0.8rem;">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
@@ -599,23 +631,12 @@
                                     <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
                                     <p class="ntc-file-selected text-muted">No file selected</p>
                                 </div>
-                                <div class="state-existing d-none">
-                                    <i class="fas fa-file-alt text-warning fs-4 mb-2"></i>
-                                    <p class="existing-file-title fw-bold text-warning mb-1">Existing file uploaded</p>
-                                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
-                                        <span class="existing-file-name text-dark font-monospace" style="font-size: 0.78rem;"></span>
-                                        <a href="#" target="_blank" class="btn btn-xs btn-outline-secondary btn-view-file no-trigger py-1 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
-                                            <i class="fas fa-external-link-alt me-1"></i> View
-                                        </a>
-                                    </div>
-                                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Drag new file here or click to replace</p>
-                                </div>
-                                <div class="state-replacement d-none">
-                                    <i class="fas fa-exchange-alt text-info fs-4 mb-2"></i>
-                                    <p class="replacement-file-title fw-bold text-info mb-1">Replacement file ready</p>
-                                    <p class="replacement-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-undo-replacement no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
-                                        <i class="fas fa-undo me-1"></i> Keep Current File
+                                <div class="state-selected d-none">
+                                    <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
+                                    <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
+                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
                             </div>
@@ -625,13 +646,20 @@
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
                         </div>
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_modal_file_rtcman" style="font-size: 0.85rem;">
+                            Please upload the DOLE-OSHC-STO-RTCMan Form.
+                        </div>
                     </div>
 
                     {{-- File: PROG Form --}}
                     <div class="form-group mb-3">
                         <label class="fw-semibold" for="modal_file_prog">
-                            DOLE-OSHC-STO-PROG Form <span class="text-secondary">(Optional, will keep current file if left blank)</span>
+                            DOLE-OSHC-STO-PROG Form <span class="text-danger">*</span>
                         </label>
+                        <div id="modal_prog_current_container" class="mb-2" style="font-size: 0.8rem; display: none;">
+                            <span class="text-muted">Current file:</span>
+                            <a href="#" id="modal_prog_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>
+                        </div>
                         <p class="text-muted mb-1" style="font-size:0.8rem;">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
@@ -644,23 +672,12 @@
                                     <p class="ntc-file-label">Drag & drop or <span class="ntc-browse-link">browse</span></p>
                                     <p class="ntc-file-selected text-muted">No file selected</p>
                                 </div>
-                                <div class="state-existing d-none">
-                                    <i class="fas fa-file-alt text-warning fs-4 mb-2"></i>
-                                    <p class="existing-file-title fw-bold text-warning mb-1">Existing file uploaded</p>
-                                    <div class="d-flex align-items-center justify-content-center gap-2 mb-2">
-                                        <span class="existing-file-name text-dark font-monospace" style="font-size: 0.78rem;"></span>
-                                        <a href="#" target="_blank" class="btn btn-xs btn-outline-secondary btn-view-file no-trigger py-1 px-2 fw-semibold" style="font-size: 0.7rem; border-radius: 4px;">
-                                            <i class="fas fa-external-link-alt me-1"></i> View
-                                        </a>
-                                    </div>
-                                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Drag new file here or click to replace</p>
-                                </div>
-                                <div class="state-replacement d-none">
-                                    <i class="fas fa-exchange-alt text-info fs-4 mb-2"></i>
-                                    <p class="replacement-file-title fw-bold text-info mb-1">Replacement file ready</p>
-                                    <p class="replacement-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-undo-replacement no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
-                                        <i class="fas fa-undo me-1"></i> Keep Current File
+                                <div class="state-selected d-none">
+                                    <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
+                                    <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
+                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                        <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
                             </div>
@@ -669,6 +686,9 @@
                                    name="file_prog"
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
+                        </div>
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_modal_file_prog" style="font-size: 0.85rem;">
+                            Please upload the DOLE-OSHC-STO-PROG Form.
                         </div>
                     </div>
                 </div>
@@ -755,6 +775,10 @@
         align-items: center;
         justify-content: space-between;
         transition: all 0.2s;
+    }
+    .ntc-compact-drop-zone.is-invalid-zone {
+        border-color: #dc3545;
+        background: #fff8f8;
     }
     .ntc-compact-drop-zone:hover,
     .ntc-compact-drop-zone.drag-over {
@@ -940,6 +964,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (stateExisting) stateExisting.classList.add('d-none');
             if (stateReplacement) stateReplacement.classList.add('d-none');
 
+            // Hide validation error if file is present
+            const errorEl = document.getElementById('error_' + input.id);
+            if (currentFileState.newFile) {
+                if (errorEl) errorEl.classList.add('d-none');
+                zone.classList.remove('is-invalid-zone');
+            }
+
             if (currentFileState.newFile) {
                 // New file selected
                 if (currentFileState.hasExisting) {
@@ -1100,12 +1131,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             fileInfo.innerHTML = `<i class="fas fa-check-circle text-success fs-6"></i> <span class="text-success fw-bold">${file.name}</span>`;
             btnClear.classList.remove('d-none');
+            zone.classList.remove('is-invalid-zone');
         }
 
         function clearSelection() {
             input.value = '';
             fileInfo.innerHTML = defaultHTML;
             btnClear.classList.add('d-none');
+            zone.classList.remove('is-invalid-zone');
         }
 
         zone.addEventListener('click', function(e) {
@@ -1186,7 +1219,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (form && submitBtn) {
         form.addEventListener('submit', function (e) {
-            if (!form.checkValidity()) {
+            let isValid = true;
+
+            // Check RTCMan file
+            const fileRtcman = document.getElementById('file_rtcman');
+            const errorRtcman = document.getElementById('error_file_rtcman');
+            const zoneRtcman = document.getElementById('dropZoneRtcman');
+            if (fileRtcman && (!fileRtcman.files || fileRtcman.files.length === 0)) {
+                if (errorRtcman) errorRtcman.classList.remove('d-none');
+                if (zoneRtcman) zoneRtcman.classList.add('is-invalid-zone');
+                isValid = false;
+            }
+
+            // Check PROG file
+            const fileProg = document.getElementById('file_prog');
+            const errorProg = document.getElementById('error_file_prog');
+            const zoneProg = document.getElementById('dropZoneProg');
+            if (fileProg && (!fileProg.files || fileProg.files.length === 0)) {
+                if (errorProg) errorProg.classList.remove('d-none');
+                if (zoneProg) zoneProg.classList.add('is-invalid-zone');
+                isValid = false;
+            }
+
+            if (!form.checkValidity() || !isValid) {
                 e.preventDefault();
                 form.reportValidity();
                 return;
@@ -1200,6 +1255,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const reportChangesModalEl = document.getElementById('reportChangesModal');
     const reportChangesModal = reportChangesModalEl ? new bootstrap.Modal(reportChangesModalEl) : null;
     const reportChangesForm = document.getElementById('reportChangesForm');
+
+    if (reportChangesModalEl && reportChangesModal) {
+        reportChangesModalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                reportChangesModal.hide();
+            });
+        });
+    }
 
     document.querySelectorAll('.btn-report-changes').forEach(button => {
         button.addEventListener('click', function () {
@@ -1241,11 +1304,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
+            // Update Current File Links
+            const rtcmanCurrentContainer = document.getElementById('modal_rtcman_current_container');
+            const rtcmanCurrentLink = document.getElementById('modal_rtcman_current_link');
+            if (rtcmanCurrentContainer && rtcmanCurrentLink) {
+                if (rtcmanName && rtcmanUrl) {
+                    rtcmanCurrentLink.textContent = rtcmanName;
+                    rtcmanCurrentLink.href = rtcmanUrl;
+                    rtcmanCurrentContainer.style.display = 'block';
+                } else {
+                    rtcmanCurrentContainer.style.display = 'none';
+                }
+            }
+
+            const progCurrentContainer = document.getElementById('modal_prog_current_container');
+            const progCurrentLink = document.getElementById('modal_prog_current_link');
+            if (progCurrentContainer && progCurrentLink) {
+                if (progName && progUrl) {
+                    progCurrentLink.textContent = progName;
+                    progCurrentLink.href = progUrl;
+                    progCurrentContainer.style.display = 'block';
+                } else {
+                    progCurrentContainer.style.display = 'none';
+                }
+            }
+
             if (modalRtcmanCtrl) {
-                modalRtcmanCtrl.setExisting(rtcmanName, rtcmanUrl);
+                modalRtcmanCtrl.clear();
             }
             if (modalProgCtrl) {
-                modalProgCtrl.setExisting(progName, progUrl);
+                modalProgCtrl.clear();
             }
 
             if (reportChangesModal) {
@@ -1275,7 +1363,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalSubmitBtn = document.getElementById('modalSubmitBtn');
     if (reportChangesForm && modalSubmitBtn) {
         reportChangesForm.addEventListener('submit', function (e) {
-            if (!reportChangesForm.checkValidity()) {
+            let isValid = true;
+
+            // Check RTCMan file in modal
+            const fileRtcman = document.getElementById('modal_file_rtcman');
+            const errorRtcman = document.getElementById('error_modal_file_rtcman');
+            const zoneRtcman = document.getElementById('modalDropZoneRtcman');
+            if (fileRtcman && (!fileRtcman.files || fileRtcman.files.length === 0)) {
+                if (errorRtcman) errorRtcman.classList.remove('d-none');
+                if (zoneRtcman) zoneRtcman.classList.add('is-invalid-zone');
+                isValid = false;
+            }
+
+            // Check PROG file in modal
+            const fileProg = document.getElementById('modal_file_prog');
+            const errorProg = document.getElementById('error_modal_file_prog');
+            const zoneProg = document.getElementById('modalDropZoneProg');
+            if (fileProg && (!fileProg.files || fileProg.files.length === 0)) {
+                if (errorProg) errorProg.classList.remove('d-none');
+                if (zoneProg) zoneProg.classList.add('is-invalid-zone');
+                isValid = false;
+            }
+
+            if (!reportChangesForm.checkValidity() || !isValid) {
                 e.preventDefault();
                 reportChangesForm.reportValidity();
                 return;
@@ -1284,6 +1394,35 @@ document.addEventListener('DOMContentLoaded', function () {
             modalSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
         });
     }
+
+    // ── Re-upload Batch Submit Spinner Guard ───────────────────
+    document.querySelectorAll('.ntc-reupload-form').forEach(reuploadForm => {
+        reuploadForm.addEventListener('submit', function (e) {
+            let isValid = true;
+            
+            // Check all file inputs in this form
+            reuploadForm.querySelectorAll('.ntc-file-input').forEach(input => {
+                const zone = input.closest('.ntc-compact-drop-zone');
+                if (!input.files || input.files.length === 0) {
+                    if (zone) {
+                        zone.classList.add('is-invalid-zone');
+                    }
+                    isValid = false;
+                }
+            });
+
+            if (!reuploadForm.checkValidity() || !isValid) {
+                e.preventDefault();
+                reuploadForm.reportValidity();
+                return;
+            }
+            const reuploadSubmitBtn = reuploadForm.querySelector('button[type="submit"]');
+            if (reuploadSubmitBtn) {
+                reuploadSubmitBtn.disabled = true;
+                reuploadSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
+            }
+        });
+    });
 
 });
 </script>

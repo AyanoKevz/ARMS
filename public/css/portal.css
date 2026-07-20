@@ -922,4 +922,9 @@ body, button, input, select, textarea {
     font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace !important;
 }
 
+/* Modal Font Family Consistency with Page Form */
+.modal-content {
+    font-family: 'Poppins', sans-serif;
+}
+
 

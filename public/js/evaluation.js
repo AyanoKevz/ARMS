@@ -1097,6 +1097,9 @@
             } else if (currentVal === 'rejected') {
                 label = 'Rejected';
                 cls = 'ntc-badge-rejected';
+            } else if (currentVal === 'returned') {
+                label = 'Re-uploaded — Awaiting Review';
+                cls = 'ntc-badge-returned';
             }
 
             badge.className = `badge ${cls} px-2 py-1`;
@@ -1151,6 +1154,7 @@
                         let cls = 'ntc-badge-pending';
                         if (oldStatus === 'approved') { label = 'Approved'; cls = 'ntc-badge-approved'; }
                         else if (oldStatus === 'rejected') { label = 'Rejected'; cls = 'ntc-badge-rejected'; }
+                        else if (oldStatus === 'returned') { label = 'Re-uploaded — Awaiting Review'; cls = 'ntc-badge-returned'; }
                         badge.className = `badge ${cls} px-2 py-1`;
                         badge.style.cssText = 'font-size:.75rem;border-radius:20px;white-space:nowrap;';
                         badge.textContent = label;
@@ -1171,6 +1175,7 @@
                     let cls = 'ntc-badge-pending';
                     if (oldStatus === 'approved') { label = 'Approved'; cls = 'ntc-badge-approved'; }
                     else if (oldStatus === 'rejected') { label = 'Rejected'; cls = 'ntc-badge-rejected'; }
+                    else if (oldStatus === 'returned') { label = 'Re-uploaded — Awaiting Review'; cls = 'ntc-badge-returned'; }
                     badge.className = `badge ${cls} px-2 py-1`;
                     badge.style.cssText = 'font-size:.75rem;border-radius:20px;white-space:nowrap;';
                     badge.textContent = label;

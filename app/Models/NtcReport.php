@@ -109,4 +109,44 @@ class NtcReport extends Model
 
         return $cursor;
     }
+
+    /**
+     * Get the deadline date for submitting a Report of Changes.
+     */
+    public function reportChangesDeadlineDate(): ?Carbon
+    {
+        if (!$this->training_start_date) {
+            return null;
+        }
+
+        $startDate = $this->training_start_date->copy()->startOfDay();
+
+        // Count working days backwards from training_start_date
+        $cursor = $startDate->copy()->subDay();
+        $workingDaysCounted = 0;
+
+        while ($workingDaysCounted < 3) {
+            if (!$cursor->isWeekend()) {
+                $workingDaysCounted++;
+            }
+            if ($workingDaysCounted < 3) {
+                $cursor->subDay();
+            }
+        }
+
+        return $cursor;
+    }
+
+    /**
+     * Check if the report of changes can be submitted (at least 3 working days before training_start_date).
+     */
+    public function canSubmitReportChanges(): bool
+    {
+        $deadline = $this->reportChangesDeadlineDate();
+        if (!$deadline) {
+            return false;
+        }
+        return Carbon::today()->lessThanOrEqualTo($deadline);
+    }
 }
+

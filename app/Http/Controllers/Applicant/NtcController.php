@@ -468,6 +468,10 @@ class NtcController extends Controller
             return back()->withErrors(['error' => 'This Notice to Conduct is not acknowledged and cannot submit a Report of Changes.']);
         }
 
+        if (!$ntcReport->canSubmitReportChanges()) {
+            return back()->withErrors(['error' => 'The deadline to submit a Report of Changes for this Notice to Conduct has already passed.']);
+        }
+
         // Block if accreditation is revoked
         $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
         if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
@@ -504,17 +508,18 @@ class NtcController extends Controller
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
             'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
             'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
-            'file_rtcman'          => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
-            'file_prog'            => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+            'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
+            'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
             'training_start_date.after_or_equal' =>
                 "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
             'training_end_date.after_or_equal' =>
                 'The training end date must be on or after the start date.',
+            'file_rtcman.required' => 'The DOLE-OSHC-STO-RTCMan Form is required.',
+            'file_prog.required'   => 'The DOLE-OSHC-STO-PROG Form is required.',
             'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
             'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
         ]);
-
         try {
             DB::transaction(function () use ($validated, $request, $ntcReport, $user) {
                 // Update NTC Report details

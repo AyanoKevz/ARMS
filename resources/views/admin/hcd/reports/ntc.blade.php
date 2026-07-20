@@ -76,10 +76,16 @@
                                             <div>{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</div>
                                         </td>
                                         <td class="text-center">
-                                            @if($ntc->status === 'submitted')
-                                                <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
-                                            @elseif($ntc->status === 'acknowledged')
+                                            @if($ntc->status === 'acknowledged')
                                                 <span class="badge bg-success" style="font-size:0.75rem;">Acknowledged</span>
+                                            @elseif($ntc->status === 'report_changes')
+                                                <span class="badge bg-info text-white" style="font-size:0.75rem;">Report of Changes</span>
+                                            @elseif($ntc->documents->contains('status', 'rejected'))
+                                                <span class="badge bg-danger" style="font-size:0.75rem;">Documents Rejected</span>
+                                            @elseif($ntc->documents->contains('status', 'returned'))
+                                                <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Under Review (Re-uploaded)</span>
+                                            @elseif($ntc->status === 'submitted')
+                                                <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
                                             @else
                                                 <span class="badge bg-secondary" style="font-size:0.75rem;">{{ ucfirst($ntc->status) }}</span>
                                             @endif

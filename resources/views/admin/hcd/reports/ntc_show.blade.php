@@ -465,7 +465,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     $badgeLabel = match($docStatus) {
                         'approved' => 'Approved',
                         'rejected' => 'Rejected — Awaiting Re-upload',
-                        'returned' => 'Awaiting Re-upload',
+                        'returned' => 'Re-uploaded — Awaiting Review',
                         default    => 'Pending',
                     };
                     $evalStatus = in_array($docStatus, ['approved','rejected','returned']) ? $docStatus : 'pending';

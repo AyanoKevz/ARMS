@@ -29,7 +29,11 @@ class NtcEvaluationEmail extends Mailable
         ]);
 
         $this->rejectedDocuments = $rejectedDocuments ?? collect();
-        $this->rejectedDocuments->loadMissing(['documentType']);
+        $this->rejectedDocuments->each(function ($doc) {
+            if ($doc instanceof \Illuminate\Database\Eloquent\Model) {
+                $doc->loadMissing(['documentType']);
+            }
+        });
         $this->wasReportChanges = $wasReportChanges;
     }
 

@@ -3,7 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "echo 'No frontend build needed — assets served from public/'"
+        "dev": "echo 'No frontend build needed — assets served from public/'",
+        "build": "echo 'No frontend build needed — assets served from public/'"
     },
     "devDependencies": {
         "concurrently": "^9.0.1"

@@ -1214,6 +1214,90 @@ test('ntc document evaluation buttons and remarks are visible when rejected but 
     expect($doc2RemarksBlock)->toContain('readonly');
 });
 
+test('admin ntc show page displays Re-uploaded — Awaiting Review for returned documents', function () {
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'evaluator_ntc_returned@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'NTC Returned',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_returned@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-RET-01',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-999',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    // Document: status is returned (re-uploaded by applicant)
+    $document = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc_returned.pdf',
+        'original_filename' => 'test_ntc_returned.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'returned',
+    ]);
+
+    // Request NTC show page as evaluator
+    $response = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.show', $ntcReport->id));
+
+    $response->assertStatus(200);
+    $html = $response->getContent();
+
+    // The document badge label should be "Re-uploaded — Awaiting Review"
+    expect($html)->toContain('Re-uploaded — Awaiting Review');
+    expect($html)->not->toContain('Awaiting Re-upload'); // since the file is present and status is returned
+});
+
 test('applicant portal ntc view hides rejection status and form early if file still exists', function () {
     $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
     $applicant = User::forceCreate([
@@ -1663,6 +1747,233 @@ test('applicant can submit report of changes and evaluation status resets to pen
     expect($doc2->status)->toBe('pending');
     expect($doc1->file_path)->not->toBe($oldFilePath1);
     expect($doc2->file_path)->not->toBe($oldFilePath2);
+});
+
+test('applicant cannot submit report of changes if less than 3 working days remain', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Mail::fake();
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_changes_fail@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-CHANGES-FAIL',
+    ]);
+
+    $acc = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => 'ACC-54321',
+        'date_of_accreditation' => now()->subDay()->format('Y-m-d'),
+        'status' => 'active',
+        'validity_date' => now()->addYear(),
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    // If training_start_date is 2 days from now, it is less than 3 working days
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $acc->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(2),
+        'training_end_date' => now()->addDays(5),
+        'status' => 'acknowledged',
+    ]);
+
+    // Check helper
+    expect($ntcReport->canSubmitReportChanges())->toBeFalse();
+
+    // Test that the Report of Changes button is NOT visible in the HTML
+    $response = $this->actingAs($applicant)->get(route('applicant.ntc.index'));
+    $response->assertStatus(200);
+    expect($response->getContent())->not->toContain('data-id="' . $ntcReport->id . '"');
+
+    // Test that server side check rejects the request
+    $newFileRtcman = \Illuminate\Http\UploadedFile::fake()->create('new_rtcman.pdf', 500);
+    $newFileProg = \Illuminate\Http\UploadedFile::fake()->create('new_prog.pdf', 500);
+
+    $response = $this->actingAs($applicant)
+        ->from(route('applicant.ntc.index'))
+        ->post(route('applicant.ntc.report_changes', $ntcReport->id), [
+            'ntc_training_type_id' => $trainingType->id,
+            'ntc_training_mode_id' => $trainingMode->id,
+            'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+            'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+            'file_rtcman' => $newFileRtcman,
+            'file_prog' => $newFileProg,
+        ]);
+
+    $response->assertRedirect(route('applicant.ntc.index'));
+    $response->assertSessionHasErrors('error');
+    
+    // Status must remain acknowledged
+    $ntcReport->refresh();
+    expect($ntcReport->status)->toBe('acknowledged');
+});
+
+test('applicant can submit report of changes if exactly or more than 3 working days remain', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+    \Illuminate\Support\Facades\Mail::fake();
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_changes_success@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-CHANGES-SUCCESS',
+    ]);
+
+    $acc = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => 'ACC-54322',
+        'date_of_accreditation' => now()->subDay()->format('Y-m-d'),
+        'status' => 'active',
+        'validity_date' => now()->addYear(),
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    // 15 days is plenty of time (at least 3 working days)
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $acc->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15),
+        'training_end_date' => now()->addDays(18),
+        'status' => 'acknowledged',
+    ]);
+
+    // Check helper
+    expect($ntcReport->canSubmitReportChanges())->toBeTrue();
+
+    // Test that the Report of Changes button IS visible in the HTML
+    $response = $this->actingAs($applicant)->get(route('applicant.ntc.index'));
+    $response->assertStatus(200);
+    expect($response->getContent())->toContain('data-id="' . $ntcReport->id . '"');
+});
+
+test('admin finalize evaluation sends acknowledgment email to applicant when all documents approved', function () {
+    \Illuminate\Support\Facades\Mail::fake();
+
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'evaluator_ntc_ack@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'NTC Ack',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'applicant_ntc_ack@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $application = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-NTC-ACK-01',
+    ]);
+
+    $accreditation = \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-240101-150',
+        'date_of_accreditation' => '2024-01-01',
+        'validity_date' => '2027-01-01',
+        'status' => 'active',
+    ]);
+
+    $trainingType = \App\Models\NtcTrainingType::first();
+    $trainingMode = \App\Models\NtcTrainingMode::first();
+
+    $ntcReport = \App\Models\NtcReport::create([
+        'accreditation_id' => $accreditation->id,
+        'ntc_training_type_id' => $trainingType->id,
+        'ntc_training_mode_id' => $trainingMode->id,
+        'training_start_date' => now()->addDays(15)->format('Y-m-d'),
+        'training_end_date' => now()->addDays(18)->format('Y-m-d'),
+        'status' => 'submitted',
+    ]);
+
+    $docType = \App\Models\NtcDocumentType::first();
+
+    $document = \App\Models\NtcDocument::create([
+        'ntc_report_id' => $ntcReport->id,
+        'ntc_document_type_id' => $docType->id,
+        'file_path' => 'dummy_ntc.pdf',
+        'original_filename' => 'test_ntc.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'uploaded_at' => now(),
+        'status' => 'approved',
+    ]);
+
+    // Finalize evaluation with all approved
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.reports.ntc.finalize_evaluation', $ntcReport->id), [
+            'evaluations' => [
+                [
+                    'id' => $document->id,
+                    'status' => 'approved',
+                    'remarks' => '',
+                ]
+            ]
+        ]);
+
+    $response->assertStatus(200);
+    $response->assertJson([
+        'success' => true,
+        'ntc_acknowledged' => true,
+    ]);
+
+    $ntcReport->refresh();
+    expect($ntcReport->status)->toBe('acknowledged');
+
+    // Verify email was sent to applicant
+    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\NtcEvaluationEmail::class, function ($mail) use ($applicant, $ntcReport) {
+        return $mail->hasTo($applicant->email) &&
+               $mail->rejectedDocuments->isEmpty() &&
+               $mail->ntcReport->id === $ntcReport->id;
+    });
 });
 
 
