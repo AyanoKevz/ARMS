@@ -160,6 +160,11 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
                             <i class="bi bi-shield-x me-2"></i> Revoke Accreditation
                         </a>
                     </li>
+                    <li>
+                        <a class="dropdown-item text-warning text-dark fw-semibold" href="#" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
+                            <i class="bi bi-archive me-2"></i> Move to Archived
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -178,9 +183,14 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         <small style="color:#991b1b; display: block;"><i class="bi bi-calendar-minus me-1"></i>Revoked Date: {{ $application->accreditation->updated_at->format('F d, Y') }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-        <span class="badge fs-6 px-3 py-2 bg-danger text-white">
-            <i class="bi bi-x-circle-fill me-1"></i> Revoked
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge fs-6 px-3 py-2 bg-danger text-white">
+                <i class="bi bi-x-circle-fill me-1"></i> Revoked
+            </span>
+            <button type="button" class="btn btn-warning btn-sm m-0 text-dark fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
+                <i class="bi bi-archive me-1"></i> Move to Archived
+            </button>
+        </div>
         <small style="color:#991b1b;">
             {{ $application->accreditationType->name ?? 'N/A' }}
         </small>
@@ -195,9 +205,14 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         <small style="color:#92400e; display: block;"><i class="bi bi-calendar-x me-1"></i>Valid Until: {{ \Carbon\Carbon::parse($application->accreditation->validity_date)->format('F d, Y') }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-        <span class="badge fs-6 px-3 py-2 bg-warning text-dark">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i> Expired
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge fs-6 px-3 py-2 bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> Expired
+            </span>
+            <button type="button" class="btn btn-warning btn-sm m-0 text-dark fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
+                <i class="bi bi-archive me-1"></i> Move to Archived
+            </button>
+        </div>
         <small style="color:#92400e;">
             {{ $application->accreditationType->name ?? 'N/A' }}
         </small>
@@ -1916,10 +1931,75 @@ $accTypeName = $application->accreditationType->name ?? '—';
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
                     Cancel
                 </button>
-                <form method="POST" action="{{ route('admin.hcd.accreditations.revoke', $application->accreditation->id) }}">
+                <form id="revoke-accreditation-form" method="POST" action="{{ route('admin.hcd.accreditations.revoke', $application->accreditation->id) }}">
                     @csrf
                     <button type="submit" class="btn btn-danger fw-bold px-5" style="border-radius:8px;">
-                        <i class="bi bi-shield-x me-2"></i>Confirm Revoke
+                        <span class="btn-text"><i class="bi bi-shield-x me-2"></i>Confirm Revoke</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Revoking...
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ══ Archive Accreditation Confirmation Modal ══ --}}
+@if($application->accreditation)
+<div class="modal fade" id="archiveAccreditationModal" tabindex="-1"
+    aria-labelledby="archiveAccreditationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+
+            <div class="modal-header border-0"
+                style="background:linear-gradient(135deg,#d97706,#b45309);padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-archive text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="archiveAccreditationModalLabel">Move to Archived List</h5>
+                        <small class="text-white-50">{{ $application->accreditation->accreditation_number ?? $application->tracking_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3"
+                    style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-circle fs-2 text-warning"></i>
+                    <div>
+                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
+                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
+                        </div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+                    style="background:#fffbe6;border-radius:8px;border-left:4px solid #f59e0b;">
+                    <i class="bi bi-exclamation-triangle-fill text-warning mt-1"></i>
+                    <small class="text-dark">
+                        <strong>Are you sure you want to move this FATPro applicant to the Archived list?</strong><br>
+                        This will mark the application status as <strong>Rejected / Archived</strong> and move it to the <strong>Archived Applications</strong> directory.
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form id="archive-accreditation-form" method="POST" action="{{ route('admin.hcd.accreditations.archive', $application->accreditation->id) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-warning fw-bold text-dark px-5" style="border-radius:8px;">
+                        <span class="btn-text"><i class="bi bi-archive me-2"></i>Confirm Archive</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Archiving...
+                        </span>
                     </button>
                 </form>
             </div>

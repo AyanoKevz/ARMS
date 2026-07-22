@@ -101,6 +101,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/applications/pending', [HCDApplicationController::class, 'pending'])->name('applications.pending');
             Route::get('/applications/under-review', [HCDApplicationController::class, 'underReview'])->name('applications.under_review');
             Route::get('/applications/archived', [HCDApplicationController::class, 'archived'])->name('applications.archived');
+            Route::delete('/applications/{application}', [HCDApplicationController::class, 'destroy'])->name('applications.destroy');
             Route::post('/applications/{application}/update-evaluation', [HCDApplicationController::class, 'updateToEvaluation'])->name('applications.update_evaluation');
             Route::post('/applications/{application}/schedule-interview', [HCDApplicationController::class, 'scheduleInterview'])->name('applications.schedule_interview');
             Route::post('/applications/{application}/start-interview', [HCDApplicationController::class, 'startInterview'])->name('applications.start_interview');
@@ -130,9 +131,10 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/directory/fatpros', [HCDApplicationController::class, 'activeFatprosList'])->name('directory.fatpros');
             Route::get('/directory/fatpros/inactive', [HCDApplicationController::class, 'inactiveFatprosList'])->name('directory.fatpros.inactive');
 
-            // Accreditation Certificate PDF
+            // Accreditation Certificate & Archiving
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
             Route::post('/accreditations/{accreditation}/revoke', [HCDApplicationController::class, 'revokeAccreditation'])->name('accreditations.revoke');
+            Route::post('/accreditations/{accreditation}/archive', [HCDApplicationController::class, 'archiveAccreditation'])->name('accreditations.archive');
             Route::post('/accreditations/{accreditation}/upload-scanned', [HCDApplicationController::class, 'uploadScannedCertificate'])->name('accreditations.upload_scanned');
             Route::get('/accreditations/{accreditation}/view-scanned', [HCDApplicationController::class, 'viewScannedCertificate'])->name('accreditations.view_scanned');
 

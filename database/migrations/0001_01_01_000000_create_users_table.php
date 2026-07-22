@@ -36,7 +36,7 @@ return new class extends Migration
             $table->id();
             $table->string('email')->unique();
             $table->string('password');
-            $table->enum('profile_type', ['Individual', 'Organization']);
+            $table->string('profile_type');
             // Example: individual (Practitioner), organization (FATPro)
             $table->foreignId('role_id')->constrained()->cascadeOnDelete();
             // Example: 1 = admin, 2 = applicant

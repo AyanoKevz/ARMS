@@ -105,20 +105,20 @@ class ApplicationController extends Controller
                 // ── Monthly Tables & Chart ──────────────────────────────────
                 $monthlyNew = Application::where('application_type', 'new')
                     ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+                    ->selectRaw('CAST(EXTRACT(MONTH FROM created_at) AS INT) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
                 $monthlyRenewal = Application::where('application_type', 'renewal')
                     ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+                    ->selectRaw('CAST(EXTRACT(MONTH FROM created_at) AS INT) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
                 $monthlyAccredited = \App\Models\Accreditation::whereYear('date_of_accreditation', $selectedYear)
-                    ->selectRaw('MONTH(date_of_accreditation) as month, COUNT(*) as total')
+                    ->selectRaw('CAST(EXTRACT(MONTH FROM date_of_accreditation) AS INT) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
@@ -145,7 +145,7 @@ class ApplicationController extends Controller
                     ->pluck('total', 'name');
 
                 // ── Available years ─────────────────────────────────────────
-                $availableYears = Application::selectRaw('YEAR(created_at) as yr')
+                $availableYears = Application::selectRaw('CAST(EXTRACT(YEAR FROM created_at) AS INT) as yr')
                     ->groupBy('yr')
                     ->orderByDesc('yr')
                     ->pluck('yr');
@@ -1233,6 +1233,42 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Archive an active or revoked/expired FATPro accreditation and move its application to the archived list.
+     */
+    public function archiveAccreditation(Request $request, \App\Models\Accreditation $accreditation)
+    {
+        $application = $accreditation->application;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation, $application) {
+            // Update accreditation status to archived
+            $accreditation->update([
+                'status' => 'archived',
+            ]);
+
+            // Update application status to Rejected (Archived) if application exists
+            if ($application) {
+                $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
+                if ($rejectedStatus) {
+                    \App\Models\ApplicationStatusLog::create([
+                        'application_id' => $application->id,
+                        'status_id'      => $rejectedStatus->id,
+                        'updated_by'     => auth()->id(),
+                        'remarks'        => 'FATPro accreditation manually moved to Archived list by admin.',
+                    ]);
+                }
+            }
+        });
+
+        // Bust application listing and tracking caches
+        \App\Services\CacheService::bustApplicationCaches();
+        if ($application?->tracking_number) {
+            \App\Services\CacheService::bustTrackingCache($application->tracking_number);
+        }
+
+        return back()->with('success', 'FATPro applicant/accreditation #' . $accreditation->accreditation_number . ' has been moved to the Archived list.');
+    }
+
+    /**
      * Generate and stream the Accreditation Certificate as a PDF.
      */
     public function downloadCertificate(Request $request, \App\Models\Accreditation $accreditation)
@@ -1441,6 +1477,49 @@ class ApplicationController extends Controller
             ->get();
 
         return view('admin.hcd.archived', compact('applications'));
+    }
+
+    /**
+     * Delete an archived application permanently.
+     */
+    public function destroy(Application $application)
+    {
+        $trackingNumber = $application->tracking_number;
+        $user = $application->user;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($application, $user) {
+            // Delete related child records
+            $application->documents()->delete();
+            $application->statusLogs()->delete();
+            $application->interview()->delete();
+            $application->payment()->delete();
+            $application->pctEntries()->delete();
+            $application->instructors()->delete();
+
+            if ($application->accreditation) {
+                $application->accreditation()->delete();
+            }
+
+            // Delete application
+            $application->delete();
+
+            // If user has no remaining applications and is an applicant user, clean up profiles and user account
+            if ($user && $user->applications()->count() === 0 && strtolower($user->role?->name ?? '') === 'applicant') {
+                $user->organizationProfile()?->delete();
+                $user->individualProfile()?->delete();
+                $user->userDocuments()?->delete();
+                $user->delete();
+            }
+        });
+
+        // Bust application listing and tracking caches
+        \App\Services\CacheService::bustApplicationCaches();
+        if ($trackingNumber) {
+            \App\Services\CacheService::bustTrackingCache($trackingNumber);
+        }
+
+        return redirect()->route('admin.hcd.applications.archived')
+            ->with('success', 'Application ' . $trackingNumber . ' and associated applicant data have been permanently deleted.');
     }
 
     /**

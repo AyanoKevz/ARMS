@@ -21,7 +21,20 @@
     <div class="clearfix"></div>
 
     <div class="row">
-        <div class="col-md-12 col-sm-12">
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+
             <div class="x_panel">
                 <div class="x_title">
                     <h2>First Aid Training Providers</h2>
@@ -67,6 +80,12 @@
                                                title="View Application">
                                                 <i class="fas fa-eye me-1"></i> View
                                             </a>
+                                            <form action="{{ route('admin.hcd.accreditations.archive', $acc->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to move FATPro #{{ $acc->accreditation_number }} to the Archived list?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-warning btn-xs m-0 text-dark fw-bold" title="Move to Archived">
+                                                    <i class="fas fa-archive me-1"></i> Archive
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

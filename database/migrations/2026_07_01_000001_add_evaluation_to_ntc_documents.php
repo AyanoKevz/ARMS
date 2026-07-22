@@ -9,19 +9,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ntc_documents', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'approved', 'rejected', 'returned'])
-                  ->default('pending')
-                  ->after('uploaded_at');
+            $table->string('status')
+                  ->default('pending');
 
-            $table->text('remarks')->nullable()->after('status');
+            $table->text('remarks')->nullable();
 
             $table->foreignId('evaluated_by')
                   ->nullable()
-                  ->after('remarks')
                   ->constrained('users')
                   ->nullOnDelete();
 
-            $table->timestamp('evaluated_at')->nullable()->after('evaluated_by');
+            $table->timestamp('evaluated_at')->nullable();
         });
     }
 

@@ -20,7 +20,7 @@ return new class extends Migration
             
             // Payment requirements (file paths and statuses)
             $table->string('proof_of_payment')->nullable();
-            $table->enum('proof_of_payment_status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->string('proof_of_payment_status')->default('pending');
             $table->text('proof_of_payment_remarks')->nullable();
 
             // Verifier uploaded recommendation letter

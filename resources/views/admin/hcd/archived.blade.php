@@ -95,9 +95,18 @@
                                             <span class="badge bg-danger text-white">{{ $app->latestStatus?->status?->name ?? 'Rejected' }}</span>
                                         </td>
                                         <td class="last text-center">
-                                            <a href="{{ route('admin.hcd.applications.show', $app->id) }}" class="btn btn-info btn-xs m-0 fw-bold">
-                                                View
-                                            </a>
+                                            <div class="d-inline-flex gap-1 align-items-center justify-content-center">
+                                                <a href="{{ route('admin.hcd.applications.show', $app->id) }}" class="btn btn-info btn-xs m-0 fw-bold">
+                                                    <i class="fas fa-eye me-1"></i> View
+                                                </a>
+                                                <form action="{{ route('admin.hcd.applications.destroy', $app->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently delete tracking #{{ $app->tracking_number }} and its applicant data? This action cannot be undone.');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-xs m-0 fw-bold">
+                                                        <i class="fas fa-trash-alt me-1"></i> Delete
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach

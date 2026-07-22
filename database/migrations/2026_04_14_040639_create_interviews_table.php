@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('application_id')->constrained()->cascadeOnDelete();
             $table->date('interview_date');
             $table->time('interview_time');
-            $table->enum('mode', ['online', 'f2f']);
+            $table->string('mode');
             $table->string('venue')->nullable();
             $table->timestamps();
         });

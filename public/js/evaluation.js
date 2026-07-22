@@ -849,7 +849,7 @@
         }
     });
 
-    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form', 'start-interview-form'];
+    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form', 'start-interview-form', 'revoke-accreditation-form', 'archive-accreditation-form'];
     forms.forEach(function(formId) {
         const form = document.getElementById(formId);
         if (form) {

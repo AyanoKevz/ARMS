@@ -20,11 +20,11 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('service_agreement_path')->nullable();
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
-            $table->enum('status', ['pending', 'approved', 'returned', 'rejected'])->default('pending');
+            $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
-            $table->string('update_request_status')->default('none')->comment('none, admin_requested, pending_review, completed');
+            $table->string('update_request_status')->default('none');
             $table->text('update_request_reason')->nullable();
-            $table->json('update_request_fields')->nullable()->comment('JSON array of fields to update: service_agreement, EMS, TM1, NTTC, BOSH');
+            $table->json('update_request_fields')->nullable();
 
             $table->timestamps();
         });
@@ -34,7 +34,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('instructor_id')->constrained()->cascadeOnDelete();
 
-            $table->enum('type', ['EMS', 'TM1', 'NTTC', 'BOSH']);
+            $table->string('type');
             // EMS  = TESDA EMS NC II/III
             // TM1  = TESDA TM1
             // NTTC = TESDA NTTC
@@ -55,7 +55,7 @@ return new class extends Migration
             $table->string('pdf_path')->nullable();
             // Path to the credential PDF
 
-            $table->enum('status', ['pending', 'approved', 'returned', 'rejected'])->default('pending');
+            $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
 
             $table->timestamps();
@@ -66,7 +66,7 @@ return new class extends Migration
 
         // ── Add instructors_data staging column to pending_registrations ─
         Schema::table('pending_registrations', function (Blueprint $table) {
-            $table->json('instructors_data')->nullable()->after('documents_data');
+            $table->json('instructors_data')->nullable();
             // Temporary JSON array of instructor data (personal info + credential data + temp file paths)
             // Flushed into instructors / instructor_credentials on email verification
         });

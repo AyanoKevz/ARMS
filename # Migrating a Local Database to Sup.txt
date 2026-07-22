@@ -1,0 +1,142 @@
+# Migrating a Local Database to Supabase (PostgreSQL)
+
+Generic runbook for pushing a local database into a Supabase project's Postgres instance. Applies to any project — swap in your own project ref, table names, and connection details.
+
+## 0. Decide your scenario
+
+| Scenario | Use |
+|---|---|
+| Local **Postgres** DB, want an exact copy (schema + data) | Option A — `pg_dump` / `pg_restore` |
+| Local **Postgres** DB, want schema only, then manage changes going forward | Option B — Supabase CLI migrations |
+| Local DB is **not** Postgres (MySQL, SQLite, etc.) | Option C — convert first |
+
+---
+
+## Prerequisites
+
+- `psql` and `pg_dump`/`pg_restore` installed locally (ships with Postgres, or install the `postgresql-client` package)
+- A Supabase project created at [supabase.com](https://supabase.com/dashboard)
+- Your project's **connection string** (Dashboard → Project Settings → Database → Connection string)
+  - Use the **direct connection** (port `5432`) for one-off dumps/restores and DDL-heavy operations
+  - Use the **pooled connection** (port `6543`, pgbouncer) for app runtime traffic — pooled connections don't support all session-level features (e.g. prepared statements, some `SET` commands), so don't run migrations through it
+
+```
+postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+```
+
+---
+
+## Option A — Full dump & restore (exact copy)
+
+Best when you just want your local Postgres database to exist in Supabase as-is.
+
+```bash
+# 1. Dump the local database (custom format = compressed, supports parallel restore)
+pg_dump -h localhost -U your_local_user -d your_local_db -Fc -f local_backup.dump
+
+# 2. Restore into Supabase
+pg_restore \
+  --no-owner \
+  --no-privileges \
+  --clean --if-exists \
+  -d "postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres" \
+  local_backup.dump
+```
+
+Notes:
+- `--no-owner --no-privileges`: your local roles don't exist in Supabase; without this flag `pg_restore` will fail or reassign objects to a role that isn't there.
+- `--clean --if-exists`: drops conflicting objects first — safe for an empty/fresh Supabase project, **dangerous on a project with existing data**. Omit if restoring into a non-empty database.
+- If you only need specific schemas/tables: add `-n schema_name` or `-t table_name` to both the dump and restore commands.
+
+### Plain-SQL alternative (no compression, human-readable, easy to hand-edit)
+
+```bash
+pg_dump -h localhost -U your_local_user -d your_local_db --no-owner --no-privileges -f local_backup.sql
+psql "postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres" -f local_backup.sql
+```
+
+---
+
+## Option B — Supabase CLI + migrations (recommended for ongoing projects)
+
+Best when this is the start of an ongoing project and you want versioned, repeatable schema changes instead of one-off dumps.
+
+```bash
+npm install -g supabase          # or: brew install supabase/tap/supabase
+
+supabase login
+supabase init                    # creates supabase/ folder in your repo
+supabase link --project-ref [PROJECT-REF]
+
+# Generate a migration file from your local DB's current schema
+supabase db diff --use-migra -f initial_schema --local
+
+# Or, if you already have a local Postgres instance running and want to
+# capture its live schema directly:
+pg_dump -h localhost -U your_local_user -d your_local_db \
+  --schema-only --no-owner --no-privileges \
+  -f supabase/migrations/$(date +%Y%m%d%H%M%S)_initial_schema.sql
+
+# Push migrations to the linked Supabase project
+supabase db push
+```
+
+Then load data separately (schema first, data second):
+
+```bash
+pg_dump -h localhost -U your_local_user -d your_local_db \
+  --data-only --no-owner --no-privileges \
+  -f data_seed.sql
+
+psql "postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres" -f data_seed.sql
+```
+
+Going forward, every schema change becomes a new file in `supabase/migrations/`, tracked in git and applied with `supabase db push` — no more manual dumps.
+
+---
+
+## Option C — Source DB isn't Postgres
+
+Supabase is Postgres-only, so non-Postgres sources need conversion first.
+
+- **MySQL / SQL Server / SQLite → Postgres**: use [`pgloader`](https://pgloader.io/) — handles type mapping and constraints automatically:
+  ```bash
+  pgloader mysql://user:pass@localhost/source_db \
+    postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+  ```
+- **CSV/spreadsheet data**: create the target tables first (Option B), then load via `psql`'s `\copy` or the Supabase Dashboard's Table Editor → Import CSV.
+- **SQLite specifically**: `pgloader` supports `sqlite:///path/to/file.db` as a source directly.
+
+---
+
+## Post-migration checklist
+
+- [ ] **Row counts match**: `SELECT count(*) FROM table_name;` on both sides for each table.
+- [ ] **Sequences reset**: after a data-only load, sequences (auto-increment IDs) can be out of sync. Fix per table:
+  ```sql
+  SELECT setval(pg_get_serial_sequence('table_name', 'id'), (SELECT MAX(id) FROM table_name));
+  ```
+- [ ] **Extensions**: re-create any Postgres extensions your local DB used (`uuid-ossp`, `pgcrypto`, `pg_trgm`, etc.) — `CREATE EXTENSION IF NOT EXISTS extension_name;`. Check availability under Dashboard → Database → Extensions first.
+- [ ] **Enable Row Level Security**: Supabase exposes tables over its auto-generated API by default. A raw `pg_dump`/`pg_restore` does **not** enable RLS — do it explicitly per table, or your data is publicly readable/writable via the API:
+  ```sql
+  ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
+  ```
+- [ ] **Don't collide with the `auth` schema**: Supabase reserves `auth`, `storage`, `realtime`, `supabase_functions`, etc. If your local dump included a schema or table with one of these names, rename or exclude it.
+- [ ] **Foreign keys to users**: if app users should map to Supabase Auth, link your local `users`/`accounts` table to `auth.users(id)` via a foreign key rather than keeping a fully separate identity table.
+- [ ] **Indexes carried over**: verify with `\d table_name` in `psql` — custom indexes are included in a full `pg_dump` but easy to miss in manual schema scripts.
+- [ ] **Test the pooled connection**: confirm your app connects fine on port `6543` before cutting over — direct port `5432` has a low connection limit and isn't meant for app runtime traffic.
+
+---
+
+## Quick reference: dump/restore flag cheatsheet
+
+| Flag | Purpose |
+|---|---|
+| `-Fc` | Custom format (compressed, needed for `pg_restore`, supports `-j` parallel restore) |
+| `--schema-only` | Structure only, no rows |
+| `--data-only` | Rows only, no structure (run after schema is already in place) |
+| `--no-owner` | Skip `OWNER TO` statements (your local roles don't exist remotely) |
+| `--no-privileges` | Skip `GRANT`/`REVOKE` statements |
+| `-n schema_name` | Limit to one schema |
+| `-t table_name` | Limit to one table |
+| `--clean --if-exists` | Drop existing objects before recreating (only on empty/disposable targets) |

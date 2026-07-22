@@ -15,11 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('accreditation_type_id')->constrained()->cascadeOnDelete(); // 7 = FATPro
-            $table->enum('application_type', [
-                'new',
-                'renewal',
-                'reinstatement'
-            ]);
+            $table->string('application_type');
             $table->foreignId('handled_by_admin_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tracking_number')->unique(); // Example: ARMS-2026-000001
             $table->timestamp('submitted_at')->nullable();
@@ -38,7 +34,7 @@ return new class extends Migration
             $table->foreignId('document_type_id')->constrained()->cascadeOnDelete();
             $table->string('name'); // Example: Name of Data Protection Officer
             $table->string('code'); // Example: DPO_NAME
-            $table->enum('input_type', ['file', 'text', 'date']); // What kind of input
+            $table->string('input_type'); // What kind of input
 
             $table->timestamps();
         });
@@ -60,11 +56,7 @@ return new class extends Migration
             $table->foreignId('application_id')->constrained()->cascadeOnDelete();
             $table->foreignId('document_field_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_document_id')->constrained('user_documents')->cascadeOnDelete();
-            $table->enum('status', [
-                'pending',
-                'approved',
-                'rejected'
-            ])->default('pending');
+            $table->string('status')->default('pending');
             $table->text('remarks')->nullable(); // Example: "File is blurred"
             $table->timestamps();
         });
@@ -91,7 +83,7 @@ return new class extends Migration
             $table->string('token')->unique();             // verification link token
             $table->string('email')->unique();              // applicant email
             $table->string('password');                     // bcrypt hashed
-            $table->enum('profile_type', ['Individual', 'Organization']);
+            $table->string('profile_type');
             $table->unsignedBigInteger('accreditation_type_id');
             $table->json('form_data');                      // org / individual profile fields
             $table->json('documents_data')->nullable();     // temp file paths keyed by doc code
@@ -125,7 +117,7 @@ return new class extends Migration
             $table->date('validity_date');
             // Example: 2028-05-01
 
-            $table->enum('status', ['active', 'expired', 'revoked']);
+            $table->string('status');
 
             $table->string('scanned_certificate')->nullable();
 
