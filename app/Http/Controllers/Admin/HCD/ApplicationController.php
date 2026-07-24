@@ -60,7 +60,12 @@ class ApplicationController extends Controller
      */
     public function dashboard(Request $request)
     {
-        $this->pctService->autoResumeAllScheduledInterviews();
+        // Throttle autoResume: run at most once per 5 minutes per session (not on every page load)
+        $lastRun = session('pct_auto_resume_at', 0);
+        if ((time() - $lastRun) > 300) {
+            $this->pctService->autoResumeAllScheduledInterviews();
+            session(['pct_auto_resume_at' => time()]);
+        }
         $selectedYear = $request->input('year', now()->year);
 
         // ── Cache all dashboard stats (busted when application state changes) ──
@@ -246,7 +251,7 @@ class ApplicationController extends Controller
             $applicantEmail = $application->user?->email;
             if ($applicantEmail) {
                 \Illuminate\Support\Facades\Mail::to($applicantEmail)
-                    ->send(new \App\Mail\ApplicationEvaluationStartedEmail($application));
+                    ->queue(new \App\Mail\ApplicationEvaluationStartedEmail($application));
             }
         }
 
@@ -395,7 +400,7 @@ class ApplicationController extends Controller
 
                     if ($application->user && $application->user->email) {
                         try {
-                            Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
+                            Mail::to($application->user->email)->queue(new DocumentsApprovedEmail($application));
                         } catch (\Exception $e) {
                             \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
                         }
@@ -606,7 +611,7 @@ class ApplicationController extends Controller
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
-                Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                Mail::to($application->user->email)->queue(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
 
                 return response()->json([
                     'success' => true,
@@ -634,7 +639,7 @@ class ApplicationController extends Controller
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
-                Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
+                Mail::to($application->user->email)->queue(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
 
                 // Bust caches — status changed to For Update
                 CacheService::bustApplicationCaches();
@@ -682,7 +687,7 @@ class ApplicationController extends Controller
                     ]);
 
                     try {
-                        Mail::to($application->user->email)->send(new InstructorUpdateCompleteEmail($inst));
+                        Mail::to($application->user->email)->queue(new InstructorUpdateCompleteEmail($inst));
                         $emailsSent++;
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
@@ -731,7 +736,7 @@ class ApplicationController extends Controller
             $emailSent = true;
             if ($application->user && $application->user->email) {
                 try {
-                    Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
+                    Mail::to($application->user->email)->queue(new DocumentsApprovedEmail($application));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
                     $emailSent = false;
@@ -818,7 +823,7 @@ class ApplicationController extends Controller
         // Always send / re-send email confirmation to the applicant
         if ($application->user && $application->user->email) {
             $isUpdate = !$isNewInterview;
-            Mail::to($application->user->email)->send(new \App\Mail\InterviewScheduleEmail($application, $interview, $isUpdate));
+            Mail::to($application->user->email)->queue(new \App\Mail\InterviewScheduleEmail($application, $interview, $isUpdate));
         }
 
         $action = $isNewInterview ? 'scheduled' : 'updated';
@@ -1027,7 +1032,7 @@ class ApplicationController extends Controller
             // Send email BEFORE archiving so relationships are still intact
             if ($applicantEmail) {
                 Mail::to($applicantEmail)
-                    ->send(new ApplicationResultEmail($application, 'not_passed', null));
+                    ->queue(new ApplicationResultEmail($application, 'not_passed', null));
             }
 
             // Log status: Rejected (Archived)
@@ -1084,7 +1089,7 @@ class ApplicationController extends Controller
         $invitationUrl = url('/admin/setup-password/' . $token);
 
         try {
-            Mail::to($request->email)->send(new \App\Mail\AdminInvitationEmail($invitationUrl, $request->email));
+            Mail::to($request->email)->queue(new \App\Mail\AdminInvitationEmail($invitationUrl, $request->email));
         } catch (\Exception $e) {
             $pendingAdmin->delete();
             \Illuminate\Support\Facades\Log::error('SMTP Error during admin invitation: ' . $e->getMessage());
@@ -1239,24 +1244,12 @@ class ApplicationController extends Controller
     {
         $application = $accreditation->application;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation, $application) {
-            // Update accreditation status to archived
+        \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation) {
+            // Update accreditation status to archived.
+            // Note: We do NOT mark the application as Rejected because this FATPro already passed evaluation and received accreditation.
             $accreditation->update([
                 'status' => 'archived',
             ]);
-
-            // Update application status to Rejected (Archived) if application exists
-            if ($application) {
-                $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
-                if ($rejectedStatus) {
-                    \App\Models\ApplicationStatusLog::create([
-                        'application_id' => $application->id,
-                        'status_id'      => $rejectedStatus->id,
-                        'updated_by'     => auth()->id(),
-                        'remarks'        => 'FATPro accreditation manually moved to Archived list by admin.',
-                    ]);
-                }
-            }
         });
 
         // Bust application listing and tracking caches
@@ -1265,7 +1258,82 @@ class ApplicationController extends Controller
             \App\Services\CacheService::bustTrackingCache($application->tracking_number);
         }
 
-        return back()->with('success', 'FATPro applicant/accreditation #' . $accreditation->accreditation_number . ' has been moved to the Archived list.');
+        return back()->with('success', 'FATPro accreditation #' . $accreditation->accreditation_number . ' has been moved to the Archived list.');
+    }
+
+    /**
+     * Unarchive an archived FATPro accreditation and restore it to active/expired status.
+     */
+    public function unarchiveAccreditation(Request $request, \App\Models\Accreditation $accreditation)
+    {
+        $application = $accreditation->application;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation, $application) {
+            // Restore status based on validity date
+            $newStatus = 'active';
+            if ($accreditation->validity_date && \Carbon\Carbon::parse($accreditation->validity_date)->isPast()) {
+                $newStatus = 'expired';
+            }
+
+            $accreditation->update([
+                'status' => $newStatus,
+            ]);
+
+            // Clean up any legacy 'Rejected' status log if it was logged during previous archiving
+            if ($application) {
+                $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
+                if ($rejectedStatus) {
+                    \App\Models\ApplicationStatusLog::where('application_id', $application->id)
+                        ->where('status_id', $rejectedStatus->id)
+                        ->where('remarks', 'like', '%Archived%')
+                        ->delete();
+                }
+            }
+        });
+
+        \App\Services\CacheService::bustApplicationCaches();
+        if ($application?->tracking_number) {
+            \App\Services\CacheService::bustTrackingCache($application->tracking_number);
+        }
+
+        return back()->with('success', 'FATPro accreditation #' . $accreditation->accreditation_number . ' has been unarchived and restored to ' . ucfirst($accreditation->status) . '.');
+    }
+
+    /**
+     * Unarchive an archived/rejected application and restore its previous status.
+     */
+    public function unarchiveApplication(Request $request, Application $application)
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($application) {
+            // If accreditation exists, restore accreditation
+            if ($application->accreditation) {
+                $newStatus = 'active';
+                if ($application->accreditation->validity_date && \Carbon\Carbon::parse($application->accreditation->validity_date)->isPast()) {
+                    $newStatus = 'expired';
+                }
+                $application->accreditation->update(['status' => $newStatus]);
+            }
+
+            // Remove the latest Rejected status log entry to revert to previous status
+            $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
+            if ($rejectedStatus) {
+                $latestRejectedLog = \App\Models\ApplicationStatusLog::where('application_id', $application->id)
+                    ->where('status_id', $rejectedStatus->id)
+                    ->latest()
+                    ->first();
+
+                if ($latestRejectedLog) {
+                    $latestRejectedLog->delete();
+                }
+            }
+        });
+
+        \App\Services\CacheService::bustApplicationCaches();
+        if ($application->tracking_number) {
+            \App\Services\CacheService::bustTrackingCache($application->tracking_number);
+        }
+
+        return back()->with('success', 'Application ' . $application->tracking_number . ' has been unarchived and restored to its original status.');
     }
 
     /**
@@ -1318,7 +1386,7 @@ class ApplicationController extends Controller
 
         if ($accreditation->user && $accreditation->user->email) {
             try {
-                Mail::to($accreditation->user->email)->send(new AccreditationRevokedEmail($accreditation));
+                Mail::to($accreditation->user->email)->queue(new AccreditationRevokedEmail($accreditation));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Failed to send accreditation revoked email: ' . $e->getMessage());
             }
@@ -1451,7 +1519,7 @@ class ApplicationController extends Controller
 
         if ($instructor->user && $instructor->user->email) {
             Mail::to($instructor->user->email)
-                ->send(new InstructorUpdateRequestEmail($instructor));
+                ->queue(new InstructorUpdateRequestEmail($instructor));
         }
 
         return back()->with('success', 'Update request sent to applicant for instructor ' . $instructor->first_name . ' ' . $instructor->last_name . '.');
@@ -1462,19 +1530,29 @@ class ApplicationController extends Controller
      */
     public function archived()
     {
-        $applications = Application::with([
-            'user.organizationProfile.authorizedRepresentatives',
-            'user.individualProfile',
-            'accreditationType',
-            'latestStatus.status',
-        ])
-            ->whereHas('latestStatus', function ($query) {
-                $query->whereHas('status', function ($q) {
-                    $q->where('name', 'Rejected');
-                });
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $applications = CacheService::remember(
+            CacheService::archivedKey(),
+            CacheService::TTL_LIST,
+            fn () => Application::with([
+                'user.organizationProfile.authorizedRepresentatives',
+                'user.individualProfile',
+                'accreditationType',
+                'accreditation',
+                'latestStatus.status',
+            ])
+                ->where(function ($query) {
+                    $query->whereHas('latestStatus', function ($q) {
+                        $q->whereHas('status', function ($s) {
+                            $s->where('name', 'Rejected');
+                        });
+                    })
+                    ->orWhereHas('accreditation', function ($q) {
+                        $q->where('status', 'archived');
+                    });
+                })
+                ->orderBy('updated_at', 'desc')
+                ->get()
+        );
 
         return view('admin.hcd.archived', compact('applications'));
     }
@@ -1812,7 +1890,7 @@ class ApplicationController extends Controller
                 try {
                     $application->load('accreditationType');
                     Mail::to($application->user->email)
-                        ->send(new ApplicationResultEmail($application, 'passed', $accreditation));
+                        ->queue(new ApplicationResultEmail($application, 'passed', $accreditation));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Accreditation success email failed: ' . $e->getMessage());
                 }
@@ -1880,7 +1958,7 @@ class ApplicationController extends Controller
         if ($application->user?->email) {
             try {
                 Mail::to($application->user->email)
-                    ->send(new ApplicationResultEmail($application, 'not_passed', null));
+                    ->queue(new ApplicationResultEmail($application, 'not_passed', null));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Archived email failed: ' . $e->getMessage());
             }
@@ -2007,15 +2085,12 @@ class ApplicationController extends Controller
      */
     private function generateNewAccreditationNumber(string $datePrefix): string
     {
-        $maxIncrement = 46;
-        $allAccreditations = Accreditation::all();
-        foreach ($allAccreditations as $acc) {
-            $parts = explode('-', $acc->accreditation_number);
-            $suffixVal = (int) end($parts);
-            if ($suffixVal > $maxIncrement) {
-                $maxIncrement = $suffixVal;
-            }
-        }
+        // Use a single SQL query to find the max numeric suffix — avoids loading the full table into PHP
+        $maxFromDb = (int) Accreditation::selectRaw(
+            "MAX(CAST(SPLIT_PART(accreditation_number, '-', 3) AS INTEGER))"
+        )->value('max') ?? 0;
+
+        $maxIncrement = max(46, $maxFromDb);
 
         do {
             $maxIncrement++;

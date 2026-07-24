@@ -135,6 +135,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/accreditations/{accreditation}/certificate', [HCDApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
             Route::post('/accreditations/{accreditation}/revoke', [HCDApplicationController::class, 'revokeAccreditation'])->name('accreditations.revoke');
             Route::post('/accreditations/{accreditation}/archive', [HCDApplicationController::class, 'archiveAccreditation'])->name('accreditations.archive');
+            Route::post('/accreditations/{accreditation}/unarchive', [HCDApplicationController::class, 'unarchiveAccreditation'])->name('accreditations.unarchive');
+            Route::post('/applications/{application}/unarchive', [HCDApplicationController::class, 'unarchiveApplication'])->name('applications.unarchive');
             Route::post('/accreditations/{accreditation}/upload-scanned', [HCDApplicationController::class, 'uploadScannedCertificate'])->name('accreditations.upload_scanned');
             Route::get('/accreditations/{accreditation}/view-scanned', [HCDApplicationController::class, 'viewScannedCertificate'])->name('accreditations.view_scanned');
 

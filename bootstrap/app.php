@@ -20,8 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SecurityHeaders::class,
         ]);
 
+        // Append archived-account guard to every authenticated web request.
+        // This force-logs out applicants whose accreditations have all been archived.
+        $middleware->web(append: [
+            \App\Http\Middleware\CheckArchivedAccount::class,
+        ]);
+
         $middleware->alias([
             'prevent-back-history' => \App\Http\Middleware\PreventBackHistory::class,
+            'check-archived'       => \App\Http\Middleware\CheckArchivedAccount::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

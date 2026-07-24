@@ -96,16 +96,10 @@
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
                                             <a href="{{ route('admin.hcd.applications.show', $acc->application_id) }}"
-                                               class="btn btn-info btn-xs m-0 me-1"
+                                               class="btn btn-info btn-xs m-0"
                                                title="View Application">
                                                 <i class="fas fa-eye me-1"></i> View
                                             </a>
-                                            <form action="{{ route('admin.hcd.accreditations.archive', $acc->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to move FATPro #{{ $acc->accreditation_number }} to the Archived list?');">
-                                                @csrf
-                                                <button type="submit" class="btn btn-warning btn-xs m-0 text-dark fw-bold" title="Move to Archived">
-                                                    <i class="fas fa-archive me-1"></i> Archive
-                                                </button>
-                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

@@ -218,6 +218,29 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         </small>
     </div>
 </div>
+@elseif($isAccredited && $application->accreditation->status === 'archived')
+<div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border: 1px solid #d1d5db;">
+    <div>
+        <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#4b5563;letter-spacing:.45px;"><i class="bi bi-archive me-1"></i>Accreditation Number</div>
+        <h4 class="m-0 fw-bold" style="color:#374151;">{{ $application->accreditation->accreditation_number }}</h4>
+        <small style="color:#4b5563; display: block;"><i class="bi bi-calendar-check me-1"></i>Date Accredited: {{ \Carbon\Carbon::parse($application->accreditation->date_of_accreditation)->format('F d, Y') }}</small>
+        <small style="color:#4b5563; display: block;"><i class="bi bi-calendar-x me-1"></i>Valid Until: {{ \Carbon\Carbon::parse($application->accreditation->validity_date)->format('F d, Y') }}</small>
+        <small style="color:#4b5563; display: block;"><i class="bi bi-archive me-1"></i>Archived Date: {{ $application->accreditation->updated_at->format('F d, Y') }}</small>
+    </div>
+    <div class="d-flex flex-column align-items-end gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge fs-6 px-3 py-2 bg-secondary text-white">
+                <i class="bi bi-archive-fill me-1"></i> Archived
+            </span>
+            <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveAccreditationModal">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Accreditation
+            </button>
+        </div>
+        <small style="color:#4b5563;">
+            {{ $application->accreditationType->name ?? 'N/A' }}
+        </small>
+    </div>
+</div>
 @else
 <div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
     <div>
@@ -242,9 +265,16 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         default => 'bg-info',
         };
         @endphp
-        <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
-            {{ $displayStatusName }}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
+                {{ $displayStatusName }}
+            </span>
+            @if($displayStatusName === 'Rejected')
+            <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveApplicationModal">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Application
+            </button>
+            @endif
+        </div>
         <small class="text-muted">
             {{ ucfirst($application->application_type) }} Application &mdash;
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -1983,8 +2013,8 @@ $accTypeName = $application->accreditationType->name ?? '—';
                     style="background:#fffbe6;border-radius:8px;border-left:4px solid #f59e0b;">
                     <i class="bi bi-exclamation-triangle-fill text-warning mt-1"></i>
                     <small class="text-dark">
-                        <strong>Are you sure you want to move this FATPro applicant to the Archived list?</strong><br>
-                        This will mark the application status as <strong>Rejected / Archived</strong> and move it to the <strong>Archived Applications</strong> directory.
+                        <strong>Are you sure you want to move this FATPro accreditation to the Archived list?</strong><br>
+                        This will update the accreditation status to <strong>Archived</strong>. The application record will remain marked as <strong>Approved</strong> (passed evaluation).
                     </small>
                 </div>
             </div>
@@ -1999,6 +2029,130 @@ $accTypeName = $application->accreditationType->name ?? '—';
                         <span class="btn-text"><i class="bi bi-archive me-2"></i>Confirm Archive</span>
                         <span class="btn-spinner d-none">
                             <span class="spinner-border spinner-border-sm me-2" role="status"></span> Archiving...
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ══ Unarchive Accreditation Confirmation Modal ══ --}}
+@if($application->accreditation)
+<div class="modal fade" id="unarchiveAccreditationModal" tabindex="-1"
+    aria-labelledby="unarchiveAccreditationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+
+            <div class="modal-header border-0"
+                style="background:linear-gradient(135deg,#059669,#047857);padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-arrow-counterclockwise text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="unarchiveAccreditationModalLabel">Unarchive Accreditation</h5>
+                        <small class="text-white-50">{{ $application->accreditation->accreditation_number ?? $application->tracking_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3"
+                    style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-circle fs-2 text-success"></i>
+                    <div>
+                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
+                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
+                        </div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+                    style="background:#ecfdf5;border-radius:8px;border-left:4px solid #10b981;">
+                    <i class="bi bi-info-circle-fill text-success mt-1"></i>
+                    <small class="text-dark">
+                        <strong>Are you sure you want to unarchive this FATPro accreditation?</strong><br>
+                        This will restore the accreditation status to <strong>Active</strong> (or <strong>Expired</strong> if past validity date) and return it to the active directory.
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form id="unarchive-accreditation-form" method="POST" action="{{ route('admin.hcd.accreditations.unarchive', $application->accreditation->id) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-success fw-bold text-white px-5" style="border-radius:8px;">
+                        <span class="btn-text"><i class="bi bi-arrow-counterclockwise me-2"></i>Confirm Unarchive</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Unarchiving...
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ══ Unarchive Application Confirmation Modal ══ --}}
+@if($application)
+<div class="modal fade" id="unarchiveApplicationModal" tabindex="-1"
+    aria-labelledby="unarchiveApplicationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden;border:none;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+
+            <div class="modal-header border-0"
+                style="background:linear-gradient(135deg,#059669,#047857);padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-arrow-counterclockwise text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="unarchiveApplicationModalLabel">Unarchive Application</h5>
+                        <small class="text-white-50">{{ $application->tracking_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3"
+                    style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-circle fs-2 text-success"></i>
+                    <div>
+                        <div class="fw-bold" style="color:#2A3F54;font-size:.95rem;">
+                            {{ $org?->name ?? ($ind?->full_name ?? 'N/A') }}
+                        </div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 p-3 mb-1"
+                    style="background:#ecfdf5;border-radius:8px;border-left:4px solid #10b981;">
+                    <i class="bi bi-info-circle-fill text-success mt-1"></i>
+                    <small class="text-dark">
+                        <strong>Are you sure you want to unarchive this application?</strong><br>
+                        This will restore the application to its previous processing status before it was archived.
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form id="unarchive-application-form" method="POST" action="{{ route('admin.hcd.applications.unarchive', $application->id) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-success fw-bold text-white px-5" style="border-radius:8px;">
+                        <span class="btn-text"><i class="bi bi-arrow-counterclockwise me-2"></i>Confirm Unarchive</span>
+                        <span class="btn-spinner d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span> Unarchiving...
                         </span>
                     </button>
                 </form>

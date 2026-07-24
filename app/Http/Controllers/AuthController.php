@@ -73,6 +73,20 @@ class AuthController extends Controller
                 ]);
             }
 
+            // Block archived accounts — if ALL accreditations are archived, deny login
+            $allArchived = $accreditations->every(fn($acc) => $acc->status === 'archived');
+            if ($allArchived) {
+                Auth::logout();
+                if ($request) {
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                }
+                return redirect()->route('login')->withErrors([
+                    'email' => 'Access Denied: Your accreditation has been archived. Please contact OSHC for assistance.',
+                ]);
+            }
+
+
             // If they have an accreditation, redirect based on the first one
             $firstAccreditationType = $accreditations->first()->accreditationType;
             

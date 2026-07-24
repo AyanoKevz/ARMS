@@ -849,20 +849,33 @@
         }
     });
 
-    const forms = ['confirm-approval-form', 'confirm-reject-form', 'evaluate-payment-form', 'upload-scanned-certificate-form', 'start-interview-form', 'revoke-accreditation-form', 'archive-accreditation-form'];
+    const forms = [
+        'confirm-approval-form', 
+        'confirm-reject-form', 
+        'evaluate-payment-form', 
+        'upload-scanned-certificate-form', 
+        'start-interview-form', 
+        'revoke-accreditation-form', 
+        'archive-accreditation-form',
+        'unarchive-accreditation-form',
+        'unarchive-application-form'
+    ];
     forms.forEach(function(formId) {
         const form = document.getElementById(formId);
         if (form) {
             form.addEventListener('submit', function() {
                 const btn = form.querySelector('button[type="submit"]');
                 if (btn) {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.85';
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.75';
                     btn.style.cursor = 'not-allowed';
                     const textSpan = btn.querySelector('.btn-text');
                     const spinnerSpan = btn.querySelector('.btn-spinner');
                     if (textSpan) textSpan.classList.add('d-none');
                     if (spinnerSpan) spinnerSpan.classList.remove('d-none');
+                    setTimeout(function() {
+                        btn.disabled = true;
+                    }, 0);
                 }
             });
         }
