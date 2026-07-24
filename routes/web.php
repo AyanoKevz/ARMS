@@ -19,7 +19,23 @@ Route::get('/', function () {
     if (Auth::check()) {
         return AuthController::redirectAuthenticatedUser(Auth::user());
     }
-    return view('landing.index');
+
+    $typeCounts = \App\Models\Accreditation::where('status', 'active')
+        ->selectRaw('accreditation_type_id, count(*) as total')
+        ->groupBy('accreditation_type_id')
+        ->pluck('total', 'accreditation_type_id');
+
+    $stats = [
+        ['num' => $typeCounts->get(1, 0), 'label' => 'Practitioners'],
+        ['num' => $typeCounts->get(2, 0), 'label' => 'Consultants'],
+        ['num' => $typeCounts->get(5, 0), 'label' => 'STO'],
+        ['num' => $typeCounts->get(6, 0), 'label' => 'SCO'],
+        ['num' => $typeCounts->get(7, 0), 'label' => 'FATPro'],
+        ['num' => $typeCounts->get(3, 0), 'label' => 'WEM Providers'],
+        ['num' => $typeCounts->get(4, 0), 'label' => 'CHETO'],
+    ];
+
+    return view('landing.index', compact('stats'));
 })->middleware('prevent-back-history');
 
 // Registration — show form

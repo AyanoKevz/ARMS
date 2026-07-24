@@ -74,9 +74,13 @@
                     const btn = document.getElementById('forgotSubmitBtn');
                     const text = document.getElementById('forgotSubmitText');
                     const spinner = document.getElementById('forgotSubmitSpinner');
-                    if(btn) btn.disabled = true;
-                    if(text) text.classList.add('d-none');
-                    if(spinner) spinner.classList.remove('d-none');
+                    
+                    if (text) text.classList.add('d-none');
+                    if (spinner) spinner.classList.remove('d-none');
+
+                    setTimeout(function() {
+                        if (btn) btn.disabled = true;
+                    }, 0);
                 }
             });
         }

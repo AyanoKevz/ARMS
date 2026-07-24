@@ -20,6 +20,7 @@
 </head>
 
 <body>
+    @include('partials.preloader')
 
     {{-- ══ NAVBAR — lives outside smooth-wrapper so position:fixed works ══ --}}
     <nav class="navbar navbar-arms {{ request()->is('/') ? '' : 'navbar-solid' }} navbar-expand-lg">

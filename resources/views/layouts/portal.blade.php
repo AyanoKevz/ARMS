@@ -34,6 +34,7 @@
 </head>
 
 <body class="nav-md">
+    @include('partials.preloader')
     <div class="container body">
         <div class="main_container">
             <!-- Sidebar Navigation -->

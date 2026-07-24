@@ -50,19 +50,19 @@
     <div class="container">
         <div class="row g-0">
             @php
-            $stats = [
-            ['num' => '500+', 'label' => 'Practitioners'],
-            ['num' => '500+', 'label' => 'Consultants'],
-            ['num' => '500+', 'label' => 'STO'],
-            ['num' => '500+', 'label' => 'SCO'],
-            ['num' => '500+', 'label' => 'FATPro'],
-            ['num' => '500+', 'label' => 'WEM Providers'],
-            ['num' => '500+', 'label' => 'CHETO'],
+            $stats = $stats ?? [
+                ['num' => 0, 'label' => 'Practitioners'],
+                ['num' => 0, 'label' => 'Consultants'],
+                ['num' => 0, 'label' => 'STO'],
+                ['num' => 0, 'label' => 'SCO'],
+                ['num' => 0, 'label' => 'FATPro'],
+                ['num' => 0, 'label' => 'WEM Providers'],
+                ['num' => 0, 'label' => 'CHETO'],
             ];
             @endphp
             @foreach ($stats as $stat)
             <div class="col stat-item">
-                <span class="stat-num">{{ $stat['num'] }}</span>
+                <span class="stat-num">{{ number_format($stat['num']) }}</span>
                 <span class="stat-label">{{ $stat['label'] }}</span>
             </div>
             @endforeach
