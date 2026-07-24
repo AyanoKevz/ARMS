@@ -303,6 +303,29 @@
                 });
             }
 
+            // Mobile Menu Toggle Handler
+            const menuToggle = document.getElementById('menu_toggle');
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    if (window.innerWidth < 992) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        document.body.classList.toggle('mobile-menu-open');
+                    }
+                });
+            }
+
+            // Close mobile menu when clicking backdrop outside sidebar on mobile
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth < 992 && document.body.classList.contains('mobile-menu-open')) {
+                    const sidebar = document.querySelector('.col-md-3.left_col');
+                    const toggle = document.getElementById('menu_toggle');
+                    if (sidebar && !sidebar.contains(e.target) && toggle && !toggle.contains(e.target)) {
+                        document.body.classList.remove('mobile-menu-open');
+                    }
+                }
+            });
+
             // Collapsed sidebar flyout positioning to prevent clipping with scrollbar
             document.addEventListener('mouseover', function(e) {
                 if (!document.body.classList.contains('nav-sm')) return;

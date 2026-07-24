@@ -41,43 +41,43 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 180px;
-    height: 180px;
+    width: 260px;
+    height: 260px;
 }
 
 .arms-loader-logo {
-    height: 42px;
+    height: 44px;
     width: auto;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 5;
-    animation: logoPulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+    animation: logoPulse 3.0s ease-in-out infinite alternate;
 }
 
 @keyframes logoPulse {
     0% { 
-        transform: translate(-50%, -50%) scale(0.86); 
-        opacity: 0.85; 
-        filter: drop-shadow(0 2px 6px rgba(0, 102, 204, 0.2));
+        transform: translate(-50%, -50%) scale(0.88); 
+        opacity: 0.88; 
+        filter: drop-shadow(0 2px 6px rgba(0, 102, 204, 0.15));
     }
     50% {
-        transform: translate(-50%, -50%) scale(1.08); 
+        transform: translate(-50%, -50%) scale(1.06); 
         opacity: 1; 
-        filter: drop-shadow(0 0 16px rgba(38, 143, 228, 0.6));
+        filter: drop-shadow(0 0 18px rgba(38, 143, 228, 0.5));
     }
     100% { 
         transform: translate(-50%, -50%) scale(0.92); 
         opacity: 0.92; 
-        filter: drop-shadow(0 4px 10px rgba(0, 102, 204, 0.3));
+        filter: drop-shadow(0 4px 10px rgba(0, 102, 204, 0.25));
     }
 }
 
 .arms-loader-spinner {
     position: relative;
-    width: 130px;
-    height: 130px;
+    width: 180px;
+    height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -88,11 +88,11 @@
     height: 5px;
     width: 1px;
     position: absolute;
-    animation: rotate0234 3.5s linear infinite;
+    animation: rotate0234 4.5s linear infinite;
 }
 
 .arms-loader-spinner .loader .dot {
-    top: 55px;
+    top: 80px;
     height: 9px;
     width: 9px;
     background: #268fe4;
@@ -103,11 +103,11 @@
 
 .arms-loader-text {
     position: absolute;
-    bottom: -35px;
+    bottom: -55px;
     font-family: 'Poppins', system-ui, -apple-system, sans-serif;
     font-size: 13px;
     font-weight: 600;
-    letter-spacing: 2.5px;
+    letter-spacing: 4px;
     text-transform: uppercase;
     color: #0b3d91;
 }
