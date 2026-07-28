@@ -1163,6 +1163,12 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     {{-- Card Footer — centered button --}}
     @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
     <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
+        <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>Saving evaluation changes...</span>
+            </div>
+        </div>
         <button type="button"
             id="btn-open-schedule"
             class="btn btn-outline-primary btn-sm fw-semibold px-4"
@@ -1244,6 +1250,12 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 {{-- Just the button if no schedule yet --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
+    <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Saving evaluation changes...</span>
+        </div>
+    </div>
     <button type="button"
         id="btn-open-schedule"
         class="btn btn-outline-primary btn-sm fw-semibold px-4"
@@ -1257,6 +1269,12 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 @endif
 @elseif($hasPendingUpdate)
 <div class="mt-4 mb-4 text-center">
+    <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Saving evaluation changes...</span>
+        </div>
+    </div>
     <button type="button"
         id="btn-open-schedule"
         class="btn btn-outline-primary btn-sm fw-semibold px-4"

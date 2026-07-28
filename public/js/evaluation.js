@@ -17,11 +17,19 @@
     let activeSavesCount = 0;
 
     /* ─── Helpers ─────────────────────────────────────────── */
+    function toggleEvalLoadingIndicators(show) {
+        const indicators = document.querySelectorAll('.eval-saving-indicator, .ntc-eval-saving-indicator');
+        indicators.forEach(el => {
+            el.style.display = show ? 'block' : 'none';
+        });
+    }
+
     function getStatusInputs() {
         return Array.from(document.querySelectorAll('input[id^="status-input-"]'));
     }
 
     function updateActiveSavesIndicator() {
+        toggleEvalLoadingIndicators(activeSavesCount > 0);
         if (activeSavesCount <= 0) {
             refreshState();
         }
@@ -266,6 +274,7 @@
         const mainBtn = document.getElementById('btn-open-schedule');
         if (!form) return;
 
+        toggleEvalLoadingIndicators(true);
         mainBtn.disabled = true;
         mainBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
 
@@ -363,6 +372,7 @@
         const confBtn = document.getElementById('btn-confirm-rejection');
         if (!form) return;
 
+        toggleEvalLoadingIndicators(true);
         // Spinner on confirm button
         if (confBtn) {
             confBtn.disabled = true;
@@ -1305,6 +1315,7 @@
         const form = document.getElementById('ntc-evaluation-form');
         if (!form) return;
 
+        toggleEvalLoadingIndicators(true);
         const url = form.getAttribute('data-url');
 
         // Map evaluations array into expected JSON structure

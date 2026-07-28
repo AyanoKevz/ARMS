@@ -565,6 +565,12 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
 
 @if(!$isAcknowledged)
 <div class="mt-4 mb-4 text-center">
+    <div class="ntc-eval-saving-indicator mb-2 text-center" style="display: none;">
+        <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Saving evaluation changes...</span>
+        </div>
+    </div>
     <button type="button"
         id="btn-ntc-submit"
         class="btn btn-outline-secondary btn-sm fw-semibold px-4"
