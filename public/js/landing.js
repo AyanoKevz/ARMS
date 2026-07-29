@@ -758,6 +758,7 @@
 
         // ── Client-side File validation ──
         let filesValid = true;
+        let totalUploadBytes = 0;
         const fileInputs = this.querySelectorAll('input[type="file"]');
         for (const input of fileInputs) {
             if (!validateFile(input)) {
@@ -766,8 +767,21 @@
                 input.focus();
                 break;
             }
+            if (input.files) {
+                for (let i = 0; i < input.files.length; i++) {
+                    totalUploadBytes += input.files[i].size;
+                }
+            }
         }
         if (!filesValid) return;
+
+        // Total upload payload limit guard (25MB max to prevent server TCP connection reset / HTTP 413)
+        const maxTotalUploadBytes = 25 * 1024 * 1024;
+        if (totalUploadBytes > maxTotalUploadBytes) {
+            const sizeMB = (totalUploadBytes / (1024 * 1024)).toFixed(1);
+            showTopAlert(`Total size of uploaded files (${sizeMB} MB) exceeds the maximum allowed limit of 25 MB. Please reduce file sizes before submitting.`, 'danger');
+            return;
+        }
 
         const alertEl = document.getElementById('dynamicAlert');
         if (alertEl) alertEl.classList.add('d-none');
@@ -778,9 +792,15 @@
         if (submitText) submitText.classList.add('d-none');
         if (submitSpinner) submitSpinner.classList.remove('d-none');
 
+        // Resolve action URL & prevent Mixed Content (HTTP vs HTTPS mismatch)
+        let targetAction = this.getAttribute('action') || this.action || window.location.href;
+        if (window.location.protocol === 'https:' && targetAction.startsWith('http:')) {
+            targetAction = targetAction.replace(/^http:/, 'https:');
+        }
+
         try {
             const formData = new FormData(this);
-            const response = await fetch(this.action, {
+            const response = await fetch(targetAction, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -818,9 +838,13 @@
             }
 
         } catch (err) {
-            // Only reaches here on a true network failure (no internet, server down, CORS, etc.)
+            // Only reaches here on a true network failure (no internet, server down, CORS, scheme mismatch)
             console.error('[ARMS] Fetch/network error:', err);
-            showTopAlert('Connection error. Please check your internet and try again.', 'danger');
+            let userMsg = 'Connection error. Please check your internet connection and try again.';
+            if (window.location.protocol === 'https:' && (this.action || '').startsWith('http:')) {
+                userMsg = 'Security/protocol mismatch detected (HTTP vs HTTPS). Please reload the page or contact support.';
+            }
+            showTopAlert(userMsg, 'danger');
         } finally {
             if (window.hidePreloader) window.hidePreloader();
             if (submitBtn) submitBtn.disabled = false;
