@@ -250,8 +250,12 @@ class ApplicationController extends Controller
             // Notify applicant via email
             $applicantEmail = $application->user?->email;
             if ($applicantEmail) {
-                \Illuminate\Support\Facades\Mail::to($applicantEmail)
-                    ->queue(new \App\Mail\ApplicationEvaluationStartedEmail($application));
+                try {
+                    \Illuminate\Support\Facades\Mail::to($applicantEmail)
+                        ->send(new \App\Mail\ApplicationEvaluationStartedEmail($application));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluation started email: ' . $e->getMessage());
+                }
             }
         }
 
@@ -400,7 +404,7 @@ class ApplicationController extends Controller
 
                     if ($application->user && $application->user->email) {
                         try {
-                            Mail::to($application->user->email)->queue(new DocumentsApprovedEmail($application));
+                            Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
                         } catch (\Exception $e) {
                             \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
                         }
@@ -611,7 +615,11 @@ class ApplicationController extends Controller
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
-                Mail::to($application->user->email)->queue(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                try {
+                    Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send document rejection email: ' . $e->getMessage());
+                }
 
                 return response()->json([
                     'success' => true,
@@ -639,7 +647,11 @@ class ApplicationController extends Controller
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
-                Mail::to($application->user->email)->queue(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
+                try {
+                    Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send document rejection email: ' . $e->getMessage());
+                }
 
                 // Bust caches — status changed to For Update
                 CacheService::bustApplicationCaches();
@@ -687,7 +699,7 @@ class ApplicationController extends Controller
                     ]);
 
                     try {
-                        Mail::to($application->user->email)->queue(new InstructorUpdateCompleteEmail($inst));
+                        Mail::to($application->user->email)->send(new InstructorUpdateCompleteEmail($inst));
                         $emailsSent++;
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
@@ -736,7 +748,7 @@ class ApplicationController extends Controller
             $emailSent = true;
             if ($application->user && $application->user->email) {
                 try {
-                    Mail::to($application->user->email)->queue(new DocumentsApprovedEmail($application));
+                    Mail::to($application->user->email)->send(new DocumentsApprovedEmail($application));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send documents approved email: ' . $e->getMessage());
                     $emailSent = false;
@@ -823,7 +835,11 @@ class ApplicationController extends Controller
         // Always send / re-send email confirmation to the applicant
         if ($application->user && $application->user->email) {
             $isUpdate = !$isNewInterview;
-            Mail::to($application->user->email)->queue(new \App\Mail\InterviewScheduleEmail($application, $interview, $isUpdate));
+            try {
+                Mail::to($application->user->email)->send(new \App\Mail\InterviewScheduleEmail($application, $interview, $isUpdate));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send interview schedule email: ' . $e->getMessage());
+            }
         }
 
         $action = $isNewInterview ? 'scheduled' : 'updated';
@@ -1031,8 +1047,12 @@ class ApplicationController extends Controller
 
             // Send email BEFORE archiving so relationships are still intact
             if ($applicantEmail) {
-                Mail::to($applicantEmail)
-                    ->queue(new ApplicationResultEmail($application, 'not_passed', null));
+                try {
+                    Mail::to($applicantEmail)
+                        ->send(new ApplicationResultEmail($application, 'not_passed', null));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send interview result email: ' . $e->getMessage());
+                }
             }
 
             // Log status: Rejected (Archived)
@@ -1089,7 +1109,7 @@ class ApplicationController extends Controller
         $invitationUrl = url('/admin/setup-password/' . $token);
 
         try {
-            Mail::to($request->email)->queue(new \App\Mail\AdminInvitationEmail($invitationUrl, $request->email));
+            Mail::to($request->email)->send(new \App\Mail\AdminInvitationEmail($invitationUrl, $request->email));
         } catch (\Exception $e) {
             $pendingAdmin->delete();
             \Illuminate\Support\Facades\Log::error('SMTP Error during admin invitation: ' . $e->getMessage());
@@ -1386,7 +1406,7 @@ class ApplicationController extends Controller
 
         if ($accreditation->user && $accreditation->user->email) {
             try {
-                Mail::to($accreditation->user->email)->queue(new AccreditationRevokedEmail($accreditation));
+                Mail::to($accreditation->user->email)->send(new AccreditationRevokedEmail($accreditation));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Failed to send accreditation revoked email: ' . $e->getMessage());
             }
@@ -1518,8 +1538,12 @@ class ApplicationController extends Controller
         ]);
 
         if ($instructor->user && $instructor->user->email) {
-            Mail::to($instructor->user->email)
-                ->queue(new InstructorUpdateRequestEmail($instructor));
+            try {
+                Mail::to($instructor->user->email)
+                    ->send(new InstructorUpdateRequestEmail($instructor));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send instructor update request email: ' . $e->getMessage());
+            }
         }
 
         return back()->with('success', 'Update request sent to applicant for instructor ' . $instructor->first_name . ' ' . $instructor->last_name . '.');
@@ -1890,7 +1914,7 @@ class ApplicationController extends Controller
                 try {
                     $application->load('accreditationType');
                     Mail::to($application->user->email)
-                        ->queue(new ApplicationResultEmail($application, 'passed', $accreditation));
+                        ->send(new ApplicationResultEmail($application, 'passed', $accreditation));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Accreditation success email failed: ' . $e->getMessage());
                 }
@@ -1958,7 +1982,7 @@ class ApplicationController extends Controller
         if ($application->user?->email) {
             try {
                 Mail::to($application->user->email)
-                    ->queue(new ApplicationResultEmail($application, 'not_passed', null));
+                    ->send(new ApplicationResultEmail($application, 'not_passed', null));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Archived email failed: ' . $e->getMessage());
             }
