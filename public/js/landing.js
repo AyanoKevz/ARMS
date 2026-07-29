@@ -822,6 +822,7 @@
             console.error('[ARMS] Fetch/network error:', err);
             showTopAlert('Connection error. Please check your internet and try again.', 'danger');
         } finally {
+            if (window.hidePreloader) window.hidePreloader();
             if (submitBtn) submitBtn.disabled = false;
             if (submitText) submitText.classList.remove('d-none');
             if (submitSpinner) submitSpinner.classList.add('d-none');

@@ -194,11 +194,19 @@
         }
     });
 
-    // Show preloader when submitting forms
+    // Global references for AJAX handlers
+    window.showPreloader = showPreloader;
+    window.hidePreloader = hidePreloader;
+
+    // Show preloader when submitting regular (non-AJAX) forms
     document.addEventListener('submit', function(e) {
         const form = e.target;
-        if (form && !form.target && form.checkValidity && form.checkValidity()) {
-            showPreloader();
+        if (form && !form.target && !form.hasAttribute('data-no-preloader') && form.checkValidity && form.checkValidity()) {
+            setTimeout(function() {
+                if (!e.defaultPrevented) {
+                    showPreloader();
+                }
+            }, 10);
         }
     });
 })();

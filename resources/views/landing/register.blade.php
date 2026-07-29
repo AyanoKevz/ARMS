@@ -46,7 +46,7 @@
                             </p>
                             <div class="alert mt-3 mb-3" style="background:rgba(212,172,75,.1);border:1px solid rgba(212,172,75,.3);border-radius:10px;color:#7a5c00;font-size:.88rem;text-align:left;">
                                 <i class="bi bi-info-circle-fill me-2"></i>
-                                Please open the email and click <strong>"Verify Email &amp; Submit Application"</strong> to officially submit your application. The link expires in <strong>5 minutes</strong>.
+                                Please open the email and click <strong>"Verify Email &amp; Submit Application"</strong> to officially submit your application. The link expires in <strong>1 hour</strong>.
                             </div>
                             <p style="font-size:.82rem;color:#999;">
                                 Didn't receive it? Check your spam folder, or

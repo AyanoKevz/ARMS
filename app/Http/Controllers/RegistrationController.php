@@ -233,7 +233,7 @@ class RegistrationController extends Controller
             'form_data'             => $formData,
             'documents_data'        => $documentsData,
             'instructors_data'      => $instructorsData,
-            'expires_at'            => now()->addMinutes(5),
+            'expires_at'            => now()->addHours(1),
         ]);
 
         // ── Send verification email ────────────────────────────────
