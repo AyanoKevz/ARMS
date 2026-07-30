@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('middle_name')->nullable();
             $table->string('last_name');
+            $table->string('ins_sex')->nullable();
             $table->string('service_agreement_path')->nullable();
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
             $table->string('status')->default('pending');

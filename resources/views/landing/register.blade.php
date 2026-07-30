@@ -241,7 +241,7 @@
                                                     name="org_address" placeholder="Complete business address">
                                                 <div class="invalid-feedback">Address is required.</div>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label for="head_name" class="form-label fw-semibold">
                                                    Full Name of Head / Director <span class="text-danger">*</span>
                                                 </label>
@@ -249,13 +249,24 @@
                                                     name="head_name" placeholder="Full name">
                                                 <div class="invalid-feedback">Head name is required.</div>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label for="designation" class="form-label fw-semibold">
                                                     Designation / Position <span class="text-danger">*</span>
                                                 </label>
                                                 <input type="text" class="form-control" id="designation"
                                                     name="designation" placeholder="e.g. Executive Director">
                                                 <div class="invalid-feedback">Designation is required.</div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="head_sex" class="form-label fw-semibold">
+                                                    Sex <span class="text-danger">*</span>
+                                                </label>
+                                                <select class="form-select" id="head_sex" name="head_sex">
+                                                    <option value="" selected disabled>Select Sex</option>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                </select>
+                                                <div class="invalid-feedback">Sex is required.</div>
                                             </div>
 
                                             <div class="col-md-6">
@@ -284,7 +295,7 @@
 
                                         <p class="form-section-title mt-4">Step 4 &mdash; Authorized Representative</p>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label for="rep_name" class="form-label fw-semibold">
                                                     Representative Full Name <span class="text-danger">*</span>
                                                 </label>
@@ -292,13 +303,24 @@
                                                     name="rep_full_name" placeholder="Full name">
                                                 <div class="invalid-feedback">Name is required.</div>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label for="rep_position" class="form-label fw-semibold">
-                                                    Position <span class="text-danger">*</span>
+                                                    Designation / Position <span class="text-danger">*</span>
                                                 </label>
                                                 <input type="text" class="form-control" id="rep_position"
                                                     name="rep_position" placeholder="e.g. Operations Manager">
                                                 <div class="invalid-feedback">Position is required.</div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="rep_sex" class="form-label fw-semibold">
+                                                    Sex <span class="text-danger">*</span>
+                                                </label>
+                                                <select class="form-select" id="rep_sex" name="rep_sex">
+                                                    <option value="" selected disabled>Select Sex</option>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                </select>
+                                                <div class="invalid-feedback">Sex is required.</div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="rep_contact" class="form-label fw-semibold">
@@ -347,19 +369,28 @@
                                             {{-- Personal Info --}}
                                             <p class="fw-semibold mb-2" style="font-size:.82rem;color:#555;text-transform:uppercase;letter-spacing:.05em;">Personal Information</p>
                                             <div class="row g-3 mb-3">
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label fw-semibold" style="font-size:.88rem;">First Name <span class="text-danger">*</span></label>
                                                     <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][first_name]" placeholder="Juan" required>
                                                     <div class="invalid-feedback">First name is required.</div>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label fw-semibold" style="font-size:.88rem;">Middle Name</label>
                                                     <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][middle_name]" placeholder="(optional)">
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label fw-semibold" style="font-size:.88rem;">Last Name <span class="text-danger">*</span></label>
                                                     <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][last_name]" placeholder="Dela Cruz" required>
                                                     <div class="invalid-feedback">Last name is required.</div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label fw-semibold" style="font-size:.88rem;">Sex <span class="text-danger">*</span></label>
+                                                    <select class="form-select form-select-sm" name="instructors[__IDX__][sex]" required>
+                                                        <option value="" selected disabled>Select Sex</option>
+                                                        <option value="Male">Male</option>
+                                                        <option value="Female">Female</option>
+                                                    </select>
+                                                    <div class="invalid-feedback">Sex is required.</div>
                                                 </div>
                                             </div>
 

@@ -839,8 +839,16 @@
                 <div class="row g-3">
                     <div class="col-md-12"><label class="form-label fw-semibold">Name of FATPro <span class="text-danger">*</span></label><input type="text" class="form-control" name="org_name" value="{{ old('org_name', $org->name) }}" required></div>
                     <div class="col-md-12"><label class="form-label fw-semibold">Complete Address <span class="text-danger">*</span></label><input type="text" class="form-control" name="org_address" value="{{ old('org_address', $org->address) }}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Head / Director <span class="text-danger">*</span></label><input type="text" class="form-control" name="head_name" value="{{ old('head_name', $org->head_name) }}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Designation</label><input type="text" class="form-control" name="designation" value="{{ old('designation', $org->designation) }}"></div>
+                    <div class="col-md-4"><label class="form-label fw-semibold">Head / Director <span class="text-danger">*</span></label><input type="text" class="form-control" name="head_name" value="{{ old('head_name', $org->head_name) }}" required></div>
+                    <div class="col-md-4"><label class="form-label fw-semibold">Designation / Position</label><input type="text" class="form-control" name="designation" value="{{ old('designation', $org->designation) }}"></div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Sex <span class="text-danger">*</span></label>
+                        <select class="form-select" name="head_sex" required>
+                            <option value="" disabled {{ old('head_sex', $org->head_sex) ? '' : 'selected' }}>Select Sex</option>
+                            <option value="Male" {{ old('head_sex', $org->head_sex) === 'Male' ? 'selected' : '' }}>Male</option>
+                            <option value="Female" {{ old('head_sex', $org->head_sex) === 'Female' ? 'selected' : '' }}>Female</option>
+                        </select>
+                    </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Telephone</label>
                         <input type="text" class="form-control" id="telephone" name="telephone" value="{{ old('telephone', preg_replace('/[^0-9]/', '', $org->telephone)) }}" placeholder="e.g. 0281234567" pattern="[0-9]{10}" maxlength="10">
@@ -857,8 +865,16 @@
                 <hr>
                 <h6 class="fw-bold mb-3"><i class="fas fa-user-tie me-2"></i>Authorized Representative</h6>
                 <div class="row g-3">
-                    <div class="col-md-6"><label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_full_name" value="{{ old('rep_full_name', $rep?->full_name) }}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Position <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_position" value="{{ old('rep_position', $rep?->position) }}" required></div>
+                    <div class="col-md-4"><label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_full_name" value="{{ old('rep_full_name', $rep?->full_name) }}" required></div>
+                    <div class="col-md-4"><label class="form-label fw-semibold">Designation / Position <span class="text-danger">*</span></label><input type="text" class="form-control" name="rep_position" value="{{ old('rep_position', $rep?->position) }}" required></div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Sex <span class="text-danger">*</span></label>
+                        <select class="form-select" name="rep_sex" required>
+                            <option value="" disabled {{ old('rep_sex', $rep?->rep_sex) ? '' : 'selected' }}>Select Sex</option>
+                            <option value="Male" {{ old('rep_sex', $rep?->rep_sex) === 'Male' ? 'selected' : '' }}>Male</option>
+                            <option value="Female" {{ old('rep_sex', $rep?->rep_sex) === 'Female' ? 'selected' : '' }}>Female</option>
+                        </select>
+                    </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Contact Number <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="rep_contact" name="rep_contact_number" value="{{ old('rep_contact_number', $rep?->contact_number) }}" required pattern="^(09|\+639)\d{9}$" maxlength="13">
@@ -884,9 +900,17 @@
                             @if($idx > 0)<button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>@endif
                         </div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][first_name]" value="{{ $inst->first_name }}" required></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][middle_name]" value="{{ $inst->middle_name }}"></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][last_name]" value="{{ $inst->last_name }}" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][first_name]" value="{{ $inst->first_name }}" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][middle_name]" value="{{ $inst->middle_name }}"></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][last_name]" value="{{ $inst->last_name }}" required></div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Sex <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="instructors[{{ $idx }}][sex]" required>
+                                    <option value="" disabled {{ old("instructors.{$idx}.sex", $inst->ins_sex) ? '' : 'selected' }}>Select Sex</option>
+                                    <option value="Male" {{ old("instructors.{$idx}.sex", $inst->ins_sex) === 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old("instructors.{$idx}.sex", $inst->ins_sex) === 'Female' ? 'selected' : '' }}>Female</option>
+                                </select>
+                            </div>
                         </div>
 
                         @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
@@ -941,9 +965,17 @@
                             <h6 class="fw-bold mb-0" style="color:#0b3d91;"><i class="fas fa-user me-2"></i><span class="instructor-label">Instructor #1</span></h6>
                         </div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][first_name]" required></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[0][middle_name]"></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][last_name]" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][first_name]" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[0][middle_name]"></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][last_name]" required></div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Sex <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="instructors[0][sex]" required>
+                                    <option value="" disabled selected>Select Sex</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
                         </div>
                         @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
@@ -1000,9 +1032,17 @@
                             <button type="button" class="btn btn-sm btn-outline-danger remove-instructor-btn"><i class="fas fa-trash me-1"></i>Remove</button>
                         </div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-4"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][first_name]" required></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][middle_name]"></div>
-                            <div class="col-md-4"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][last_name]" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][first_name]" required></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Middle Name</label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][middle_name]"></div>
+                            <div class="col-md-3"><label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][last_name]" required></div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Sex <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" name="instructors[__IDX__][sex]" required>
+                                    <option value="" disabled selected>Select Sex</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
                         </div>
                         @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">

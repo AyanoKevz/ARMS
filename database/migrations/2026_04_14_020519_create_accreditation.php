@@ -39,6 +39,7 @@
                 $table->string('name'); // FATPro name
                 $table->text('address');
                 $table->string('head_name');
+                $table->string('head_sex')->nullable();
                 $table->string('designation');
                 $table->string('telephone')->nullable(); // 123-4567
                 $table->string('fax')->nullable(); // 123-4567
@@ -53,19 +54,15 @@
                     ->constrained()
                     ->cascadeOnDelete();
                 // Link to organization (FATPro)
-
                 $table->string('full_name');
                 // Example: Juan Dela Cruz
-
                 $table->string('position');
                 // Example: Operations Manager
-
+                $table->string('rep_sex')->nullable();
                 $table->string('contact_number');
                 // Example: 09171234567
-
                 $table->string('email');
                 // Example: juan@email.com
-
                 $table->timestamps();
             });
         }

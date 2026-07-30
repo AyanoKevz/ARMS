@@ -69,9 +69,10 @@ class RegistrationController extends Controller
 
         if (is_array($instructors) && count($instructors) > 0) {
             foreach ($instructors as $i => $inst) {
-                $instructorRules["instructors.{$i}.first_name"] = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.first_name"]  = ['required', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.middle_name"] = ['nullable', 'string', 'max:255'];
-                $instructorRules["instructors.{$i}.last_name"]  = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.last_name"]   = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.sex"]         = ['required', 'in:Male,Female'];
 
                 // Service agreement PDF (nullable)
                 $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
@@ -100,6 +101,7 @@ class RegistrationController extends Controller
             'org_name'     => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'org_address'  => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:500'],
             'head_name'    => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
+            'head_sex'     => ['required_if:profile_type,Organization', 'nullable', 'in:Male,Female'],
             'designation'  => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
             'fax'          => ['nullable', 'regex:/^\d{10}$/'],
@@ -107,6 +109,7 @@ class RegistrationController extends Controller
 
             // Representative fields
             'rep_full_name'      => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
+            'rep_sex'            => ['required_if:profile_type,Organization', 'nullable', 'in:Male,Female'],
             'rep_position'       => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:255'],
             'rep_contact_number' => ['required_if:profile_type,Organization', 'nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
             'rep_email'          => ['required_if:profile_type,Organization', 'nullable', 'email', 'max:255'],
@@ -159,6 +162,7 @@ class RegistrationController extends Controller
                 'first_name'  => $inst['first_name']  ?? '',
                 'middle_name' => $inst['middle_name'] ?? null,
                 'last_name'   => $inst['last_name']   ?? '',
+                'sex'         => $inst['sex']         ?? null,
                 'service_agreement_path' => null,
                 'credentials' => [],
             ];
@@ -209,9 +213,9 @@ class RegistrationController extends Controller
 
         // ── Gather form data ───────────────────────────────────────
         $formData = $request->only([
-            'org_name', 'org_address', 'head_name', 'designation',
+            'org_name', 'org_address', 'head_name', 'head_sex', 'designation',
             'telephone', 'fax', 'org_email',
-            'rep_full_name', 'rep_position', 'rep_contact_number', 'rep_email',
+            'rep_full_name', 'rep_sex', 'rep_position', 'rep_contact_number', 'rep_email',
             'first_name', 'middle_name', 'last_name',
             'sex', 'birthday', 'region', 'city', 'address',
         ]);
@@ -324,6 +328,7 @@ class RegistrationController extends Controller
                         'name'        => $form['org_name']     ?? '',
                         'address'     => $form['org_address']  ?? '',
                         'head_name'   => $form['head_name']    ?? '',
+                        'head_sex'    => $form['head_sex']     ?? null,
                         'designation' => $form['designation']  ?? '',
                         'telephone'   => $form['telephone']    ?? null,
                         'fax'         => $form['fax']          ?? null,
@@ -335,6 +340,7 @@ class RegistrationController extends Controller
                     AuthorizedRepresentative::create([
                         'organization_profile_id' => $orgProfileId,
                         'full_name'               => $form['rep_full_name']      ?? '',
+                        'rep_sex'                 => $form['rep_sex']            ?? null,
                         'position'                => $form['rep_position']       ?? '',
                         'contact_number'          => $form['rep_contact_number'] ?? '',
                         'email'                   => $form['rep_email']          ?? '',
@@ -427,6 +433,7 @@ class RegistrationController extends Controller
                         'first_name'             => $instData['first_name']  ?? '',
                         'middle_name'            => $instData['middle_name'] ?? null,
                         'last_name'              => $instData['last_name']   ?? '',
+                        'ins_sex'                => $instData['sex']         ?? null,
                         'service_agreement_path' => $saPermanent,
                     ]);
 

@@ -187,11 +187,13 @@ class RenewalController extends Controller
                 'org_name'     => ['required', 'string', 'max:255'],
                 'org_address'  => ['required', 'string', 'max:500'],
                 'head_name'    => ['required', 'string', 'max:255'],
+                'head_sex'     => ['required', 'in:Male,Female'],
                 'designation'  => ['nullable', 'string', 'max:255'],
                 'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
                 'fax'          => ['nullable', 'regex:/^\d{10}$/'],
                 'org_email'    => ['required', 'email', 'max:255'],
                 'rep_full_name'      => ['required', 'string', 'max:255'],
+                'rep_sex'            => ['required', 'in:Male,Female'],
                 'rep_position'       => ['required', 'string', 'max:255'],
                 'rep_contact_number' => ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
                 'rep_email'          => ['required', 'email', 'max:255'],
@@ -201,11 +203,13 @@ class RenewalController extends Controller
                 'org_name'     => ['nullable', 'string', 'max:255'],
                 'org_address'  => ['nullable', 'string', 'max:500'],
                 'head_name'    => ['nullable', 'string', 'max:255'],
+                'head_sex'     => ['nullable', 'in:Male,Female'],
                 'designation'  => ['nullable', 'string', 'max:255'],
                 'telephone'    => ['nullable', 'regex:/^\d{10}$/'],
                 'fax'          => ['nullable', 'regex:/^\d{10}$/'],
                 'org_email'    => ['nullable', 'email', 'max:255'],
                 'rep_full_name'      => ['nullable', 'string', 'max:255'],
+                'rep_sex'            => ['nullable', 'in:Male,Female'],
                 'rep_position'       => ['nullable', 'string', 'max:255'],
                 'rep_contact_number' => ['nullable', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
                 'rep_email'          => ['nullable', 'email', 'max:255'],
@@ -253,9 +257,10 @@ class RenewalController extends Controller
                 $instructorId = $inst['id'] ?? null;
                 $existingInst = $instructorId ? Instructor::where('id', $instructorId)->where('user_id', $user->id)->first() : null;
 
-                $instructorRules["instructors.{$i}.first_name"] = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.first_name"]  = ['required', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.middle_name"] = ['nullable', 'string', 'max:255'];
-                $instructorRules["instructors.{$i}.last_name"]  = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.last_name"]   = ['required', 'string', 'max:255'];
+                $instructorRules["instructors.{$i}.sex"]         = ['required', 'in:Male,Female'];
 
                 // Service agreement is strictly required
                 $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
@@ -317,6 +322,7 @@ class RenewalController extends Controller
                         'name'        => $request->input('org_name'),
                         'address'     => $request->input('org_address'),
                         'head_name'   => $request->input('head_name'),
+                        'head_sex'    => $request->input('head_sex'),
                         'designation' => $request->input('designation'),
                         'telephone'   => $request->input('telephone'),
                         'fax'         => $request->input('fax'),
@@ -331,6 +337,7 @@ class RenewalController extends Controller
                     $rep = $user->organizationProfile->authorizedRepresentatives()->first();
                     $repFields = array_filter([
                         'full_name'      => $request->input('rep_full_name'),
+                        'rep_sex'        => $request->input('rep_sex'),
                         'position'       => $request->input('rep_position'),
                         'contact_number' => $request->input('rep_contact_number'),
                         'email'          => $request->input('rep_email'),
@@ -432,6 +439,7 @@ class RenewalController extends Controller
                         'first_name'             => $instData['first_name'] ?? '',
                         'middle_name'            => $instData['middle_name'] ?? null,
                         'last_name'              => $instData['last_name'] ?? '',
+                        'ins_sex'                => $instData['sex'] ?? null,
                         'service_agreement_path' => $saPermanent,
                         'status'                 => 'pending',
                         'remarks'                => null,

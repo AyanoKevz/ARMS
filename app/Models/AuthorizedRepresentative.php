@@ -9,6 +9,7 @@ class AuthorizedRepresentative extends Model
     protected $fillable = [
         'organization_profile_id',
         'full_name',
+        'rep_sex',
         'position',
         'contact_number',
         'email',

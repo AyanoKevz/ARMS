@@ -342,7 +342,7 @@
     </script>
     <!-- ══ File Viewer Modal ══ -->
     <div class="modal fade" id="fileViewerModal" tabindex="-1" aria-labelledby="fileViewerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width:92vw; height:92vh;">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width:92vw; width:92vw; height:90vh; margin:auto;">
             <div class="modal-content" style="height:100%; border:none; border-radius:12px; overflow:hidden;">
                 <!-- Header -->
                 <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0D2B55,#1A4A8A); border-bottom:2px solid var(--portal-gold); flex-shrink:0;">

@@ -53,6 +53,7 @@ class TestApplicationSeeder extends Seeder
                 'name' => "Test Provider {$i} Training Center",
                 'address' => "123 Test Street, Dummy City {$i}",
                 'head_name' => "Head Name {$i}",
+                'head_sex' => ($i % 2 === 0 ? 'Female' : 'Male'),
                 'designation' => 'President',
                 'telephone' => '0281234567',
                 'email' => "testprovider{$i}@example.com",
@@ -62,6 +63,7 @@ class TestApplicationSeeder extends Seeder
             \App\Models\AuthorizedRepresentative::create([
                 'organization_profile_id' => $orgProfile->id,
                 'full_name' => "Authorized Rep {$i}",
+                'rep_sex' => ($i % 2 === 0 ? 'Male' : 'Female'),
                 'position' => 'Manager',
                 'contact_number' => '09987654321',
                 'email' => "authrep{$i}@example.com",
@@ -125,6 +127,7 @@ class TestApplicationSeeder extends Seeder
                 'first_name' => "John {$i}",
                 'middle_name' => 'Test',
                 'last_name' => 'Doe',
+                'ins_sex' => ($i % 2 === 0 ? 'Female' : 'Male'),
                 'service_agreement_path' => "dummy_files/service_agreement_{$i}.pdf",
                 'status' => 'pending',
             ]);
@@ -164,6 +167,7 @@ class TestApplicationSeeder extends Seeder
             'name' => "Accredited Provider Training Center",
             'address' => "456 Excellence Blvd, Safety City",
             'head_name' => "Dr. Safety Doe",
+            'head_sex' => 'Male',
             'designation' => 'Director',
             'telephone' => '0281234567',
             'email' => $accEmail,
@@ -173,6 +177,7 @@ class TestApplicationSeeder extends Seeder
         \App\Models\AuthorizedRepresentative::create([
             'organization_profile_id' => $accOrgProfile->id,
             'full_name' => "Safety Officer Doe",
+            'rep_sex' => 'Female',
             'position' => 'Safety Head',
             'contact_number' => '09987654321',
             'email' => "safetyhead@example.com",
@@ -237,6 +242,7 @@ class TestApplicationSeeder extends Seeder
             'first_name' => "Safety",
             'middle_name' => 'Instructor',
             'last_name' => 'John',
+            'ins_sex' => 'Male',
             'service_agreement_path' => "dummy_files/service_agreement_acc.pdf",
             'status' => 'approved',
         ]);

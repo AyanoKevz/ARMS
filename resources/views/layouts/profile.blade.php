@@ -140,13 +140,21 @@
                                         <label class="form-label">Organization Email</label>
                                         <input type="email" class="form-control" name="email" value="{{ old('email', $profile->email ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label">Head of Organization</label>
                                         <input type="text" class="form-control" name="head_name" value="{{ old('head_name', $profile->head_name ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Designation</label>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Designation / Position</label>
                                         <input type="text" class="form-control" name="designation" value="{{ old('designation', $profile->designation ?? '') }}" {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Sex</label>
+                                        <select class="form-select" name="head_sex" required {{ $readOnly ? 'disabled' : '' }}>
+                                            <option value="" disabled {{ old('head_sex', $profile->head_sex ?? '') ? '' : 'selected' }}>Select Sex</option>
+                                            <option value="Male" {{ old('head_sex', $profile->head_sex ?? '') === 'Male' ? 'selected' : '' }}>Male</option>
+                                            <option value="Female" {{ old('head_sex', $profile->head_sex ?? '') === 'Female' ? 'selected' : '' }}>Female</option>
+                                        </select>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Telephone Number</label>
@@ -170,13 +178,21 @@
                                 
                                 <h5 class="mb-3 border-bottom pb-2 mt-4" style="color: #2A3F54; font-weight: 700;">Authorized Representative</h5>
                                 <div class="row g-3">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <label class="form-label">Full Name</label>
                                         <input type="text" class="form-control" name="rep_full_name" value="{{ old('rep_full_name', $rep->full_name ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Position</label>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Designation / Position</label>
                                         <input type="text" class="form-control" name="rep_position" value="{{ old('rep_position', $rep->position ?? '') }}" required {{ $readOnly ? 'disabled' : '' }}>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Sex</label>
+                                        <select class="form-select" name="rep_sex" required {{ $readOnly ? 'disabled' : '' }}>
+                                            <option value="" disabled {{ old('rep_sex', $rep->sex ?? '') ? '' : 'selected' }}>Select Sex</option>
+                                            <option value="Male" {{ old('rep_sex', $rep->sex ?? '') === 'Male' ? 'selected' : '' }}>Male</option>
+                                            <option value="Female" {{ old('rep_sex', $rep->sex ?? '') === 'Female' ? 'selected' : '' }}>Female</option>
+                                        </select>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Contact Number</label>

@@ -17,11 +17,49 @@
     let activeSavesCount = 0;
 
     /* ─── Helpers ─────────────────────────────────────────── */
+    let savingToastEl = null;
+
     function toggleEvalLoadingIndicators(show) {
+        // Hide any inline indicators if present
         const indicators = document.querySelectorAll('.eval-saving-indicator, .ntc-eval-saving-indicator');
         indicators.forEach(el => {
-            el.style.display = show ? 'block' : 'none';
+            el.style.display = 'none';
         });
+
+        if (show) {
+            if (!savingToastEl) {
+                savingToastEl = document.createElement('div');
+                savingToastEl.id = 'eval-saving-floating-toast';
+                savingToastEl.style.cssText = `
+                    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+                    background: #0d6efd; color: #fff;
+                    padding: 12px 22px; border-radius: 8px;
+                    font-size: .9rem; font-weight: 600;
+                    box-shadow: 0 4px 14px rgba(0,0,0,.2);
+                    display: flex; align-items: center; gap: 10px;
+                    transition: opacity .3s ease;
+                    pointer-events: none;
+                `;
+                savingToastEl.innerHTML = `
+                    <span class="spinner-border spinner-border-sm text-light" role="status" aria-hidden="true"></span>
+                    <span>Saving evaluation changes...</span>
+                `;
+                document.body.appendChild(savingToastEl);
+            }
+            savingToastEl.style.display = 'flex';
+            requestAnimationFrame(() => {
+                savingToastEl.style.opacity = '1';
+            });
+        } else {
+            if (savingToastEl) {
+                savingToastEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (activeSavesCount <= 0 && savingToastEl) {
+                        savingToastEl.style.display = 'none';
+                    }
+                }, 300);
+            }
+        }
     }
 
     function getStatusInputs() {

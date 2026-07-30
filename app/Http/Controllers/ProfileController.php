@@ -93,12 +93,14 @@ class ProfileController extends Controller
         } elseif ($user->profile_type === 'Organization') {
             $rules['name']        = 'required|string|max:255';
             $rules['head_name']   = 'required|string|max:255';
+            $rules['head_sex']    = 'required|in:Male,Female';
             $rules['address']     = 'required|string|max:500';
             $rules['telephone']   = ['required', 'regex:/^\d{10}$/'];
             $rules['designation'] = 'nullable|string|max:100';
             $rules['fax']         = ['nullable', 'regex:/^\d{10}$/'];
             $rules['email']       = 'required|email|max:255';
             $rules['rep_full_name'] = 'required|string|max:255';
+            $rules['rep_sex']       = 'required|in:Male,Female';
             $rules['rep_position']  = 'required|string|max:100';
             $rules['rep_contact_number'] = ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'];
             $rules['rep_email']     = 'required|email|max:255';
@@ -159,6 +161,7 @@ class ProfileController extends Controller
             $user->organizationProfile->update([
                 'name'        => $validated['name'],
                 'head_name'   => $validated['head_name'],
+                'head_sex'    => $validated['head_sex'],
                 'address'     => $validated['address'],
                 'telephone'   => $validated['telephone'],
                 'designation' => $validated['designation'] ?? $user->organizationProfile->designation,
@@ -170,6 +173,7 @@ class ProfileController extends Controller
             if ($rep) {
                 $rep->update([
                     'full_name' => $validated['rep_full_name'],
+                    'rep_sex'   => $validated['rep_sex'],
                     'position' => $validated['rep_position'],
                     'contact_number' => $validated['rep_contact_number'],
                     'email' => $validated['rep_email']
@@ -177,6 +181,7 @@ class ProfileController extends Controller
             } else {
                 $user->organizationProfile->authorizedRepresentatives()->create([
                     'full_name' => $validated['rep_full_name'],
+                    'rep_sex'   => $validated['rep_sex'],
                     'position' => $validated['rep_position'],
                     'contact_number' => $validated['rep_contact_number'],
                     'email' => $validated['rep_email']

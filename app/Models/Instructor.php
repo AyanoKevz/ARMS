@@ -15,6 +15,7 @@ class Instructor extends Model
         'first_name',
         'middle_name',
         'last_name',
+        'ins_sex',
         'service_agreement_path',
         'status',
         'remarks',

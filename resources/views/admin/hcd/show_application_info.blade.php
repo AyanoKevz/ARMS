@@ -491,7 +491,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
         <div class="col-md-3 col-6">
             <div class="info-pair">
                 <div class="lbl">Head of Organization</div>
-                <div class="val">{{ $org->head_name ?? '—' }}</div>
+                <div class="val">{{ $org->head_name ?? '—' }} @if(!empty($org->head_sex)) <span class="text-muted small">({{ $org->head_sex }})</span> @endif</div>
             </div>
         </div>
         <div class="col-md-3 col-6">
@@ -541,7 +541,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <div class="col-md-3 col-6">
                 <div class="info-pair">
                     <div class="lbl">Full Name</div>
-                    <div class="val">{{ $rep->full_name }}</div>
+                    <div class="val">{{ $rep->full_name }} @if(!empty($rep->rep_sex)) <span class="text-muted small">({{ $rep->rep_sex }})</span> @endif</div>
                 </div>
             </div>
             <div class="col-md-3 col-6">
@@ -845,7 +845,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                             <div class="doc-section-header d-flex justify-content-between align-items-center"
                                  style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#instructor-body-{{ $instructor->id }}"
                                  aria-expanded="true">
-                                <div><i class="bi bi-person-badge-fill me-1"></i> {{ trim($instructor->first_name . ' ' . $instructor->middle_name . ' ' . $instructor->last_name) }}</div>
+                                <div><i class="bi bi-person-badge-fill me-1"></i> {{ trim($instructor->first_name . ' ' . $instructor->middle_name . ' ' . $instructor->last_name) }} @if(!empty($instructor->ins_sex)) <span class="badge bg-light text-dark border ms-1" style="font-size:.72rem;">{{ $instructor->ins_sex }}</span> @endif</div>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-secondary me-2" id="instructor-progress-{{ $instructor->id }}" style="font-size:.72rem;">
                                         {{ $approvedInstItems }} / {{ $totalInstItems }} Accepted
@@ -1163,12 +1163,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     {{-- Card Footer — centered button --}}
     @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
     <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
-        <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
-            <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                <span>Saving evaluation changes...</span>
-            </div>
-        </div>
         <button type="button"
             id="btn-open-schedule"
             class="btn btn-outline-primary btn-sm fw-semibold px-4"
@@ -1250,12 +1244,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 {{-- Just the button if no schedule yet --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
-    <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
-        <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>Saving evaluation changes...</span>
-        </div>
-    </div>
     <button type="button"
         id="btn-open-schedule"
         class="btn btn-outline-primary btn-sm fw-semibold px-4"
@@ -1269,12 +1257,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 @endif
 @elseif($hasPendingUpdate)
 <div class="mt-4 mb-4 text-center">
-    <div class="eval-saving-indicator mb-2 text-center" style="display: none;">
-        <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>Saving evaluation changes...</span>
-        </div>
-    </div>
     <button type="button"
         id="btn-open-schedule"
         class="btn btn-outline-primary btn-sm fw-semibold px-4"

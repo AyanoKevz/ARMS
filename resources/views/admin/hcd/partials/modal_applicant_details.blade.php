@@ -41,7 +41,7 @@
     </div>
     <div class="row g-2" style="font-size:.83rem;">
         <div class="col-sm-6"><span class="text-muted">Name:</span> <span class="fw-semibold">{{ $org->name }}</span></div>
-        <div class="col-sm-6"><span class="text-muted">Head:</span> <span class="fw-semibold">{{ $org->head_name ?? '—' }}</span></div>
+        <div class="col-sm-6"><span class="text-muted">Head:</span> <span class="fw-semibold">{{ $org->head_name ?? '—' }} @if(!empty($org->head_sex)) ({{ $org->head_sex }}) @endif</span></div>
         <div class="col-sm-6"><span class="text-muted">Designation:</span> <span class="fw-semibold">{{ $org->designation ?? '—' }}</span></div>
         <div class="col-sm-6"><span class="text-muted">Email:</span> <span class="fw-semibold">{{ $org->email ?? '—' }}</span></div>
         <div class="col-sm-6"><span class="text-muted">Telephone:</span> <span class="fw-semibold">{{ $org->telephone ?? '—' }}</span></div>
@@ -60,7 +60,7 @@
     </div>
     @foreach($reps as $rep)
     <div class="row g-2 {{ !$loop->last ? 'mb-2 pb-2' : '' }}" style="font-size:.83rem;{{ !$loop->last ? 'border-bottom:1px dashed #e4eaf2;' : '' }}">
-        <div class="col-sm-6"><span class="text-muted">Name:</span> <span class="fw-semibold">{{ $rep->full_name }}</span></div>
+        <div class="col-sm-6"><span class="text-muted">Name:</span> <span class="fw-semibold">{{ $rep->full_name }} @if(!empty($rep->rep_sex)) ({{ $rep->rep_sex }}) @endif</span></div>
         <div class="col-sm-6"><span class="text-muted">Position:</span> <span class="fw-semibold">{{ $rep->position ?? '—' }}</span></div>
         <div class="col-sm-6"><span class="text-muted">Contact:</span> <span class="fw-semibold">{{ $rep->contact_number ?? '—' }}</span></div>
         <div class="col-sm-6"><span class="text-muted">Email:</span> <span class="fw-semibold">{{ $rep->email ?? '—' }}</span></div>
@@ -83,7 +83,7 @@
             {{-- Instructor name row --}}
             <div class="d-flex align-items-center gap-2 mb-1">
                 <i class="bi bi-mortarboard-fill text-muted"></i>
-                <span class="fw-semibold" style="font-size:.85rem;">{{ $mi->first_name }} {{ $mi->middle_name ? $mi->middle_name . ' ' : '' }}{{ $mi->last_name }}</span>
+                <span class="fw-semibold" style="font-size:.85rem;">{{ $mi->first_name }} {{ $mi->middle_name ? $mi->middle_name . ' ' : '' }}{{ $mi->last_name }} @if(!empty($mi->ins_sex)) ({{ $mi->ins_sex }}) @endif</span>
                 @if($mi->status === 'approved')
                     <span class="badge bg-success bg-opacity-10 text-success ms-1" style="font-size:.68rem;">Approved</span>
                 @elseif($mi->status === 'rejected')

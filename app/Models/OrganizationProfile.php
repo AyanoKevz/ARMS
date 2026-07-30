@@ -14,6 +14,7 @@ class OrganizationProfile extends Model
         'name',
         'address',
         'head_name',
+        'head_sex',
         'designation',
         'telephone',
         'fax',

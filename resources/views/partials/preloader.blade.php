@@ -145,14 +145,23 @@
 (function() {
     const preloader = document.getElementById('arms-page-preloader');
     
+    let preloaderTimeout = null;
+
     function showPreloader() {
         if (preloader) {
             preloader.style.display = 'flex';
             preloader.classList.remove('fade-out');
+            if (preloaderTimeout) clearTimeout(preloaderTimeout);
+            // Safety timeout: auto-hide preloader after 8s if navigation doesn't happen
+            preloaderTimeout = setTimeout(hidePreloader, 8000);
         }
     }
 
     function hidePreloader() {
+        if (preloaderTimeout) {
+            clearTimeout(preloaderTimeout);
+            preloaderTimeout = null;
+        }
         if (preloader && !preloader.classList.contains('fade-out')) {
             preloader.classList.add('fade-out');
             setTimeout(function() {
@@ -180,16 +189,33 @@
 
     // Show preloader when clicking internal navigation links
     document.addEventListener('click', function(e) {
+        if (e.defaultPrevented) return;
+
         const link = e.target.closest('a');
-        if (link && link.href && !link.target && !link.hasAttribute('download')) {
-            const url = new URL(link.href, window.location.href);
-            // Only trigger for same-domain page navigations
-            if (url.origin === window.location.origin && 
-                url.pathname !== window.location.pathname &&
-                !url.hash.startsWith('#') && 
-                !link.getAttribute('href').startsWith('#') &&
-                !link.getAttribute('href').startsWith('javascript:')) {
-                showPreloader();
+        if (!link) return;
+
+        // Skip if link has attributes for modals, tabs, toggles, download, or explicitly no preloader
+        if (link.hasAttribute('data-file-modal') || 
+            link.hasAttribute('data-bs-toggle') || 
+            link.hasAttribute('data-bs-target') || 
+            link.hasAttribute('data-no-preloader') || 
+            link.hasAttribute('download')) {
+            return;
+        }
+
+        if (link.href && (!link.target || link.target === '_self')) {
+            try {
+                const url = new URL(link.href, window.location.href);
+                // Only trigger for same-domain page navigations
+                if (url.origin === window.location.origin && 
+                    url.pathname !== window.location.pathname &&
+                    !url.hash.startsWith('#') && 
+                    !link.getAttribute('href').startsWith('#') &&
+                    !link.getAttribute('href').startsWith('javascript:')) {
+                    showPreloader();
+                }
+            } catch (err) {
+                // Ignore invalid URLs
             }
         }
     });
