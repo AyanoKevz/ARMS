@@ -567,7 +567,7 @@ class ApplicationController extends Controller
         // Hardened Backend Guardrail: Check if there are any rejected items already in the database
         $hasRejectionsInDb = $application->documents()->whereIn('status', ['rejected', 'returned'])->exists()
             || $application->instructors()->whereIn('status', ['rejected', 'returned'])->exists()
-            || \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
+            || \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))
                 ->whereIn('status', ['rejected', 'returned'])
                 ->exists();
 
@@ -612,7 +612,7 @@ class ApplicationController extends Controller
                 }
 
                 $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
-                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors->pluck('id'))
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors()->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
                 try {
@@ -644,7 +644,7 @@ class ApplicationController extends Controller
                 // Send Email
                 $rejectedDocs = $application->documents()->where('status', 'rejected')->get();
                 $rejectedInstructors = $application->instructors()->where('status', 'rejected')->get();
-                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))
                                         ->where('status', 'rejected')->get();
                                         
                 try {
@@ -728,7 +728,7 @@ class ApplicationController extends Controller
         });
         $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
         $allInstApproved = $application->instructors()->get()->every(fn($i) => $i->status === 'approved');
-        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
 
         if ($allApproved && $allInstApproved && $allCredApproved) {
             // Status: Scheduled for Interview (ID 4)

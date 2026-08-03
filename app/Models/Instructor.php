@@ -57,6 +57,10 @@ class Instructor extends Model
      */
     public function credential(string $type): ?InstructorCredential
     {
-        return $this->credentials->firstWhere('type', $type);
+        if ($this->relationLoaded('credentials')) {
+            return $this->credentials->firstWhere('type', $type);
+        }
+
+        return $this->credentials()->where('type', $type)->first();
     }
 }

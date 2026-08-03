@@ -40,10 +40,11 @@ class RegistrationController extends Controller
         // ── Guard: PHP silently drops files beyond max_file_uploads ──
         if (isset($_SERVER['CONTENT_TYPE']) && str_contains($_SERVER['CONTENT_TYPE'], 'multipart/form-data')) {
             $maxUploads = (int) ini_get('max_file_uploads');
-            if (count($_FILES) >= $maxUploads) {
+            $uploadedCount = $this->countUploadedFiles($_FILES);
+            if ($maxUploads > 0 && $uploadedCount >= $maxUploads) {
                 return response()->json([
                     'status'  => 'error',
-                    'message' => 'Too many file uploads. Please contact support or try reducing the number of files.',
+                    'message' => "Your registration contains {$uploadedCount} files, which reaches or exceeds your server's max_file_uploads limit ({$maxUploads}). Please increase max_file_uploads in your server's php.ini or .user.ini file.",
                 ], 422);
             }
         }
@@ -515,5 +516,24 @@ class RegistrationController extends Controller
                 'message' => 'Something went wrong while finalizing your registration. Please try again or contact support.',
             ]);
         }
+    }
+
+    /**
+     * Recursively count actual files present in $_FILES array.
+     */
+    private function countUploadedFiles(array $files): int
+    {
+        $count = 0;
+        foreach ($files as $fieldKey => $fileData) {
+            if (is_array($fileData) && isset($fileData['name'])) {
+                if (is_array($fileData['name'])) {
+                    $names = \Illuminate\Support\Arr::flatten($fileData['name']);
+                    $count += count(array_filter($names, fn($n) => !empty($n)));
+                } elseif (!empty($fileData['name'])) {
+                    $count++;
+                }
+            }
+        }
+        return $count;
     }
 }

@@ -165,6 +165,15 @@ class RenewalController extends Controller
                 ->with('error', 'You cannot submit a renewal application while you have a pending instructor update request.');
         }
 
+        // ── Guard: PHP silently drops files beyond max_file_uploads ──
+        if (isset($_SERVER['CONTENT_TYPE']) && str_contains($_SERVER['CONTENT_TYPE'], 'multipart/form-data')) {
+            $maxUploads = (int) ini_get('max_file_uploads');
+            $uploadedCount = $this->countUploadedFiles($_FILES);
+            if ($maxUploads > 0 && $uploadedCount >= $maxUploads) {
+                return back()->with('error', "Your submission contains {$uploadedCount} files, which reaches or exceeds your server's max_file_uploads limit ({$maxUploads}). Please increase max_file_uploads in your server's php.ini or .user.ini file.")->withInput();
+            }
+        }
+
         // ── Server-side guard: block invalid application type based on accreditation status ──
         $accreditation = $user->accreditations()->orderBy('created_at', 'desc')->first();
         if (!$accreditation) {
@@ -931,5 +940,24 @@ class RenewalController extends Controller
             'Pragma'              => 'no-cache',
             'Expires'             => '0',
         ]);
+    }
+
+    /**
+     * Recursively count actual files present in $_FILES array.
+     */
+    private function countUploadedFiles(array $files): int
+    {
+        $count = 0;
+        foreach ($files as $fieldKey => $fileData) {
+            if (is_array($fileData) && isset($fileData['name'])) {
+                if (is_array($fileData['name'])) {
+                    $names = \Illuminate\Support\Arr::flatten($fileData['name']);
+                    $count += count(array_filter($names, fn($n) => !empty($n)));
+                } elseif (!empty($fileData['name'])) {
+                    $count++;
+                }
+            }
+        }
+        return $count;
     }
 }

@@ -45,9 +45,17 @@ class AppServiceProvider extends ServiceProvider
         );
 
         // ── Eloquent Strictness ──────────────────────────────────────────────
-        // Prevent N+1 queries in development — forces eager loading everywhere.
-        // In production, lazy loading is allowed to avoid crashing live users.
-        Model::preventLazyLoading(! $this->app->isProduction());
+        // Prevent N+1 queries in development — log lazy loading violations instead of crashing with fatal 500 exceptions.
+        if (! $this->app->isProduction()) {
+            Model::preventLazyLoading();
+            Model::handleLazyLoadingViolationUsing(function ($model, $relation) {
+                logger()->warning(sprintf(
+                    'Lazy loading violation: Attempted to lazy load [%s] on model [%s].',
+                    $relation,
+                    get_class($model)
+                ));
+            });
+        }
 
         // Prevent silently discarding unfillable attributes
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
