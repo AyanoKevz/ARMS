@@ -348,10 +348,13 @@ class RegistrationController extends Controller
                     ]);
                 }
 
-                // 4. Generate tracking number
-                $year           = now()->format('Y');
-                $sequence       = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-                $trackingNumber = "ARMS{$year}-{$sequence}";
+                // 4. Generate tracking number (e.g. ARMS2026-AA0123)
+                $year = now()->format('Y');
+                do {
+                    $letters = Str::upper(Str::random(2));
+                    $digits = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+                    $trackingNumber = "ARMS{$year}-{$letters}{$digits}";
+                } while (Application::where('tracking_number', $trackingNumber)->exists());
 
                 $timestamp = time();
                 
@@ -473,35 +476,36 @@ class RegistrationController extends Controller
                 }
             });
 
-            // 10. Send confirmation email (non-fatal on failure)
-            try {
-                Mail::to($applicantEmail)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $applicantEmail));
-            } catch (\Exception $mailEx) {
-                Log::warning('Verification success email failed to send: ' . $mailEx->getMessage());
-            }
-
             // 11. Bust application listing caches so admin sees the new submission immediately
             CacheService::bustApplicationCaches();
 
-            // 12. Notify Admin Evaluators
-            try {
-                $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->where('name', 'Evaluator');
-                })->get();
-
-                if ($evaluators->isNotEmpty() && $application) {
-                    $application->load(['user', 'accreditationType']);
-                    
-                    // Send Email
-                    $evaluatorEmails = $evaluators->pluck('email');
-                    Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
-
-                    // Send database/in-app portal notifications
-                    \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+            // 10 & 12. Send confirmation email & notify admin evaluators after HTTP response (instant user feedback)
+            dispatch(function () use ($applicantEmail, $trackingNumber, $application) {
+                try {
+                    Mail::to($applicantEmail)->send(new ApplicationSubmittedEmail($trackingNumber, 'Submitted', $applicantEmail));
+                } catch (\Exception $mailEx) {
+                    Log::warning('Verification success email failed to send: ' . $mailEx->getMessage());
                 }
-            } catch (\Exception $mailEx) {
-                Log::warning('Admin application submission notification failed: ' . $mailEx->getMessage());
-            }
+
+                try {
+                    $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                        $q->where('name', 'Evaluator');
+                    })->get();
+
+                    if ($evaluators->isNotEmpty() && $application) {
+                        $application->load(['user', 'accreditationType']);
+                        
+                        // Send Email
+                        $evaluatorEmails = $evaluators->pluck('email');
+                        Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+
+                        // Send database/in-app portal notifications
+                        \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+                    }
+                } catch (\Exception $mailEx) {
+                    Log::warning('Admin application submission notification failed: ' . $mailEx->getMessage());
+                }
+            })->afterResponse();
 
             return view('landing.verify-result', [
                 'status'         => 'success',

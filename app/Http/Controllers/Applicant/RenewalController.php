@@ -357,10 +357,13 @@ class RenewalController extends Controller
                     }
                 }
 
-                // ── 2. Generate tracking number ───────────────────
-                $year     = now()->format('Y');
-                $sequence = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-                $trackingNumber = "ARMS{$year}-{$sequence}";
+                // ── 2. Generate tracking number (e.g. ARMS2026-AA0123) ────
+                $year = now()->format('Y');
+                do {
+                    $letters = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(2));
+                    $digits = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+                    $trackingNumber = "ARMS{$year}-{$letters}{$digits}";
+                } while (Application::where('tracking_number', $trackingNumber)->exists());
 
                 // ── 3. Create Application ─────────────────────────
                 $application = Application::create([
@@ -502,25 +505,27 @@ class RenewalController extends Controller
                 }
             });
 
-            // Notify Admin Evaluators
-            try {
-                $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->where('name', 'Evaluator');
-                })->get();
+            // Notify Admin Evaluators after HTTP response (instant user feedback)
+            dispatch(function () use ($application) {
+                try {
+                    $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                        $q->where('name', 'Evaluator');
+                    })->get();
 
-                if ($evaluators->isNotEmpty() && $application) {
-                    $application->load(['user', 'accreditationType']);
-                    
-                    // Send Email
-                    $evaluatorEmails = $evaluators->pluck('email');
-                    Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                    if ($evaluators->isNotEmpty() && $application) {
+                        $application->load(['user', 'accreditationType']);
+                        
+                        // Send Email
+                        $evaluatorEmails = $evaluators->pluck('email');
+                        Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
 
-                    // Send database/in-app portal notifications
-                    \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+                        // Send database/in-app portal notifications
+                        \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+                    }
+                } catch (\Exception $mailEx) {
+                    Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());
                 }
-            } catch (\Exception $mailEx) {
-                Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());
-            }
+            })->afterResponse();
 
             // Bust listing caches — new application submitted
             CacheService::bustApplicationCaches();

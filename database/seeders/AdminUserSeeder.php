@@ -57,7 +57,7 @@ class AdminUserSeeder extends Seeder
 
         // Create Admin 2: Verifier
         $verifier = User::updateOrCreate(
-            ['email' => 'verifier@oshc.com'],
+            ['email' => 'oshc1987accreditation@gmail.com'],
             [
                 'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,

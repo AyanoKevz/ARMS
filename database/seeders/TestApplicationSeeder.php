@@ -71,12 +71,13 @@ class TestApplicationSeeder extends Seeder
 
             // 3. Create Application (FATPro - New Registration Only)
             $year = date('Y');
-            $sequence = str_pad(mt_rand(1, 9999), 6, '0', STR_PAD_LEFT);
+            $letters = Str::upper(Str::random(2));
+            $digits = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
             $application = Application::create([
                 'user_id' => $user->id,
                 'accreditation_type_id' => $fatproTypeId, // FATPro
                 'application_type' => 'new', // New Registration
-                'tracking_number' => "ARMS{$year}-{$sequence}",
+                'tracking_number' => "ARMS{$year}-{$letters}{$digits}",
                 'submitted_at' => Carbon::now(),
             ]);
 

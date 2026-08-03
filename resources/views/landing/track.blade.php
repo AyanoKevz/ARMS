@@ -42,7 +42,7 @@
                         <form id="trackSearchForm" action="{{ route('track') }}" method="GET" novalidate>
                             <div class="input-group input-group-lg mb-3">
                                 <span class="input-group-text bg-white"><i class="bi bi-hash fw-bold" style="color: #0b3d91;"></i></span>
-                                <input type="text" class="form-control" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS-2026-000001)" value="{{ request('tracking_number') }}" required>
+                                <input type="text" class="form-control" name="tracking_number" placeholder="Enter Tracking Number (e.g. ARMS2026-AA0123)" value="{{ request('tracking_number') }}" required>
                                 <button class="btn btn-primary px-4 fw-semibold" type="submit" id="trackSearchBtn" style="background-color: #0b3d91; border-color: #0b3d91;">
                                     <span id="trackSearchText">Track Status</span>
                                     <span id="trackSearchSpinner" class="d-none">
