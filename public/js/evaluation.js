@@ -48,7 +48,7 @@
                 `;
                 savingToastEl.innerHTML = `
                     <span class="spinner-border spinner-border-sm text-light" role="status" aria-hidden="true"></span>
-                    <span>Saving evaluation changes...</span>
+                    <span>Saving...</span>
                 `;
                 document.body.appendChild(savingToastEl);
             }
@@ -110,8 +110,8 @@
         }
     }
 
-    /* ─── setDocStatus ────────────────────────────────────── */
-    window.setDocStatus = function (docId, status) {
+    /* ─── evaluateItem ────────────────────────────────────── */
+    window.evaluateItem = function (docId, status, clickedBtn) {
         if (activeSavesCount > 0) return;
 
         const statusInput = document.getElementById(`status-input-${docId}`);
@@ -120,6 +120,29 @@
         const oldStatus = statusInput.value;
         if (oldStatus === status) return;
 
+        // Find approve & reject action buttons for this item
+        const approveBtn = document.querySelector(`.btn-approve[data-doc-id="${docId}"]`);
+        const rejectBtn  = document.querySelector(`.btn-reject[data-doc-id="${docId}"]`);
+        
+        // Disable and grey out action buttons while saving
+        const setSavingState = (isSaving) => {
+            [approveBtn, rejectBtn].forEach(b => {
+                if (b) {
+                    b.disabled = isSaving;
+                    if (isSaving) {
+                        b.style.opacity = '0.5';
+                        b.style.cursor = 'not-allowed';
+                        b.style.filter = 'grayscale(1)';
+                    } else {
+                        b.style.opacity = '';
+                        b.style.cursor = '';
+                        b.style.filter = '';
+                    }
+                }
+            });
+        };
+
+        setSavingState(true);
         updateDocStatusUI(docId, status);
         if (status === 'rejected') {
             const ta = document.getElementById(`remarks-${docId}`);
@@ -165,26 +188,28 @@
             }).then(async (res) => {
                 const data = await res.json();
                 if (data.success) {
-                    showToast(data.message || 'Evaluation auto-saved.', 'success');
+                    showToast(data.message || 'Saved', 'success');
                     if (data.instructor_completed) {
                         setTimeout(() => window.location.reload(), 1200);
                     }
                 } else {
                     console.error('Auto-save failed:', data.message);
-                    showToast('Failed to auto-save evaluation. Reverting...', 'danger');
+                    showToast('Failed to save evaluation. Reverting...', 'danger');
                     updateDocStatusUI(docId, oldStatus);
                     refreshState();
                 }
             }).catch(err => {
                 console.error('Auto-save network error:', err);
-                showToast('Network error during auto-save. Reverting...', 'danger');
+                showToast('Network error during save. Reverting...', 'danger');
                 updateDocStatusUI(docId, oldStatus);
                 refreshState();
             }).finally(() => {
+                setSavingState(false);
                 activeSavesCount--;
                 updateActiveSavesIndicator();
             });
         } else {
+            setSavingState(false);
             activeSavesCount--;
             updateActiveSavesIndicator();
         }

@@ -144,7 +144,6 @@
 <script>
 (function() {
     const preloader = document.getElementById('arms-page-preloader');
-    
     let preloaderTimeout = null;
 
     function showPreloader() {
@@ -152,8 +151,8 @@
             preloader.style.display = 'flex';
             preloader.classList.remove('fade-out');
             if (preloaderTimeout) clearTimeout(preloaderTimeout);
-            // Safety timeout: auto-hide preloader after 8s if navigation doesn't happen
-            preloaderTimeout = setTimeout(hidePreloader, 8000);
+            // Safety timeout: auto-hide preloader after 10s if navigation hangs
+            preloaderTimeout = setTimeout(hidePreloader, 10000);
         }
     }
 
@@ -172,46 +171,48 @@
         }
     }
 
-    // Initial page load completion
+    // Synchronized page load completion
     if (document.readyState === 'complete') {
         hidePreloader();
     } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(hidePreloader, 50);
+        });
         window.addEventListener('load', hidePreloader);
-        setTimeout(hidePreloader, 2000);
     }
 
-    // Handle browser back/forward buttons
+    // Handle browser back/forward history cache
     window.addEventListener('pageshow', function(event) {
         if (event.persisted) {
             hidePreloader();
         }
     });
 
-    // Show preloader when clicking internal navigation links
+    // Show preloader ONLY when clicking internal same-domain page navigation links
     document.addEventListener('click', function(e) {
         if (e.defaultPrevented) return;
 
         const link = e.target.closest('a');
         if (!link) return;
 
-        // Skip if link has attributes for modals, tabs, toggles, download, or explicitly no preloader
+        // Skip if link has attributes for modals, tabs, toggles, download, or explicit bypass
         if (link.hasAttribute('data-file-modal') || 
             link.hasAttribute('data-bs-toggle') || 
             link.hasAttribute('data-bs-target') || 
             link.hasAttribute('data-no-preloader') || 
-            link.hasAttribute('download')) {
+            link.hasAttribute('download') ||
+            link.getAttribute('href') === '#' ||
+            (link.getAttribute('href') && link.getAttribute('href').startsWith('#')) ||
+            (link.getAttribute('href') && link.getAttribute('href').startsWith('javascript:'))) {
             return;
         }
 
         if (link.href && (!link.target || link.target === '_self')) {
             try {
                 const url = new URL(link.href, window.location.href);
-                // Only trigger for same-domain page navigations
+                // Only trigger for new page navigations
                 if (url.origin === window.location.origin && 
-                    url.pathname !== window.location.pathname &&
-                    !url.hash.startsWith('#') && 
-                    !link.getAttribute('href').startsWith('#') &&
-                    !link.getAttribute('href').startsWith('javascript:')) {
+                    (url.pathname !== window.location.pathname || url.search !== window.location.search)) {
                     showPreloader();
                 }
             } catch (err) {
@@ -220,7 +221,7 @@
         }
     });
 
-    // Global references for AJAX handlers
+    // Global references for JS calls
     window.showPreloader = showPreloader;
     window.hidePreloader = hidePreloader;
 

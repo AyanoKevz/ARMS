@@ -473,8 +473,8 @@ class ApplicationController extends Controller
         return response()->json([
             'success' => true,
             'message' => $instructorCompleted 
-                ? 'Evaluation saved. All instructor credentials accepted and applicant notified via email!' 
-                : 'Evaluation saved immediately.',
+                ? 'Saved. All instructor credentials accepted and applicant notified via email!' 
+                : 'Saved',
             'instructor_completed' => $instructorCompleted,
         ]);
     }
