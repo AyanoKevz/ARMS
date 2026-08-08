@@ -100,8 +100,80 @@
 
                                 </div>
 
-                                {{-- Remaining steps (revealed on type selection) --}}
+                                 {{-- Remaining steps (revealed on type selection) --}}
                                 <div id="formSections" class="d-none">
+
+                                    {{-- FATPRO Document Requirements & Reminder Box --}}
+                                    <div id="fatproRequirementsNotice" class="alert alert-info border-0 shadow-sm mb-4 p-3" style="background: linear-gradient(135deg, #f0f4ff, #e0e7ff); border-left: 5px solid #0b3d91 !important; border-radius: 10px;">
+                                        <div class="d-flex align-items-start gap-3">
+                                            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center bg-white shadow-sm text-primary" style="width: 42px; height: 42px; flex-shrink: 0;">
+                                                <i class="bi bi-file-earmark-check-fill fs-4" style="color: #0b3d91;"></i>
+                                            </div>
+                                            <div class="w-100">
+                                                <h6 class="fw-bold mb-1" style="color: #0b3d91; font-size: 0.96rem;">
+                                                    <i class="bi bi-bell-fill text-warning me-1"></i> FATPro Accreditation &mdash; Required Documents &amp; Checklist Reminder
+                                                </h6>
+                                                <p class="mb-2 text-dark" style="font-size: 0.84rem; line-height: 1.45;">
+                                                    Before proceeding, please prepare and ensure you have all required documents in <strong>PDF format (max 10MB per file)</strong> ready for upload:
+                                                </p>
+                                                <div class="row g-2 text-dark mt-1" style="font-size: 0.81rem; line-height: 1.5;">
+                                                    <div class="col-md-6">
+                                                        <div class="p-2.5 bg-white rounded border shadow-sm h-100 p-2">
+                                                            <div class="fw-bold text-primary mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>1. Legal Requirements to Operate Business</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>DOLE Registration</li>
+                                                                <li>Business Registration &amp; Mayor's Permit</li>
+                                                                <li>Articles of Incorporation &amp; BIR TIN / Receipt</li>
+                                                                <li>DOLE Clearance &amp; Lease/Ownership Agreement</li>
+                                                            </ul>
+                                                            <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>2. Training Management and Staff</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Organizational Chart</li>
+                                                                <li>TESDA Certificate (if applicable)</li>
+                                                                <li>Training Monitoring</li>
+                                                                <li>Training Management Plan</li>
+                                                            </ul>
+                                                            <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>3. Premises &amp; Occupational Safety</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Location Map &amp; Site Floor Plan</li>
+                                                                <li>OSH Policy &amp; Decontamination Procedures</li>
+                                                                <li>Safety Officers &amp; First-Aiders List &amp; Cert.</li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="p-2.5 bg-white rounded border shadow-sm h-100 p-2">
+                                                            <div class="fw-bold text-primary mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>4. Intellectual Property &amp; Data Protection</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Data Protection Officer (DPO) Full Name</li>
+                                                                <li>Data Privacy Policy &amp; IP Policy</li>
+                                                            </ul>
+                                                            <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>5. Quality Assurance and Enhancement</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Course Review Procedures &amp; Assessment Tools</li>
+                                                                <li>Test Results &amp; Trainer Evaluation Summary</li>
+                                                                <li>Participant Directory &amp; Attendance Templates</li>
+                                                                <li>Emergency, Occupational &amp; Standard Manuals</li>
+                                                            </ul>
+                                                            <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>6. Equipment &amp; Materials</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Equipment &amp; Materials Unified Document</li>
+                                                            </ul>
+                                                            <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-person-badge-fill me-1"></i>7. FATPro Instructors &amp; Credentials</div>
+                                                            <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
+                                                                <li>Instructor Personal Info &amp; Service Agreement PDF</li>
+                                                                <li>Instructor Credentials (EMS, TM1, NTTC, BOSH)</li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2 pt-2 border-top d-flex align-items-center gap-2" style="font-size: 0.8rem; color: #0b3d91;">
+                                                    <i class="bi bi-info-circle-fill text-primary"></i>
+                                                    <span><strong>Note:</strong> Please upload clear, readable PDF files for each required document in the sections below.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     {{-- STEP 2  &mdash;  Account Credentials --}}
                                     <p class="form-section-title">Step 2 &mdash; Account Credentials</p>
@@ -603,6 +675,7 @@
                                                     ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
                                                     ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
                                                     ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
+                                                    ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Comprehensive plan for managing training programs and operations','required'=>true],
                                                     ] as $f)
                                                     <div class="col-12 mb-2">
                                                         <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>

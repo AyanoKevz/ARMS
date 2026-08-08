@@ -28,6 +28,7 @@ class DocumentFieldSeeder extends Seeder
                 ['name' => 'Organizational Chart',        'code' => 'TRAIN_01', 'input_type' => 'file'],
                 ['name' => 'TESDA Certificate',           'code' => 'TRAIN_02', 'input_type' => 'file'],
                 ['name' => 'Training Monitoring',         'code' => 'TRAIN_03', 'input_type' => 'file'],
+                ['name' => 'Training Management Plan',    'code' => 'TRAIN_04', 'input_type' => 'file'],
             ],
 
             // ── Type 3: Premises Including Occupational Safety

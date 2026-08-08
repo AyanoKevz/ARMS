@@ -68,6 +68,12 @@ class InstallCertificateFonts extends Command
         foreach ($this->fonts as $font) {
             $ttf = $font['ttf_path'];
 
+            // Check if font already exists in storage/fonts directory first
+            $storageFonts = glob($fontDir . '/' . strtolower(str_replace(' ', '_', $font['css_name'])) . '*.' . 'ttf');
+            if (!empty($storageFonts)) {
+                $ttf = $storageFonts[0];
+            }
+
             if (! file_exists($ttf)) {
                 $this->warn("  ⚠  TTF not found, skipping: {$ttf}");
                 continue;
@@ -90,6 +96,22 @@ class InstallCertificateFonts extends Command
         }
 
         $fontMetrics->saveFontFamilies();
+
+        // Normalize installed-fonts.json to relative paths so it works seamlessly across OS/environments
+        $installedFontsFile = $fontDir . '/installed-fonts.json';
+        if (file_exists($installedFontsFile)) {
+            $json = json_decode(file_get_contents($installedFontsFile), true);
+            if (is_array($json)) {
+                $cleanJson = [];
+                foreach ($json as $family => $variants) {
+                    $cleanJson[$family] = [];
+                    foreach ($variants as $style => $path) {
+                        $cleanJson[$family][$style] = basename($path);
+                    }
+                }
+                file_put_contents($installedFontsFile, json_encode($cleanJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            }
+        }
 
         $this->info('✔ All certificate fonts registered in ' . $fontDir);
         $this->info('  Clear any cached views: php artisan view:clear');

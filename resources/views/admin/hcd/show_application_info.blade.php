@@ -4,6 +4,10 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/show-application.css') }}?v={{ filemtime(public_path('css/show-application.css')) }}">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<link rel="stylesheet" href="{{ asset('css/table-component.css') }}">
 @endpush
 
 @section('content')
@@ -21,6 +25,9 @@ $pctWorkStart = $pctNow->copy()->setTime(8, 0, 0);
 $pctWorkEnd   = $pctNow->copy()->setTime(17, 0, 0);
 
 $isWorkingHours = true;
+// TESTING OVERRIDE: PCT working hours restriction commented out for testing.
+// To re-enable PCT button hiding outside working hours, uncomment the block below:
+/*
 if ($pctNow->isWeekend()) {
     $isWorkingHours = false;
 } elseif ($pctIsTodayHoliday) {
@@ -28,6 +35,7 @@ if ($pctNow->isWeekend()) {
 } elseif ($pctNow->lessThan($pctWorkStart) || $pctNow->greaterThanOrEqualTo($pctWorkEnd)) {
     $isWorkingHours = false;
 }
+*/
 
 // Check if this is an approved/active application and if there is a pending renewal/reinstatement application
 $pendingRenewalOrReinstatement = null;
@@ -150,23 +158,14 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
                 <i class="bi bi-file-earmark-arrow-down me-1"></i> View Certificate PDF
             </button>
             @endif
-            <div class="dropdown">
-                <button class="btn btn-light btn-sm m-0 px-2" type="button" data-bs-toggle="dropdown" style="border-radius:8px; border: 1px solid #bbf7d0; color: #166534;">
-                    <i class="bi bi-three-dots-vertical"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="border-radius:8px; font-size:.85rem;">
-                    <li>
-                        <a class="dropdown-item text-danger fw-semibold" href="#" data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
-                            <i class="bi bi-shield-x me-2"></i> Revoke Accreditation
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item text-warning text-dark fw-semibold" href="#" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
-                            <i class="bi bi-archive me-2"></i> Move to Archived
-                        </a>
-                    </li>
-                </ul>
-            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-danger btn-sm m-0 fw-bold" style="border-radius:8px;font-size:.78rem;" data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
+                <i class="bi bi-shield-x me-1"></i> Revoke Accreditation
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm m-0 fw-bold" style="border-radius:8px;font-size:.78rem;" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
+                <i class="bi bi-archive me-1"></i> Move to Archived
+            </button>
         </div>
         <small style="color:#166534;">
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -273,6 +272,10 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveApplicationModal">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Application
             </button>
+            @elseif(!$isAccredited && !$isRejected)
+            <button type="button" class="btn btn-danger btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
+                <i class="bi bi-archive me-1"></i> Archive Application
+            </button>
             @endif
         </div>
         <small class="text-muted">
@@ -351,6 +354,8 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 $stepStatus = $step['status'];
                 $now = $pctNow;
                 $isWorkingHours = true;
+                // TESTING OVERRIDE: PCT working hours restriction commented out for testing.
+                /*
                 if ($now->isWeekend()) {
                     $isWorkingHours = false;
                 } elseif ($pctIsTodayHoliday) {
@@ -358,6 +363,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
                     $isWorkingHours = false;
                 }
+                */
                 
                 $displayStatus = $stepStatus;
                 if ($stepStatus === 'active' && !$isWorkingHours) {
@@ -888,10 +894,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 <div class="m-3 mb-0 p-3 rounded" style="background-color: #fff8e1; color: #f57f17; border: 1px solid #ffecb3;">
                                     <i class="bi bi-upload me-1"></i>
                                     <strong>Applicant Uploaded — Pending Re-evaluation</strong><br>
-                                    <span style="font-size:0.85rem;">Review the updated credentials below and approve or reject them.</span>
+                                    <span style="font-size:0.85rem;">Review the updated credentials below and approve or reject them. Use the action button at the bottom of this section to complete or send a revision request.</span>
                                 </div>
-                                @elseif($instructor->update_request_status === 'completed')
-                                <div class="m-3 mb-0 p-3 rounded" style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">
+                                @elseif($instructor->update_request_status === 'completed' && session('instructor_update_completed_id') == $instructor->id)
+                                <div class="m-3 mb-0 p-3 rounded auto-dismiss-5s" style="background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; transition: opacity 0.6s ease-out, max-height 0.6s ease-out;">
                                     <i class="bi bi-check-circle-fill me-1"></i>
                                     <strong>Update Completed</strong><br>
                                     <span style="font-size:0.85rem;">All updated credentials have been approved and the applicant was notified.</span>
@@ -899,6 +905,53 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 @endif
 
 
+                                @if($isAccredited && $instructor->update_request_status !== 'pending_review')
+                                {{-- Instructor Credentials Summary Table (Active FATPro Table Design) --}}
+                                <div class="mt-3 mb-3 px-3">
+                                    <div class="table-responsive">
+                                        <table id="instructor-credentials-table-{{ $instructor->id }}" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
+                                            <thead>
+                                                <tr class="headings">
+                                                    <th class="column-title">Credential / Certificate Type</th>
+                                                    <th class="column-title">Certificate Number</th>
+                                                    <th class="column-title text-center">Issued On</th>
+                                                    <th class="column-title text-center">Valid Until</th>
+                                                    <th class="column-title">Training Date(s)</th>
+                                                    <th class="column-title no-link last text-center no-sort"><span class="nobr">File View</span></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($instructor->credentials as $credItem)
+                                                <tr class="even pointer">
+                                                    <td><strong>
+                                                        @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
+                                                        @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
+                                                        @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
+                                                        @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
+                                                        @else {{ $credItem->type }} Credential
+                                                        @endif
+                                                    </strong></td>
+                                                    <td>{{ $credItem->number ?? '—' }}</td>
+                                                    <td class="text-center">{{ $credItem->issued_date ? \Carbon\Carbon::parse($credItem->issued_date)->format('M d, Y') : '—' }}</td>
+                                                    <td class="text-center">{{ $credItem->validity_date ? \Carbon\Carbon::parse($credItem->validity_date)->format('M d, Y') : '—' }}</td>
+                                                    <td>{{ $credItem->training_dates ?? '—' }}</td>
+                                                    <td class="last text-center" style="white-space:nowrap;">
+                                                        @if($credItem->pdf_path)
+                                                        <a href="{{ route('admin.hcd.instructors.credentials.view', $credItem->id) }}?v={{ $credItem->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="{{ $credItem->type }} Credential" class="btn btn-info btn-xs m-0">
+                                                            <i class="fas fa-eye me-1"></i> View
+                                                        </a>
+                                                        @else
+                                                        <span class="text-muted small">No file</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                @else
+                                {{-- Non-active / Under Evaluation: Original evaluation cards with text details and evaluation buttons --}}
                                 @foreach($instructor->credentials as $credential)
                                 @php
                                 $evalStatusCred = in_array($credential->status, ['approved','rejected','returned']) ? $credential->status : 'pending';
@@ -978,8 +1031,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     @php
                                     $isRequested = $instructor->update_request_status === 'pending_review' &&
-                                    is_array($instructor->update_request_fields) &&
-                                    in_array($credential->type, $instructor->update_request_fields);
+                                    (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields)) || $credential->status === 'pending');
                                     $showEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested;
                                     @endphp
 
@@ -1007,6 +1059,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @endif
                                 </div>
                                 @endforeach
+                                @endif
 
                                 {{-- Service Agreement --}}
                                 @php
@@ -1059,14 +1112,13 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     @php
                                     $isSaRequested = $instructor->update_request_status === 'pending_review' &&
-                                    is_array($instructor->update_request_fields) &&
-                                    in_array('service_agreement', $instructor->update_request_fields);
+                                    (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields)) || $instructor->status === 'pending');
                                     $showSaEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested;
                                     @endphp
 
                                     @if($showSaEvalButtons)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions">
+                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
@@ -1087,6 +1139,29 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                         </div>
                                     @endif
                                 </div>
+
+                                {{-- Instructor Evaluation Dynamic Action Bar --}}
+                                @if($instructor->update_request_status === 'pending_review' || ($isAccredited && $hasPendingUpdate))
+                                <div class="m-3 mt-3 p-3 rounded d-flex align-items-center justify-content-between flex-wrap gap-2"
+                                     id="instructor-action-panel-{{ $instructor->id }}"
+                                     style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                                    <div>
+                                        <strong id="instructor-action-title-{{ $instructor->id }}" style="color: #2A3F54;">Instructor Evaluation Action</strong><br>
+                                        <span id="instructor-action-desc-{{ $instructor->id }}" style="font-size:0.85rem;" class="text-muted">
+                                            Approve or reject all requested credentials above to complete this review.
+                                        </span>
+                                    </div>
+                                    <div id="instructor-action-btn-container-{{ $instructor->id }}">
+                                        <button type="button"
+                                                id="btn-instructor-action-{{ $instructor->id }}"
+                                                class="btn btn-outline-secondary btn-sm fw-semibold px-4"
+                                                style="border-radius:6px;"
+                                                disabled>
+                                            <i class="bi bi-clock-history me-1"></i> Pending Credentials
+                                        </button>
+                                    </div>
+                                </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1149,7 +1224,13 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                     <div style="font-size:.7rem;color:#6b7c9e;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">{{ $interview->mode === 'online' ? 'Meeting Link' : 'Venue' }}</div>
                     <div class="fw-semibold" style="font-size:.88rem;color:#1A3A6A;">
                         @if($interview->mode === 'online')
-                        <a href="{{ $interview->venue }}" target="_blank" style="text-decoration:underline;">Open Link</a>
+                        @php
+                            $chipLink = $interview->venue;
+                            if ($chipLink && !preg_match('/^https?:\/\//i', $chipLink)) {
+                                $chipLink = 'https://' . $chipLink;
+                            }
+                        @endphp
+                        <a href="{{ $chipLink }}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">Open Link <i class="bi bi-box-arrow-up-right ms-1" style="font-size:0.75rem;"></i></a>
                         @else
                         {{ $interview->venue }}
                         @endif
@@ -1192,7 +1273,18 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <i class="bi bi-play-circle-fill me-1 text-primary"></i>
             The interview is scheduled. Click below when it actually begins:
         </p>
-        <form id="start-interview-form" action="{{ route('admin.hcd.applications.start_interview', $application->id) }}" method="POST">
+        @php
+            $interviewLink = '';
+            if ($interview && $interview->mode === 'online' && !empty($interview->venue)) {
+                $interviewLink = $interview->venue;
+                if (!preg_match('/^https?:\/\//i', $interviewLink)) {
+                    $interviewLink = 'https://' . $interviewLink;
+                }
+            }
+        @endphp
+        <form id="start-interview-form" action="{{ route('admin.hcd.applications.start_interview', $application->id) }}" method="POST"
+              data-interview-mode="{{ $interview?->mode ?? '' }}"
+              data-interview-link="{{ $interviewLink }}">
             @csrf
             <button type="submit" class="btn btn-primary btn-sm fw-bold px-4" style="border-radius:8px;">
                 <span class="btn-text"><i class="bi bi-play-fill me-1"></i> Start Interview</span>
@@ -1768,6 +1860,92 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     </div>
 </div>
 
+{{-- ══ Instructor Rejection Confirmation Modal ══ --}}
+<div class="modal fade" id="instRejectionModal" tabindex="-1" aria-labelledby="instRejectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px; overflow:hidden; border:none; box-shadow:0 20px 60px rgba(0,0,0,.2); font-family:'Inter',sans-serif;">
+            <div class="modal-header border-0 pb-2" style="background:linear-gradient(135deg,#c0392b,#922b21); padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-envelope-exclamation-fill text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="instRejectionModalLabel">
+                            Send Instructor Revision Notice
+                        </h5>
+                        <small class="text-white-50" id="instRejectionModalSub">Tracking #{{ $application->tracking_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3" style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-badge-fill fs-2 text-danger"></i>
+                    <div>
+                        <div class="fw-bold" id="instRejectionModalInstName" style="color:#2A3F54;font-size:.95rem;">Instructor Name</div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 mb-3 p-3" style="background:#fff3cd;border-radius:8px;border-left:4px solid #ffc107;">
+                    <i class="bi bi-exclamation-triangle-fill text-warning mt-1"></i>
+                    <small class="text-dark">
+                        An email notification will be sent to the applicant specifying which instructor credential(s) require revision along with your remarks.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger fw-bold text-white px-4" id="btn-confirm-inst-rejection" style="border-radius:8px;">
+                    <i class="bi bi-send me-1"></i> Confirm &amp; Send Rejection Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ══ Instructor Approval Finalize Confirmation Modal ══ --}}
+<div class="modal fade" id="instApprovalModal" tabindex="-1" aria-labelledby="instApprovalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content" style="border-radius:16px; overflow:hidden; border:none; box-shadow:0 20px 60px rgba(0,0,0,.2); font-family:'Inter',sans-serif;">
+            <div class="modal-header border-0 pb-2" style="background:linear-gradient(135deg,#15803d,#166534); padding:22px 28px;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:44px;height:44px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-check-circle-fill text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0 fw-bold" id="instApprovalModalLabel">
+                            Finalize &amp; Approve Credentials
+                        </h5>
+                        <small class="text-white-50" id="instApprovalModalSub">Tracking #{{ $application->tracking_number }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" style="background:#fafafa;">
+                <div class="d-flex align-items-center gap-3 mb-3 p-3" style="background:#fff;border-radius:10px;border:1px solid #e4eaf2;">
+                    <i class="bi bi-person-badge-fill fs-2 text-success"></i>
+                    <div>
+                        <div class="fw-bold" id="instApprovalModalInstName" style="color:#2A3F54;font-size:.95rem;">Instructor Name</div>
+                        <small class="text-muted">{{ $org?->email ?? $user->email }}</small>
+                    </div>
+                </div>
+                <div class="d-flex align-items-start gap-2 mb-3 p-3" style="background:#ecfdf5;border-radius:8px;border-left:4px solid #10b981;">
+                    <i class="bi bi-info-circle-fill text-success mt-1"></i>
+                    <small class="text-dark">
+                        All credentials for this instructor have been accepted. Finalizing will mark this request as <strong>Update Completed</strong> and send an approval notification email to the applicant.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer border-0" style="background:#fafafa;padding:16px 28px;">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success fw-bold text-white px-4" id="btn-confirm-inst-approval" style="border-radius:8px;">
+                    <i class="bi bi-send-check me-1"></i> Confirm &amp; Finalize Approval
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ══ Shared variables for modal applicant details partial ══ --}}
 @php
 $modalInstructors = $applicationInstructors;
@@ -2292,9 +2470,42 @@ $accTypeName = $application->accreditationType->name ?? '—';
     window.ARMS.activeStep = {{ $activeStep }};
     window.ARMS.pctStatus = '{{ $pctStatus }}';
     window.ARMS.interviewTimestampMs = {{ $interview ? \Carbon\Carbon::parse($interview->interview_date->format('Y-m-d') . ' ' . $interview->interview_time, 'Asia/Manila')->timestamp * 1000 : 'null' }};
+    window.ARMS.interviewMode = '{{ $interview?->mode ?? "" }}';
+    window.ARMS.interviewVenue = {!! json_encode($interview?->venue ?? '') !!};
     @if($pctSummary['has_entries'])
     window.ARMS.holidays = {!! json_encode(\App\Services\PctService::getHolidays(now()->year - 1, now()->year + 1)) !!};
     @endif
 </script>
+{{-- DataTables Core & Export Extensions --}}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="{{ asset('js/table-component.js') }}"></script>
+<script>
+    $(document).on('shown.bs.collapse', '.collapse', function() {
+        if (typeof $.fn.dataTable !== 'undefined') {
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        }
+    });
+</script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            document.querySelectorAll('.auto-dismiss-5s').forEach(function (el) {
+                el.style.opacity = '0';
+                setTimeout(function () {
+                    el.style.display = 'none';
+                }, 600);
+            });
+        }, 5000);
+    });
+</script>
 @endpush

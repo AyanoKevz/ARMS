@@ -50,6 +50,7 @@
                                     <th class="column-title">Middle Name</th>
                                     <th class="column-title">Last Name</th>
                                     <th class="column-title text-center">Service Agreement</th>
+                                    <th class="column-title text-center">Credentials Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
                             </thead>
@@ -71,11 +72,27 @@
                                         @endphp
                                         <span class="badge {{ $saClass }}">{{ ucfirst($instructor->status) }}</span>
                                     </td>
+                                    <td class="text-center">
+                                        @php
+                                            $hasExpired = $instructor->credentials->contains(fn($c) => $c->validity_date && \Carbon\Carbon::parse($c->validity_date)->isPast());
+                                            $hasPending = $instructor->update_request_status === 'pending_review';
+                                            $hasRequested = $instructor->update_request_status === 'admin_requested';
+                                        @endphp
+                                        @if($hasExpired)
+                                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>Has Expired Credential</span>
+                                        @elseif($hasPending)
+                                            <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i>Pending Review</span>
+                                        @elseif($hasRequested)
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-bell-fill me-1"></i>Update Requested</span>
+                                        @else
+                                            <span class="badge bg-success">Up to Date</span>
+                                        @endif
+                                    </td>
                                     <td class="last text-center" style="white-space:nowrap;">
                                         <a href="{{ route('applicant.instructors.show', $instructor->id) }}"
                                            class="btn btn-info btn-xs m-0"
-                                           title="View Instructor Details">
-                                            <i class="fas fa-eye me-1"></i> View
+                                           title="View / Update Instructor Details">
+                                            <i class="fas fa-eye me-1"></i> View / Update
                                         </a>
                                     </td>
                                 </tr>

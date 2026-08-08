@@ -460,9 +460,22 @@ class ApplicationController extends Controller
             'remarks' => $remarks,
         ]);
 
+        $instructorCompleted = false;
+        if ($itemType === 'instructor') {
+            $instructorCompleted = $this->checkAndUpdateInstructorRequestStatus($item);
+        } elseif ($itemType === 'credential') {
+            $inst = $item->instructor;
+            if ($inst) {
+                $instructorCompleted = $this->checkAndUpdateInstructorRequestStatus($inst);
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Evaluation saved immediately.',
+            'message' => $instructorCompleted 
+                ? 'Evaluation saved. All instructor credentials accepted and applicant notified via email!' 
+                : 'Evaluation saved immediately.',
+            'instructor_completed' => $instructorCompleted,
         ]);
     }
 
@@ -493,8 +506,9 @@ class ApplicationController extends Controller
         $instructorEvals = $request->input('instructor_evaluations', []);
         $credentialEvals = $request->input('credential_evaluations', []);
 
-        $application->load('accreditation');
-        $isAccredited = (bool) $application->accreditation;
+        $application->load(['accreditation', 'user.accreditations']);
+        $isAccredited = (bool) $application->accreditation 
+            || ($application->user && $application->user->accreditations()->where('status', 'active')->exists());
         
         $hasRejections = false;
 
@@ -565,9 +579,10 @@ class ApplicationController extends Controller
         }
 
         // Hardened Backend Guardrail: Check if there are any rejected items already in the database
+        $userInstIds = $application->user ? $application->user->instructors()->pluck('id') : $application->instructors()->pluck('id');
         $hasRejectionsInDb = $application->documents()->whereIn('status', ['rejected', 'returned'])->exists()
-            || $application->instructors()->whereIn('status', ['rejected', 'returned'])->exists()
-            || \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))
+            || \App\Models\Instructor::whereIn('id', $userInstIds)->whereIn('status', ['rejected', 'returned'])->exists()
+            || \App\Models\InstructorCredential::whereIn('instructor_id', $userInstIds)
                 ->whereIn('status', ['rejected', 'returned'])
                 ->exists();
 
@@ -578,28 +593,26 @@ class ApplicationController extends Controller
         if ($hasRejections) {
             if ($isAccredited) {
                 // If it's an accredited update, we only reset the pending_review fields to admin_requested
-                foreach ($application->user->instructors as $inst) {
-                    if ($inst->update_request_status === 'pending_review') {
-                        $requestedFields = $inst->update_request_fields ?? [];
+                $allInstructors = $application->user ? $application->user->instructors : $application->instructors;
+                foreach ($allInstructors as $inst) {
+                    if (in_array($inst->update_request_status, ['pending_review', 'admin_requested'])) {
                         $newFields = [];
                         
-                        if (in_array('service_agreement', $requestedFields) && $inst->status === 'rejected') {
+                        if ($inst->status === 'rejected') {
                             $newFields[] = 'service_agreement';
                         }
                         
-                        $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
                         $inst->load('credentials');
-                        foreach ($credTypes as $type) {
-                            $cred = $inst->credentials->firstWhere('type', $type);
-                            if ($cred && $cred->status === 'rejected') {
-                                $newFields[] = $type;
+                        foreach ($inst->credentials as $cred) {
+                            if ($cred->status === 'rejected') {
+                                $newFields[] = $cred->type;
                             }
                         }
 
                         if (!empty($newFields)) {
                             $inst->update([
                                 'update_request_status' => 'admin_requested',
-                                'update_request_fields' => $newFields,
+                                'update_request_fields' => array_values(array_unique($newFields)),
                             ]);
                         } else {
                             $inst->update([
@@ -611,12 +624,14 @@ class ApplicationController extends Controller
                     }
                 }
 
-                $rejectedInstructors = $application->user->instructors()->where('status', 'rejected')->get();
-                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->user->instructors()->pluck('id'))
+                $rejectedInstructors = \App\Models\Instructor::whereIn('id', $userInstIds)->where('status', 'rejected')->get();
+                $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $userInstIds)
                                         ->where('status', 'rejected')->get();
                                         
                 try {
-                    Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                    if ($application->user && $application->user->email) {
+                        Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                    }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send document rejection email: ' . $e->getMessage());
                 }
@@ -670,39 +685,35 @@ class ApplicationController extends Controller
         // Check if any instructor had pending_review updates and mark them complete, then email.
         if ($isAccredited) {
             $emailsSent = 0;
-            foreach ($application->user->instructors as $inst) {
-                if ($inst->update_request_status !== 'pending_review') {
-                    continue;
-                }
+            $allInstructors = $application->user ? $application->user->instructors : $application->instructors;
 
-                $requestedFields = $inst->update_request_fields ?? [];
-
-                $saApproved = !in_array('service_agreement', $requestedFields)
-                    || $inst->fresh()->status === 'approved';
-
-                $credTypes = array_filter($requestedFields, fn($f) => $f !== 'service_agreement');
+            foreach ($allInstructors as $inst) {
                 $inst->load('credentials'); // refresh from DB after evaluations were saved
+                
+                $saApproved = ($inst->fresh()->status !== 'pending' && $inst->fresh()->status !== 'rejected');
+                
                 $credsApproved = true;
-                foreach ($credTypes as $type) {
-                    $cred = $inst->credentials->firstWhere('type', $type);
-                    if ($cred && $cred->status !== 'approved') {
+                foreach ($inst->credentials as $cred) {
+                    if ($cred->status === 'pending' || $cred->status === 'rejected') {
                         $credsApproved = false;
                         break;
                     }
                 }
 
-                if ($saApproved && $credsApproved) {
+                if ($saApproved && $credsApproved && $inst->update_request_status !== 'completed') {
                     $inst->update([
                         'update_request_status' => 'completed',
                         'update_request_reason' => null,
                         'update_request_fields' => null,
                     ]);
 
-                    try {
-                        Mail::to($application->user->email)->send(new InstructorUpdateCompleteEmail($inst));
-                        $emailsSent++;
-                    } catch (\Exception $e) {
-                        \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
+                    if ($application->user && $application->user->email) {
+                        try {
+                            Mail::to($application->user->email)->send(new InstructorUpdateCompleteEmail($inst));
+                            $emailsSent++;
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
+                        }
                     }
                 }
             }
@@ -974,6 +985,10 @@ class ApplicationController extends Controller
         if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'active') {
             $this->pctService->transitionToStep($application, 6);
             return back()->with('success', 'Interview stopped. You can now record the result.');
+        }
+
+        if ($activePct && $activePct->step_number === 6) {
+            return back()->with('success', 'Interview is stopped. You can now record the result.');
         }
 
         return back()->with('error', 'Cannot stop the interview. Ensure the interview is currently running.');
@@ -1550,6 +1565,153 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Check if all credentials and service agreement for an instructor are approved,
+     * and if so, auto-complete the update request and send notification email.
+     */
+    public function checkAndUpdateInstructorRequestStatus(Instructor $instructor)
+    {
+        $instructor->load(['credentials', 'user']);
+
+        $saApproved = in_array($instructor->status, ['approved']);
+        $credsApproved = $instructor->credentials->every(fn($c) => $c->status === 'approved');
+
+        if ($saApproved && $credsApproved && in_array($instructor->update_request_status, ['pending_review', 'admin_requested'])) {
+            $instructor->update([
+                'update_request_status' => 'completed',
+                'update_request_reason' => null,
+                'update_request_fields' => null,
+            ]);
+
+            session()->flash('instructor_update_completed_id', $instructor->id);
+
+            if ($instructor->user && $instructor->user->email) {
+                try {
+                    Mail::to($instructor->user->email)->send(new InstructorUpdateCompleteEmail($instructor));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
+                }
+            }
+
+            CacheService::bustApplicationCaches();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Manually or automatically finalize instructor update request and send notification email.
+     */
+    public function completeInstructorUpdate(Request $request, Instructor $instructor)
+    {
+        $this->checkVerifierAccess();
+        $instructor->load(['credentials', 'user']);
+
+        $saApproved = in_array($instructor->status, ['approved']);
+        $credsApproved = $instructor->credentials->every(fn($c) => $c->status === 'approved');
+
+        if (!$saApproved || !$credsApproved) {
+            $err = 'All credentials and service agreement must be approved before completing the update.';
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $err], 422);
+            }
+            return back()->with('error', $err);
+        }
+
+        $wasAlreadyCompleted = ($instructor->update_request_status === 'completed');
+
+        $instructor->update([
+            'update_request_status' => 'completed',
+            'update_request_reason' => null,
+            'update_request_fields' => null,
+        ]);
+
+        session()->flash('instructor_update_completed_id', $instructor->id);
+
+        $emailsSent = 0;
+        if (!$wasAlreadyCompleted && $instructor->user && $instructor->user->email) {
+            try {
+                Mail::to($instructor->user->email)->send(new InstructorUpdateCompleteEmail($instructor));
+                $emailsSent++;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send instructor update complete email: ' . $e->getMessage());
+            }
+        }
+
+        CacheService::bustApplicationCaches();
+
+        $msg = 'Instructor credentials update finalized successfully' . ($emailsSent > 0 ? ' and notification email sent to applicant.' : '.');
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $msg]);
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Admin rejects one or more submitted instructor credentials and sends a revision email to applicant.
+     */
+    public function rejectInstructorUpdate(Request $request, Instructor $instructor)
+    {
+        $this->checkVerifierAccess();
+        $instructor->load(['credentials', 'user']);
+
+        $requestedFields = [];
+        $reasons = [];
+
+        // Check if Service Agreement was rejected
+        if ($instructor->status === 'rejected') {
+            $requestedFields[] = 'service_agreement';
+            $reasons['service_agreement'] = $instructor->remarks ?: 'Service Agreement requires revision.';
+            $instructor->update(['status' => 'returned']);
+        }
+
+        // Check credentials
+        foreach ($instructor->credentials as $cred) {
+            if ($cred->status === 'rejected') {
+                $requestedFields[] = $cred->type;
+                $reasons[$cred->type] = $cred->remarks ?: 'Credential document requires revision.';
+                $cred->update(['status' => 'returned']);
+            }
+        }
+
+        if (empty($requestedFields)) {
+            $err = 'No rejected instructor items found to send revision request.';
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $err], 422);
+            }
+            return back()->with('error', $err);
+        }
+
+        $instructor->update([
+            'update_request_status' => 'admin_requested',
+            'update_request_fields' => array_values(array_unique($requestedFields)),
+            'update_request_reason' => json_encode($reasons),
+        ]);
+
+        $emailsSent = 0;
+        if ($instructor->user && $instructor->user->email) {
+            try {
+                Mail::to($instructor->user->email)->send(new InstructorUpdateRequestEmail($instructor));
+                $emailsSent++;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send instructor rejection email: ' . $e->getMessage());
+            }
+        }
+
+        CacheService::bustApplicationCaches();
+
+        $msg = 'Instructor rejection notice sent successfully' . ($emailsSent > 0 ? ' and applicant notified via email.' : '.');
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $msg]);
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    /**
      * Display a listing of archived/rejected applications.
      */
     public function archived()
@@ -1975,7 +2137,7 @@ class ApplicationController extends Controller
                 'application_id' => $application->id,
                 'status_id'      => $rejectedStatus->id,
                 'updated_by'     => auth()->id(),
-                'remarks'        => 'Application will not proceed. Manually archived/rejected from payment verification stage.',
+                'remarks'        => 'Application will not proceed. Manually archived/rejected.',
             ]);
         }
 
@@ -1988,8 +2150,9 @@ class ApplicationController extends Controller
             }
         }
 
-        return redirect()->route('admin.hcd.applications.awaiting_payment')
-            ->with('success', 'Application ' . $trackingNumber . ' has been successfully archived/rejected.');
+        CacheService::bustApplicationCaches();
+
+        return back()->with('success', 'Application ' . $trackingNumber . ' has been successfully archived/rejected.');
     }
 
     /**

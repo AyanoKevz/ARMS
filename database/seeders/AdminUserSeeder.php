@@ -77,5 +77,28 @@ class AdminUserSeeder extends Seeder
                 'admin_role_id' => $verifierRole ? $verifierRole->id : null,
             ]
         );
+
+        // Create Admin 3: Verifier (Queenie Francisco)
+        $verifierQueenie = User::updateOrCreate(
+            ['email' => 'queeniefrancisco2002@gmail.com'],
+            [
+                'password'          => Hash::make('Hcd@2026'),
+                'role_id'           => $adminRole->id,
+                'profile_type'      => 'Individual',
+                'user_photo'        => 'images/profile_picture/default_photo.jpg',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        AdminProfile::updateOrCreate(
+            ['user_id' => $verifierQueenie->id],
+            [
+                'division_id'   => $hcdDivision->id,
+                'first_name'    => 'Queenie',
+                'last_name'     => 'Francisco',
+                'position'      => 'LSO VI',
+                'admin_role_id' => $verifierRole ? $verifierRole->id : null,
+            ]
+        );
     }
 }

@@ -1,30 +1,30 @@
 {
     "copperplate gothic bold": {
-        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/copperplate_gothic_bold_normal_2241bdf0e19a10e2e594fa0e25a95d1b",
-        "bold": "copperplate_gothic_bold_bold_2241bdf0e19a10e2e594fa0e25a95d1b"
+        "normal": "copperplate_gothic_bold_normal_26cbadc2363ab64514970558092363b3",
+        "bold": "copperplate_gothic_bold_bold_26cbadc2363ab64514970558092363b3"
     },
     "bodoni mt": {
-        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_normal_ef61f8c4ea97b7614f2d38726d47061f",
-        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_bold_91d497729e9f0b592bc16ed1981a546f",
-        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/bodoni_mt_italic_19a5a24d9426c8c2eb28202d9812cc5d",
-        "bold_italic": "bodoni_mt_bold_italic_0ddbb7cd64fdfa306cf224bd6830c0a5"
+        "normal": "bodoni_mt_normal_4dcce15007c37b37e88c67ad8a0f6a29",
+        "bold": "bodoni_mt_bold_4dcce15007c37b37e88c67ad8a0f6a29",
+        "italic": "bodoni_mt_italic_47d8ea21fd2fd09ece692e07adcf0c18",
+        "bold_italic": "bodoni_mt_bold_italic_47d8ea21fd2fd09ece692e07adcf0c18"
     },
     "calibri": {
-        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_normal_8da8a6d403b9530b4dedb262e857ad65",
-        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_bold_41a38d81890317a114aff94e6fd9c289",
-        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/calibri_italic_927cbb7d22ab8dada76bcaff74ae4563",
-        "bold_italic": "calibri_bold_italic_725ac2ed62471dc878d8f7d7607d49d8"
+        "normal": "calibri_normal_604c14947da09200897ef6bb32a6b58f",
+        "bold": "calibri_bold_604c14947da09200897ef6bb32a6b58f",
+        "italic": "calibri_italic_604c14947da09200897ef6bb32a6b58f",
+        "bold_italic": "calibri_bold_italic_604c14947da09200897ef6bb32a6b58f"
     },
     "arial narrow": {
-        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_normal_1457005fd5d95be6a224b5771228d0ed",
-        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_bold_9eb52214f297a76acdf6128953c3129b",
-        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/arial_narrow_italic_689ff6bf3938280b5fd0042cf4704a76",
-        "bold_italic": "arial_narrow_bold_italic_74900dae2b78f985db48666ed095b03f"
+        "normal": "arial_narrow_normal_6d272b5ba9a0eee7028afbddb8e10eb4",
+        "bold": "arial_narrow_bold_6d272b5ba9a0eee7028afbddb8e10eb4",
+        "italic": "arial_narrow_italic_b06a1ca262a82d58291e17ccd980566f",
+        "bold_italic": "arial_narrow_bold_italic_b06a1ca262a82d58291e17ccd980566f"
     },
     "script mt bold": {
-        "normal": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_normal_72034652fd0972d2458ef8a926838356",
-        "bold": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_bold_72034652fd0972d2458ef8a926838356",
-        "italic": "C:\\xampp\\htdocs\\ARMS\\storage\\fonts\/script_mt_bold_italic_72034652fd0972d2458ef8a926838356",
-        "bold_italic": "script_mt_bold_bold_italic_72034652fd0972d2458ef8a926838356"
+        "normal": "script_mt_bold_normal_67f2c43bdcd0ae5b4038926e78012d29",
+        "bold": "script_mt_bold_bold_67f2c43bdcd0ae5b4038926e78012d29",
+        "italic": "script_mt_bold_italic_436790e1b6022e12cb74346afcca5e84",
+        "bold_italic": "script_mt_bold_bold_italic_436790e1b6022e12cb74346afcca5e84"
     }
 }

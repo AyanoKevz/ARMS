@@ -8,25 +8,25 @@ window.initDynamicTable = function(selector, options = {}) {
         buttons: [
             {
                 extend: 'csv',
-                text: '<i class="fas fa-file-csv me-1"></i> CSV',
-                className: 'btn btn-success btn-sm'
+                text: '<i class="fas fa-file-csv me-1 text-muted"></i> CSV',
+                className: 'btn btn-light btn-sm border text-secondary fw-semibold'
             },
             {
                 extend: 'excel',
-                text: '<i class="fas fa-file-excel me-1"></i> Excel',
-                className: 'btn btn-primary btn-sm'
+                text: '<i class="fas fa-file-excel me-1 text-muted"></i> Excel',
+                className: 'btn btn-light btn-sm border text-secondary fw-semibold'
             },
             {
                 extend: 'pdf',
-                text: '<i class="fas fa-file-pdf me-1"></i> PDF',
-                className: 'btn btn-danger btn-sm',
+                text: '<i class="fas fa-file-pdf me-1 text-muted"></i> PDF',
+                className: 'btn btn-light btn-sm border text-secondary fw-semibold',
                 orientation: 'landscape',
                 pageSize: 'A4'
             },
             {
                 extend: 'print',
-                text: '<i class="fas fa-print me-1"></i> Print',
-                className: 'btn btn-info btn-sm'
+                text: '<i class="fas fa-print me-1 text-muted"></i> Print',
+                className: 'btn btn-light btn-sm border text-secondary fw-semibold'
             }
         ],
         order: [[3, 'desc']],

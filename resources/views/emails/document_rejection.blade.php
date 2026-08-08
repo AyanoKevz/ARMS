@@ -20,6 +20,19 @@
         require revision before your evaluation can proceed.
     </p>
 
+    {{-- Highlighted 5-day deadline notice --}}
+    <div style="background-color: #fff3cd; border: 2px solid #ffe69c; border-left: 6px solid #d97706; border-radius: 10px; padding: 16px 20px; margin: 18px 0; text-align: center;">
+        <p style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
+            ⚠️ Important Resubmission Deadline
+        </p>
+        <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
+            You have 5 days to resubmit your required documents.
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
+            Please re-upload all requested revisions within 5 calendar days to avoid cancellation of your application.
+        </p>
+    </div>
+
     <div class="tracking-card">
         <p class="label">Your Tracking Number</p>
         <p class="value">{{ $application->tracking_number }}</p>
@@ -66,7 +79,11 @@
     </div>
 
     <div class="btn-wrap">
-        @if(in_array($application->application_type, ['renewal', 'reinstatement']))
+        @if(($rejectedInstructors->isNotEmpty() || $rejectedCredentials->isNotEmpty()) && $application->user?->accreditations()->where('status', 'active')->exists())
+        <a href="{{ url('/applicant/instructors') }}" class="btn-primary">
+            Log In &amp; Update Instructor Credentials
+        </a>
+        @elseif(in_array($application->application_type, ['renewal', 'reinstatement']))
         <a href="{{ url('/applicant/renewal/reupload?application_id=' . $application->id) }}" class="btn-primary">
             Log In &amp; Update My Documents
         </a>

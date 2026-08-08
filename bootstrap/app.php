@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('accreditation:expiry-check')->daily();
+        $schedule->command('instructor-credential:expiry-check')->daily();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Inject security response headers on every web request.

@@ -31,7 +31,7 @@ class RenewalController extends Controller
     // Required document field codes
     private const REQUIRED_DOCUMENT_FIELDS = [
         'LEGAL_01', 'LEGAL_02', 'LEGAL_03', 'LEGAL_04', 'LEGAL_05', 'LEGAL_06',
-        'TRAIN_01', 'TRAIN_03',
+        'TRAIN_01', 'TRAIN_03', 'TRAIN_04',
         'PREM_01', 'PREM_02', 'PREM_03', 'PREM_04', 'PREM_05', 'PREM_06', 'PREM_07',
         'IP_01', 'IP_02',
         'QA_02', 'QA_03', 'QA_04', 'QA_05', 'QA_06', 'QA_07', 'QA_08', 'QA_09',
@@ -360,7 +360,7 @@ class RenewalController extends Controller
                 // ── 2. Generate tracking number (e.g. ARMS2026-AA0123) ────
                 $year = now()->format('Y');
                 do {
-                    $letters = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(2));
+                    $letters = chr(random_int(65, 90)) . chr(random_int(65, 90));
                     $digits = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                     $trackingNumber = "ARMS{$year}-{$letters}{$digits}";
                 } while (Application::where('tracking_number', $trackingNumber)->exists());

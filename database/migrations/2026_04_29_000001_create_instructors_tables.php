@@ -58,6 +58,9 @@ return new class extends Migration
 
             $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
+            $table->timestamp('reminder_3mo_sent_at')->nullable();
+            $table->timestamp('reminder_2mo_sent_at')->nullable();
+            $table->timestamp('reminder_1mo_sent_at')->nullable();
 
             $table->timestamps();
 

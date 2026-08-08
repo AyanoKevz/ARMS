@@ -19,11 +19,17 @@ class InstructorCredential extends Model
         'pdf_path',
         'status',
         'remarks',
+        'reminder_3mo_sent_at',
+        'reminder_2mo_sent_at',
+        'reminder_1mo_sent_at',
     ];
 
     protected $casts = [
-        'issued_date'   => 'date',
-        'validity_date' => 'date',
+        'issued_date'          => 'date',
+        'validity_date'        => 'date',
+        'reminder_3mo_sent_at' => 'datetime',
+        'reminder_2mo_sent_at' => 'datetime',
+        'reminder_1mo_sent_at' => 'datetime',
     ];
 
     /**

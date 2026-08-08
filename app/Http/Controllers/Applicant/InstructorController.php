@@ -80,6 +80,11 @@ class InstructorController extends Controller
     {
         abort_if($instructor->user_id !== auth()->id(), 403);
 
+        // Guard 1: Prevent submitting again while already under admin review
+        if ($instructor->update_request_status === 'pending_review') {
+            return redirect()->back()->with('error', 'Your submitted updates are currently under admin review. You cannot submit new changes until the review is completed.');
+        }
+
         $rules = [
             'service_agreement' => 'nullable|file|mimes:pdf|max:10240',
             'credentials.*.number' => 'nullable|string|max:255',
@@ -90,6 +95,39 @@ class InstructorController extends Controller
         ];
 
         $request->validate($rules);
+
+        // Guard 2: Require at least one uploaded file or modified credential field
+        $hasAnyFile = $request->hasFile('service_agreement');
+        $hasAnyFieldChange = false;
+
+        if ($request->has('credentials')) {
+            foreach ($request->input('credentials') as $credId => $credData) {
+                if ($request->hasFile("credentials.{$credId}.pdf_file")) {
+                    $hasAnyFile = true;
+                }
+                $credential = $instructor->credentials()->find($credId);
+                if ($credential) {
+                    if (isset($credData['number']) && trim((string)$credData['number']) !== trim((string)$credential->number)) {
+                        $hasAnyFieldChange = true;
+                    }
+                    $existingIssued = $credential->issued_date ? $credential->issued_date->format('Y-m-d') : '';
+                    if (isset($credData['issued_date']) && trim((string)$credData['issued_date']) !== $existingIssued) {
+                        $hasAnyFieldChange = true;
+                    }
+                    $existingValid = $credential->validity_date ? $credential->validity_date->format('Y-m-d') : '';
+                    if (isset($credData['validity_date']) && trim((string)$credData['validity_date']) !== $existingValid) {
+                        $hasAnyFieldChange = true;
+                    }
+                    if (isset($credData['training_dates']) && trim((string)$credData['training_dates']) !== trim((string)$credential->training_dates)) {
+                        $hasAnyFieldChange = true;
+                    }
+                }
+            }
+        }
+
+        if (!$hasAnyFile && !$hasAnyFieldChange) {
+            return redirect()->back()->with('error', 'Please upload at least one document file or update a credential field before submitting.');
+        }
 
         $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
         $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
@@ -102,6 +140,11 @@ class InstructorController extends Controller
         $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
         $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
         $timestamp = time();
+
+        $updatedFields = $instructor->update_request_fields ?? [];
+        if (!is_array($updatedFields)) {
+            $updatedFields = [];
+        }
 
         // 1. Handle Service Agreement Update
         if ($request->hasFile('service_agreement')) {
@@ -116,6 +159,10 @@ class InstructorController extends Controller
                 'status'                 => 'pending',
                 'remarks'                => null,
             ]);
+
+            if (!in_array('service_agreement', $updatedFields)) {
+                $updatedFields[] = 'service_agreement';
+            }
         }
 
         // 2. Handle Credentials Update
@@ -124,16 +171,48 @@ class InstructorController extends Controller
                 $credential = $instructor->credentials()->find($credId);
                 if (!$credential) continue;
 
+                $hasFile = $request->hasFile("credentials.{$credId}.pdf_file");
+                
+                $numberChanged = isset($credData['number']) && trim((string)$credData['number']) !== trim((string)($credential->number ?? ''));
+
+                $issuedChanged = false;
+                if (isset($credData['issued_date'])) {
+                    $existingIssued = $credential->issued_date ? $credential->issued_date->format('Y-m-d') : '';
+                    $newIssued = trim((string)$credData['issued_date']);
+                    $issuedChanged = ($newIssued !== $existingIssued);
+                }
+
+                $validChanged = false;
+                if (isset($credData['validity_date'])) {
+                    $existingValid = $credential->validity_date ? $credential->validity_date->format('Y-m-d') : '';
+                    $newValid = trim((string)$credData['validity_date']);
+                    $validChanged = ($newValid !== $existingValid);
+                }
+
+                $trainingChanged = false;
+                if (isset($credData['training_dates'])) {
+                    $existingTraining = trim((string)($credential->training_dates ?? ''));
+                    $newTraining = trim((string)$credData['training_dates']);
+                    $trainingChanged = ($newTraining !== $existingTraining);
+                }
+
+                $isCredUpdated = $hasFile || $numberChanged || $issuedChanged || $validChanged || $trainingChanged;
+
+                // Skip unchanged credentials so their status remains intact (e.g. approved)
+                if (!$isCredUpdated) {
+                    continue;
+                }
+
                 $data = [
                     'number'         => $credData['number'] ?? $credential->number,
                     'issued_date'    => $credData['issued_date'] ?? $credential->issued_date,
                     'validity_date'  => $credData['validity_date'] ?? $credential->validity_date,
                     'training_dates' => $credData['training_dates'] ?? $credential->training_dates,
-                    'status'         => 'pending', // Reset for admin re-review
+                    'status'         => 'pending', // Reset for admin re-review ONLY if updated
                     'remarks'        => null,
                 ];
 
-                if ($request->hasFile("credentials.{$credId}.pdf_file")) {
+                if ($hasFile) {
                     if ($credential->pdf_path && Storage::disk('local')->exists($credential->pdf_path)) {
                         Storage::disk('local')->delete($credential->pdf_path);
                     }
@@ -144,12 +223,34 @@ class InstructorController extends Controller
                 }
 
                 $credential->update($data);
+
+                if (!in_array($credential->type, $updatedFields)) {
+                    $updatedFields[] = $credential->type;
+                }
             }
         }
 
-        // If this update was admin-requested, signal it's ready for re-evaluation
-        if ($instructor->update_request_status === 'admin_requested') {
-            $instructor->update(['update_request_status' => 'pending_review']);
+        // Set status to pending_review and record updated fields
+        $instructor->update([
+            'update_request_status' => 'pending_review',
+            'update_request_fields' => array_values(array_unique($updatedFields)),
+        ]);
+
+        // Send email notification to Admin evaluators using existing template
+        if ($application) {
+            try {
+                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                    $q->whereIn('name', ['Evaluator', 'Admin', 'Superadmin', 'Verifier']);
+                })->pluck('email');
+
+                if ($evaluatorEmails->isNotEmpty()) {
+                    $count = count($updatedFields) ?: 1;
+                    $application->loadMissing(['user', 'accreditationType']);
+                    \Illuminate\Support\Facades\Mail::to($evaluatorEmails)->send(new \App\Mail\AdminDocumentsUploadedEmail($application, $count, true, $instructor));
+                }
+            } catch (\Exception $mailEx) {
+                \Illuminate\Support\Facades\Log::warning('Admin instructor update notification email failed: ' . $mailEx->getMessage());
+            }
         }
 
         return redirect()->route('applicant.instructors.show', $instructor->id)

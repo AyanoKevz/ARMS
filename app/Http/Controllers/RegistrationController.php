@@ -351,7 +351,7 @@ class RegistrationController extends Controller
                 // 4. Generate tracking number (e.g. ARMS2026-AA0123)
                 $year = now()->format('Y');
                 do {
-                    $letters = Str::upper(Str::random(2));
+                    $letters = chr(random_int(65, 90)) . chr(random_int(65, 90));
                     $digits = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                     $trackingNumber = "ARMS{$year}-{$letters}{$digits}";
                 } while (Application::where('tracking_number', $trackingNumber)->exists());

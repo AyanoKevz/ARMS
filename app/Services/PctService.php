@@ -25,6 +25,7 @@ class PctService
     ];
 
     public const TOTAL_TARGET_DAYS = 20;
+    public const MAX_INTERVIEW_SECONDS = 14400; // 4 hours in seconds (4 * 3600)
 
     /**
      * Initialize PCT when an application is first moved to evaluation.
@@ -407,6 +408,9 @@ class PctService
         // ── Auto-Resume Step 5 (Interview) if scheduled time is reached or passed ──
         $this->autoResumeInterviewIfScheduled($application);
 
+        // ── Auto-Stop Step 5 (Interview) after 4 hours ──
+        $this->autoStopInterviewIfExpired($application);
+
         // ── Auto-Reconcile Step 7 state if signed recommendation is uploaded but payment is pending ──
         $payment = $application->payment;
         if ($payment && !$payment->proof_of_payment && $payment->signed_recommendation_letter) {
@@ -496,7 +500,79 @@ class PctService
     }
 
     /**
-     * Bulk auto-resume Step 5 (Interview) for any applications that have reached their scheduled time.
+     * Automatically stop Step 5 (Interview) if it has been running for 4 hours or more.
+     * Transitions the application to Step 6 (Interview Result) and caps Step 5 elapsed time to 4 hours.
+     */
+    public function autoStopInterviewIfExpired(Application $application): bool
+    {
+        $active = $application->pctEntries()
+            ->where('step_number', 5)
+            ->where('is_active', true)
+            ->whereNull('paused_at')
+            ->whereNull('completed_at')
+            ->first();
+
+        if ($active) {
+            $reference = $active->resumed_at ?? $active->started_at;
+            $elapsedWorking = $active->totalElapsedSeconds();
+            $wallClockSeconds = $reference ? Carbon::now()->diffInSeconds($reference) : 0;
+
+            if ($elapsedWorking >= self::MAX_INTERVIEW_SECONDS || $wallClockSeconds >= self::MAX_INTERVIEW_SECONDS) {
+                // Complete Step 5 with capped time (max 4 hours)
+                $active->elapsed_seconds = min(self::MAX_INTERVIEW_SECONDS, max($active->elapsed_seconds, $elapsedWorking));
+                $active->completed_at = Carbon::now();
+                $active->is_active = false;
+                $active->save();
+
+                // Start Step 6: Interview Result
+                $this->startStep($application, 6);
+
+                $application->unsetRelation('pctEntries');
+                $application->unsetRelation('activePctEntry');
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Bulk auto-stop Step 5 (Interview) for all applications where the interview has exceeded 4 hours.
+     */
+    public function autoStopAllExpiredInterviews(): void
+    {
+        $runningEntries = PctEntry::where('step_number', 5)
+            ->where('is_active', true)
+            ->whereNull('paused_at')
+            ->whereNull('completed_at')
+            ->with('application')
+            ->get();
+
+        foreach ($runningEntries as $entry) {
+            $application = $entry->application;
+            if ($application) {
+                $reference = $entry->resumed_at ?? $entry->started_at;
+                $elapsedWorking = $entry->totalElapsedSeconds();
+                $wallClockSeconds = $reference ? Carbon::now()->diffInSeconds($reference) : 0;
+
+                if ($elapsedWorking >= self::MAX_INTERVIEW_SECONDS || $wallClockSeconds >= self::MAX_INTERVIEW_SECONDS) {
+                    $entry->elapsed_seconds = min(self::MAX_INTERVIEW_SECONDS, max($entry->elapsed_seconds, $elapsedWorking));
+                    $entry->completed_at = Carbon::now();
+                    $entry->is_active = false;
+                    $entry->save();
+
+                    $this->startStep($application, 6);
+
+                    $application->unsetRelation('pctEntries');
+                    $application->unsetRelation('activePctEntry');
+                }
+            }
+        }
+    }
+
+    /**
+     * Bulk auto-resume Step 5 (Interview) for any applications that have reached their scheduled time,
+     * and auto-stop any running interviews that have exceeded 4 hours.
      * Throttled via cache to run at most once every 2 minutes to avoid a DB hit on every page load.
      */
     public function autoResumeAllScheduledInterviews()
@@ -511,7 +587,10 @@ class PctService
         // Mark as run for the next 2 minutes
         Cache::put($cacheKey, true, now()->addMinutes(2));
 
-        // Find all active PCT entries for Step 5 that are paused
+        // 1. Auto-stop any expired interviews (> 4 hours)
+        $this->autoStopAllExpiredInterviews();
+
+        // 2. Find all active PCT entries for Step 5 that are paused
         $pausedEntries = PctEntry::where('step_number', 5)
             ->where('is_active', true)
             ->whereNotNull('paused_at')

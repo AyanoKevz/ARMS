@@ -20,6 +20,12 @@
     let savingToastEl = null;
 
     function toggleEvalLoadingIndicators(show) {
+        // Disable or enable all accept and reject buttons while saving to avoid spam clicks
+        const evalButtons = document.querySelectorAll('.btn-eval, .btn-approve, .btn-reject');
+        evalButtons.forEach(btn => {
+            btn.disabled = !!show;
+        });
+
         // Hide any inline indicators if present
         const indicators = document.querySelectorAll('.eval-saving-indicator, .ntc-eval-saving-indicator');
         indicators.forEach(el => {
@@ -106,6 +112,8 @@
 
     /* ─── setDocStatus ────────────────────────────────────── */
     window.setDocStatus = function (docId, status) {
+        if (activeSavesCount > 0) return;
+
         const statusInput = document.getElementById(`status-input-${docId}`);
         if (!statusInput) return;
 
@@ -157,7 +165,10 @@
             }).then(async (res) => {
                 const data = await res.json();
                 if (data.success) {
-                    showToast('Evaluation auto-saved.', 'success');
+                    showToast(data.message || 'Evaluation auto-saved.', 'success');
+                    if (data.instructor_completed) {
+                        setTimeout(() => window.location.reload(), 1200);
+                    }
                 } else {
                     console.error('Auto-save failed:', data.message);
                     showToast('Failed to auto-save evaluation. Reverting...', 'danger');
@@ -179,6 +190,116 @@
         }
 
         refreshState();
+    };
+
+    /* ─── finalizeInstructorUpdate ────────────────────────── */
+    window.finalizeInstructorUpdate = function (instructorId, btn) {
+        const modalEl = document.getElementById('instApprovalModal');
+        if (!modalEl) return;
+
+        // Try reading instructor name from header
+        const instHeader = document.querySelector(`#instructor-section-${instructorId} .doc-section-header div`);
+        const instName = instHeader ? instHeader.innerText.trim() : 'Instructor';
+        
+        const nameEl = document.getElementById('instApprovalModalInstName');
+        if (nameEl) nameEl.textContent = instName;
+
+        const confirmBtn = document.getElementById('btn-confirm-inst-approval');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-send-check me-1"></i> Confirm &amp; Finalize Approval';
+
+            confirmBtn.onclick = function () {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Finalizing...';
+
+                fetch('/admin/hcd/instructors/' + instructorId + '/complete-update', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': window.ARMS?.csrfToken || '',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                }).then(async (res) => {
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.success) {
+                        const bsModal = bootstrap.Modal.getInstance(modalEl);
+                        if (bsModal) bsModal.hide();
+                        if (typeof showToast === 'function') {
+                            showToast(data.message || 'Instructor update finalized!', 'success');
+                        }
+                        setTimeout(() => window.location.reload(), 600);
+                    } else {
+                        alert(data.message || 'Failed to finalize instructor update.');
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<i class="bi bi-send-check me-1"></i> Confirm &amp; Finalize Approval';
+                    }
+                }).catch(err => {
+                    console.error('Finalize update error:', err);
+                    alert('Network error while finalizing update.');
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="bi bi-send-check me-1"></i> Confirm &amp; Finalize Approval';
+                });
+            };
+        }
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    };
+
+    /* ─── rejectInstructorUpdate ──────────────────────────── */
+    window.rejectInstructorUpdate = function (instructorId, btn) {
+        const modalEl = document.getElementById('instRejectionModal');
+        if (!modalEl) return;
+
+        // Try reading instructor name from header
+        const instHeader = document.querySelector(`#instructor-section-${instructorId} .doc-section-header div`);
+        const instName = instHeader ? instHeader.innerText.trim() : 'Instructor';
+        
+        const nameEl = document.getElementById('instRejectionModalInstName');
+        if (nameEl) nameEl.textContent = instName;
+
+        const confirmBtn = document.getElementById('btn-confirm-inst-rejection');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-send me-1"></i> Confirm &amp; Send Rejection Email';
+
+            confirmBtn.onclick = function () {
+                confirmBtn.disabled = true;
+                confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Sending Notice...';
+
+                fetch('/admin/hcd/instructors/' + instructorId + '/reject-update', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': window.ARMS?.csrfToken || '',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                }).then(async (res) => {
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.success) {
+                        const bsModal = bootstrap.Modal.getInstance(modalEl);
+                        if (bsModal) bsModal.hide();
+                        if (typeof showToast === 'function') {
+                            showToast(data.message || 'Rejection notice sent successfully!', 'success');
+                        }
+                        setTimeout(() => window.location.reload(), 600);
+                    } else {
+                        alert(data.message || 'Failed to send rejection notice.');
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<i class="bi bi-send me-1"></i> Confirm &amp; Send Rejection Email';
+                    }
+                }).catch(err => {
+                    console.error('Reject update error:', err);
+                    alert('Network error while sending rejection notice.');
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerHTML = '<i class="bi bi-send me-1"></i> Confirm &amp; Send Rejection Email';
+                });
+            };
+        }
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
     };
 
     /* ─── refreshState ────────────────────────────────────── */
@@ -235,23 +356,63 @@
 
         // Instructor Credentials (Main Card Progress Badge)
         const credInputs = inputs.filter(i => i.id.includes('cred-') || i.id.includes('inst-'));
-        const credTotal = credInputs.length;
-        const credApproved = credInputs.filter(i => i.value === 'approved').length;
         const credProgressEl = document.getElementById('instructor-creds-progress');
-        if (credProgressEl) {
+        if (credProgressEl && credInputs.length > 0 && !document.querySelector('.dynamic-table')) {
+            const credTotal = credInputs.length;
+            const credApproved = credInputs.filter(i => i.value === 'approved').length;
             credProgressEl.textContent = `${credApproved} / ${credTotal} Accepted`;
         }
 
-        // Instructor Sub-sections Progress Badges
+        // Instructor Sub-sections Progress Badges & Dynamic Action Buttons
         const instructorSections = document.querySelectorAll('[id^="instructor-section-"]');
         instructorSections.forEach(section => {
             const instructorId = section.id.replace('instructor-section-', '');
             const instInputs = Array.from(section.querySelectorAll('input[id^="status-input-"]'));
             const instTotal = instInputs.length;
             const instApproved = instInputs.filter(i => i.value === 'approved').length;
-            const badgeEl = document.getElementById(`instructor-progress-${instructorId}`);
-            if (badgeEl) {
-                badgeEl.textContent = `${instApproved} / ${instTotal} Accepted`;
+            const instRejected = instInputs.filter(i => i.value === 'rejected').length;
+            const instPending = instTotal - instApproved - instRejected;
+            const hasSummaryTable = !!section.querySelector('.dynamic-table');
+
+            // Only update progress badge via JS if not in summary table view
+            if (!hasSummaryTable && instInputs.length > 0) {
+                const badgeEl = document.getElementById(`instructor-progress-${instructorId}`);
+                if (badgeEl) {
+                    badgeEl.textContent = `${instApproved} / ${instTotal} Accepted`;
+                }
+            }
+
+            // Dynamic Action Button for this instructor
+            const instBtn = document.getElementById(`btn-instructor-action-${instructorId}`);
+            const instTitle = document.getElementById(`instructor-action-title-${instructorId}`);
+            const instDesc = document.getElementById(`instructor-action-desc-${instructorId}`);
+
+            if (instBtn) {
+                if (instRejected > 0) {
+                    instBtn.disabled = false;
+                    instBtn.className = 'btn btn-danger btn-sm fw-bold shadow-sm px-4';
+                    instBtn.style.cssText = 'border-radius:6px;';
+                    instBtn.innerHTML = `<i class="bi bi-x-circle me-1"></i> Send Rejection Email (${instRejected} rejected)`;
+                    instBtn.onclick = function () { window.rejectInstructorUpdate(instructorId, instBtn); };
+                    if (instTitle) instTitle.textContent = 'Credentials Rejected';
+                    if (instDesc) instDesc.textContent = 'Click below to send a revision request email to the applicant for the rejected item(s).';
+                } else if (instPending > 0) {
+                    instBtn.disabled = true;
+                    instBtn.className = 'btn btn-outline-secondary btn-sm fw-semibold px-4';
+                    instBtn.style.cssText = 'border-radius:6px;';
+                    instBtn.innerHTML = `<i class="bi bi-clock-history me-1"></i> Pending Credentials (${instPending} remaining)`;
+                    instBtn.onclick = null;
+                    if (instTitle) instTitle.textContent = 'Instructor Evaluation Action';
+                    if (instDesc) instDesc.textContent = 'Approve or reject remaining credentials above to take action.';
+                } else {
+                    instBtn.disabled = false;
+                    instBtn.className = 'btn btn-success btn-sm fw-bold shadow-sm px-4';
+                    instBtn.style.cssText = 'border-radius:6px;';
+                    instBtn.innerHTML = `<i class="bi bi-send-check me-1"></i> Finalize &amp; Send Approval Email`;
+                    instBtn.onclick = function () { window.finalizeInstructorUpdate(instructorId, instBtn); };
+                    if (instTitle) instTitle.textContent = 'All Credentials Accepted';
+                    if (instDesc) instDesc.textContent = 'Click below to finalize this update and send an approval notification to the applicant.';
+                }
             }
         });
 
@@ -903,6 +1064,7 @@
         'evaluate-payment-form', 
         'upload-scanned-certificate-form', 
         'start-interview-form', 
+        'stop-interview-form', 
         'revoke-accreditation-form', 
         'archive-accreditation-form',
         'unarchive-accreditation-form',
@@ -928,6 +1090,28 @@
             });
         }
     });
+
+    // Open meeting link in a new tab when starting an online interview
+    const startInterviewForm = document.getElementById('start-interview-form');
+    if (startInterviewForm) {
+        startInterviewForm.addEventListener('submit', function() {
+            const mode = startInterviewForm.getAttribute('data-interview-mode') || window.ARMS?.interviewMode;
+            let link = startInterviewForm.getAttribute('data-interview-link') || window.ARMS?.interviewVenue;
+            if (mode === 'online' && link) {
+                link = link.trim();
+                if (link && !/^https?:\/\//i.test(link)) {
+                    link = 'https://' + link;
+                }
+                if (link) {
+                    try {
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    } catch(e) {
+                        console.warn('Could not open interview link in new tab:', e);
+                    }
+                }
+            }
+        });
+    }
 
     // Dynamic chevrons for instructors
     document.querySelectorAll('[id^="instructor-body-"]').forEach(body => {
@@ -1023,6 +1207,19 @@
                         btnText.classList.add('d-none');
                         btnSpinner.classList.remove('d-none');
                     }
+                    const mode = startForm.getAttribute('data-interview-mode') || window.ARMS?.interviewMode;
+                    let link = startForm.getAttribute('data-interview-link') || window.ARMS?.interviewVenue;
+                    if (mode === 'online' && link) {
+                        link = link.trim();
+                        if (link && !/^https?:\/\//i.test(link)) {
+                            link = 'https://' + link;
+                        }
+                        if (link) {
+                            try {
+                                window.open(link, '_blank', 'noopener,noreferrer');
+                            } catch(e) {}
+                        }
+                    }
                     startForm.submit();
                 } else {
                     window.location.reload();
@@ -1055,6 +1252,27 @@
             // Calculate the working seconds since load and total seconds
             const workingSecondsSinceLoad = calculateWorkingSecondsJS(serverTimeOnLoad, serverNow);
             const seconds = secondsOnLoad + workingSecondsSinceLoad;
+
+            // Auto stop the interview if it has been running for 4 hours (14,400 seconds)
+            if (window.ARMS?.activeStep === 5 && 
+                window.ARMS?.pctStatus === 'active' && 
+                seconds >= 14400 && 
+                !isSubmittingInterview) {
+                
+                isSubmittingInterview = true;
+                const stopForm = document.getElementById('stop-interview-form');
+                if (stopForm) {
+                    const btnText = stopForm.querySelector('.btn-text');
+                    const btnSpinner = stopForm.querySelector('.btn-spinner');
+                    if (btnText && btnSpinner) {
+                        btnText.classList.add('d-none');
+                        btnSpinner.classList.remove('d-none');
+                    }
+                    stopForm.submit();
+                } else {
+                    window.location.reload();
+                }
+            }
 
             // Format days/hours/minutes/seconds
             const days = (seconds / 32400).toFixed(1);
@@ -1099,7 +1317,8 @@
                 }
             }
 
-            // Dynamically show/hide elements that are only allowed during working hours (e.g. Approve/Reject buttons)
+            // TESTING OVERRIDE: Working hours DOM hiding commented out for testing.
+            /*
             const workingOnlyEls = document.querySelectorAll('.pct-working-only');
             workingOnlyEls.forEach(el => {
                 if (isWorking) {
@@ -1119,6 +1338,7 @@
                     input.readOnly = false;
                 }
             });
+            */
         };
 
         // Run immediately on load and then every 1000ms
@@ -1128,6 +1348,8 @@
 
     /* ─── NTC Document Evaluation (Single Button Workflow) ─── */
     window.setNtcDocStatus = function (docId, status) {
+        if (activeSavesCount > 0) return;
+
         const input = document.getElementById('ntc-status-input-' + docId);
         if (!input) return;
 
@@ -1446,6 +1668,7 @@
 
     // Always run refreshState on page load so the evaluation button
     // is correctly initialised regardless of approval/schedule state.
+    toggleEvalLoadingIndicators(false);
     refreshState();
     if (document.getElementById('btn-ntc-submit')) {
         refreshNtcState();

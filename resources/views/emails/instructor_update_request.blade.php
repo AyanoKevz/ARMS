@@ -83,6 +83,19 @@
         Please log in to your applicant portal to upload the requested documents.
     </p>
 
+    {{-- Highlighted 5-day deadline notice --}}
+    <div style="background-color: #fff3cd; border: 2px solid #ffe69c; border-left: 6px solid #d97706; border-radius: 10px; padding: 16px 20px; margin: 18px 0; text-align: center;">
+        <p style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
+            ⚠️ Important Resubmission Deadline
+        </p>
+        <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
+            You have 5 days to resubmit your instructor credential(s).
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
+            Please re-upload all requested revisions within 5 calendar days to avoid cancellation of your application.
+        </p>
+    </div>
+
     {{-- Fields and Reasons to update --}}
     @php
         $fieldLabels = [

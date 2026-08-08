@@ -244,21 +244,6 @@
                 sidebarObserver.observe(leftCol, { attributes: true, attributeFilter: ['style'] });
             }
 
-            // Auto-dismiss alerts after 5 seconds
-            setTimeout(function() {
-                const alerts = document.querySelectorAll('.alert:not(.alert-important)');
-                alerts.forEach(alert => {
-                    // Use Bootstrap's own close method if possible, or just fade out
-                    if (window.bootstrap && bootstrap.Alert) {
-                        const alertInstance = bootstrap.Alert.getOrCreateInstance(alert);
-                        if (alertInstance) alertInstance.close();
-                    } else {
-                        alert.style.transition = "opacity 0.6s ease";
-                        alert.style.opacity = "0";
-                        setTimeout(() => alert.remove(), 600);
-                    }
-                });
-            }, 5000);
 
             // Close sidebar on click outside (mobile)
             document.addEventListener('click', function(e) {

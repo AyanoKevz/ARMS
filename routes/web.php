@@ -130,6 +130,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/interviews/scheduled', [HCDApplicationController::class, 'scheduledInterviews'])->name('interviews.scheduled');
             Route::post('/applications/{application}/interview-result', [HCDApplicationController::class, 'recordInterviewResult'])->name('applications.interview_result');
             Route::post('/instructors/{instructor}/request-update', [HCDApplicationController::class, 'requestInstructorUpdate'])->name('instructors.request_update');
+            Route::post('/instructors/{instructor}/complete-update', [HCDApplicationController::class, 'completeInstructorUpdate'])->name('instructors.complete_update');
+            Route::post('/instructors/{instructor}/reject-update', [HCDApplicationController::class, 'rejectInstructorUpdate'])->name('instructors.reject_update');
 
             // Payment and Recommendation
             Route::get('/applications/awaiting-payment', [HCDApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');

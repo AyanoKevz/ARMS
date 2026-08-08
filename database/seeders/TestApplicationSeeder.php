@@ -71,7 +71,7 @@ class TestApplicationSeeder extends Seeder
 
             // 3. Create Application (FATPro - New Registration Only)
             $year = date('Y');
-            $letters = Str::upper(Str::random(2));
+            $letters = chr(random_int(65, 90)) . chr(random_int(65, 90));
             $digits = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
             $application = Application::create([
                 'user_id' => $user->id,

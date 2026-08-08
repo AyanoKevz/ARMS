@@ -1107,6 +1107,7 @@
                         ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
                         ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
                         ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
+                        ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Comprehensive plan for managing training programs and operations','required'=>true],
                     ]],
                     ['title' => 'Premises Including Occupational Safety', 'badge' => '3', 'docs' => [
                         ['code'=>'PREM_01','title'=>'Location Map','label'=>"Organization's location map",'required'=>true],

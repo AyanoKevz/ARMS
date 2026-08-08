@@ -69,13 +69,13 @@
     <div class="clearfix"></div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
+        <div class="alert alert-success alert-important alert-dismissible fade show">
             <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
     @if($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show">
+        <div class="alert alert-danger alert-important alert-dismissible fade show">
             <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -127,7 +127,8 @@
 
     @php
         $requestedFields = $instructor->update_request_fields ?? [];
-        $isUpdateMode    = $instructor->update_request_status === 'admin_requested';
+        $isPendingReview = $instructor->update_request_status === 'pending_review';
+        $isUpdateMode    = ($instructor->update_request_status === 'admin_requested' || $isAccredited) && !$isPendingReview;
     @endphp
 
     <div class="row pt-2">
@@ -188,12 +189,16 @@
                         </div>
                     </div>
 
-                    {{-- Update form: only when admin requested AND service_agreement is in the fields list --}}
-                    @if($isUpdateMode && in_array('service_agreement', $requestedFields))
+                    {{-- Update form: when active FATPro OR admin requested --}}
+                    @if($isAccredited || ($instructor->update_request_status === 'admin_requested' && in_array('service_agreement', $requestedFields)))
+                    @php
+                        $isSaRequested = in_array('service_agreement', $requestedFields);
+                        $isSaRequired  = $isSaRequested || !$instructor->service_agreement_path;
+                    @endphp
                     <div class="update-section mt-2">
-                        <label class="form-label mb-1">Replace Service Agreement PDF <span class="text-danger">*</span></label>
+                        <label class="form-label mb-1">Replace / Upload Service Agreement PDF @if($isSaRequired)<span class="text-danger">*</span>@else (optional)@endif</label>
                         <div class="file-upload-wrapper mt-1">
-                            <input class="real-file-input visually-hidden" type="file" name="service_agreement" id="service_agreement" accept=".pdf" required>
+                            <input class="real-file-input visually-hidden" type="file" name="service_agreement" id="service_agreement" accept=".pdf" {{ $isSaRequired ? 'required' : '' }}>
                             <div class="d-flex align-items-center gap-2">
                                 <label for="service_agreement" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
                                     <i class="fas fa-upload me-1"></i> Choose PDF
@@ -232,8 +237,9 @@
                         $credStatus = 'pending review';
                     }
                 }
+                $isExpired = $credential->validity_date && \Carbon\Carbon::parse($credential->validity_date)->isPast();
                 $credColor = match($credStatus) {
-                    'approved' => 'badge-approved',
+                    'approved' => $isExpired ? 'badge-rejected' : 'badge-approved',
                     'returned' => 'badge-returned',
                     'rejected' => 'badge-rejected',
                     default    => 'badge-pending',
@@ -242,8 +248,12 @@
             @endphp
             <div class="cred-card">
                 <div class="cred-header">
-                    <h6><i class="bi bi-award me-2"></i> {{ $label }}</h6>
-                    <span class="badge {{ $credColor }}">{{ ucwords($credStatus) }}</span>
+                    <h6><i class="bi bi-award me-2"></i> {{ $label }}
+                        @if($isExpired)
+                            <span class="badge bg-danger ms-2" style="font-size:0.75rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Expired</span>
+                        @endif
+                    </h6>
+                    <span class="badge {{ $credColor }}">{{ $isExpired ? 'Expired' : ucwords($credStatus) }}</span>
                 </div>
                 <div class="cred-body">
                     @if($credential->remarks)
@@ -270,7 +280,10 @@
                         @if($credential->validity_date)
                         <div class="info-item">
                             <div class="info-label">Valid Until</div>
-                            <div class="info-val">{{ \Carbon\Carbon::parse($credential->validity_date)->format('F d, Y') }}</div>
+                            <div class="info-val {{ $isExpired ? 'text-danger fw-bold' : '' }}">
+                                {{ \Carbon\Carbon::parse($credential->validity_date)->format('F d, Y') }}
+                                @if($isExpired) (Expired) @endif
+                            </div>
                         </div>
                         @endif
                         @if($credential->type === 'BOSH' && $credential->training_dates)
@@ -300,39 +313,43 @@
                         </div>
                     </div>
 
-                    {{-- Update Form: only when admin requested AND this credential type is in the fields list --}}
-                    @if($isUpdateMode && in_array($credential->type, $requestedFields))
+                    {{-- Update Form: when active FATPro OR admin requested --}}
+                    @if($isAccredited || ($instructor->update_request_status === 'admin_requested' && in_array($credential->type, $requestedFields)))
+                    @php
+                        $isCredRequested = in_array($credential->type, $requestedFields);
+                        $isCredRequired  = $isCredRequested || !$credential->pdf_path;
+                    @endphp
                     <div class="update-section mt-2">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4">
-                                <label class="form-label">Certificate Number <span class="text-danger">*</span></label>
+                                <label class="form-label">Certificate Number</label>
                                 <input type="text" name="credentials[{{ $credential->id }}][number]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001" required>
+                                       value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
                             </div>
                             @if($credential->type !== 'BOSH')
                             <div class="col-md-4">
-                                <label class="form-label">Issued Date <span class="text-danger">*</span></label>
+                                <label class="form-label">Issued Date</label>
                                 <input type="date" name="credentials[{{ $credential->id }}][issued_date]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}" required>
+                                       value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}">
                             </div>
                             @endif
                             <div class="col-md-4">
-                                <label class="form-label">Valid Until <span class="text-danger">*</span></label>
+                                <label class="form-label">Valid Until</label>
                                 <input type="date" name="credentials[{{ $credential->id }}][validity_date]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}" required>
+                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}">
                             </div>
                             @if($credential->type === 'BOSH')
                             <div class="col-md-8">
-                                <label class="form-label">Training Date(s) <span class="text-danger">*</span></label>
+                                <label class="form-label">Training Date(s)</label>
                                 <input type="text" name="credentials[{{ $credential->id }}][training_dates]" class="form-control form-control-sm"
                                        value="{{ old('credentials.'.$credential->id.'.training_dates', $credential->training_dates) }}"
-                                       placeholder="e.g. April 10-14, 2024" required>
+                                       placeholder="e.g. April 10-14, 2024">
                             </div>
                             @endif
                         </div>
-                        <label class="form-label mb-1">Replace Credential PDF (optional)</label>
+                        <label class="form-label mb-1">Replace / Upload Credential PDF @if($isCredRequired)<span class="text-danger">*</span>@else (optional) @endif</label>
                         <div class="file-upload-wrapper mt-1">
-                            <input class="real-file-input visually-hidden" type="file" name="credentials[{{ $credential->id }}][pdf_file]" id="cred_pdf_{{ $credential->id }}" accept=".pdf">
+                            <input class="real-file-input visually-hidden" type="file" name="credentials[{{ $credential->id }}][pdf_file]" id="cred_pdf_{{ $credential->id }}" accept=".pdf" {{ $isCredRequired ? 'required' : '' }}>
                             <div class="d-flex align-items-center gap-2">
                                 <label for="cred_pdf_{{ $credential->id }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
                                     <i class="fas fa-upload me-1"></i> Choose PDF
@@ -358,7 +375,14 @@
             @endif
 
             @if($isUpdateMode)
-            <div class="text-end mt-4 mb-4">
+            <div class="mt-4 mb-3" id="batch-form-error-banner" style="display:none;" role="alert" aria-live="assertive">
+                <div class="alert alert-danger alert-important d-flex align-items-center gap-2 py-2 mb-0" style="font-size:.87rem;">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                    <span id="batch-form-error-message">Please upload at least one replacement PDF file or update credential information before submitting.</span>
+                </div>
+            </div>
+
+            <div class="text-end mt-3 mb-4">
                 <button type="submit" class="btn btn-primary btn-lg px-5" id="batchUpdateBtn" style="border-radius:10px;">
                     <span id="batchUpdateText"><i class="bi bi-send me-1"></i> Submit All Updates</span>
                     <span id="batchUpdateSpinner" class="d-none">
