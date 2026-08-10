@@ -767,13 +767,13 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                             <button type="button"
                                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
                                                 data-doc-id="{{ $doc->id }}"
-                                                onclick="setDocStatus({{ $doc->id }}, 'approved')">
+                                                onclick="evaluateItem({{ $doc->id }}, 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
                                             <button type="button"
                                                 class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}"
                                                 data-doc-id="{{ $doc->id }}"
-                                                onclick="setDocStatus({{ $doc->id }}, 'rejected')">
+                                                onclick="evaluateItem({{ $doc->id }}, 'rejected')">
                                                 <i class="bi bi-x-circle-fill"></i> Reject
                                             </button>
                                         </div>
@@ -1038,10 +1038,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($showEvalButtons)
                                         @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
-                                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'approved')">
+                                            <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="evaluateItem('cred-{{ $credential->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
-                                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="setDocStatus('cred-{{ $credential->id }}', 'rejected')">
+                                            <button type="button" class="btn-eval btn-reject {{ $evalStatusCred === 'rejected' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="evaluateItem('cred-{{ $credential->id }}', 'rejected')">
                                                 <i class="bi bi-x-circle-fill"></i> Reject
                                             </button>
                                         </div>
@@ -1119,10 +1119,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($showSaEvalButtons)
                                         @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
-                                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'approved')">
+                                            <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="evaluateItem('inst-{{ $instructor->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
-                                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="setDocStatus('inst-{{ $instructor->id }}', 'rejected')">
+                                            <button type="button" class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="evaluateItem('inst-{{ $instructor->id }}', 'rejected')">
                                                 <i class="bi bi-x-circle-fill"></i> Reject
                                             </button>
                                         </div>

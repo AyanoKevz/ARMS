@@ -388,8 +388,8 @@ test('approve/reject buttons are hidden and remarks are readonly when status is 
     $response->assertStatus(200);
 
     $html = $response->getContent();
-    expect($html)->not->toContain('onclick="setDocStatus(' . $appDoc->id . ', \'approved\')"');
-    expect($html)->not->toContain('onclick="setDocStatus(' . $appDoc->id . ', \'rejected\')"');
+    expect($html)->not->toContain('onclick="evaluateItem(' . $appDoc->id . ', \'approved\')"');
+    expect($html)->not->toContain('onclick="evaluateItem(' . $appDoc->id . ', \'rejected\')"');
     expect($html)->toContain('id="remarks-' . $appDoc->id . '"');
     expect($html)->toContain('readonly');
 });
