@@ -93,9 +93,11 @@ class PctService
      */
     public function cleanupDuplicateEntries(Application $application): void
     {
-        $groups = $application->pctEntries()
-            ->get()
-            ->groupBy('step_number');
+        $allEntries = $application->relationLoaded('pctEntries')
+            ? $application->pctEntries
+            : $application->pctEntries()->get();
+
+        $groups = $allEntries->groupBy('step_number');
 
         $hasDeleted = false;
         foreach ($groups as $stepNumber => $entries) {
@@ -122,12 +124,16 @@ class PctService
      */
     public function initializeMissingEntries(Application $application): void
     {
-        // ── Clean up any duplicate entries for the same step ──
-        $this->cleanupDuplicateEntries($application);
+        $hasEntries = $application->relationLoaded('pctEntries')
+            ? $application->pctEntries->isNotEmpty()
+            : $application->pctEntries()->exists();
 
-        if ($application->pctEntries()->exists()) {
+        if ($hasEntries) {
             return;
         }
+
+        // ── Clean up any duplicate entries for the same step ──
+        $this->cleanupDuplicateEntries($application);
 
         $now = Carbon::now();
         $submittedAt = $application->submitted_at ?? $application->created_at ?? $now;
@@ -412,15 +418,18 @@ class PctService
         $this->autoStopInterviewIfExpired($application);
 
         // ── Auto-Reconcile Step 7 state if signed recommendation is uploaded but payment is pending ──
-        $payment = $application->payment;
+        $payment = $application->relationLoaded('payment') ? $application->payment : $application->payment;
         if ($payment && !$payment->proof_of_payment && $payment->signed_recommendation_letter) {
-            $active = $application->pctEntries()->active()->where('step_number', 7)->first();
+            $entriesColl = $application->relationLoaded('pctEntries') ? $application->pctEntries : $application->pctEntries()->get();
+            $active = $entriesColl->first(fn($e) => $e->is_active && $e->step_number == 7);
             if ($active && !$active->paused_at) {
                 $active->pause();
             }
         }
 
-        $entries = $application->pctEntries()->orderBy('step_number')->get();
+        $entries = $application->relationLoaded('pctEntries')
+            ? $application->pctEntries->sortBy('step_number')
+            : $application->pctEntries()->orderBy('step_number')->get();
 
         $totalElapsed = 0;
         $steps = [];

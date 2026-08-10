@@ -318,6 +318,7 @@ class ApplicationController extends Controller
         $application->load([
             'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
+            'user.instructors.credentials',
             'accreditationType',
             'latestStatus.status',
             'statusLogs.status',
@@ -327,6 +328,7 @@ class ApplicationController extends Controller
             'accreditation',
             'instructors.credentials',
             'pctEntries',
+            'payment',
         ]);
 
         // Self-heal: ensure PCT is initialized for applications in/past evaluation

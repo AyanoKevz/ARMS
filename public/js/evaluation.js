@@ -24,15 +24,6 @@
         const evalButtons = document.querySelectorAll('.btn-eval, .btn-approve, .btn-reject');
         evalButtons.forEach(btn => {
             btn.disabled = !!show;
-            if (show) {
-                btn.style.opacity = '0.5';
-                btn.style.cursor = 'not-allowed';
-                btn.style.filter = 'grayscale(1)';
-            } else {
-                btn.style.opacity = '';
-                btn.style.cursor = '';
-                btn.style.filter = '';
-            }
         });
 
         // Hide any inline indicators if present

@@ -81,9 +81,9 @@ $grouped = $application->documents
 $currentStatus = $application->latestStatus?->status?->name ?? 'Under Evaluation';
 $isScheduled = $currentStatus === 'Scheduled for Interview';
 $docApproved = $application->documents->count() === 0 || $application->documents->every(fn($d) => $d->status === 'approved');
-$applicationInstructors = $application->instructors()->exists() ? $application->instructors : ($application->user ? $application->user->instructors()->whereNull('application_id')->with('credentials')->get() : collect());
+$applicationInstructors = $application->instructors->isNotEmpty() ? $application->instructors : ($application->user ? $application->user->instructors->whereNull('application_id') : collect());
 $instApproved = $applicationInstructors->count() === 0 || $applicationInstructors->every(fn($i) => $i->status === 'approved');
-$credApproved = $applicationInstructors->count() === 0 || \App\Models\InstructorCredential::whereIn('instructor_id', $applicationInstructors->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+$credApproved = $applicationInstructors->count() === 0 || $applicationInstructors->flatMap->credentials->every(fn($c) => $c->status === 'approved');
 $allApproved = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
 
 $interview = $application->interview;
