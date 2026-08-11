@@ -775,11 +775,11 @@
         }
         if (!filesValid) return;
 
-        // Total upload payload limit guard (25MB max to prevent server TCP connection reset / HTTP 413)
-        const maxTotalUploadBytes = 25 * 1024 * 1024;
+        // Total upload payload limit guard (50MB max to prevent server TCP connection reset / HTTP 413)
+        const maxTotalUploadBytes = 50 * 1024 * 1024;
         if (totalUploadBytes > maxTotalUploadBytes) {
             const sizeMB = (totalUploadBytes / (1024 * 1024)).toFixed(1);
-            showTopAlert(`Total size of uploaded files (${sizeMB} MB) exceeds the maximum allowed limit of 25 MB. Please reduce file sizes before submitting.`, 'danger');
+            showTopAlert(`Total size of uploaded files (${sizeMB} MB) exceeds the maximum allowed limit of 50 MB. Please reduce file sizes before submitting.`, 'danger');
             return;
         }
 

@@ -24,6 +24,15 @@
         const evalButtons = document.querySelectorAll('.btn-eval, .btn-approve, .btn-reject');
         evalButtons.forEach(btn => {
             btn.disabled = !!show;
+            if (show) {
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                btn.style.filter = 'grayscale(1)';
+            } else {
+                btn.style.opacity = '';
+                btn.style.cursor = '';
+                btn.style.filter = '';
+            }
         });
 
         // Hide any inline indicators if present
@@ -126,20 +135,7 @@
         
         // Disable and grey out action buttons while saving
         const setSavingState = (isSaving) => {
-            [approveBtn, rejectBtn].forEach(b => {
-                if (b) {
-                    b.disabled = isSaving;
-                    if (isSaving) {
-                        b.style.opacity = '0.5';
-                        b.style.cursor = 'not-allowed';
-                        b.style.filter = 'grayscale(1)';
-                    } else {
-                        b.style.opacity = '';
-                        b.style.cursor = '';
-                        b.style.filter = '';
-                    }
-                }
-            });
+            toggleEvalLoadingIndicators(isSaving);
         };
 
         setSavingState(true);
