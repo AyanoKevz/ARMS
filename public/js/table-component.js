@@ -66,14 +66,24 @@ window.initDynamicTable = function(selector, options = {}) {
 
     const finalOptions = $.extend(true, {}, defaultOptions, options);
     
-    // Support data-date-index attribute on the table element
-    const dataDateIndex = $(selector).data('date-index');
-    if (dataDateIndex !== undefined) {
-        finalOptions.dateColumnIndex = parseInt(dataDateIndex);
-        
-        // If sorting was using default index 3, update it to the new date index
-        if (options.order === undefined && finalOptions.order[0][0] === 3) {
-            finalOptions.order = [[finalOptions.dateColumnIndex, finalOptions.order[0][1]]];
+    // Support data-order attribute on the table element (e.g. data-order="[]")
+    const dataOrderAttr = $(selector).attr('data-order');
+    if (dataOrderAttr !== undefined) {
+        try {
+            finalOptions.order = JSON.parse(dataOrderAttr);
+        } catch(e) {
+            finalOptions.order = [];
+        }
+    } else {
+        // Support data-date-index attribute on the table element
+        const dataDateIndex = $(selector).data('date-index');
+        if (dataDateIndex !== undefined) {
+            finalOptions.dateColumnIndex = parseInt(dataDateIndex);
+            
+            // If sorting was using default index 3, update it to the new date index
+            if (options.order === undefined && finalOptions.order[0][0] === 3) {
+                finalOptions.order = [[finalOptions.dateColumnIndex, finalOptions.order[0][1]]];
+            }
         }
     }
 

@@ -25,9 +25,6 @@ $pctWorkStart = $pctNow->copy()->setTime(8, 0, 0);
 $pctWorkEnd   = $pctNow->copy()->setTime(17, 0, 0);
 
 $isWorkingHours = true;
-// TESTING OVERRIDE: PCT working hours restriction commented out for testing.
-// To re-enable PCT button hiding outside working hours, uncomment the block below:
-/*
 if ($pctNow->isWeekend()) {
     $isWorkingHours = false;
 } elseif ($pctIsTodayHoliday) {
@@ -35,7 +32,6 @@ if ($pctNow->isWeekend()) {
 } elseif ($pctNow->lessThan($pctWorkStart) || $pctNow->greaterThanOrEqualTo($pctWorkEnd)) {
     $isWorkingHours = false;
 }
-*/
 
 // Check if this is an approved/active application and if there is a pending renewal/reinstatement application
 $pendingRenewalOrReinstatement = null;
@@ -354,8 +350,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 $stepStatus = $step['status'];
                 $now = $pctNow;
                 $isWorkingHours = true;
-                // TESTING OVERRIDE: PCT working hours restriction commented out for testing.
-                /*
                 if ($now->isWeekend()) {
                     $isWorkingHours = false;
                 } elseif ($pctIsTodayHoliday) {
@@ -363,7 +357,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
                     $isWorkingHours = false;
                 }
-                */
                 
                 $displayStatus = $stepStatus;
                 if ($stepStatus === 'active' && !$isWorkingHours) {
@@ -909,50 +902,86 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 {{-- Instructor Credentials Summary Table (Active FATPro Table Design) --}}
                                 <div class="mt-3 mb-3 px-3">
                                     <div class="table-responsive">
-                                        <table id="instructor-credentials-table-{{ $instructor->id }}" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
-                                            <thead>
-                                                <tr class="headings">
-                                                    <th class="column-title">Credential / Certificate Type</th>
-                                                    <th class="column-title">Certificate Number</th>
-                                                    <th class="column-title text-center">Issued On</th>
-                                                    <th class="column-title text-center">Valid Until</th>
-                                                    <th class="column-title">Training Date(s)</th>
-                                                    <th class="column-title no-link last text-center no-sort"><span class="nobr">File View</span></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($instructor->credentials as $credItem)
-                                                <tr class="even pointer">
-                                                    <td><strong>
-                                                        @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
-                                                        @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
-                                                        @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
-                                                        @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
-                                                        @else {{ $credItem->type }} Credential
-                                                        @endif
-                                                    </strong></td>
-                                                    <td>{{ $credItem->number ?? '—' }}</td>
-                                                    <td class="text-center">{{ $credItem->issued_date ? \Carbon\Carbon::parse($credItem->issued_date)->format('M d, Y') : '—' }}</td>
-                                                    <td class="text-center">{{ $credItem->validity_date ? \Carbon\Carbon::parse($credItem->validity_date)->format('M d, Y') : '—' }}</td>
-                                                    <td>{{ $credItem->training_dates ?? '—' }}</td>
-                                                    <td class="last text-center" style="white-space:nowrap;">
-                                                        @if($credItem->pdf_path)
-                                                        <a href="{{ route('admin.hcd.instructors.credentials.view', $credItem->id) }}?v={{ $credItem->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="{{ $credItem->type }} Credential" class="btn btn-info btn-xs m-0">
-                                                            <i class="fas fa-eye me-1"></i> View
-                                                        </a>
-                                                        @else
-                                                        <span class="text-muted small">No file</span>
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                                        <table id="instructor-credentials-table-{{ $instructor->id }}" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-order="[]">
+                                             <thead>
+                                                 <tr class="headings">
+                                                     <th class="column-title">Credential / Certificate Type</th>
+                                                     <th class="column-title">Certificate Number</th>
+                                                     <th class="column-title text-center">Issued On</th>
+                                                     <th class="column-title text-center">Valid Until</th>
+                                                     <th class="column-title">Training Date(s)</th>
+                                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">File View</span></th>
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                 @php
+                                                     $sortedCredentials = $instructor->credentials->sortBy(function($c) {
+                                                         return match($c->type) {
+                                                             'NTTC'  => 1,
+                                                             'TM1'   => 2,
+                                                             'EMS'   => 3,
+                                                             'BOSH'  => 99,
+                                                             default => 50,
+                                                         };
+                                                     });
+                                                 @endphp
+                                                 @foreach($sortedCredentials as $credItem)
+                                                 <tr class="even pointer">
+                                                     <td><strong>
+                                                         @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
+                                                         @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
+                                                         @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
+                                                         @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
+                                                         @else {{ $credItem->type }} Credential
+                                                         @endif
+                                                     </strong></td>
+                                                     <td>{{ $credItem->number ?? '—' }}</td>
+                                                     <td class="text-center">{{ $credItem->issued_date ? \Carbon\Carbon::parse($credItem->issued_date)->format('M d, Y') : '—' }}</td>
+                                                     <td class="text-center">
+                                                         @if($credItem->validity_date)
+                                                             @php
+                                                                 $isPast = \Carbon\Carbon::parse($credItem->validity_date)->endOfDay()->isPast();
+                                                             @endphp
+                                                             <div>{{ \Carbon\Carbon::parse($credItem->validity_date)->format('M d, Y') }}</div>
+                                                             @if($isPast)
+                                                                 <span class="badge bg-danger text-white mt-1" style="font-size:.72rem; padding: 3px 8px; border-radius: 4px;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Expired</span>
+                                                             @else
+                                                                 <span class="badge bg-success text-white mt-1" style="font-size:.72rem; padding: 3px 8px; border-radius: 4px;"><i class="bi bi-check-circle-fill me-1"></i>Valid</span>
+                                                             @endif
+                                                         @else
+                                                             —
+                                                         @endif
+                                                     </td>
+                                                     <td>{{ $credItem->training_dates ?? '—' }}</td>
+                                                     <td class="last text-center" style="white-space:nowrap;">
+                                                         @if($credItem->pdf_path)
+                                                         <a href="{{ route('admin.hcd.instructors.credentials.view', $credItem->id) }}?v={{ $credItem->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="{{ $credItem->type }} Credential" class="btn btn-info btn-xs m-0">
+                                                             <i class="fas fa-eye me-1"></i> View
+                                                         </a>
+                                                         @else
+                                                         <span class="text-muted small">No file</span>
+                                                         @endif
+                                                     </td>
+                                                 </tr>
+                                                 @endforeach
+                                             </tbody>
+                                         </table>
                                     </div>
                                 </div>
                                 @else
                                 {{-- Non-active / Under Evaluation: Original evaluation cards with text details and evaluation buttons --}}
-                                @foreach($instructor->credentials as $credential)
+                                 @php
+                                     $sortedEvalCredentials = $instructor->credentials->sortBy(function($c) {
+                                         return match($c->type) {
+                                             'NTTC'  => 1,
+                                             'TM1'   => 2,
+                                             'EMS'   => 3,
+                                             'BOSH'  => 99,
+                                             default => 50,
+                                         };
+                                     });
+                                 @endphp
+                                 @foreach($sortedEvalCredentials as $credential)
                                 @php
                                 $evalStatusCred = in_array($credential->status, ['approved','rejected','returned']) ? $credential->status : 'pending';
                                 $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);

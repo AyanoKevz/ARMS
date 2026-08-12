@@ -1338,8 +1338,6 @@
                 }
             }
 
-            // TESTING OVERRIDE: Working hours DOM hiding commented out for testing.
-            /*
             const workingOnlyEls = document.querySelectorAll('.pct-working-only');
             workingOnlyEls.forEach(el => {
                 if (isWorking) {
@@ -1359,7 +1357,6 @@
                     input.readOnly = false;
                 }
             });
-            */
         };
 
         // Run immediately on load and then every 1000ms

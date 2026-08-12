@@ -166,39 +166,64 @@ $instructors = $instructors ?? \App\Models\Instructor::where('user_id', auth()->
                             <div id="inst-body-{{ $instructor->id }}" class="collapse {{ $index === 0 ? 'show' : '' }}" data-bs-parent="#instructorsDashboardAccordion">
                                 <div class="p-3">
                                     <div class="table-responsive">
-                                        <table id="instructor-cred-table-{{ $instructor->id }}" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%">
-                                            <thead>
-                                                <tr class="headings">
-                                                    <th class="column-title">Credential / Certificate Type</th>
-                                                    <th class="column-title">Certificate Number</th>
-                                                    <th class="column-title text-center">Issued On</th>
-                                                    <th class="column-title text-center">Valid Until</th>
-                                                    <th class="column-title">Training Date(s)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @forelse($instructor->credentials as $credItem)
-                                                <tr class="even pointer">
-                                                    <td><strong>
-                                                        @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
-                                                        @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
-                                                        @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
-                                                        @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
-                                                        @else {{ $credItem->type }} Credential
-                                                        @endif
-                                                    </strong></td>
-                                                    <td>{{ $credItem->number ?? '—' }}</td>
-                                                    <td class="text-center">{{ $credItem->issued_date ? \Carbon\Carbon::parse($credItem->issued_date)->format('M d, Y') : '—' }}</td>
-                                                    <td class="text-center">{{ $credItem->validity_date ? \Carbon\Carbon::parse($credItem->validity_date)->format('M d, Y') : '—' }}</td>
-                                                    <td>{{ $credItem->training_dates ?? '—' }}</td>
-                                                </tr>
-                                                @empty
-                                                <tr>
-                                                    <td colspan="5" class="text-center text-muted py-3">No credentials recorded for this instructor.</td>
-                                                </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
+                                         <table id="instructor-cred-table-{{ $instructor->id }}" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-order="[]">
+                                             <thead>
+                                                 <tr class="headings">
+                                                     <th class="column-title">Credential / Certificate Type</th>
+                                                     <th class="column-title">Certificate Number</th>
+                                                     <th class="column-title text-center">Issued On</th>
+                                                     <th class="column-title text-center">Valid Until</th>
+                                                     <th class="column-title">Training Date(s)</th>
+                                                 </tr>
+                                             </thead>
+                                             <tbody>
+                                                 @php
+                                                     $sortedDashCredentials = $instructor->credentials->sortBy(function($c) {
+                                                         return match($c->type) {
+                                                             'NTTC'  => 1,
+                                                             'TM1'   => 2,
+                                                             'EMS'   => 3,
+                                                             'BOSH'  => 99,
+                                                             default => 50,
+                                                         };
+                                                     });
+                                                 @endphp
+                                                 @forelse($sortedDashCredentials as $credItem)
+                                                 <tr class="even pointer">
+                                                     <td><strong>
+                                                         @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
+                                                         @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
+                                                         @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
+                                                         @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
+                                                         @else {{ $credItem->type }} Credential
+                                                         @endif
+                                                     </strong></td>
+                                                     <td>{{ $credItem->number ?? '—' }}</td>
+                                                     <td class="text-center">{{ $credItem->issued_date ? \Carbon\Carbon::parse($credItem->issued_date)->format('M d, Y') : '—' }}</td>
+                                                     <td class="text-center">
+                                                         @if($credItem->validity_date)
+                                                             @php
+                                                                 $isPast = \Carbon\Carbon::parse($credItem->validity_date)->endOfDay()->isPast();
+                                                             @endphp
+                                                             <div>{{ \Carbon\Carbon::parse($credItem->validity_date)->format('M d, Y') }}</div>
+                                                             @if($isPast)
+                                                                 <span class="badge bg-danger text-white mt-1" style="font-size:.72rem; padding: 3px 8px; border-radius: 4px;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Expired</span>
+                                                             @else
+                                                                 <span class="badge bg-success text-white mt-1" style="font-size:.72rem; padding: 3px 8px; border-radius: 4px;"><i class="bi bi-check-circle-fill me-1"></i>Valid</span>
+                                                             @endif
+                                                         @else
+                                                             —
+                                                         @endif
+                                                     </td>
+                                                     <td>{{ $credItem->training_dates ?? '—' }}</td>
+                                                 </tr>
+                                                 @empty
+                                                 <tr>
+                                                     <td colspan="5" class="text-center text-muted py-3">No credentials recorded for this instructor.</td>
+                                                 </tr>
+                                                 @endforelse
+                                             </tbody>
+                                         </table>
                                     </div>
                                 </div>
                             </div>
