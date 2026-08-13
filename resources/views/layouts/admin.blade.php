@@ -4,10 +4,13 @@
     $division = strtolower(auth()->user()?->adminProfile?->division?->name ?? 'hcd');
     $isAdminRoleName = strtolower(auth()->user()?->adminProfile?->adminRole?->name ?? '');
     $isVerifierLayout = ($isAdminRoleName === 'verifier');
+
+    // Sidebar subheading label: Accreditation Division → "Accreditation Portal"
+    $divisionLabel = $division === 'accreditation' ? 'Accreditation' : strtoupper($division);
 @endphp
 
 @section('sidebar_subheading')
-    {{ strtoupper($division) }} Portal
+    {{ $divisionLabel }} Portal
 @endsection
 
 @push('styles')

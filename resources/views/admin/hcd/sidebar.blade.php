@@ -1,6 +1,5 @@
-@php
+﻿@php
     $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
-    $isVerifier = strtolower($isAdminRole) === 'verifier';
     $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 
     // Base flags
@@ -51,7 +50,7 @@
         ($routeShow && $isInterviewApp && $appObj?->interview);
     $interviewsParentActive = $intPendingActive || $intScheduledActive;
 
-    // 7. Recommendation/Payment
+    // 7. Recommendation/Payment (Evaluator sees "For Recommendation")
     $paymentActive = request()->routeIs('admin.hcd.applications.awaiting_payment') || ($routeShow && $isPaymentApp);
 
     // 8. Releasing
@@ -77,7 +76,6 @@
 <li id="tour-step-profile" class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
 <li id="tour-step-admin-list" class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.admins') }}"><i class="fas fa-users-cog"></i> HCD Admin List </a></li>
 
-@if(!$isVerifier)
 <li id="tour-step-new-apps" class="{{ $newAppsParentActive ? 'active' : '' }}"><a><i class="fas fa-folder-plus"></i>New Applications <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $newAppsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $newPendingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.applications.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
@@ -98,14 +96,8 @@
         <li class="{{ $intScheduledActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.interviews.scheduled') }}"><i class="fas fa-calendar-check"></i> Scheduled Interviews</a></li>
     </ul>
 </li>
-@endif
 
-@if($isVerifier)
-<li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
-<li id="tour-step-releasing" class="{{ $releasingActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.releasing') }}"><i class="fas fa-file-signature"></i> Releasing </a></li>
-@elseif($isEvaluator)
 <li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
-@endif
 
 @if($isEvaluator)
 <li id="tour-step-reports" class="{{ $reportsParentActive ? 'active' : '' }}"><a><i class="fas fa-chart-bar"></i> Reports <span class="fas fa-chevron-down"></span></a>

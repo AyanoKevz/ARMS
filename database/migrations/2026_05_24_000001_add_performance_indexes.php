@@ -56,6 +56,8 @@ return new class extends Migration
             $table->index('application_type', 'idx_applications_type');
             $table->index('submitted_at', 'idx_applications_submitted_at');
             $table->index('handled_by_admin_id', 'idx_applications_handled_by');
+            $table->index(['user_id', 'application_type'], 'idx_apps_user_type');
+            $table->index(['application_type', 'created_at'], 'idx_apps_type_created');
         });
 
         // ── document_fields ───────────────────────────────────────────────────
@@ -78,6 +80,8 @@ return new class extends Migration
             $table->index('updated_by', 'idx_app_status_logs_updated_by');
             $table->index(['application_id', 'created_at'], 'idx_status_logs_app_created');
             $table->index('status_id', 'idx_status_logs_status_id');
+            $table->index(['application_id', 'id'], 'idx_status_logs_app_id');
+            $table->index(['application_id', 'status_id'], 'idx_status_logs_app_status');
         });
 
         // ── accreditations ────────────────────────────────────────────────────
@@ -88,6 +92,7 @@ return new class extends Migration
             $table->index('status', 'idx_accreditations_status');
             $table->index('validity_date', 'idx_accreditations_validity_date');
             $table->index(['user_id', 'status'], 'idx_accreditations_user_status');
+            $table->index(['status', 'date_of_accreditation'], 'idx_accred_status_date');
         });
 
         // ── interviews ────────────────────────────────────────────────────────
@@ -95,6 +100,7 @@ return new class extends Migration
             $table->index('application_id', 'idx_interviews_application_id');
             $table->index('interview_date', 'idx_interviews_date');
             $table->index('mode', 'idx_interviews_mode');
+            $table->index(['application_id', 'interview_date'], 'idx_interviews_app_date');
         });
 
         // ── instructors ───────────────────────────────────────────────────────
@@ -121,6 +127,7 @@ return new class extends Migration
         if (Schema::hasTable('application_payments')) {
             Schema::table('application_payments', function (Blueprint $table) {
                 $table->index('application_id', 'idx_app_payments_application_id');
+                $table->index(['application_id', 'proof_of_payment_status'], 'idx_payments_app_status');
             });
         }
 
@@ -128,6 +135,8 @@ return new class extends Migration
         if (Schema::hasTable('pct_entries')) {
             Schema::table('pct_entries', function (Blueprint $table) {
                 $table->index('application_id', 'idx_pct_entries_application_id');
+                $table->index(['application_id', 'step_number', 'is_active'], 'idx_pct_app_step_active');
+                $table->index(['is_active', 'step_number', 'paused_at'], 'idx_pct_active_step_paused');
             });
         }
 
@@ -189,6 +198,8 @@ return new class extends Migration
             $table->dropIndex('idx_applications_type');
             $table->dropIndex('idx_applications_submitted_at');
             $table->dropIndex('idx_applications_handled_by');
+            $table->dropIndex('idx_apps_user_type');
+            $table->dropIndex('idx_apps_type_created');
         });
 
         Schema::table('document_fields', function (Blueprint $table) {
@@ -208,6 +219,8 @@ return new class extends Migration
             $table->dropIndex('idx_app_status_logs_updated_by');
             $table->dropIndex('idx_status_logs_app_created');
             $table->dropIndex('idx_status_logs_status_id');
+            $table->dropIndex('idx_status_logs_app_id');
+            $table->dropIndex('idx_status_logs_app_status');
         });
 
         Schema::table('accreditations', function (Blueprint $table) {
@@ -217,12 +230,14 @@ return new class extends Migration
             $table->dropIndex('idx_accreditations_status');
             $table->dropIndex('idx_accreditations_validity_date');
             $table->dropIndex('idx_accreditations_user_status');
+            $table->dropIndex('idx_accred_status_date');
         });
 
         Schema::table('interviews', function (Blueprint $table) {
             $table->dropIndex('idx_interviews_application_id');
             $table->dropIndex('idx_interviews_date');
             $table->dropIndex('idx_interviews_mode');
+            $table->dropIndex('idx_interviews_app_date');
         });
 
         Schema::table('instructors', function (Blueprint $table) {
@@ -245,12 +260,15 @@ return new class extends Migration
         if (Schema::hasTable('application_payments')) {
             Schema::table('application_payments', function (Blueprint $table) {
                 $table->dropIndex('idx_app_payments_application_id');
+                $table->dropIndex('idx_payments_app_status');
             });
         }
 
         if (Schema::hasTable('pct_entries')) {
             Schema::table('pct_entries', function (Blueprint $table) {
                 $table->dropIndex('idx_pct_entries_application_id');
+                $table->dropIndex('idx_pct_app_step_active');
+                $table->dropIndex('idx_pct_active_step_paused');
             });
         }
 

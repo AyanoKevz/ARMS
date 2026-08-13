@@ -226,7 +226,7 @@ class ApplicationController extends Controller
             return back()->with('error', 'Only newly submitted applications can be moved to evaluation.');
         }
 
-        $underEvaluationStatus = \App\Models\ApplicationStatus::where('name', 'Under Evaluation')->first();
+        $underEvaluationStatus = \App\Models\ApplicationStatus::findByName('Under Evaluation');
 
         if (!$underEvaluationStatus) {
             return back()->with('error', 'Configuration error: "Under Evaluation" status not found.');
@@ -392,7 +392,7 @@ class ApplicationController extends Controller
             $currentStatus = $application->latestStatus?->status?->name;
 
             if ($currentStatus !== 'Scheduled for Interview') {
-                $scheduledStatus = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
+                $scheduledStatus = ApplicationStatus::findByName('Scheduled for Interview');
 
                 if ($scheduledStatus) {
                     ApplicationStatusLog::create([
@@ -645,7 +645,7 @@ class ApplicationController extends Controller
                 ]);
             } else {
                 // Status: For Update (ID 3)
-                $forUpdateStatus = ApplicationStatus::where('name', 'For Update')->first();
+                $forUpdateStatus = ApplicationStatus::findByName('For Update');
                 if ($forUpdateStatus) {
                     ApplicationStatusLog::create([
                         'application_id' => $application->id,
@@ -745,7 +745,7 @@ class ApplicationController extends Controller
 
         if ($allApproved && $allInstApproved && $allCredApproved) {
             // Status: Scheduled for Interview (ID 4)
-            $scheduledStatus = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
+            $scheduledStatus = ApplicationStatus::findByName('Scheduled for Interview');
             if ($scheduledStatus) {
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
@@ -1020,7 +1020,7 @@ class ApplicationController extends Controller
             $application->load('user');
 
             // Log status: Awaiting Payment
-            $awaitingPaymentStatus = ApplicationStatus::where('name', 'Awaiting Payment')->first();
+            $awaitingPaymentStatus = ApplicationStatus::findByName('Awaiting Payment');
             if ($awaitingPaymentStatus) {
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
@@ -1318,7 +1318,7 @@ class ApplicationController extends Controller
 
             // Clean up any legacy 'Rejected' status log if it was logged during previous archiving
             if ($application) {
-                $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
+                $rejectedStatus = \App\Models\ApplicationStatus::findByName('Rejected');
                 if ($rejectedStatus) {
                     \App\Models\ApplicationStatusLog::where('application_id', $application->id)
                         ->where('status_id', $rejectedStatus->id)
@@ -1352,7 +1352,7 @@ class ApplicationController extends Controller
             }
 
             // Remove the latest Rejected status log entry to revert to previous status
-            $rejectedStatus = \App\Models\ApplicationStatus::where('name', 'Rejected')->first();
+            $rejectedStatus = \App\Models\ApplicationStatus::findByName('Rejected');
             if ($rejectedStatus) {
                 $latestRejectedLog = \App\Models\ApplicationStatusLog::where('application_id', $application->id)
                     ->where('status_id', $rejectedStatus->id)
@@ -2054,7 +2054,7 @@ class ApplicationController extends Controller
             }
 
             // Log status: Approved
-            $approvedStatus = ApplicationStatus::where('name', 'Approved')->first();
+            $approvedStatus = ApplicationStatus::findByName('Approved');
             if ($approvedStatus) {
                 ApplicationStatusLog::create([
                     'application_id' => $application->id,
@@ -2105,7 +2105,7 @@ class ApplicationController extends Controller
                 }
 
                 // Log status: Awaiting Payment (so the applicant can resubmit on their tracker/portal)
-                $awaitingPaymentStatus = ApplicationStatus::where('name', 'Awaiting Payment')->first();
+                $awaitingPaymentStatus = ApplicationStatus::findByName('Awaiting Payment');
                 $statusId = $awaitingPaymentStatus ? $awaitingPaymentStatus->id : $application->latestStatus->status_id;
 
                 // Add log entry
@@ -2133,7 +2133,7 @@ class ApplicationController extends Controller
     {
         $this->checkEvaluatorAccess();
         $trackingNumber = $application->tracking_number;
-        $rejectedStatus = ApplicationStatus::where('name', 'Rejected')->first();
+        $rejectedStatus = ApplicationStatus::findByName('Rejected');
         if ($rejectedStatus) {
             ApplicationStatusLog::create([
                 'application_id' => $application->id,

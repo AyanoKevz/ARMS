@@ -97,6 +97,15 @@ class PctService
             ? $application->pctEntries
             : $application->pctEntries()->get();
 
+        if ($allEntries->isEmpty()) {
+            return;
+        }
+
+        // Fast check: if count matches unique step_number count, no duplicates exist
+        if ($allEntries->pluck('step_number')->count() === $allEntries->pluck('step_number')->unique()->count()) {
+            return;
+        }
+
         $groups = $allEntries->groupBy('step_number');
 
         $hasDeleted = false;
@@ -327,12 +336,19 @@ class PctService
         return round($totalSeconds / 86400, 1);
     }
 
+    private static array $holidayCache = [];
+
     /**
      * Get Philippine public holidays for the given year range.
      * Returns an array of date strings in Y-m-d format.
      */
     public static function getHolidays(int $startYear, int $endYear): array
     {
+        $cacheKey = "{$startYear}_{$endYear}";
+        if (isset(self::$holidayCache[$cacheKey])) {
+            return self::$holidayCache[$cacheKey];
+        }
+
         $holidays = [];
 
         for ($year = $startYear; $year <= $endYear; $year++) {
@@ -357,6 +373,7 @@ class PctService
             ]);
         }
 
+        self::$holidayCache[$cacheKey] = $holidays;
         return $holidays;
     }
 
@@ -488,7 +505,16 @@ class PctService
      */
     public function autoResumeInterviewIfScheduled(Application $application)
     {
-        $active = $application->pctEntries()->where('step_number', 5)->where('is_active', true)->whereNotNull('paused_at')->first();
+        $entries = $application->relationLoaded('pctEntries')
+            ? $application->pctEntries
+            : null;
+
+        if ($entries) {
+            $active = $entries->first(fn($e) => $e->step_number == 5 && $e->is_active && $e->paused_at);
+        } else {
+            $active = $application->pctEntries()->where('step_number', 5)->where('is_active', true)->whereNotNull('paused_at')->first();
+        }
+
         if ($active && $application->interview) {
             $date = $application->interview->interview_date;
             $dateStr = $date instanceof \Carbon\Carbon ? $date->format('Y-m-d') : $date;
@@ -514,12 +540,20 @@ class PctService
      */
     public function autoStopInterviewIfExpired(Application $application): bool
     {
-        $active = $application->pctEntries()
-            ->where('step_number', 5)
-            ->where('is_active', true)
-            ->whereNull('paused_at')
-            ->whereNull('completed_at')
-            ->first();
+        $entries = $application->relationLoaded('pctEntries')
+            ? $application->pctEntries
+            : null;
+
+        if ($entries) {
+            $active = $entries->first(fn($e) => $e->step_number == 5 && $e->is_active && !$e->paused_at && !$e->completed_at);
+        } else {
+            $active = $application->pctEntries()
+                ->where('step_number', 5)
+                ->where('is_active', true)
+                ->whereNull('paused_at')
+                ->whereNull('completed_at')
+                ->first();
+        }
 
         if ($active) {
             $reference = $active->resumed_at ?? $active->started_at;

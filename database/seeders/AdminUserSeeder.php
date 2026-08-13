@@ -14,7 +14,7 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         // Seed Divisions FIRST
-        $divisions = ['HCD', 'SCD', 'ECD', 'TPID'];
+        $divisions = ['HCD', 'SCD', 'ECD', 'TPID', 'Accreditation'];
 
         foreach ($divisions as $divisionName) {
             Division::firstOrCreate([
@@ -25,8 +25,9 @@ class AdminUserSeeder extends Seeder
         // Get Admin Role
         $adminRole = Role::firstOrCreate(['name' => 'Admin']);
 
-        // Get HCD Division
+        // Get Divisions
         $hcdDivision = Division::firstOrCreate(['name' => 'HCD']);
+        $accreditationDivision = Division::firstOrCreate(['name' => 'Accreditation']);
 
         // Get Admin Roles
         $evaluatorRole = \App\Models\AdminRole::firstOrCreate(['name' => 'Evaluator']);
@@ -70,8 +71,8 @@ class AdminUserSeeder extends Seeder
         AdminProfile::updateOrCreate(
             ['user_id' => $verifier->id],
             [
-                'division_id'   => $hcdDivision->id,
-                'first_name'    => 'HCD',
+                'division_id'   => $accreditationDivision->id,
+                'first_name'    => 'Accreditation',
                 'last_name'     => 'Verifier',
                 'position'      => 'LSO VI',
                 'admin_role_id' => $verifierRole ? $verifierRole->id : null,
@@ -93,11 +94,34 @@ class AdminUserSeeder extends Seeder
         AdminProfile::updateOrCreate(
             ['user_id' => $verifierQueenie->id],
             [
-                'division_id'   => $hcdDivision->id,
+                'division_id'   => $accreditationDivision->id,
                 'first_name'    => 'Queenie',
                 'last_name'     => 'Francisco',
                 'position'      => 'LSO VI',
                 'admin_role_id' => $verifierRole ? $verifierRole->id : null,
+            ]
+        );
+
+        // Create Admin 4: Evaluator (HCD Arms 2026)
+        $evaluator2 = User::updateOrCreate(
+            ['email' => 'hcdarms2026@gmail.com'],
+            [
+                'password'          => Hash::make('Hcd@2026'),
+                'role_id'           => $adminRole->id,
+                'profile_type'      => 'Individual',
+                'user_photo'        => 'images/profile_picture/default_photo.jpg',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        AdminProfile::updateOrCreate(
+            ['user_id' => $evaluator2->id],
+            [
+                'division_id'   => $hcdDivision->id,
+                'first_name'    => 'HCD',
+                'last_name'     => 'Main',
+                'position'      => 'LSO III',
+                'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
             ]
         );
     }

@@ -13,7 +13,7 @@
     <div class="icon-circle admin">🔔</div>
     <h2>Application Ready for Recommendation</h2>
     <p>
-        Hello HCD Verifier,
+        Hello Accreditation Division Verifier,
     </p>
     <p>
         The applicant has passed the evaluator interview and is now ready for Recommendation Letter signature and Payment review. Please log into the portal to review this application.
@@ -30,7 +30,7 @@
 
     <div class="btn-wrap">
         <a href="{{ url('/login') }}" class="btn-primary">
-            Log in to Verifier Portal
+            Log in to Accreditation Portal
         </a>
     </div>
 

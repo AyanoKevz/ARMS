@@ -9,6 +9,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
+use App\Http\Controllers\Admin\Accreditation\ApplicationController as AccreditationApplicationController;
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 use App\Http\Controllers\Applicant\RenewalController;
 use App\Http\Controllers\Applicant\NtcController;
@@ -169,6 +170,28 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
             Route::post('/reports/ntc/{ntcReport}/finalize-evaluation', [AdminNtcController::class, 'finalizeEvaluation'])->name('reports.ntc.finalize_evaluation');
         });
+
+        // ── Accreditation Division (Verifier Portal) ──────────────────────
+        Route::prefix('accreditation')->name('accreditation.')->group(function () {
+            Route::get('/dashboard', [AccreditationApplicationController::class, 'dashboard'])->name('dashboard');
+
+            // Recommendation & Payment
+            Route::get('/applications/awaiting-payment', [AccreditationApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');
+            Route::get('/applications/releasing', [AccreditationApplicationController::class, 'releasingList'])->name('applications.releasing');
+            Route::get('/applications/{application}', [AccreditationApplicationController::class, 'show'])->name('applications.show');
+            Route::match(['get', 'post'], '/applications/{application}/generate-recommendation', [AccreditationApplicationController::class, 'generateRecommendationPDF'])->name('applications.generate_recommendation');
+            Route::post('/applications/{application}/request-payment', [AccreditationApplicationController::class, 'requestPayment'])->name('applications.request_payment');
+            Route::post('/applications/{application}/evaluate-payment', [AccreditationApplicationController::class, 'evaluatePayment'])->name('applications.evaluate_payment');
+            Route::post('/applications/{application}/archive-payment', [AccreditationApplicationController::class, 'archiveFromPayment'])->name('applications.archive_payment');
+
+            // Certificate Issuance
+            Route::get('/accreditations/{accreditation}/certificate', [AccreditationApplicationController::class, 'downloadCertificate'])->name('accreditations.certificate');
+            Route::post('/accreditations/{accreditation}/upload-scanned', [AccreditationApplicationController::class, 'uploadScannedCertificate'])->name('accreditations.upload_scanned');
+            Route::get('/accreditations/{accreditation}/view-scanned', [AccreditationApplicationController::class, 'viewScannedCertificate'])->name('accreditations.view_scanned');
+
+            // Admin directory (own portal admins list)
+            Route::get('/directory/admins', [AccreditationApplicationController::class, 'adminsList'])->name('directory.admins');
+        });
     });
 });
 
@@ -184,6 +207,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
     Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
+
+    // Accreditation Division file viewers (Verifier Portal)
+    Route::get('/admin/accreditation/documents/{document}/view', [AccreditationApplicationController::class, 'serveDocument'])->name('admin.accreditation.documents.view');
+    Route::get('/admin/accreditation/payments/{payment}/view/{fileType}', [AccreditationApplicationController::class, 'servePaymentFile'])->name('admin.accreditation.payments.view');
+    Route::get('/admin/accreditation/instructors/credentials/{credential}/view', [AccreditationApplicationController::class, 'serveInstructorCredential'])->name('admin.accreditation.instructors.credentials.view');
+    Route::get('/admin/accreditation/instructors/service-agreement/{instructor}/view', [AccreditationApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.accreditation.instructors.service_agreement.view');
 
     // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');

@@ -13,7 +13,7 @@
     <div class="icon-circle admin">🔔</div>
     <h2>New Payment Submission</h2>
     <p>
-        Hello HCD Verifier,
+        Hello Accreditation Division Verifier,
     </p>
     <p>
         An applicant has uploaded their payment requirements for verification. Please log into the portal to review their submission and upload the signed recommendation letter.
@@ -30,7 +30,7 @@
 
     <div class="btn-wrap">
         <a href="{{ url('/login') }}" class="btn-primary">
-            Log in to Verifier Portal
+            Log in to Accreditation Portal
         </a>
     </div>
 
