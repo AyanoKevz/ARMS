@@ -321,7 +321,7 @@ class RegistrationController extends Controller
                     'email_verified_at' => now(),
                 ]);
 
-                // 2. Create Organization Profile
+                // 2. Create Profile based on type
                 $orgProfileId = null;
                 if ($pending->profile_type === 'Organization') {
                     $orgProfile = OrganizationProfile::create([
@@ -345,6 +345,18 @@ class RegistrationController extends Controller
                         'position'                => $form['rep_position']       ?? '',
                         'contact_number'          => $form['rep_contact_number'] ?? '',
                         'email'                   => $form['rep_email']          ?? '',
+                    ]);
+                } else {
+                    \App\Models\IndividualProfile::create([
+                        'user_id'     => $user->id,
+                        'first_name'  => $form['first_name']  ?? '',
+                        'middle_name' => $form['middle_name'] ?? null,
+                        'last_name'   => $form['last_name']   ?? '',
+                        'sex'         => $form['sex']         ?? null,
+                        'birthday'    => $form['birthday']    ?? null,
+                        'region'      => $form['region']      ?? null,
+                        'city'        => $form['city']        ?? null,
+                        'address'     => $form['address']     ?? null,
                     ]);
                 }
 
@@ -495,9 +507,11 @@ class RegistrationController extends Controller
                     if ($evaluators->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
                         
-                        // Send Email
-                        $evaluatorEmails = $evaluators->pluck('email');
-                        Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        // Send Email to all Evaluator admins
+                        $evaluatorEmails = $evaluators->pluck('email')->filter()->toArray();
+                        if (!empty($evaluatorEmails)) {
+                            Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        }
 
                         // Send database/in-app portal notifications
                         \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));

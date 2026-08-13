@@ -516,8 +516,10 @@ class RenewalController extends Controller
                         $application->load(['user', 'accreditationType']);
                         
                         // Send Email
-                        $evaluatorEmails = $evaluators->pluck('email');
-                        Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        $evaluatorEmails = $evaluators->pluck('email')->filter()->toArray();
+                        if (!empty($evaluatorEmails)) {
+                            Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        }
 
                         // Send database/in-app portal notifications
                         \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));

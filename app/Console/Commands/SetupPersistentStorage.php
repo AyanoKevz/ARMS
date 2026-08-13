@@ -62,9 +62,8 @@ class SetupPersistentStorage extends Command
 
         // Ensure public/storage symlink points to storage/app/public
         $publicStorageSymlink = public_path('storage');
-        if (is_link($publicStorageSymlink) || $files->exists($publicStorageSymlink)) {
-            $files->delete($publicStorageSymlink);
-        }
+        $this->removeSymlinkOrLink($files, $publicStorageSymlink);
+
         try {
             $files->link($appPublicPath, $publicStorageSymlink);
             $this->info("Linked {$publicStorageSymlink} -> {$appPublicPath}");
@@ -81,8 +80,8 @@ class SetupPersistentStorage extends Command
 
     private function processStorageLink(Filesystem $files, string $linkPath, string $targetPath, string $name): void
     {
-        if (is_link($linkPath)) {
-            $currentTarget = readlink($linkPath);
+        if ($this->isSymlinkOrJunction($linkPath)) {
+            $currentTarget = @readlink($linkPath) ?: $linkPath;
             $this->info("storage/app/{$name} is already a symlink -> {$currentTarget}");
             return;
         }
@@ -94,11 +93,38 @@ class SetupPersistentStorage extends Command
             $this->info("Migrated storage/app/{$name} contents.");
         }
 
+        $this->removeSymlinkOrLink($files, $linkPath);
+
         try {
             $files->link($targetPath, $linkPath);
             $this->info("Created symlink: storage/app/{$name} -> {$targetPath}");
         } catch (\Throwable $e) {
             $this->error("Failed to symlink storage/app/{$name}: " . $e->getMessage());
+        }
+    }
+
+    private function isSymlinkOrJunction(string $path): bool
+    {
+        if (is_link($path)) {
+            return true;
+        }
+        if (file_exists($path) && @readlink($path) !== false) {
+            return true;
+        }
+        return false;
+    }
+
+    private function removeSymlinkOrLink(Filesystem $files, string $path): void
+    {
+        if ($this->isSymlinkOrJunction($path)) {
+            @rmdir($path);
+            @unlink($path);
+        } elseif ($files->exists($path)) {
+            if (is_dir($path)) {
+                $files->deleteDirectory($path);
+            } else {
+                $files->delete($path);
+            }
         }
     }
 }
