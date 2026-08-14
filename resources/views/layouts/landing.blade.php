@@ -47,14 +47,8 @@
                         <a class="nav-link" href="https://oshc.dole.gov.ph/about-us/" target="_blank">About OSHC</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="https://oshc.dole.gov.ph/contact-us-2/" target="_blank">Contact Us</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link fw-medium" href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i> Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link btn-nav-ext" href="https://oshc.dole.gov.ph/" target="_blank">
-                            OSHC Website <i class="bi bi-box-arrow-up-right ms-1" style="font-size:.75rem;"></i>
+                        <a class="nav-link btn-nav-ext" href="{{ route('login') }}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Login
                         </a>
                     </li>
                 </ul>
