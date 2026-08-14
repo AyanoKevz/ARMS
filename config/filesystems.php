@@ -1,5 +1,19 @@
 <?php
 
+$persistentRoot = env('PERSISTENT_STORAGE_DIR', dirname(base_path()) . DIRECTORY_SEPARATOR . 'arms_storage');
+$persistentPublic = $persistentRoot . DIRECTORY_SEPARATOR . 'public';
+$persistentPrivate = $persistentRoot . DIRECTORY_SEPARATOR . 'private';
+
+if (!file_exists($persistentPublic)) {
+    @mkdir($persistentPublic, 0755, true);
+}
+if (!file_exists($persistentPrivate)) {
+    @mkdir($persistentPrivate, 0755, true);
+}
+
+$effectivePublicPath = is_dir($persistentPublic) ? $persistentPublic : storage_path('app/public');
+$effectivePrivatePath = is_dir($persistentPrivate) ? $persistentPrivate : storage_path('app/private');
+
 return [
 
     /*
@@ -32,7 +46,7 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app/private'),
+            'root' => $effectivePrivatePath,
             'serve' => true,
             'throw' => false,
             'report' => false,
@@ -40,7 +54,7 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            'root' => $effectivePublicPath,
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
@@ -74,7 +88,8 @@ return [
     */
 
     'links' => [
-        public_path('storage') => storage_path('app/public'),
+        public_path('storage') => $effectivePublicPath,
     ],
 
 ];
+

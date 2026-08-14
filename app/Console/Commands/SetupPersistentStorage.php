@@ -54,25 +54,29 @@ class SetupPersistentStorage extends Command
         $appPublicPath  = storage_path('app' . DIRECTORY_SEPARATOR . 'public');
         $appPrivatePath = storage_path('app' . DIRECTORY_SEPARATOR . 'private');
 
-        // Process storage/app/public
-        $this->processStorageLink($files, $appPublicPath, $persistentPublic, 'public');
+        // Migrate any legacy files inside storage/app/public or storage/app/private to persistent storage
+        if ($files->exists($appPublicPath) && is_dir($appPublicPath) && !is_link($appPublicPath)) {
+            $files->copyDirectory($appPublicPath, $persistentPublic);
+            $this->info("Migrated legacy storage/app/public files to persistent storage.");
+        }
+        if ($files->exists($appPrivatePath) && is_dir($appPrivatePath) && !is_link($appPrivatePath)) {
+            $files->copyDirectory($appPrivatePath, $persistentPrivate);
+            $this->info("Migrated legacy storage/app/private files to persistent storage.");
+        }
 
-        // Process storage/app/private
-        $this->processStorageLink($files, $appPrivatePath, $persistentPrivate, 'private');
-
-        // Ensure public/storage symlink points to storage/app/public
+        // Ensure public/storage symlink points to persistent public folder directly
         $publicStorageSymlink = public_path('storage');
         $this->removeSymlinkOrLink($files, $publicStorageSymlink);
 
         try {
-            $files->link($appPublicPath, $publicStorageSymlink);
-            $this->info("Linked {$publicStorageSymlink} -> {$appPublicPath}");
+            $files->link($persistentPublic, $publicStorageSymlink);
+            $this->info("Linked {$publicStorageSymlink} -> {$persistentPublic}");
         } catch (\Throwable $e) {
             $this->warn("Could not create public/storage link: " . $e->getMessage());
         }
 
         $this->info("\nPersistent Storage Setup Completed Successfully!");
-        $this->info("Uploaded files in storage/app/public and storage/app/private are now stored safely outside the Git root.");
+        $this->info("Uploaded files are now stored safely in {$persistentRoot} outside the Git root.");
         $this->info("Hostinger Git Auto-Deploy will no longer wipe uploaded files during deployment!");
 
         return Command::SUCCESS;
