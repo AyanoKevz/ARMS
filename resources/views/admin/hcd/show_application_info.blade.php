@@ -25,13 +25,14 @@ $pctWorkStart = $pctNow->copy()->setTime(8, 0, 0);
 $pctWorkEnd   = $pctNow->copy()->setTime(17, 0, 0);
 
 $isWorkingHours = true;
-if ($pctNow->isWeekend()) {
-    $isWorkingHours = false;
-} elseif ($pctIsTodayHoliday) {
-    $isWorkingHours = false;
-} elseif ($pctNow->lessThan($pctWorkStart) || $pctNow->greaterThanOrEqualTo($pctWorkEnd)) {
-    $isWorkingHours = false;
-}
+// TESTING MODE: Always set to true so Accept/Approve and Reject buttons remain visible for testing outside working hours/weekends
+// if ($pctNow->isWeekend()) {
+//     $isWorkingHours = false;
+// } elseif ($pctIsTodayHoliday) {
+//     $isWorkingHours = false;
+// } elseif ($pctNow->lessThan($pctWorkStart) || $pctNow->greaterThanOrEqualTo($pctWorkEnd)) {
+//     $isWorkingHours = false;
+// }
 
 // Check if this is an approved/active application and if there is a pending renewal/reinstatement application
 $pendingRenewalOrReinstatement = null;
