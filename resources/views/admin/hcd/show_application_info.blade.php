@@ -351,13 +351,14 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 $stepStatus = $step['status'];
                 $now = $pctNow;
                 $isWorkingHours = true;
-                if ($now->isWeekend()) {
-                    $isWorkingHours = false;
-                } elseif ($pctIsTodayHoliday) {
-                    $isWorkingHours = false;
-                } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
-                    $isWorkingHours = false;
-                }
+                // TESTING MODE: Always true so buttons remain visible across entire page
+                // if ($now->isWeekend()) {
+                //     $isWorkingHours = false;
+                // } elseif ($pctIsTodayHoliday) {
+                //     $isWorkingHours = false;
+                // } elseif ($now->lessThan($pctWorkStart) || $now->greaterThanOrEqualTo($pctWorkEnd)) {
+                //     $isWorkingHours = false;
+                // }
                 
                 $displayStatus = $stepStatus;
                 if ($stepStatus === 'active' && !$isWorkingHours) {
