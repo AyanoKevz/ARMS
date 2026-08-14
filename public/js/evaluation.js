@@ -1256,6 +1256,7 @@
             const dateStr = `${yyyy}-${mm}-${dd}`;
             const isHoliday = holidaysList.includes(dateStr);
 
+            let isWorking = true;
             let jsPausedReason = '';
 
             if (isWeekend) {
