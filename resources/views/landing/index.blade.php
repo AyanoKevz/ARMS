@@ -30,14 +30,8 @@
                     <a href="{{ route('register') }}" class="btn-hero-primary">
                         <i class="bi bi-file-earmark-check"></i> Apply for Accreditation
                     </a>
-                    <a href="{{ route('login') }}" class="btn-hero-outline">
-                        <i class="bi bi-arrow-repeat"></i> Renew Accreditation
-                    </a>
-                    <a href="{{ route('track') }}" class="btn-hero-primary fw-bold fs-5">
+                    <a href="{{ route('track') }}" class="btn-hero-primary">
                         <i class="bi bi-search"></i> Track Your Application
-                    </a>
-                    <a href="{{ route('login') }}" class="btn-hero-outline">
-                        <i class="bi bi-box-arrow-in-right"></i> Login to Portal
                     </a>
                 </div>
             </div>
