@@ -26,12 +26,12 @@
             </div>
 
             <div class="col-lg-5 offset-lg-1 hero-image-side mt-5 mt-lg-0">
-                <div class="hero-btns">
-                    <a href="{{ route('register') }}" class="btn-hero-primary">
-                        <i class="bi bi-file-earmark-check"></i> Apply for Accreditation
+                <div class="hero-btns" style="display: flex; flex-direction: row; gap: 1rem; max-width: 100%;">
+                    <a href="{{ route('register') }}" class="btn-hero-primary" style="flex: 1; text-align: center; white-space: nowrap;">
+                        <i class="bi bi-file-earmark-check"></i> Apply
                     </a>
-                    <a href="{{ route('track') }}" class="btn-hero-outline">
-                        <i class="bi bi-search"></i> Track Your Application
+                    <a href="{{ route('track') }}" class="btn-hero-outline" style="flex: 1; text-align: center; white-space: nowrap;">
+                        <i class="bi bi-search"></i> Track Application
                     </a>
                 </div>
             </div>

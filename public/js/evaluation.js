@@ -1256,18 +1256,18 @@
             const dateStr = `${yyyy}-${mm}-${dd}`;
             const isHoliday = holidaysList.includes(dateStr);
 
-            let isWorking = true;
-            // TESTING MODE: Always keep isWorking = true so JS ticker does not hide evaluation buttons outside working hours/weekends
-            // if (isWeekend) {
-            //     isWorking = false;
-            //     jsPausedReason = 'Weekend';
-            // } else if (isHoliday) {
-            //     isWorking = false;
-            //     jsPausedReason = 'Holiday';
-            // } else if (currentComp.timeOfDaySeconds < 8 * 3600 || currentComp.timeOfDaySeconds >= 17 * 3600) {
-            //     isWorking = false;
-            //     jsPausedReason = 'Past Working Hours';
-            // }
+            let jsPausedReason = '';
+
+            if (isWeekend) {
+                isWorking = false;
+                jsPausedReason = 'Weekend';
+            } else if (isHoliday) {
+                isWorking = false;
+                jsPausedReason = 'Holiday';
+            } else if (currentComp.timeOfDaySeconds < 8 * 3600 || currentComp.timeOfDaySeconds >= 17 * 3600) {
+                isWorking = false;
+                jsPausedReason = 'Past Working Hours';
+            }
 
             // Calculate the working seconds since load and total seconds
             const workingSecondsSinceLoad = calculateWorkingSecondsJS(serverTimeOnLoad, serverNow);
@@ -1339,11 +1339,8 @@
 
             const workingOnlyEls = document.querySelectorAll('.pct-working-only');
             workingOnlyEls.forEach(el => {
-                if (isWorking) {
-                    el.style.setProperty('display', '', 'important');
-                } else {
-                    el.style.setProperty('display', 'none', 'important');
-                }
+                // TESTING MODE: Always show evaluation buttons even if PCT is stopped
+                el.style.setProperty('display', '', 'important');
             });
 
             // Dynamically toggle readonly state for rejection remarks textareas
