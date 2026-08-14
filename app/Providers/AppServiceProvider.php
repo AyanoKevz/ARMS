@@ -59,5 +59,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Prevent silently discarding unfillable attributes
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+
+        // ── Auto-Repair Persistent Storage Symlinks ─────────────────────────
+        // Automatically repairs symlinks on web access if Hostinger deployment overwrites them
+        if (! $this->app->runningInConsole()) {
+            $publicStorageLink = public_path('storage');
+            if (! is_link($publicStorageLink) || ! is_link(storage_path('app/public'))) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('storage:persistent');
+                } catch (\Throwable $e) {
+                    // Ignore background link errors on permission restricted environments
+                }
+            }
+        }
     }
 }
