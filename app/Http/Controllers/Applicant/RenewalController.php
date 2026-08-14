@@ -515,10 +515,15 @@ class RenewalController extends Controller
                     if ($evaluators->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
                         
-                        // Send Email
-                        $evaluatorEmails = $evaluators->pluck('email')->filter()->toArray();
-                        if (!empty($evaluatorEmails)) {
-                            Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        // Send Email to EVERY Evaluator admin individually
+                        foreach ($evaluators as $evaluatorAdmin) {
+                            if ($evaluatorAdmin->email) {
+                                try {
+                                    Mail::to($evaluatorAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
+                                } catch (\Exception $ex) {
+                                    Log::warning("Failed to send admin notification email to {$evaluatorAdmin->email}: " . $ex->getMessage());
+                                }
+                            }
                         }
 
                         // Send database/in-app portal notifications

@@ -507,13 +507,18 @@ class RegistrationController extends Controller
                     if ($evaluators->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
                         
-                        // Send Email to all Evaluator admins
-                        $evaluatorEmails = $evaluators->pluck('email')->filter()->toArray();
-                        if (!empty($evaluatorEmails)) {
-                            Mail::to($evaluatorEmails)->send(new AdminApplicationSubmittedEmail($application));
+                        // Send email to EVERY Evaluator admin individually
+                        foreach ($evaluators as $evaluatorAdmin) {
+                            if ($evaluatorAdmin->email) {
+                                try {
+                                    Mail::to($evaluatorAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
+                                } catch (\Exception $ex) {
+                                    Log::warning("Failed to send admin notification email to {$evaluatorAdmin->email}: " . $ex->getMessage());
+                                }
+                            }
                         }
 
-                        // Send database/in-app portal notifications
+                        // Send database/in-app portal notifications to all evaluators
                         \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
                     }
                 } catch (\Exception $mailEx) {
