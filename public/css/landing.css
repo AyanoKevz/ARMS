@@ -217,8 +217,8 @@ html.no-smoother #smooth-wrapper {
 .hero-btns {
     display: flex;
     flex-direction: column;
-    gap: 1rem;            /* solid 16px gap between every button */
-    max-width: 340px;
+    gap: 1.1rem;           /* solid gap between every button */
+    max-width: 380px;
     width: 100%;
 }
 
@@ -229,12 +229,12 @@ html.no-smoother #smooth-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: .55rem;
+    gap: .65rem;
     width: 100%;
-    padding: .85rem 1.75rem;
-    border-radius: 10px;
+    padding: 1.05rem 2rem;
+    border-radius: 12px;
     font-family: 'Poppins', sans-serif;
-    font-size: .95rem;
+    font-size: 1.08rem;
     font-weight: 600;
     text-decoration: none;
     transition: background .2s, border-color .2s, color .2s, transform .15s, box-shadow .2s;

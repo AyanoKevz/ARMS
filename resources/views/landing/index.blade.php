@@ -30,7 +30,7 @@
                     <a href="{{ route('register') }}" class="btn-hero-primary">
                         <i class="bi bi-file-earmark-check"></i> Apply for Accreditation
                     </a>
-                    <a href="{{ route('track') }}" class="btn-hero-primary">
+                    <a href="{{ route('track') }}" class="btn-hero-outline">
                         <i class="bi bi-search"></i> Track Your Application
                     </a>
                 </div>
