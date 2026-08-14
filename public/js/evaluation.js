@@ -1348,7 +1348,8 @@
             const rejectRemarksInputs = document.querySelectorAll('.reject-remarks-input');
             rejectRemarksInputs.forEach(input => {
                 const defaultReadonly = input.getAttribute('data-default-readonly') === 'true';
-                if (!isWorking || defaultReadonly) {
+                // TESTING MODE: Do not force readonly based on isWorking so evaluators can type remarks during testing
+                if (defaultReadonly) {
                     input.readOnly = true;
                 } else {
                     input.readOnly = false;
