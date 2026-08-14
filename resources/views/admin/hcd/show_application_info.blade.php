@@ -758,7 +758,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
                                     @if(!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
+                                        <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
                                             <button type="button"
                                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
                                                 data-doc-id="{{ $doc->id }}"
@@ -1068,7 +1068,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     @if($showEvalButtons)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
+                                        <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatusCred === 'approved' ? 'active' : '' }}" data-doc-id="cred-{{ $credential->id }}" onclick="evaluateItem('cred-{{ $credential->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
@@ -1149,7 +1149,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
                                     @if($showSaEvalButtons)
                                         @if($currentStatus !== 'For Update')
-                                        <div class="doc-eval-actions pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
+                                        <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
                                             <button type="button" class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}" data-doc-id="inst-{{ $instructor->id }}" onclick="evaluateItem('inst-{{ $instructor->id }}', 'approved')">
                                                 <i class="bi bi-check-circle-fill"></i> Approve
                                             </button>
@@ -1342,7 +1342,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <i class="bi bi-question-circle-fill me-1 text-primary"></i>
             Please record the outcome of the scheduled interview:
         </p>
-        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2 pct-working-only" {!! !$isWorkingHours ? 'style="display: none !important;"' : '' !!}>
+        <div class="d-flex justify-content-center gap-2 flex-wrap mt-2 pct-working-only" style="display: flex !important;">
             {{-- PASSED button --}}
             <button type="button"
                 class="btn btn-success btn-sm fw-bold px-4"
