@@ -1527,7 +1527,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 <label class="form-label small fw-semibold d-block mb-2">Status</label>
                                 <div>
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required>
+                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='none';">
                                         <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
                                     </div>
                                     <div class="form-check form-check-inline">
