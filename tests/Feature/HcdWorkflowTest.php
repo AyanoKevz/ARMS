@@ -1480,6 +1480,7 @@ test('applicant with ongoing renewal or reinstatement cannot access ntc page or 
         ->post(route('applicant.ntc.store'), [
             'ntc_training_type_id' => 1,
             'ntc_training_mode_id' => 1,
+            'venue' => 'OSHC Auditorium, Quezon City',
             'training_start_date' => now()->addDays(15)->format('Y-m-d'),
             'training_end_date' => now()->addDays(18)->format('Y-m-d'),
         ]);
@@ -1528,6 +1529,7 @@ test('applicant with revoked accreditation cannot access ntc page or store ntc',
         ->post(route('applicant.ntc.store'), [
             'ntc_training_type_id' => 1,
             'ntc_training_mode_id' => 1,
+            'venue' => 'OSHC Auditorium, Quezon City',
             'training_start_date' => now()->addDays(15)->format('Y-m-d'),
             'training_end_date' => now()->addDays(18)->format('Y-m-d'),
         ]);
@@ -1723,6 +1725,7 @@ test('applicant can submit report of changes and evaluation status resets to pen
         ->post(route('applicant.ntc.report_changes', $ntcReport->id), [
             'ntc_training_type_id' => $trainingType->id,
             'ntc_training_mode_id' => $trainingMode->id,
+            'venue' => 'Updated Venue / Zoom Link https://zoom.us/j/999888777',
             'training_start_date' => now()->addDays(20)->format('Y-m-d'),
             'training_end_date' => now()->addDays(23)->format('Y-m-d'),
             'file_rtcman' => $newFileRtcman,
@@ -1808,6 +1811,7 @@ test('applicant cannot submit report of changes if less than 3 working days rema
         ->post(route('applicant.ntc.report_changes', $ntcReport->id), [
             'ntc_training_type_id' => $trainingType->id,
             'ntc_training_mode_id' => $trainingMode->id,
+            'venue' => 'Updated Venue / Zoom Link',
             'training_start_date' => now()->addDays(15)->format('Y-m-d'),
             'training_end_date' => now()->addDays(18)->format('Y-m-d'),
             'file_rtcman' => $newFileRtcman,

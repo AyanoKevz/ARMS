@@ -11,6 +11,7 @@ class NtcReport extends Model
         'accreditation_id',
         'ntc_training_type_id',
         'ntc_training_mode_id',
+        'venue',
         'training_start_date',
         'training_end_date',
         'status',

@@ -391,6 +391,22 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
             </div>
             <div class="col-md-3 col-6">
                 <div class="info-pair">
+                    <div class="lbl">{{ (optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended')) ? 'Zoom Link / Meeting Link' : 'Venue' }}</div>
+                    <div class="val">
+                        @if($ntcReport->venue)
+                            @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
+                                <a href="{{ $ntcReport->venue }}" target="_blank" class="text-primary text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ $ntcReport->venue }}</a>
+                            @else
+                                <i class="bi bi-geo-alt me-1 text-danger"></i>{{ $ntcReport->venue }}
+                            @endif
+                        @else
+                            —
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-pair">
                     <div class="lbl">FATPro</div>
                     <div class="val">{{ $fatproName }}</div>
                 </div>

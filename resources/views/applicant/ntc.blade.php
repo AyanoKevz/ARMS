@@ -166,12 +166,30 @@
                             <option value="" disabled selected>— Select Mode —</option>
                             @foreach($trainingModes as $mode)
                                 <option value="{{ $mode->id }}"
+                                    data-code="{{ $mode->code }}"
                                     {{ old('ntc_training_mode_id') == $mode->id ? 'selected' : '' }}>
                                     {{ $mode->name }}
                                 </option>
                             @endforeach
                         </select>
                         @error('ntc_training_mode_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- Venue / Zoom Link --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="ntc_venue" id="ntc_venue_label">
+                            Venue / Zoom Link <span class="text-danger">*</span>
+                        </label>
+                        <input type="text"
+                               id="ntc_venue"
+                               name="venue"
+                               class="form-control @error('venue') is-invalid @enderror"
+                               placeholder="Enter venue address or Zoom meeting link"
+                               value="{{ old('venue') }}"
+                               required>
+                        @error('venue')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
@@ -368,6 +386,15 @@
                                     </td>
                                     <td>
                                         <span class="fw-semibold" style="color: #334155;">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
+                                        @if($ntc->venue)
+                                            <div class="text-muted mt-1" style="font-size:0.75rem;">
+                                                @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
+                                                    <i class="fas fa-video text-primary me-1"></i><a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none">{{ Str::limit($ntc->venue, 35) }}</a>
+                                                @else
+                                                    <i class="fas fa-map-marker-alt text-danger me-1"></i>{{ Str::limit($ntc->venue, 35) }}
+                                                @endif
+                                            </div>
+                                        @endif
                                     </td>
                                     <td>
                                         @if($ntc->submitted_at)
@@ -396,6 +423,7 @@
                                                             data-id="{{ $ntc->id }}"
                                                             data-training-type="{{ $ntc->ntc_training_type_id }}"
                                                             data-training-mode="{{ $ntc->ntc_training_mode_id }}"
+                                                            data-venue="{{ $ntc->venue }}"
                                                             data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
                                                             data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
                                                             data-rtcman-file-name="{{ $rtcmanDoc ? $rtcmanDoc->original_filename : '' }}"
@@ -576,9 +604,22 @@
                                 required>
                             <option value="" disabled selected>— Select Mode —</option>
                             @foreach($trainingModes as $mode)
-                                <option value="{{ $mode->id }}">{{ $mode->name }}</option>
+                                <option value="{{ $mode->id }}" data-code="{{ $mode->code }}">{{ $mode->name }}</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    {{-- Venue / Zoom Link --}}
+                    <div class="form-group mb-3">
+                        <label class="fw-semibold" for="modal_ntc_venue" id="modal_ntc_venue_label">
+                            Venue / Zoom Link <span class="text-danger">*</span>
+                        </label>
+                        <input type="text"
+                               id="modal_ntc_venue"
+                               name="venue"
+                               class="form-control"
+                               placeholder="Enter venue address or Zoom meeting link"
+                               required>
                     </div>
 
                     {{-- Training Dates --}}
@@ -1213,6 +1254,45 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // ── Venue Label & Placeholder Sync ─────────────────────
+    function syncVenueLabels() {
+        const mainModeSelect = document.getElementById('ntc_training_mode_id');
+        const mainVenueLabel = document.getElementById('ntc_venue_label');
+        const mainVenueInput = document.getElementById('ntc_venue');
+        if (mainModeSelect && mainVenueLabel && mainVenueInput) {
+            const selectedOpt = mainModeSelect.options[mainModeSelect.selectedIndex];
+            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
+            if (code.toUpperCase().includes('BLENDED')) {
+                mainVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
+                mainVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
+            } else {
+                mainVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
+                mainVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
+            }
+        }
+
+        const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
+        const modalVenueLabel = document.getElementById('modal_ntc_venue_label');
+        const modalVenueInput = document.getElementById('modal_ntc_venue');
+        if (modalModeSelect && modalVenueLabel && modalVenueInput) {
+            const selectedOpt = modalModeSelect.options[modalModeSelect.selectedIndex];
+            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
+            if (code.toUpperCase().includes('BLENDED')) {
+                modalVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
+                modalVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
+            } else {
+                modalVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
+                modalVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
+            }
+        }
+    }
+
+    const mainModeSelect = document.getElementById('ntc_training_mode_id');
+    const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
+    if (mainModeSelect) mainModeSelect.addEventListener('change', syncVenueLabels);
+    if (modalModeSelect) modalModeSelect.addEventListener('change', syncVenueLabels);
+    syncVenueLabels();
+
     // ── Submit spinner guard ──────────────────────────────
     const form       = document.getElementById('ntcSubmitForm');
     const submitBtn  = document.getElementById('ntcSubmitBtn');
@@ -1272,6 +1352,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const startDate = this.getAttribute('data-start-date');
             const endDate = this.getAttribute('data-end-date');
 
+            const venue = this.getAttribute('data-venue');
             const rtcmanName = this.getAttribute('data-rtcman-file-name');
             const rtcmanUrl = this.getAttribute('data-rtcman-file-url');
             const progName = this.getAttribute('data-prog-file-name');
@@ -1289,6 +1370,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (modeSelect) {
                     modeSelect.value = trainingMode;
                 }
+
+                const venueInputModal = document.getElementById('modal_ntc_venue');
+                if (venueInputModal) {
+                    venueInputModal.value = venue || '';
+                }
+                syncVenueLabels();
                 
                 const startInputModal = document.getElementById('modal_training_start_date');
                 const endInputModal = document.getElementById('modal_training_end_date');

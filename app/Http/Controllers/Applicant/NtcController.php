@@ -140,11 +140,13 @@ class NtcController extends Controller
         $validated = $request->validate([
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
+            'venue'                => ['required', 'string', 'max:500'],
             'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
             'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
+            'venue.required' => 'The venue or Zoom link is required.',
             'training_start_date.after_or_equal' =>
                 "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
             'training_end_date.after_or_equal' =>
@@ -162,6 +164,7 @@ class NtcController extends Controller
                     'accreditation_id'     => $accreditation->id,
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
                     'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
+                    'venue'                => $validated['venue'],
                     'training_start_date'  => $validated['training_start_date'],
                     'training_end_date'    => $validated['training_end_date'],
                     'status'               => 'submitted',
@@ -506,11 +509,13 @@ class NtcController extends Controller
         $validated = $request->validate([
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
+            'venue'                => ['required', 'string', 'max:500'],
             'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
             'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
+            'venue.required' => 'The venue or Zoom link is required.',
             'training_start_date.after_or_equal' =>
                 "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
             'training_end_date.after_or_equal' =>
@@ -526,6 +531,7 @@ class NtcController extends Controller
                 $ntcReport->update([
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
                     'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
+                    'venue'                => $validated['venue'],
                     'training_start_date'  => $validated['training_start_date'],
                     'training_end_date'    => $validated['training_end_date'],
                     'status'               => 'report_changes',

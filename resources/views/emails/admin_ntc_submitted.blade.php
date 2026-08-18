@@ -67,6 +67,13 @@
         <h3>Training Details</h3>
         <p><strong>Type of Training:</strong> {{ $ntcReport->trainingType->name ?? 'N/A' }}</p>
         <p><strong>Mode of Training:</strong> {{ $ntcReport->trainingMode->name ?? 'N/A' }}</p>
+        @if($ntcReport->venue)
+            @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
+                <p><strong>Zoom Link / Meeting Link:</strong> <a href="{{ $ntcReport->venue }}" target="_blank">{{ $ntcReport->venue }}</a></p>
+            @else
+                <p><strong>Venue:</strong> {{ $ntcReport->venue }}</p>
+            @endif
+        @endif
         <p><strong>Training Start Date:</strong> {{ $ntcReport->training_start_date ? $ntcReport->training_start_date->format('F d, Y') : 'N/A' }}</p>
         <p><strong>Training End Date:</strong> {{ $ntcReport->training_end_date ? $ntcReport->training_end_date->format('F d, Y') : 'N/A' }}</p>
         @if(!isset($isReupload) || !$isReupload)

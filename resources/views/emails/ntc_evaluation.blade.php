@@ -44,8 +44,19 @@
         <p class="label">{{ $wasReportChanges ? 'Reference Number' : 'NTC Reference Number' }}</p>
         <p class="value">{{ $ntcReport->reference_number }}</p>
 
-        <p class="label">Training Type</p>
-        <p class="value">{{ $ntcReport->trainingType->name ?? 'N/A' }}</p>
+        <p class="label">Training Type &amp; Mode</p>
+        <p class="value">{{ $ntcReport->trainingType->name ?? 'N/A' }} ({{ $ntcReport->trainingMode->name ?? 'N/A' }})</p>
+
+        @if($ntcReport->venue)
+            <p class="label">{{ (optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended')) ? 'Zoom Link / Meeting Link' : 'Venue' }}</p>
+            <p class="value">
+                @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
+                    <a href="{{ $ntcReport->venue }}" target="_blank">{{ $ntcReport->venue }}</a>
+                @else
+                    {{ $ntcReport->venue }}
+                @endif
+            </p>
+        @endif
 
         <p class="label">Training Period</p>
         <p class="value">
