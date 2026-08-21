@@ -8,11 +8,31 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use App\Models\Application;
 
-class PaymentSubmittedNotification extends Notification
+class PaymentSubmittedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     protected $application;
+
+    /**
+     * Route each channel to its own queue connection.
+     *
+     * This notification fans out to every verifier, so sending mail inline meant
+     * one blocking SMTP handshake per verifier before the request could finish.
+     * Mail therefore goes to the queue.
+     *
+     * The database channel stays on "sync" so the in-app notification bell still
+     * updates immediately — it is a single fast INSERT with nothing to wait on.
+     *
+     * @return array<string, string>
+     */
+    public function viaConnections(): array
+    {
+        return [
+            'mail'     => 'database',
+            'database' => 'sync',
+        ];
+    }
 
     /**
      * Create a new notification instance.

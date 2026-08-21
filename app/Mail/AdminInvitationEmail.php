@@ -3,13 +3,23 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class AdminInvitationEmail extends Mailable implements ShouldQueue
+/**
+ * Deliberately NOT queued — see VerifyRegistrationEmail for the same reasoning.
+ *
+ * ApplicationController::inviteAdmin() wraps the send in a try/catch that deletes
+ * the pending_admins row and reports an error when the mail server is unreachable.
+ * Queueing would make that catch unreachable, leaving an orphaned invitation row
+ * while telling the inviter the email was sent.
+ *
+ * Inviting an admin is a rare action, not a hot path, so sending inline costs
+ * nothing worth optimising.
+ */
+class AdminInvitationEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
