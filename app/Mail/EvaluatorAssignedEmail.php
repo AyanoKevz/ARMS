@@ -10,7 +10,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Application;
 
-class AdminApplicationSubmittedEmail extends Mailable implements ShouldQueue
+class EvaluatorAssignedEmail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -30,9 +30,8 @@ class AdminApplicationSubmittedEmail extends Mailable implements ShouldQueue
      */
     public function envelope(): Envelope
     {
-        $type = ucfirst($this->application->application_type);
         return new Envelope(
-            subject: "[Admin Notification] New {$type} Application Submitted — {$this->application->tracking_number}",
+            subject: 'Application Assigned To You — ' . $this->application->tracking_number,
         );
     }
 
@@ -42,8 +41,19 @@ class AdminApplicationSubmittedEmail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
+
         return new Content(
-            view: 'emails.admin_application_submitted',
+            view: 'emails.evaluator_assigned',
         );
+    }
+
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
+    public function attachments(): array
+    {
+        return [];
     }
 }

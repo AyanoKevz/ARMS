@@ -15,10 +15,22 @@ use Illuminate\Support\Facades\Storage;
 class NtcController extends Controller
 {
     /**
+     * Helper to allow ONLY Training Evaluator through — NTC/training reports are their exclusive domain.
+     */
+    private function requireTrainingEvaluatorAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) !== 'training evaluator') {
+            abort(403, 'Unauthorized action. Only Training Evaluator has access to this page.');
+        }
+    }
+
+    /**
      * List all NTC submissions across all FATPros.
      */
     public function index()
     {
+        $this->requireTrainingEvaluatorAccess();
         $ntcReports = NtcReport::with([
             'accreditation.user.organizationProfile',
             'accreditation.user.individualProfile',
@@ -38,6 +50,7 @@ class NtcController extends Controller
      */
     public function reportChangesIndex()
     {
+        $this->requireTrainingEvaluatorAccess();
         $ntcReports = NtcReport::with([
             'accreditation.user.organizationProfile',
             'accreditation.user.individualProfile',
@@ -57,6 +70,7 @@ class NtcController extends Controller
      */
     public function show(NtcReport $ntcReport)
     {
+        $this->requireTrainingEvaluatorAccess();
         $ntcReport->loadMissing([
             'accreditation.user.organizationProfile.authorizedRepresentatives',
             'accreditation.user.individualProfile',
@@ -89,11 +103,14 @@ class NtcController extends Controller
     /**
      * Evaluate (approve/reject) individual NTC documents and optionally
      * mark the overall NTC report as acknowledged when all docs are approved.
+     * A document can also be reverted to 'pending' — clicking an already-active
+     * Approve/Reject button again undoes a mistaken click.
      */
     public function evaluateDocument(Request $request, NtcDocument $document)
     {
+        $this->requireTrainingEvaluatorAccess();
         $validated = $request->validate([
-            'status'  => ['required', 'in:approved,rejected'],
+            'status'  => ['required', 'in:approved,rejected,pending'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -102,8 +119,8 @@ class NtcController extends Controller
         $document->update([
             'status'       => $validated['status'],
             'remarks'      => $validated['status'] === 'rejected' ? ($validated['remarks'] ?? null) : null,
-            'evaluated_by' => $admin->id,
-            'evaluated_at' => now(),
+            'evaluated_by' => $validated['status'] === 'pending' ? null : $admin->id,
+            'evaluated_at' => $validated['status'] === 'pending' ? null : now(),
         ]);
 
         return response()->json([
@@ -118,6 +135,7 @@ class NtcController extends Controller
      */
     public function serveDocument(NtcDocument $document)
     {
+        $this->requireTrainingEvaluatorAccess();
         if (!$document->file_path || !Storage::disk('local')->exists($document->file_path)) {
             abort(404, 'File not found.');
         }
@@ -134,6 +152,7 @@ class NtcController extends Controller
      */
     public function finalizeEvaluation(Request $request, NtcReport $ntcReport)
     {
+        $this->requireTrainingEvaluatorAccess();
         $validated = $request->validate([
             'evaluations' => ['required', 'array'],
             'evaluations.*.id' => ['required', 'exists:ntc_documents,id'],
@@ -146,28 +165,39 @@ class NtcController extends Controller
         $hasRejections = false;
         $wasReportChanges = $ntcReport->status === 'report_changes';
 
+        // Resolve all submitted documents in one query (still scoped to this
+        // report) rather than a SELECT per row inside the loop.
+        $docs = NtcDocument::where('ntc_report_id', $ntcReport->id)
+            ->whereIn('id', array_column($evaluations, 'id'))
+            ->get()
+            ->keyBy('id');
+
         foreach ($evaluations as $eval) {
-            $doc = NtcDocument::where('ntc_report_id', $ntcReport->id)->find($eval['id']);
+            $doc = $docs->get($eval['id']);
             if ($doc) {
                 $newStatus = $eval['status'];
                 if ($newStatus === 'pending') {
                     continue;
                 }
 
-                $doc->update([
+                $attributes = [
                     'status'       => $newStatus,
                     'remarks'      => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
                     'evaluated_by' => $admin->id,
                     'evaluated_at' => now(),
-                ]);
+                ];
 
                 if ($newStatus === 'rejected') {
                     $hasRejections = true;
                     if ($doc->file_path && Storage::disk('local')->exists($doc->file_path)) {
                         Storage::disk('local')->delete($doc->file_path);
                     }
-                    $doc->update(['file_path' => null]);
+                    // Fold the file_path reset into the same UPDATE instead of
+                    // issuing a second one.
+                    $attributes['file_path'] = null;
                 }
+
+                $doc->update($attributes);
             }
         }
 

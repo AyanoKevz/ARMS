@@ -209,7 +209,7 @@ class NtcController extends Controller
                 // Notify Admin Evaluators via email
                 try {
                     $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Evaluator');
+                        $q->where('name', 'Training Evaluator');
                     })->get();
 
                     if ($evaluators->isNotEmpty()) {
@@ -417,7 +417,7 @@ class NtcController extends Controller
             if ($filesUploaded > 0) {
                 // Find all Evaluators
                 $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->where('name', 'Evaluator');
+                    $q->where('name', 'Training Evaluator');
                 })->get();
 
                 if ($evaluators->isNotEmpty()) {
@@ -610,7 +610,7 @@ class NtcController extends Controller
                 // Notify Admin Evaluators via email
                 try {
                     $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Evaluator');
+                        $q->where('name', 'Training Evaluator');
                     })->get();
 
                     if ($evaluators->isNotEmpty()) {

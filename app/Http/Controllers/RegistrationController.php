@@ -500,26 +500,26 @@ class RegistrationController extends Controller
                 }
 
                 try {
-                    $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Evaluator');
+                    $teamLeads = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                        $q->where('name', 'Team Lead');
                     })->get();
 
-                    if ($evaluators->isNotEmpty() && $application) {
+                    if ($teamLeads->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
-                        
-                        // Send email to EVERY Evaluator admin individually
-                        foreach ($evaluators as $evaluatorAdmin) {
-                            if ($evaluatorAdmin->email) {
+
+                        // Send email to EVERY Team Lead admin individually
+                        foreach ($teamLeads as $teamLeadAdmin) {
+                            if ($teamLeadAdmin->email) {
                                 try {
-                                    Mail::to($evaluatorAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
+                                    Mail::to($teamLeadAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
                                 } catch (\Exception $ex) {
-                                    Log::warning("Failed to send admin notification email to {$evaluatorAdmin->email}: " . $ex->getMessage());
+                                    Log::warning("Failed to send admin notification email to {$teamLeadAdmin->email}: " . $ex->getMessage());
                                 }
                             }
                         }
 
-                        // Send database/in-app portal notifications to all evaluators
-                        \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+                        // Send database/in-app portal notifications to all Team Leads
+                        \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\NewApplicationSubmittedNotification($application));
                     }
                 } catch (\Exception $mailEx) {
                     Log::warning('Admin application submission notification failed: ' . $mailEx->getMessage());

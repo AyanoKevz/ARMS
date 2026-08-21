@@ -55,7 +55,7 @@ return new class extends Migration
             $table->index('accreditation_type_id', 'idx_applications_accreditation_type_id');
             $table->index('application_type', 'idx_applications_type');
             $table->index('submitted_at', 'idx_applications_submitted_at');
-            $table->index('handled_by_admin_id', 'idx_applications_handled_by');
+            $table->index('assigned_evaluator_id', 'idx_applications_assigned_evaluator');
             $table->index(['user_id', 'application_type'], 'idx_apps_user_type');
             $table->index(['application_type', 'created_at'], 'idx_apps_type_created');
         });
@@ -197,7 +197,7 @@ return new class extends Migration
             $table->dropIndex('idx_applications_accreditation_type_id');
             $table->dropIndex('idx_applications_type');
             $table->dropIndex('idx_applications_submitted_at');
-            $table->dropIndex('idx_applications_handled_by');
+            $table->dropIndex('idx_applications_assigned_evaluator');
             $table->dropIndex('idx_apps_user_type');
             $table->dropIndex('idx_apps_type_created');
         });

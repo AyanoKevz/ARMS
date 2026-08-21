@@ -74,7 +74,9 @@
                                         </span>
                                     </th>
                                     <th class="column-title text-center">Status</th>
+                                    @if($isTeamLead)
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
+                                    @endif
                                 </tr>
                             </thead>
 
@@ -119,11 +121,13 @@
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark">{{ $app->latestStatus?->status?->name ?? 'Pending' }}</span>
                                         </td>
+                                        @if($isTeamLead)
                                         <td class="last text-center">
                                             <button type="button" class="btn btn-primary btn-xs m-0" data-bs-toggle="modal" data-bs-target="#evalModal{{ $app->id }}">
-                                                <i class="fas fa-play me-1"></i> Start Evaluation
+                                                Assign Evaluator
                                             </button>
                                         </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -135,6 +139,7 @@
     </div>
 </div>
 
+@if($isTeamLead)
 @foreach($applications as $app)
 @php
     $org  = $app->user->organizationProfile;
@@ -145,34 +150,44 @@
 <div class="modal fade" id="evalModal{{ $app->id }}" tabindex="-1" aria-labelledby="evalModalLabel{{ $app->id }}" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="evalModalLabel{{ $app->id }}">Confirm Evaluation</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-start">
-                <p>Are you sure you want to start the evaluation for the following {{ ucfirst($app->application_type) }} application?</p>
-                <ul class="mb-0">
-                    <li><strong>Tracking Number:</strong> {{ $app->tracking_number }}</li>
-                    <li><strong>FATPro Name:</strong> {{ $fatproName }}</li>
-                    <li><strong>Application Type:</strong> {{ ucfirst($app->application_type) }}</li>
-                </ul>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" class="d-inline eval-form">
-                    @csrf
+            <form action="{{ route('admin.hcd.applications.update_evaluation', $app->id) }}" method="POST" class="eval-form">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="evalModalLabel{{ $app->id }}">Assign Evaluator</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <p>Select the Evaluator who will be in charge of the following {{ ucfirst($app->application_type) }} application:</p>
+                    <ul class="mb-3">
+                        <li><strong>Tracking Number:</strong> {{ $app->tracking_number }}</li>
+                        <li><strong>FATPro Name:</strong> {{ $fatproName }}</li>
+                        <li><strong>Application Type:</strong> {{ ucfirst($app->application_type) }}</li>
+                    </ul>
+                    <div class="mb-2">
+                        <label for="evaluator_id{{ $app->id }}" class="form-label">Evaluator <span class="text-danger">*</span></label>
+                        <select class="form-control" id="evaluator_id{{ $app->id }}" name="evaluator_id" required>
+                            <option value="">Select Evaluator</option>
+                            @foreach($evaluators as $evaluator)
+                                <option value="{{ $evaluator->id }}">{{ $evaluator->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary eval-submit-btn">
-                        <span class="eval-submit-text">Start Evaluation</span>
+                        <span class="eval-submit-text">Assign Evaluator</span>
                         <span class="eval-submit-spinner d-none">
                             <span class="spinner-border spinner-border-sm" role="status"></span>
                         </span>
                     </button>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 @endforeach
+@endif
 @endsection
 
 @push('scripts')

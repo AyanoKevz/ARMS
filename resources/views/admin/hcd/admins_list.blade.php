@@ -10,6 +10,11 @@
 <link rel="stylesheet" href="{{ asset('css/table-component.css') }}">
 @endpush
 
+@php
+    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+    $isTeamLead = strtolower($isAdminRole) === 'team lead';
+@endphp
+
 @section('content')
 <div class="">
     <div class="page-title">
@@ -26,11 +31,13 @@
                 <div class="x_title">
                     <h2>Administrators in your Division</h2>
                     <ul class="nav navbar-right panel_toolbox">
+                        @if($isTeamLead)
                         <li>
                             <button type="button" class="btn btn-primary btn-sm mt-1" data-bs-toggle="modal" data-bs-target="#createAdminModal" style="background-color: #1a2e5a; border-color: #1a2e5a;">
                                 <i class="fas fa-plus me-1"></i> Create Admin
                             </button>
                         </li>
+                        @endif
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
                     <div class="clearfix"></div>
@@ -77,6 +84,7 @@
     </div>
 </div>
 
+@if($isTeamLead)
 <!-- Create Admin Modal -->
 <div class="modal fade" id="createAdminModal" tabindex="-1" aria-labelledby="createAdminModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -89,12 +97,12 @@
                 @csrf
                 <div class="modal-body">
                     <div id="createAdminAlert"></div>
-                    
+
                     <div class="mb-3">
                         <label for="admin_email" class="form-label">Email Address <span class="text-danger">*</span></label>
                         <input type="email" class="form-control" id="admin_email" name="email" required>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="admin_first_name" class="form-label">First Name <span class="text-danger">*</span></label>
@@ -132,6 +140,7 @@
         </div>
     </div>
 </div>
+@endif
 
 @endsection
 

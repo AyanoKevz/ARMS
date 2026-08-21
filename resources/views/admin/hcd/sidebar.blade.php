@@ -1,6 +1,8 @@
 ﻿@php
     $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
     $isEvaluator = strtolower($isAdminRole) === 'evaluator';
+    $isTeamLead = strtolower($isAdminRole) === 'team lead';
+    $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
 
     // Base flags
     $routeShow = request()->routeIs('admin.hcd.applications.show');
@@ -76,6 +78,7 @@
 <li id="tour-step-profile" class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
 <li id="tour-step-admin-list" class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.admins') }}"><i class="fas fa-users-cog"></i> HCD Admin List </a></li>
 
+@if($isTeamLead || $isEvaluator)
 <li id="tour-step-new-apps" class="{{ $newAppsParentActive ? 'active' : '' }}"><a><i class="fas fa-folder-plus"></i>New Applications <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $newAppsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $newPendingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.applications.pending') }}"><i class="fas fa-hourglass-half"></i> Pending</a></li>
@@ -98,8 +101,9 @@
 </li>
 
 <li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> For Recommendation </a></li>
+@endif
 
-@if($isEvaluator)
+@if($isTrainingEvaluator)
 <li id="tour-step-reports" class="{{ $reportsParentActive ? 'active' : '' }}"><a><i class="fas fa-chart-bar"></i> Reports <span class="fas fa-chevron-down"></span></a>
     <ul class="nav child_menu" style="{{ $reportsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $ntcReportActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.ntc.index') }}"><i class="fas fa-clipboard-list"></i> Notice to Conduct</a></li>

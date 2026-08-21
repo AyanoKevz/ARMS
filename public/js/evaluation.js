@@ -127,7 +127,10 @@
         if (!statusInput) return;
 
         const oldStatus = statusInput.value;
-        if (oldStatus === status) return;
+        // Clicking an already-active button reverts it back to pending (undo a mis-click)
+        if (oldStatus === status) {
+            status = 'pending';
+        }
 
         // Find approve & reject action buttons for this item
         const approveBtn = document.querySelector(`.btn-approve[data-doc-id="${docId}"]`);
@@ -1370,7 +1373,10 @@
         if (!input) return;
 
         const oldStatus = input.value;
-        if (oldStatus === status) return;
+        // Clicking an already-active button reverts it back to pending (undo a mis-click)
+        if (oldStatus === status) {
+            status = 'pending';
+        }
 
         input.value = status;
         const currentVal = status;

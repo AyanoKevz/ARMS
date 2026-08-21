@@ -1,0 +1,211 @@
+# ARMS — Admin Role Restructure & Decking System Implementation
+
+> ✅ All open questions have been resolved. This document is final and ready for implementation.
+
+## Project Context
+- **Framework**: Laravel (Blade templates, Bootstrap 5)
+- **Stack**: PHP/Laravel, MySQL, Bootstrap 5, jQuery, Vanilla JS/CSS
+- **Convention**: No new migration files — add schema changes to the **existing** migration files. No new JS/CSS files unless absolutely necessary — append to existing asset files. Keep Blade files clean by using external JS/CSS.
+- **Fresh migration**: `migrate:fresh` will be run after all changes, so cumulative schema edits in existing migrations are safe.
+
+---
+
+## Part 1 — Restructure Admin Roles (HCD Division)
+
+### Current State
+The system has two `admin_roles`: **Evaluator** and **Verifier**.  
+The seeder in `AdminRoleSeeder.php` seeds only those two roles.  
+`AdminUserSeeder.php` seeds 4 admin users tied to HCD and Accreditation divisions.
+
+### Required Changes
+
+---
+
+### Role 1: Team Lead
+
+**Seeder**: In `AdminRoleSeeder.php`, add `Team Lead` to the roles array.
+
+**User**: In `AdminUserSeeder.php`, change `hcdarms2026@gmail.com` from `Evaluator` role to `Team Lead` role. Update `first_name` / `last_name` to reflect this (e.g., `HCD` / `Team Lead`).
+
+**Permissions & Behavior**:
+- Can **create admins** (the only role with this privilege). The "Create Admin" button in `admins_list.blade.php` must be conditionally shown only to Team Lead.
+- Can **view** all submitted applications, documents, and reports (read-only oversight).
+- Can **assign an Evaluator** to an application via the decking system (see Part 2).
+- **Cannot** evaluate applications (no access to evaluation actions/buttons).
+- **Cannot** handle, schedule, or update interviews.
+- **Cannot** generate or update recommendations/payments.
+- **Receives** an email notification when a new application is **submitted** (heads-up before decking). After assigning an evaluator, all subsequent notifications go to the assigned Evaluator only. Team Lead does NOT receive any further process emails (e.g., document uploads, payment, interview, etc.).
+- **Sidebar**: Same full sidebar as the current portal (Dashboard, My Profile, HCD Admin List, New Applications, Renewal/Reinstatement, Schedule Interviews, For Recommendation, Active FatPro, Revoked/Expired, Archived Applications). Reports section is **hidden** for Team Lead.
+
+---
+
+### Role 2: Evaluator
+
+**Seeder**: Keep existing `Evaluator` role. Keep `data@oshc.dole.gov.ph` assigned to `Evaluator`.
+
+**Permissions & Behavior**:
+- Can **evaluate** all types of applications (new, renewal, reinstatement).
+- Can **view** all applications regardless of assignment.
+- **Cannot** create admin accounts.
+- **Email notifications**: Only the **assigned/in-charge Evaluator** for a specific application receives email notifications about that application. Remove the current broadcast-to-all-evaluators behavior.
+- **Sidebar**: Same as current, **except hide the Reports section** (`Notice to Conduct`, `Report of Changes`, `Post Training Report`).
+- The existing `@if($isEvaluator)` guard in `sidebar.blade.php` currently *shows* Reports only for Evaluator — this must be **inverted**: hide Reports for Evaluator, show Reports only for Training Evaluator.
+
+---
+
+### Role 3: Training Evaluator
+
+**Seeder**: In `AdminRoleSeeder.php`, add `Training Evaluator` to the roles array.
+
+**User**: In `AdminUserSeeder.php`, update `oshcdevs@gmail.com` (currently Evaluator or not yet assigned) to use `Training Evaluator` role. Set `first_name` / `last_name` appropriately (e.g., `OSHC` / `Training Evaluator`).
+
+**Permissions & Behavior**:
+- Receives **all email notifications** related to training/NTC events: new NTC submissions, resubmitted NTC documents, submitted Report of Changes, and any other NTC/training-related notifications.
+- **Cannot** create admin accounts.
+- **Sidebar**: Shows **only** the Reports section (Notice to Conduct, Report of Changes, Post Training Report). All other sidebar items are hidden.
+- **Email routing fix**: All `AdminNtcSubmittedEmail`, `AdminNtcReuploadedEmail`, and related training emails must be sent only to users whose `admin_role` is `Training Evaluator`. Remove any current logic that sends these to all Evaluators.
+
+---
+
+## Part 2 — Decking System (Application Assignment)
+
+### Purpose
+Track which Evaluator admin is the **in-charge / contact person** for a specific application. This does not restrict other evaluators from viewing or evaluating the application — it only determines who receives email notifications about it.
+
+### Database Change
+In the **existing** migration `2026_04_14_033142_create_applications_table.php`, the `applications` table already has a `handled_by_admin_id` (nullable FK to `users`). **Repurpose this column** as the `assigned_evaluator_id` (the decking assignment). If you prefer clarity, rename it in the migration to `assigned_evaluator_id` and update all references in:
+- `Application.php` model (`$fillable`, relationship method `handledByAdmin()` → rename to `assignedEvaluator()`)
+- `ApplicationController.php` (any reference to `handled_by_admin_id`)
+- All Blade views that reference `handledByAdmin` or `handled_by_admin_id`
+
+> **Alternative (simpler)**: Keep the column name `handled_by_admin_id` but change its semantic meaning — it now represents the assigned/in-charge evaluator set by Team Lead during decking, not the evaluator who first clicks "Start Evaluation." Update the `updateToEvaluation()` method so it no longer auto-assigns `auth()->id()` to this column; instead it is only set by the Team Lead through the decking modal.
+
+### Decking Flow — How It Works
+
+**Trigger**: Team Lead visits the Pending applications list (new or renewal) and clicks "Start / Assign Application" (replace the current "Start Evaluation" button, or add a new action visible only to Team Lead).
+
+**Modal**: A confirmation modal appears with:
+- Application summary (tracking number, applicant name, type)
+- A **dropdown** listing all active admin users whose `admin_role` is `Evaluator`
+- A "Confirm & Assign" button
+
+**On Submit**:
+1. Set `applications.handled_by_admin_id` = selected evaluator's `user_id`
+2. Move the application status to `Under Evaluation` (same as current `updateToEvaluation()` logic)
+3. Initialize PCT steps (same as current)
+4. Send the `ApplicationEvaluationStartedEmail` to the **applicant**
+5. Send a notification email to the **assigned Evaluator only** (new email: "You have been assigned to application [tracking number]")
+6. Do **not** notify any other evaluators
+
+**Display**: On all application list views and the application detail view (`show_application_info.blade.php`), show the assigned evaluator's name (e.g., a badge or column: "In-Charge: [Name]").
+
+---
+
+## Part 3 — Access Control & Middleware Guards
+
+### Controller-Level Guards (update `ApplicationController.php`)
+
+Update the existing `checkVerifierAccess()` and `checkEvaluatorAccess()` helper methods to cover the new roles. Add a `checkTeamLeadAccess()` helper that blocks Team Lead from evaluation actions. Suggested guard map:
+
+| Action | Blocked Roles |
+|---|---|
+| `pending()`, `updateToEvaluation()`, evaluate docs | Team Lead |
+| `admins.invite` route | Evaluator, Training Evaluator |
+| Interview scheduling/update routes | Team Lead |
+| Recommendation/payment routes | Team Lead |
+| NTC evaluation routes | Evaluator, Team Lead (only Training Evaluator acts here) |
+
+### Sidebar Guards (update `sidebar.blade.php`)
+
+Add `$isTeamLead` and `$isTrainingEvaluator` PHP variables alongside the existing `$isEvaluator`.
+
+```php
+$isTeamLead = strtolower($isAdminRole) === 'team lead';
+$isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
+```
+
+**Sidebar visibility rules**:
+
+| Sidebar Item | Team Lead | Evaluator | Training Evaluator |
+|---|---|---|---|
+| Dashboard | ✅ | ✅ | ✅ |
+| My Profile | ✅ | ✅ | ✅ |
+| HCD Admin List | ✅ | ✅ | ✅ |
+| New Applications | ✅ | ✅ | ❌ |
+| Renewal/Reinstatement | ✅ | ✅ | ❌ |
+| Schedule Interviews | ✅ | ✅ | ❌ |
+| For Recommendation | ✅ | ✅ | ❌ |
+| Active FatPro | ✅ | ✅ | ✅ |
+| Revoked/Expired | ✅ | ✅ | ✅ |
+| Archived Applications | ✅ | ✅ | ✅ |
+| Reports | ❌ | ❌ | ✅ |
+
+### Admin List Page (`admins_list.blade.php`)
+
+- Show "Create Admin" button **only** to Team Lead.
+- Wrap the button and the entire `createAdminModal` in a `@if($isTeamLead)` check.
+- Training Evaluator can still access the Admin List page (to see colleagues), but cannot create admins.
+
+---
+
+## Part 4 — Email Notification Routing Fix
+
+### Application Submission Emails (`RegistrationController.php` & `RenewalController.php`)
+
+Currently, on application submission, the system sends `AdminApplicationSubmittedEmail` to **every admin with role Evaluator**.
+
+**Change (confirmed)**: On application submission, send `AdminApplicationSubmittedEmail` to **all admins with role `Team Lead`** only. This is the heads-up notification before decking happens. After the Team Lead assigns an evaluator via the decking modal, all subsequent process emails (document uploads, payment, interview, recommendation, etc.) go **only to the assigned Evaluator**. Remove the current logic that sends to all Evaluators.
+
+### NTC / Training Emails (`NtcController.php` and wherever `AdminNtcSubmittedEmail` / `AdminNtcReuploadedEmail` are dispatched)
+
+**Change**: Send all NTC/training-related admin emails exclusively to users whose `adminProfile.adminRole.name === 'Training Evaluator'`. Remove any Evaluator targeting from these email dispatches.
+
+**Files to update**:
+- `RegistrationController.php` — application submitted email routing
+- `Applicant/RenewalController.php` — renewal submitted email routing  
+- `NtcController.php` — NTC evaluation/acknowledgment emails
+- Any other controller that dispatches `AdminNtcSubmittedEmail` or `AdminNtcReuploadedEmail`
+
+---
+
+## Part 5 — Files to Modify (Summary)
+
+### Migrations (edit existing, do NOT create new files)
+- `0001_01_01_000000_create_users_table.php` — No schema change needed (admin_roles table already supports new role names via string)
+- `2026_04_14_033142_create_applications_table.php` — Optional: add a comment clarifying `handled_by_admin_id` is the decking/assigned evaluator
+
+### Seeders (edit existing)
+- `AdminRoleSeeder.php` — Add `Team Lead` and `Training Evaluator` to the `$roles` array
+- `AdminUserSeeder.php` — Reassign roles: `hcdarms2026@gmail.com` → Team Lead; `oshcdevs@gmail.com` → Training Evaluator; keep `data@oshc.dole.gov.ph` as Evaluator
+
+### Models
+- `Application.php` — Rename/alias relationship if column is renamed; update `$fillable`
+
+### Controllers
+- `ApplicationController.php` — Add role guards, update decking assignment logic, update email routing
+- `RegistrationController.php` — Fix email: send only to assigned evaluator, not all evaluators
+- `Applicant/RenewalController.php` — Same fix as above
+- `NtcController.php` — Route NTC emails to Training Evaluator role only
+- `AdminInvitationController.php` — No logic change needed; access is guarded at route/middleware level
+
+### Views (Blade)
+- `admin/hcd/sidebar.blade.php` — Add `$isTeamLead` and `$isTrainingEvaluator` flags; apply visibility rules per table above
+- `admin/hcd/admins_list.blade.php` — Gate "Create Admin" button and modal to `$isTeamLead` only
+- `admin/hcd/pending.blade.php` — Replace/modify "Start Evaluation" with "Assign Evaluator" modal for Team Lead
+- `admin/hcd/renewal_pending.blade.php` — Same decking modal for renewals
+- `admin/hcd/show_application_info.blade.php` — Display assigned evaluator name as a badge/label; **completely hide** all action buttons (Evaluate, Schedule Interview, For Recommendation, Generate Recommendation, etc.) for Team Lead. These are visible only to Evaluator.
+
+### New Assets (append to existing files)
+- Append decking modal JS to existing admin JS file (do not create a new file)
+- Append any decking modal styles to existing CSS file
+
+---
+
+## Resolved Clarifications
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | What happens to the **Verifier** role? | ✅ Remains **unchanged**. Verifier accounts (`oshc1987accreditation@gmail.com`, `queeniefrancisco2002@gmail.com`) are Accreditation division — not HCD. No changes needed. |
+| 2 | Who gets the email on application submission (before decking)? | ✅ Email goes to **Team Lead** on submission. After decking, only the **assigned Evaluator** receives all further process emails. |
+| 3 | Should action buttons be hidden or disabled for Team Lead on `show_application_info.blade.php`? | ✅ **Hidden**. Only Evaluator sees and uses action buttons. |
+| 4 | Is `oshcdevs@gmail.com` a new seeder entry? | ✅ **Yes — add as a new entry** in `AdminUserSeeder.php` with role `Training Evaluator`, division `HCD`. |

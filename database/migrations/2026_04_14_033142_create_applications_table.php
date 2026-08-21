@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('accreditation_type_id')->constrained()->cascadeOnDelete(); // 7 = FATPro
             $table->string('application_type');
-            $table->foreignId('handled_by_admin_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('assigned_evaluator_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tracking_number')->unique(); // Example: ARMS-2026-000001
             $table->timestamp('submitted_at')->nullable();
             $table->timestamps();

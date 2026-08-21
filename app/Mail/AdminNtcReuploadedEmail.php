@@ -4,12 +4,13 @@ namespace App\Mail;
 
 use App\Models\NtcReport;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class AdminNtcReuploadedEmail extends Mailable
+class AdminNtcReuploadedEmail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

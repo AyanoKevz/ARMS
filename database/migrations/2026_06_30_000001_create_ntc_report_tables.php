@@ -60,6 +60,9 @@ return new class extends Migration
                 ->restrictOnDelete();
             // Face to Face / Blended
 
+            $table->string('venue', 500)->nullable();
+            // Training venue (F2F) or Zoom/Meeting link (Blended)
+
             $table->date('training_start_date');
             // NTC Training Start Date
 

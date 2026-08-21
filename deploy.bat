@@ -52,7 +52,9 @@ echo.
 echo [ARMS] Deployment complete!
 echo.
 echo ── Next steps ──────────────────────────────────────────────────────────
-echo  * Ensure Supervisor (or your process manager) is running queue workers.
+echo  * REQUIRED: start the queue worker (start-queue-worker.bat), or register
+echo    it as a Windows scheduled task. Emails are queued, not sent inline —
+echo    without a worker running they will never be delivered.
 echo  * Verify HTTPS is active and the SSL certificate is valid.
 echo  * Check storage\logs\laravel.log for any boot-time errors.
 echo ────────────────────────────────────────────────────────────────────────

@@ -16,24 +16,24 @@
 
     {{-- ── Stat Cards ── --}}
     <div class="row mb-4">
-        {{-- Card 1: Total Active FATPro --}}
-        <div class="col-xl-4 col-md-6 mb-3">
+        {{-- Card 1: Total Active Accreditations (all types, not just FATPro) --}}
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="stat-card stat-card-blue" style="cursor:default;">
                 <div class="stat-card-icon blue"><i class="bi bi-patch-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalActiveFATPro }}</div>
-                    <div class="stat-card-label">Total Active FATPro</div>
+                    <div class="stat-card-label">Total Active Accreditations</div>
                     <div class="stat-card-sub">Currently accredited</div>
                 </div>
             </div>
         </div>
 
         {{-- Card 2: Awaiting Payment/Recommendation --}}
-        <div class="col-xl-4 col-md-6 mb-3">
+        <div class="col-xl-3 col-md-6 mb-3">
             <a href="{{ route('admin.accreditation.applications.awaiting_payment') }}" class="stat-card stat-card-green">
                 <div class="stat-card-icon green"><i class="bi bi-cash-coin"></i></div>
                 <div class="stat-card-body">
-                    <div class="stat-card-num">{{ $newPending + $newUnderReview }}</div>
+                    <div class="stat-card-num">{{ $totalAwaitingPayment }}</div>
                     <div class="stat-card-label">Recommendation / Payment</div>
                     <div class="stat-card-sub">Applications awaiting review</div>
                 </div>
@@ -41,36 +41,24 @@
         </div>
 
         {{-- Card 3: Certificate Issuance (Releasing) --}}
-        <div class="col-xl-4 col-md-6 mb-3">
+        <div class="col-xl-3 col-md-6 mb-3">
             <a href="{{ route('admin.accreditation.applications.releasing') }}" class="stat-card stat-card-amber">
                 <div class="stat-card-icon amber"><i class="bi bi-award-fill"></i></div>
                 <div class="stat-card-body">
-                    <div class="stat-card-num">{{ $renewalPending + $renewalUnderReview }}</div>
+                    <div class="stat-card-num">{{ $totalAwaitingCertificate }}</div>
                     <div class="stat-card-label">Certificate Issuance</div>
                     <div class="stat-card-sub">Approved, pending release</div>
                 </div>
             </a>
         </div>
 
-        {{-- Card 4: Scheduled Interviews (read-only info) --}}
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="stat-card stat-card-violet" style="cursor:default;">
-                <div class="stat-card-icon violet"><i class="bi bi-calendar2-check-fill"></i></div>
-                <div class="stat-card-body">
-                    <div class="stat-card-num">{{ $scheduledInterviews }}</div>
-                    <div class="stat-card-label">Scheduled Interviews</div>
-                    <div class="stat-card-sub">Pending interview completion</div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Card 5: Total Revoked FATPro --}}
-        <div class="col-xl-4 col-md-6 mb-3">
+        {{-- Card 4: Total Revoked Accreditations (all types, not just FATPro) --}}
+        <div class="col-xl-3 col-md-6 mb-3">
             <div class="stat-card stat-card-red" style="cursor:default;">
                 <div class="stat-card-icon red"><i class="bi bi-slash-circle-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalRevokedFATPro }}</div>
-                    <div class="stat-card-label">Total Revoked FATPro</div>
+                    <div class="stat-card-label">Total Revoked Accreditations</div>
                     <div class="stat-card-sub">Accreditation revoked</div>
                 </div>
             </div>

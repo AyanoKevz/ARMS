@@ -28,6 +28,43 @@
             </a>
         </div>
 
+        @if($isTrainingEvaluator)
+        {{-- Card 2: Notice to Conduct --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            <a href="{{ route('admin.hcd.reports.ntc.index') }}" class="stat-card stat-card-green">
+                <div class="stat-card-icon green"><i class="bi bi-clipboard-check-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $totalNtc }}</div>
+                    <div class="stat-card-label">Notice to Conduct</div>
+                    <div class="stat-card-sub">Total NTC submissions</div>
+                </div>
+            </a>
+        </div>
+
+        {{-- Card 3: Report of Changes --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            <a href="{{ route('admin.hcd.reports.report_changes.index') }}" class="stat-card stat-card-amber">
+                <div class="stat-card-icon amber"><i class="bi bi-arrow-left-right"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $totalReportChanges }}</div>
+                    <div class="stat-card-label">Report of Changes</div>
+                    <div class="stat-card-sub">Total submissions</div>
+                </div>
+            </a>
+        </div>
+
+        {{-- Card 4: Post Training Report (feature not yet available) --}}
+        <div class="col-xl-4 col-md-6 mb-3">
+            <div class="stat-card stat-card-violet" style="opacity:.6; cursor:default;">
+                <div class="stat-card-icon violet"><i class="bi bi-flag-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">&mdash;</div>
+                    <div class="stat-card-label">Post Training Report</div>
+                    <div class="stat-card-sub">Coming soon</div>
+                </div>
+            </div>
+        </div>
+        @else
         {{-- Card 2: New Applications --}}
         <div class="col-xl-4 col-md-6 mb-3">
             <a href="{{ route('admin.hcd.applications.pending') }}" class="stat-card stat-card-green">
@@ -63,6 +100,7 @@
                 </div>
             </a>
         </div>
+        @endif
 
         {{-- Card 5: Rejected Applications --}}
         <div class="col-xl-4 col-md-6 mb-3">

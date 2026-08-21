@@ -267,15 +267,16 @@ class TrackingController extends Controller
         CacheService::bustTrackingCache($application->tracking_number);
         CacheService::bustApplicationCaches();
 
-        // Notify Admin Evaluators about resubmitted documents
+        // Notify the assigned Evaluator only about resubmitted documents
         try {
-            $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                $q->where('name', 'Evaluator');
-            })->pluck('email');
+            $application->loadMissing('assignedEvaluator');
+            $assignedEvaluatorEmail = $application->assignedEvaluator?->email;
 
-            if ($evaluatorEmails->isNotEmpty()) {
+            if ($assignedEvaluatorEmail) {
                 $application->load(['user', 'accreditationType']);
-                Mail::to($evaluatorEmails)->send(new AdminDocumentsUploadedEmail($application, $resubmitted));
+                Mail::to($assignedEvaluatorEmail)->send(new AdminDocumentsUploadedEmail($application, $resubmitted));
+            } else {
+                Log::warning('Resubmitted documents notification skipped: application ' . $application->tracking_number . ' has no assigned evaluator.');
             }
         } catch (\Exception $mailEx) {
             Log::warning('Admin resubmitted documents notification failed: ' . $mailEx->getMessage());

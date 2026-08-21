@@ -13,7 +13,7 @@ class Application extends Model
         'user_id',
         'accreditation_type_id',
         'application_type',
-        'handled_by_admin_id',
+        'assigned_evaluator_id',
         'tracking_number',
         'submitted_at',
     ];
@@ -39,11 +39,11 @@ class Application extends Model
     }
 
     /**
-     * Get the admin who is handling this application.
+     * Get the evaluator assigned to this application via decking.
      */
-    public function handledByAdmin()
+    public function assignedEvaluator()
     {
-        return $this->belongsTo(User::class, 'handled_by_admin_id');
+        return $this->belongsTo(User::class, 'assigned_evaluator_id');
     }
 
     /**

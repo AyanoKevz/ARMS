@@ -16,6 +16,8 @@
 $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
 $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 $isVerifier  = strtolower($isAdminRole) === 'verifier';
+$isTeamLead  = strtolower($isAdminRole) === 'team lead';
+$isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
 
 // Check if currently within working hours for PCT
 $pctNow = \Carbon\Carbon::now();
@@ -243,6 +245,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         <div class="lbl" style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#999;letter-spacing:.45px;">Tracking Number</div>
         <h4 class="m-0 fw-bold" style="color:#2A3F54;">{{ $application->tracking_number }}</h4>
         <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Submitted: {{ $application->created_at->format('F d, Y h:i A') }}</small>
+        <small class="text-muted d-block"><i class="bi bi-person-check me-1"></i>In-Charge: {{ $application->assignedEvaluator?->name ?? 'Unassigned' }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
         @php
@@ -269,7 +272,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveApplicationModal">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Application
             </button>
-            @elseif(!$isAccredited && !$isRejected)
+            @elseif(!$isTeamLead && !$isAccredited && !$isRejected)
             <button type="button" class="btn btn-danger btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
                 <i class="bi bi-archive me-1"></i> Archive Application
             </button>
@@ -756,7 +759,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @endif
 
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
-                                    @if(!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
+                                    @if(!$isTeamLead && !$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
                                         @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
                                             <button type="button"
@@ -1063,7 +1066,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @php
                                     $isRequested = $instructor->update_request_status === 'pending_review' &&
                                     (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields)) || $credential->status === 'pending');
-                                    $showEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested;
+                                    $showEvalButtons = !$isTeamLead && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested);
                                     @endphp
 
                                     @if($showEvalButtons)
@@ -1144,7 +1147,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @php
                                     $isSaRequested = $instructor->update_request_status === 'pending_review' &&
                                     (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields)) || $instructor->status === 'pending');
-                                    $showSaEvalButtons = (!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested;
+                                    $showSaEvalButtons = !$isTeamLead && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested);
                                     @endphp
 
                                     @if($showSaEvalButtons)
@@ -1172,7 +1175,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 </div>
 
                                 {{-- Instructor Evaluation Dynamic Action Bar --}}
-                                @if($instructor->update_request_status === 'pending_review' || ($isAccredited && $hasPendingUpdate))
+                                @if(!$isTeamLead && ($instructor->update_request_status === 'pending_review' || ($isAccredited && $hasPendingUpdate)))
                                 <div class="m-3 mt-3 p-3 rounded d-flex align-items-center justify-content-between flex-wrap gap-2"
                                      id="instructor-action-panel-{{ $instructor->id }}"
                                      style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
@@ -1273,7 +1276,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     </div>
 
     {{-- Card Footer — centered button --}}
-    @if(!$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
+    @if(!$isTeamLead && !$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
     <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
         <button type="button"
             id="btn-open-schedule"
@@ -1297,7 +1300,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <small class="text-muted">This application did not pass the interview process.</small>
         </div>
     </div>
-    @elseif($activeStep === 5 && $pctStatus === 'paused')
+    @elseif(!$isTeamLead && $activeStep === 5 && $pctStatus === 'paused')
     {{-- Interview is scheduled, but PCT is paused (waiting to start) --}}
     <div class="px-4 py-3 bg-light border-top text-center">
         <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
@@ -1325,7 +1328,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             </button>
         </form>
     </div>
-    @elseif($activeStep === 5 && $pctStatus === 'active')
+    @elseif(!$isTeamLead && $activeStep === 5 && $pctStatus === 'active')
     {{-- Interview is Running --}}
     <div class="px-4 py-3 bg-light border-top text-center" style="background-color: #fff4e5 !important;">
         <p class="fw-bold mb-2 text-danger" style="font-size: 0.95rem; animation: pulse 2s infinite;">
@@ -1335,7 +1338,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <i class="bi bi-stop-fill me-1"></i> Stop Interview
         </button>
     </div>
-    @elseif($activeStep === 6)
+    @elseif(!$isTeamLead && $activeStep === 6)
     {{-- Interview completed, record result --}}
     <div class="px-4 py-3 bg-light border-top text-center">
         <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
@@ -1363,7 +1366,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     @endif
 
 </div>
-@elseif(!$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
+@elseif(!$isTeamLead && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
 {{-- Just the button if no schedule yet --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
@@ -1419,7 +1422,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold small">Specialization/Industry</label>
-                    <input type="text" name="specialization" class="form-control form-control-sm" placeholder="e.g. Construction, General Manufacturing">
+                    <input type="text" class="form-control form-control-sm" value="Not applicable for FATPro accreditation" disabled>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold small">Evaluator Name</label>
@@ -1525,15 +1528,16 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                         @if($filePath && $status !== 'rejected')
                             <div class="mt-3 pt-3 border-top">
                                 <label class="form-label small fw-semibold d-block mb-2">Status</label>
-                                <div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='none';">
-                                        <label class="form-check-label text-success small fw-semibold" for="{{ $key }}_app">Approve</label>
-                                    </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
-                                        <label class="form-check-label text-danger small fw-semibold" for="{{ $key }}_rej">Reject</label>
-                                    </div>
+                                <div class="d-flex gap-2">
+                                    <input type="radio" class="btn-check" name="{{ $key }}_status" id="{{ $key }}_app" value="approved" {{ $status === 'approved' ? 'checked' : '' }} required autocomplete="off" onclick="document.getElementById('div-rem-{{ $key }}').style.display='none';">
+                                    <label class="btn btn-outline-success fw-bold flex-fill py-2" for="{{ $key }}_app">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Approve
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="{{ $key }}_status" id="{{ $key }}_rej" value="rejected" {{ $status === 'rejected' ? 'checked' : '' }} required autocomplete="off" onclick="document.getElementById('div-rem-{{ $key }}').style.display='block';">
+                                    <label class="btn btn-outline-danger fw-bold flex-fill py-2" for="{{ $key }}_rej">
+                                        <i class="bi bi-x-circle-fill me-1"></i> Reject
+                                    </label>
                                 </div>
 
                                 <div class="mt-2" id="div-rem-{{ $key }}" style="{{ $status === 'rejected' ? '' : 'display:none;' }}">

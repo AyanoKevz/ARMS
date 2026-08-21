@@ -56,6 +56,7 @@
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Address</th>
                                     <th class="column-title">Organization Email</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -80,6 +81,7 @@
                                         <td>{{ $isOrg && $org ? ($org->head_name ?? '—') : '—' }}</td>
                                         <td>{{ $isOrg && $org ? ($org->address ?? '—') : ($app->user->individualProfile->address ?? '—') }}</td>
                                         <td>{{ $isOrg && $org ? ($org->email ?? '—') : ($app->user->email ?? '—') }}</td>
+                                        <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center">
                                             @php
                                                 $statusName = $app->latestStatus?->status?->name ?? 'Under Evaluation';

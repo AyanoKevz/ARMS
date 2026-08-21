@@ -134,6 +134,9 @@ class TestApplicationSeeder extends Seeder
             ]);
 
             // 7. Create Instructor Credentials
+            // Only BOSH actually collects a training_dates value on the real registration/renewal
+            // forms — the other credential types never have that field, so their real-world rows
+            // are always null. Match that here instead of stamping the same value on all four.
             $credentialTypes = ['EMS', 'TM1', 'NTTC', 'BOSH'];
             foreach ($credentialTypes as $type) {
                 InstructorCredential::create([
@@ -142,7 +145,7 @@ class TestApplicationSeeder extends Seeder
                     'number' => strtoupper(Str::random(8)),
                     'issued_date' => Carbon::now()->subMonths(6),
                     'validity_date' => Carbon::now()->addYears(2),
-                    'training_dates' => 'Jan 1-5, 2026',
+                    'training_dates' => $type === 'BOSH' ? 'Jan 1-5, 2026' : null,
                     'pdf_path' => "dummy_files/instructor_{$type}_{$i}.pdf",
                     'status' => 'pending',
                 ]);
@@ -249,6 +252,7 @@ class TestApplicationSeeder extends Seeder
         ]);
 
         // 7. Create Approved Instructor Credentials
+        // Only BOSH actually collects a training_dates value on the real forms — see note above.
         $credentialTypes = ['EMS', 'TM1', 'NTTC', 'BOSH'];
         foreach ($credentialTypes as $type) {
             InstructorCredential::create([
@@ -257,7 +261,7 @@ class TestApplicationSeeder extends Seeder
                 'number' => strtoupper(Str::random(8)),
                 'issued_date' => Carbon::now()->subMonths(30),
                 'validity_date' => Carbon::now()->addMonths(6),
-                'training_dates' => 'Jan 1-5, 2024',
+                'training_dates' => $type === 'BOSH' ? 'Jan 1-5, 2024' : null,
                 'pdf_path' => "dummy_files/instructor_{$type}_acc.pdf",
                 'status' => 'approved',
             ]);

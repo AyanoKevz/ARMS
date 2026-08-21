@@ -57,6 +57,7 @@
                                     <th class="column-title">Accreditation No.</th>
                                     <th class="column-title">Accreditation Status</th>
                                     <th class="column-title">Address</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -100,6 +101,7 @@
                                             @endif
                                         </td>
                                         <td>{{ $isOrg && $org ? ($org->address ?? '—') : ($app->user->individualProfile->address ?? '—') }}</td>
+                                        <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center">
                                             @php
                                                 $statusName = $app->latestStatus?->status?->name ?? 'Under Evaluation';

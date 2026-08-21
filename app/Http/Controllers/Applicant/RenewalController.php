@@ -508,26 +508,26 @@ class RenewalController extends Controller
             // Notify Admin Evaluators after HTTP response (instant user feedback)
             dispatch(function () use ($application) {
                 try {
-                    $evaluators = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Evaluator');
+                    $teamLeads = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+                        $q->where('name', 'Team Lead');
                     })->get();
 
-                    if ($evaluators->isNotEmpty() && $application) {
+                    if ($teamLeads->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
-                        
-                        // Send Email to EVERY Evaluator admin individually
-                        foreach ($evaluators as $evaluatorAdmin) {
-                            if ($evaluatorAdmin->email) {
+
+                        // Send Email to EVERY Team Lead admin individually
+                        foreach ($teamLeads as $teamLeadAdmin) {
+                            if ($teamLeadAdmin->email) {
                                 try {
-                                    Mail::to($evaluatorAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
+                                    Mail::to($teamLeadAdmin->email)->send(new AdminApplicationSubmittedEmail($application));
                                 } catch (\Exception $ex) {
-                                    Log::warning("Failed to send admin notification email to {$evaluatorAdmin->email}: " . $ex->getMessage());
+                                    Log::warning("Failed to send admin notification email to {$teamLeadAdmin->email}: " . $ex->getMessage());
                                 }
                             }
                         }
 
                         // Send database/in-app portal notifications
-                        \Illuminate\Support\Facades\Notification::send($evaluators, new \App\Notifications\NewApplicationSubmittedNotification($application));
+                        \Illuminate\Support\Facades\Notification::send($teamLeads, new \App\Notifications\NewApplicationSubmittedNotification($application));
                     }
                 } catch (\Exception $mailEx) {
                     Log::warning('Admin renewal application submission notification failed: ' . $mailEx->getMessage());

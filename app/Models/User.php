@@ -96,11 +96,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the applications handled by this admin user.
+     * Get the applications assigned to this admin user via decking.
      */
-    public function handledApplications()
+    public function assignedApplications()
     {
-        return $this->hasMany(Application::class, 'handled_by_admin_id');
+        return $this->hasMany(Application::class, 'assigned_evaluator_id');
     }
 
     /**

@@ -236,17 +236,18 @@ class InstructorController extends Controller
             'update_request_fields' => array_values(array_unique($updatedFields)),
         ]);
 
-        // Send email notification to Admin evaluators using existing template
+        // Send email notification to the assigned Evaluator only
         if ($application) {
             try {
-                $evaluatorEmails = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->whereIn('name', ['Evaluator', 'Admin', 'Superadmin', 'Verifier']);
-                })->pluck('email');
+                $application->loadMissing('assignedEvaluator');
+                $assignedEvaluatorEmail = $application->assignedEvaluator?->email;
 
-                if ($evaluatorEmails->isNotEmpty()) {
+                if ($assignedEvaluatorEmail) {
                     $count = count($updatedFields) ?: 1;
                     $application->loadMissing(['user', 'accreditationType']);
-                    \Illuminate\Support\Facades\Mail::to($evaluatorEmails)->send(new \App\Mail\AdminDocumentsUploadedEmail($application, $count, true, $instructor));
+                    \Illuminate\Support\Facades\Mail::to($assignedEvaluatorEmail)->send(new \App\Mail\AdminDocumentsUploadedEmail($application, $count, true, $instructor));
+                } else {
+                    \Illuminate\Support\Facades\Log::warning('Instructor update notification skipped: application ' . $application->tracking_number . ' has no assigned evaluator.');
                 }
             } catch (\Exception $mailEx) {
                 \Illuminate\Support\Facades\Log::warning('Admin instructor update notification email failed: ' . $mailEx->getMessage());

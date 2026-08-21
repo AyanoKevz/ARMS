@@ -712,16 +712,53 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Server-side limit is max:10240 (kilobytes) for these uploads — keep in sync with
+        // TrackingController's resubmitAll()/submitPaymentPublic() validation rules.
+        const MAX_FILE_BYTES = 10240 * 1024;
+
         // Show filename next to each file input after selection
         document.querySelectorAll('.batch-file-input, .payment-file-input').forEach(function(input) {
             input.addEventListener('change', function() {
                 const wrapper = this.closest('div.file-upload-wrapper');
                 const hint = wrapper.querySelector('.file-name-text');
                 const btn = wrapper.querySelector('.custom-file-btn');
+                const feedback = wrapper.querySelector('.file-invalid-feedback');
                 const sectionLabel = wrapper.parentElement.querySelector('label.form-label');
                 const isPayment = this.classList.contains('payment-file-input');
                 const defaultOutlineClass = isPayment ? 'btn-outline-warning' : 'btn-outline-danger';
                 const defaultColor = isPayment ? '#d97706' : '#842029';
+                const defaultFeedbackText = feedback ? feedback.textContent : '';
+
+                if (this.files.length > 0 && this.files[0].size > MAX_FILE_BYTES) {
+                    // Oversized file — reject it immediately, don't let it reach the form
+                    const sizeMb = (this.files[0].size / (1024 * 1024)).toFixed(1);
+                    this.value = '';
+                    this.classList.add('is-invalid');
+                    if (feedback) {
+                        feedback.textContent = `File is ${sizeMb}MB — the maximum allowed size is 10MB. Please choose a smaller PDF.`;
+                    }
+                    if (hint) {
+                        hint.textContent = 'No file chosen';
+                        hint.classList.add('text-muted');
+                        hint.classList.remove('text-success', 'fw-bold');
+                    }
+                    if (btn) {
+                        btn.classList.add(defaultOutlineClass);
+                        btn.classList.remove('btn-success');
+                        btn.style.cssText = `border-color:${defaultColor}; color:${defaultColor}; background-color: transparent;`;
+                        btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Choose File';
+                    }
+                    if (sectionLabel) {
+                        sectionLabel.innerHTML = 'Upload Replacement (PDF) <span class="text-danger">*</span>';
+                        sectionLabel.style.cssText = `color: ${defaultColor} !important;`;
+                    }
+                    return;
+                }
+
+                this.classList.remove('is-invalid');
+                if (feedback) {
+                    feedback.textContent = defaultFeedbackText;
+                }
 
                 if (this.files.length > 0) {
                     if (hint) {
@@ -759,11 +796,21 @@
             });
         });
 
+        function hasOversizedFile(formEl) {
+            return Array.from(formEl.querySelectorAll('.batch-file-input, .payment-file-input'))
+                .some(inp => inp.files.length > 0 && inp.files[0].size > MAX_FILE_BYTES);
+        }
+
         // Prevent double-submit
         const form = document.getElementById('batch-resubmit-form');
         const btn = document.getElementById('btn-resubmit-all');
         if (form && btn) {
-            form.addEventListener('submit', function() {
+            form.addEventListener('submit', function(e) {
+                if (hasOversizedFile(form)) {
+                    e.preventDefault();
+                    alert('One or more selected files exceed the 10MB limit. Please choose smaller PDFs before resubmitting.');
+                    return;
+                }
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting…';
             });
@@ -773,7 +820,12 @@
         const paymentForm = document.getElementById('payment-submit-form');
         const paymentBtn = document.getElementById('btn-payment-submit');
         if (paymentForm && paymentBtn) {
-            paymentForm.addEventListener('submit', function() {
+            paymentForm.addEventListener('submit', function(e) {
+                if (hasOversizedFile(paymentForm)) {
+                    e.preventDefault();
+                    alert('The selected file exceeds the 10MB limit. Please choose a smaller file before uploading.');
+                    return;
+                }
                 paymentBtn.disabled = true;
                 paymentBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Uploading…';
             });

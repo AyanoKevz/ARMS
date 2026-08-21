@@ -12,7 +12,7 @@ class AdminRoleSeeder extends Seeder
      */
     public function run(): void
     {
-        $roles = ['Evaluator', 'Verifier'];
+        $roles = ['Evaluator', 'Verifier', 'Team Lead', 'Training Evaluator'];
 
         foreach ($roles as $name) {
             AdminRole::firstOrCreate([

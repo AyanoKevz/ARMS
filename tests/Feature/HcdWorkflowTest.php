@@ -1017,7 +1017,7 @@ test('ntc document evaluation auto-saves immediately without deleting file or se
     Mail::fake();
 
     $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
     $division = Division::firstOrCreate(['name' => 'HCD']);
 
     $evaluator = User::forceCreate([
@@ -1113,7 +1113,7 @@ test('ntc document evaluation auto-saves immediately without deleting file or se
 
 test('ntc document evaluation buttons and remarks are visible when rejected but file exists, and hidden/readonly when file is deleted', function () {
     $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
     $division = Division::firstOrCreate(['name' => 'HCD']);
 
     $evaluator = User::forceCreate([
@@ -1216,7 +1216,7 @@ test('ntc document evaluation buttons and remarks are visible when rejected but 
 
 test('admin ntc show page displays Re-uploaded — Awaiting Review for returned documents', function () {
     $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
     $division = Division::firstOrCreate(['name' => 'HCD']);
 
     $evaluator = User::forceCreate([
@@ -1881,7 +1881,7 @@ test('admin finalize evaluation sends acknowledgment email to applicant when all
     \Illuminate\Support\Facades\Mail::fake();
 
     $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
     $division = Division::firstOrCreate(['name' => 'HCD']);
 
     $evaluator = User::forceCreate([
@@ -1972,8 +1972,9 @@ test('admin finalize evaluation sends acknowledgment email to applicant when all
     $ntcReport->refresh();
     expect($ntcReport->status)->toBe('acknowledged');
 
-    // Verify email was sent to applicant
-    \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\NtcEvaluationEmail::class, function ($mail) use ($applicant, $ntcReport) {
+    // Verify email was queued for the applicant. The mailable implements ShouldQueue
+    // so the request does not block on SMTP — MailFake records it as queued, not sent.
+    \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\NtcEvaluationEmail::class, function ($mail) use ($applicant, $ntcReport) {
         return $mail->hasTo($applicant->email) &&
                $mail->rejectedDocuments->isEmpty() &&
                $mail->ntcReport->id === $ntcReport->id;

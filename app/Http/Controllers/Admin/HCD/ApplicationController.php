@@ -56,6 +56,41 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Helper to block Team Lead role from evaluation/interview/payment/recommendation actions.
+     * Team Lead only assigns applications via decking — they do not evaluate.
+     */
+    private function checkTeamLeadAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) === 'team lead') {
+            abort(403, 'Unauthorized action. Team Lead does not have access to this page.');
+        }
+    }
+
+    /**
+     * Helper to block Training Evaluator role from the application pipeline entirely —
+     * Training Evaluator only handles NTC/training reports.
+     */
+    private function checkTrainingEvaluatorAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) === 'training evaluator') {
+            abort(403, 'Unauthorized action. Training Evaluator does not have access to this page.');
+        }
+    }
+
+    /**
+     * Helper to allow ONLY Team Lead through (e.g. admin creation, decking assignment).
+     */
+    private function requireTeamLeadAccess()
+    {
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        if (strtolower($isAdminRole) !== 'team lead') {
+            abort(403, 'Unauthorized action. Only Team Lead can perform this action.');
+        }
+    }
+
+    /**
      * Admin Dashboard — summary stats, monthly table, chart data.
      */
     public function dashboard(Request $request)
@@ -106,6 +141,15 @@ class ApplicationController extends Controller
                 $totalRejected = Application::whereHas('latestStatus', fn($q) =>
                     $q->whereHas('status', fn($q2) => $q2->where('name', 'Rejected'))
                 )->count();
+
+                // ── Verifier (Accreditation portal) cards ────────────────────
+                $totalAwaitingPayment = Application::whereHas('latestStatus', fn($q) =>
+                    $q->whereHas('status', fn($q2) => $q2->whereIn('name', ['Awaiting Payment', 'Payment Verification']))
+                )->count();
+
+                $totalAwaitingCertificate = Application::whereHas('latestStatus', fn($q) =>
+                    $q->whereHas('status', fn($q2) => $q2->where('name', 'Approved'))
+                )->whereHas('accreditation', fn($q) => $q->whereNull('scanned_certificate'))->count();
 
                 // ── Monthly Tables & Chart ──────────────────────────────────
                 $monthlyNew = Application::where('application_type', 'new')
@@ -165,6 +209,7 @@ class ApplicationController extends Controller
                     'newPending', 'newUnderReview',
                     'renewalPending', 'renewalUnderReview',
                     'scheduledInterviews', 'totalRejected',
+                    'totalAwaitingPayment', 'totalAwaitingCertificate',
                     'monthlyRows', 'availableYears',
                     'statusBreakdown'
                 );
@@ -174,14 +219,26 @@ class ApplicationController extends Controller
         // Unpack cached payload for the view
         extract($dashboardData);
 
+        // ── Training Evaluator sees NTC/training stats instead of application stats ──
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
+        $totalNtc = 0;
+        $totalReportChanges = 0;
+        if ($isTrainingEvaluator) {
+            $totalNtc = \App\Models\NtcReport::where('status', '!=', 'report_changes')->count();
+            $totalReportChanges = \App\Models\NtcReport::where('status', 'report_changes')->count();
+        }
+
         return view('admin.hcd.dashboard', compact(
             'totalActiveFATPro',
             'totalRevokedFATPro',
             'newPending', 'newUnderReview',
             'renewalPending', 'renewalUnderReview',
             'scheduledInterviews', 'totalRejected',
+            'totalAwaitingPayment', 'totalAwaitingCertificate',
             'monthlyRows', 'selectedYear', 'availableYears',
-            'statusBreakdown'
+            'statusBreakdown',
+            'isTrainingEvaluator', 'totalNtc', 'totalReportChanges'
         ));
     }
 
@@ -191,6 +248,7 @@ class ApplicationController extends Controller
     public function pending()
     {
         $this->checkVerifierAccess();
+        $this->checkTrainingEvaluatorAccess();
         $applications = CacheService::remember(
             CacheService::pendingKey(),
             CacheService::TTL_LIST,
@@ -210,7 +268,13 @@ class ApplicationController extends Controller
                 ->get()
         );
 
-        return view('admin.hcd.pending', compact('applications'));
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isTeamLead  = strtolower($isAdminRole) === 'team lead';
+        $evaluators  = $isTeamLead
+            ? \App\Models\User::whereHas('adminProfile.adminRole', fn ($q) => $q->where('name', 'Evaluator'))->get()
+            : collect();
+
+        return view('admin.hcd.pending', compact('applications', 'isTeamLead', 'evaluators'));
     }
 
     /**
@@ -218,10 +282,22 @@ class ApplicationController extends Controller
      */
     public function updateToEvaluation(Request $request, Application $application)
     {
-        $this->checkVerifierAccess();
+        $this->requireTeamLeadAccess();
+
+        $request->validate([
+            'evaluator_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $evaluator = \App\Models\User::whereHas('adminProfile.adminRole', fn ($q) => $q->where('name', 'Evaluator'))
+            ->find($request->input('evaluator_id'));
+
+        if (!$evaluator) {
+            return back()->with('error', 'Selected evaluator is invalid.');
+        }
+
         // Use relationship logic for status with null-safe operators
         $latestStatusName = $application->latestStatus?->status?->name;
-        
+
         if ($latestStatusName !== 'Submitted') {
             return back()->with('error', 'Only newly submitted applications can be moved to evaluation.');
         }
@@ -232,8 +308,8 @@ class ApplicationController extends Controller
             return back()->with('error', 'Configuration error: "Under Evaluation" status not found.');
         }
 
-        // Assign the evaluating admin
-        $application->handled_by_admin_id = auth()->id();
+        // Assign the decked evaluator
+        $application->assigned_evaluator_id = $evaluator->id;
         $application->save();
 
         if ($underEvaluationStatus) {
@@ -257,12 +333,22 @@ class ApplicationController extends Controller
                     \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluation started email: ' . $e->getMessage());
                 }
             }
+
+            // Notify the assigned evaluator only
+            if ($evaluator->email) {
+                try {
+                    \Illuminate\Support\Facades\Mail::to($evaluator->email)
+                        ->send(new \App\Mail\EvaluatorAssignedEmail($application));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluator assigned email: ' . $e->getMessage());
+                }
+            }
         }
 
         // Bust listing + dashboard caches
         CacheService::bustApplicationCaches();
 
-        return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation.');
+        return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation and assigned to ' . ($evaluator->adminProfile?->first_name ?? $evaluator->email) . '.');
     }
 
     /**
@@ -271,6 +357,7 @@ class ApplicationController extends Controller
     public function underReview()
     {
         $this->checkVerifierAccess();
+        $this->checkTrainingEvaluatorAccess();
         $applications = CacheService::remember(
             CacheService::underReviewKey(),
             CacheService::TTL_LIST,
@@ -279,6 +366,7 @@ class ApplicationController extends Controller
                 'user.individualProfile',
                 'accreditationType',
                 'latestStatus.status',
+                'assignedEvaluator.adminProfile',
             ])
                 ->where('application_type', 'new')
                 ->whereHas('latestStatus', function ($query) {
@@ -305,7 +393,13 @@ class ApplicationController extends Controller
         $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
         $isVerifier  = strtolower($isAdminRole) === 'verifier';
         $isEvaluator = strtolower($isAdminRole) === 'evaluator';
-        
+        $isTeamLead  = strtolower($isAdminRole) === 'team lead';
+        $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
+
+        if ($isTrainingEvaluator) {
+            abort(403, 'Unauthorized action. Training Evaluator does not have access to this page.');
+        }
+
         if ($isVerifier) {
             $statusName = $application->latestStatus?->status?->name;
             if (!in_array($statusName, ['Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected'])) {
@@ -329,6 +423,7 @@ class ApplicationController extends Controller
             'instructors.credentials',
             'pctEntries',
             'payment',
+            'assignedEvaluator.adminProfile',
         ]);
 
         // Self-heal: ensure PCT is initialized for applications in/past evaluation
@@ -346,7 +441,7 @@ class ApplicationController extends Controller
         // PCT Summary for timeline card
         $pctSummary = $this->pctService->getSummary($application);
 
-        return view('admin.hcd.show_application_info', compact('application', 'accreditationHistory', 'pctSummary'));
+        return view('admin.hcd.show_application_info', compact('application', 'accreditationHistory', 'pctSummary', 'isTeamLead', 'isTrainingEvaluator'));
     }
 
     /**
@@ -357,6 +452,8 @@ class ApplicationController extends Controller
     public function evaluateDocument(Request $request, ApplicationDocument $document)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $request->validate([
             'action'  => ['required', 'in:approve,reject'],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -434,6 +531,8 @@ class ApplicationController extends Controller
     public function evaluateItem(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
 
         $request->validate([
             'item_type' => ['required', 'in:document,instructor,credential'],
@@ -489,24 +588,36 @@ class ApplicationController extends Controller
     public function finalizeEvaluation(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $request->validate([
             'evaluations' => ['nullable', 'array'],
-            'evaluations.*.id' => ['required', 'exists:application_documents,id'],
+            // NOTE: `exists:` is deliberately not used on these *.id rules — it costs one
+            // SELECT per submitted row. The IDs are instead resolved in a single batched
+            // query below, which both validates existence and loads the models.
+            'evaluations.*.id' => ['required', 'integer'],
             'evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'instructor_evaluations' => ['nullable', 'array'],
-            'instructor_evaluations.*.id' => ['required', 'exists:instructors,id'],
+            'instructor_evaluations.*.id' => ['required', 'integer'],
             'instructor_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'instructor_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
             'credential_evaluations' => ['nullable', 'array'],
-            'credential_evaluations.*.id' => ['required', 'exists:instructor_credentials,id'],
+            'credential_evaluations.*.id' => ['required', 'integer'],
             'credential_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'credential_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $evaluations = $request->input('evaluations', []);
-        $instructorEvals = $request->input('instructor_evaluations', []);
-        $credentialEvals = $request->input('credential_evaluations', []);
+        // Request payloads arrive as strings; cast the IDs once so they match the
+        // integer keys produced by keyBy('id') below.
+        $castIds = fn (array $rows) => array_map(
+            fn ($row) => ['id' => (int) $row['id']] + $row,
+            $rows
+        );
+
+        $evaluations = $castIds($request->input('evaluations', []));
+        $instructorEvals = $castIds($request->input('instructor_evaluations', []));
+        $credentialEvals = $castIds($request->input('credential_evaluations', []));
 
         $application->load(['accreditation', 'user.accreditations']);
         $isAccredited = (bool) $application->accreditation 
@@ -514,71 +625,68 @@ class ApplicationController extends Controller
         
         $hasRejections = false;
 
-        foreach ($evaluations as $eval) {
-            $doc = ApplicationDocument::find($eval['id']);
-            if ($doc) {
-                $newStatus = $eval['status'];
+        // Resolve every submitted ID up front: three queries total instead of one
+        // SELECT + one UPDATE per row. Keyed by ID so the loops below are pure
+        // in-memory lookups.
+        $docModels  = ApplicationDocument::whereIn('id', array_column($evaluations, 'id'))->get()->keyBy('id');
+        $instModels = \App\Models\Instructor::whereIn('id', array_column($instructorEvals, 'id'))->get()->keyBy('id');
+        $credModels = \App\Models\InstructorCredential::whereIn('id', array_column($credentialEvals, 'id'))->get()->keyBy('id');
 
-                // Guard: Never allow an already-approved item to revert to pending.
-                // Accepted documents must stay accepted when sending rejection email.
-                // Only an explicit 'rejected' or 'returned' can change an approved item.
-                if ($doc->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
-                    // Item is already approved and not being deliberately rejected — skip update.
+        // Preserve the 422 that the removed `exists:` rules used to produce when a
+        // submitted ID does not resolve, without paying for a query per row.
+        foreach ([
+            ['evaluations', $evaluations, $docModels],
+            ['instructor_evaluations', $instructorEvals, $instModels],
+            ['credential_evaluations', $credentialEvals, $credModels],
+        ] as [$field, $rows, $models]) {
+            foreach ($rows as $i => $row) {
+                if (!$models->has($row['id'])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "{$field}.{$i}.id" => 'The selected item is invalid.',
+                    ]);
+                }
+            }
+        }
+
+        /**
+         * Applies a batch of evaluations to pre-loaded models.
+         *
+         * Guard: never allow an already-approved item to revert to pending.
+         * Accepted items must stay accepted when sending a rejection email —
+         * only an explicit 'rejected' or 'returned' can change an approved item.
+         *
+         * IDs are already known to resolve — the check above rejects the request
+         * otherwise — so the null guard here is purely defensive.
+         */
+        $applyEvaluations = function (array $evals, $models) use (&$hasRejections) {
+            foreach ($evals as $eval) {
+                $model = $models->get($eval['id']);
+                if (!$model) {
                     continue;
                 }
 
-                $doc->update([
-                    'status' => $newStatus,
-                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
-                ]);
+                $newStatus = $eval['status'];
+
+                if ($model->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
+                    continue;
+                }
+
+                $remarks = $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null;
+
+                // Skip the UPDATE entirely when nothing actually changed.
+                if ($model->status !== $newStatus || $model->remarks !== $remarks) {
+                    $model->update(['status' => $newStatus, 'remarks' => $remarks]);
+                }
 
                 if ($newStatus === 'rejected') {
                     $hasRejections = true;
                 }
             }
-        }
+        };
 
-        foreach ($instructorEvals as $eval) {
-            $inst = \App\Models\Instructor::find($eval['id']);
-            if ($inst) {
-                $newStatus = $eval['status'];
-
-                // Guard: Never allow an already-approved instructor to revert to pending.
-                if ($inst->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
-                    continue;
-                }
-
-                $inst->update([
-                    'status' => $newStatus,
-                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
-                ]);
-
-                if ($newStatus === 'rejected') {
-                    $hasRejections = true;
-                }
-            }
-        }
-
-        foreach ($credentialEvals as $eval) {
-            $cred = \App\Models\InstructorCredential::find($eval['id']);
-            if ($cred) {
-                $newStatus = $eval['status'];
-
-                // Guard: Never allow an already-approved credential to revert to pending.
-                if ($cred->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
-                    continue;
-                }
-
-                $cred->update([
-                    'status' => $newStatus,
-                    'remarks' => $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null,
-                ]);
-
-                if ($newStatus === 'rejected') {
-                    $hasRejections = true;
-                }
-            }
-        }
+        $applyEvaluations($evaluations, $docModels);
+        $applyEvaluations($instructorEvals, $instModels);
+        $applyEvaluations($credentialEvals, $credModels);
 
         // Hardened Backend Guardrail: Check if there are any rejected items already in the database
         $userInstIds = $application->user ? $application->user->instructors()->pluck('id') : $application->instructors()->pluck('id');
@@ -595,16 +703,18 @@ class ApplicationController extends Controller
         if ($hasRejections) {
             if ($isAccredited) {
                 // If it's an accredited update, we only reset the pending_review fields to admin_requested
-                $allInstructors = $application->user ? $application->user->instructors : $application->instructors;
+                // Eager-load credentials once for the whole set rather than per instructor.
+                $allInstructors = $application->user
+                    ? $application->user->instructors()->with('credentials')->get()
+                    : $application->instructors()->with('credentials')->get();
                 foreach ($allInstructors as $inst) {
                     if (in_array($inst->update_request_status, ['pending_review', 'admin_requested'])) {
                         $newFields = [];
-                        
+
                         if ($inst->status === 'rejected') {
                             $newFields[] = 'service_agreement';
                         }
-                        
-                        $inst->load('credentials');
+
                         foreach ($inst->credentials as $cred) {
                             if ($cred->status === 'rejected') {
                                 $newFields[] = $cred->type;
@@ -687,13 +797,17 @@ class ApplicationController extends Controller
         // Check if any instructor had pending_review updates and mark them complete, then email.
         if ($isAccredited) {
             $emailsSent = 0;
-            $allInstructors = $application->user ? $application->user->instructors : $application->instructors;
+            // Re-query (rather than reading a possibly-stale lazy relation) so the
+            // statuses written by the evaluation loop above are visible, and pull
+            // credentials in the same round trip. This replaces a per-instructor
+            // load('credentials') plus two fresh() calls each.
+            $allInstructors = $application->user
+                ? $application->user->instructors()->with('credentials')->get()
+                : $application->instructors()->with('credentials')->get();
 
             foreach ($allInstructors as $inst) {
-                $inst->load('credentials'); // refresh from DB after evaluations were saved
-                
-                $saApproved = ($inst->fresh()->status !== 'pending' && $inst->fresh()->status !== 'rejected');
-                
+                $saApproved = ($inst->status !== 'pending' && $inst->status !== 'rejected');
+
                 $credsApproved = true;
                 foreach ($inst->credentials as $cred) {
                     if ($cred->status === 'pending' || $cred->status === 'rejected') {
@@ -740,8 +854,20 @@ class ApplicationController extends Controller
             return !$userDoc || is_null($userDoc->value) || $userDoc->value === '';
         });
         $allApproved = $allDocs->every(fn($d) => $d->status === 'approved');
-        $allInstApproved = $application->instructors()->get()->every(fn($i) => $i->status === 'approved');
-        $allCredApproved = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))->get()->every(fn($c) => $c->status === 'approved');
+
+        // Answer "is anything not yet approved?" in the database instead of
+        // hydrating every instructor/credential row just to scan it in PHP.
+        // NULL is treated as not-approved, matching the previous strict comparison.
+        $notApproved = fn ($q) => $q->where(fn ($w) => $w->where('status', '!=', 'approved')->orWhereNull('status'));
+
+        $allInstApproved = !$application->instructors()->where($notApproved)->exists();
+
+        $allCredApproved = !\App\Models\InstructorCredential::whereIn(
+                'instructor_id',
+                $application->instructors()->select('id')
+            )
+            ->where($notApproved)
+            ->exists();
 
         if ($allApproved && $allInstApproved && $allCredApproved) {
             // Status: Scheduled for Interview (ID 4)
@@ -793,6 +919,8 @@ class ApplicationController extends Controller
     public function scheduleInterview(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $isNewInterview = !$application->interview;
 
         $request->validate([
@@ -865,6 +993,8 @@ class ApplicationController extends Controller
     public function checkInterviewSlot(Request $request)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $request->validate([
             'date'           => ['required', 'date'],
             'time'           => ['required', 'date_format:H:i'],
@@ -919,6 +1049,8 @@ class ApplicationController extends Controller
     public function pendingInterview()
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
             'user.organizationProfile.authorizedRepresentatives',
@@ -945,6 +1077,8 @@ class ApplicationController extends Controller
     public function scheduledInterviews()
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
             'user.organizationProfile.authorizedRepresentatives',
@@ -966,6 +1100,8 @@ class ApplicationController extends Controller
     public function startInterview(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $activePct = $application->activePctEntry;
         
         if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'paused') {
@@ -982,6 +1118,8 @@ class ApplicationController extends Controller
     public function stopInterview(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $activePct = $application->activePctEntry;
         
         if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'active') {
@@ -1002,6 +1140,8 @@ class ApplicationController extends Controller
     public function recordInterviewResult(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $request->validate([
             'result' => ['required', 'in:passed,not_passed'],
         ]);
@@ -1036,10 +1176,11 @@ class ApplicationController extends Controller
             // Trigger payment instructions email automatically
             if ($application->user && $application->user->email) {
                 try {
-                    Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
-                        $message->to($application->user->email)
-                            ->subject('Action Required: Submit Payment - ' . $application->tracking_number);
-                    });
+                    Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
+                        $application,
+                        'emails.payment_instructions',
+                        'Action Required: Submit Payment - ' . $application->tracking_number,
+                    ));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send auto payment instructions email: ' . $e->getMessage());
                 }
@@ -1099,6 +1240,7 @@ class ApplicationController extends Controller
      */
     public function inviteAdmin(Request $request)
     {
+        $this->requireTeamLeadAccess();
         $request->validate([
             'email' => ['required', 'email', 'unique:users,email', 'unique:pending_admins,email'],
             'first_name' => ['required', 'string', 'max:255'],
@@ -1174,6 +1316,7 @@ class ApplicationController extends Controller
     public function renewalPending()
     {
         $this->checkVerifierAccess();
+        $this->checkTrainingEvaluatorAccess();
         $applications = CacheService::remember(
             CacheService::renewalPendingKey(),
             CacheService::TTL_LIST,
@@ -1194,7 +1337,13 @@ class ApplicationController extends Controller
                 ->get()
         );
 
-        return view('admin.hcd.renewal_pending', compact('applications'));
+        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isTeamLead  = strtolower($isAdminRole) === 'team lead';
+        $evaluators  = $isTeamLead
+            ? \App\Models\User::whereHas('adminProfile.adminRole', fn ($q) => $q->where('name', 'Evaluator'))->get()
+            : collect();
+
+        return view('admin.hcd.renewal_pending', compact('applications', 'isTeamLead', 'evaluators'));
     }
 
     /**
@@ -1203,6 +1352,7 @@ class ApplicationController extends Controller
     public function renewalUnderReview()
     {
         $this->checkVerifierAccess();
+        $this->checkTrainingEvaluatorAccess();
         $applications = CacheService::remember(
             CacheService::renewalUnderReviewKey(),
             CacheService::TTL_LIST,
@@ -1212,6 +1362,7 @@ class ApplicationController extends Controller
                 'user.accreditations',
                 'accreditationType',
                 'latestStatus.status',
+                'assignedEvaluator.adminProfile',
             ])
                 ->whereIn('application_type', ['renewal', 'reinstatement'])
                 ->whereHas('latestStatus', function ($query) {
@@ -1415,6 +1566,8 @@ class ApplicationController extends Controller
     public function revokeAccreditation(\App\Models\Accreditation $accreditation)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         if ($accreditation->status !== 'active') {
             return back()->with('error', 'Only active accreditations can be revoked.');
         }
@@ -1526,6 +1679,8 @@ class ApplicationController extends Controller
     public function requestInstructorUpdate(Request $request, Instructor $instructor)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $inputFields = $request->input('fields', []);
         
         $requestedFields = [];
@@ -1607,6 +1762,8 @@ class ApplicationController extends Controller
     public function completeInstructorUpdate(Request $request, Instructor $instructor)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $instructor->load(['credentials', 'user']);
 
         $saApproved = in_array($instructor->status, ['approved']);
@@ -1657,6 +1814,8 @@ class ApplicationController extends Controller
     public function rejectInstructorUpdate(Request $request, Instructor $instructor)
     {
         $this->checkVerifierAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $instructor->load(['credentials', 'user']);
 
         $requestedFields = [];
@@ -1793,10 +1952,12 @@ class ApplicationController extends Controller
      */
     public function awaitingPaymentList()
     {
+        $this->checkTrainingEvaluatorAccess();
+
         $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
         $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 
-        // Allow both Verifiers and Evaluators to access the list so they can view and print the recommendation form.
+        // Allow both Verifiers, Evaluators, and Team Lead to access the list so they can view and print the recommendation form.
         $applications = Application::with([
             'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
@@ -1821,6 +1982,8 @@ class ApplicationController extends Controller
     public function releasingList()
     {
         $this->checkEvaluatorAccess(); // Block evaluators, only allow verifiers
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
 
         $applications = Application::with([
             'user.organizationProfile.authorizedRepresentatives',
@@ -1849,7 +2012,9 @@ class ApplicationController extends Controller
     public function generateRecommendationPDF(Request $request, Application $application)
     {
         $this->checkVerifierAccess();
-        
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
+
         if ($request->isMethod('get')) {
             $data = session()->get("rec_pdf_{$application->id}");
             if (!$data) {
@@ -1895,7 +2060,7 @@ class ApplicationController extends Controller
             'date'           => $data['date'],
             'from'           => $data['from'],
             'to'             => $data['to'],
-            'specialization' => $data['specialization'],
+            'specialization' => $data['specialization'] ?? null,
             'evaluator'      => $data['evaluator'],
             'interviewers'   => $interviewers,
             'recommended_by' => $data['recommended_by'],
@@ -1912,14 +2077,17 @@ class ApplicationController extends Controller
     public function requestPayment(Request $request, Application $application)
     {
         $this->checkEvaluatorAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $application->load('user');
 
         if ($application->user && $application->user->email) {
             try {
-                Mail::send('emails.payment_instructions', ['application' => $application], function ($message) use ($application) {
-                    $message->to($application->user->email)
-                        ->subject('Action Required: Submit Payment - ' . $application->tracking_number);
-                });
+                Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
+                    $application,
+                    'emails.payment_instructions',
+                    'Action Required: Submit Payment - ' . $application->tracking_number,
+                ));
 
                 // Add log entry
                 ApplicationStatusLog::create([
@@ -1945,7 +2113,9 @@ class ApplicationController extends Controller
     public function evaluatePayment(Request $request, Application $application)
     {
         $this->checkEvaluatorAccess();
-        
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
+
         $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
         $hasLetter = $payment->signed_recommendation_letter && \Illuminate\Support\Facades\Storage::disk('local')->exists($payment->signed_recommendation_letter);
 
@@ -2095,10 +2265,12 @@ class ApplicationController extends Controller
 
                 if ($application->user && $application->user->email) {
                     try {
-                        Mail::send('emails.payment_rejection', ['application' => $application, 'payment' => $payment], function ($message) use ($application) {
-                            $message->to($application->user->email)
-                                ->subject('Action Required: Correct Your Payment Requirements - ' . $application->tracking_number);
-                        });
+                        Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
+                            $application,
+                            'emails.payment_rejection',
+                            'Action Required: Correct Your Payment Requirements - ' . $application->tracking_number,
+                            $payment,
+                        ));
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('Payment rejection email failed: ' . $e->getMessage());
                     }
@@ -2132,6 +2304,8 @@ class ApplicationController extends Controller
     public function archiveFromPayment(Request $request, Application $application)
     {
         $this->checkEvaluatorAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
         $trackingNumber = $application->tracking_number;
         $rejectedStatus = ApplicationStatus::findByName('Rejected');
         if ($rejectedStatus) {
@@ -2198,6 +2372,8 @@ class ApplicationController extends Controller
     public function uploadScannedCertificate(Request $request, \App\Models\Accreditation $accreditation)
     {
         $this->checkEvaluatorAccess();
+        $this->checkTeamLeadAccess();
+        $this->checkTrainingEvaluatorAccess();
 
         $request->validate([
             'scanned_certificate' => 'required|file|mimes:pdf|max:10240',
@@ -2228,10 +2404,11 @@ class ApplicationController extends Controller
         // Send Email to Applicant
         if ($application->user?->email) {
             try {
-                Mail::send('emails.certificate_ready', ['application' => $application], function ($message) use ($application) {
-                    $message->to($application->user->email)
-                        ->subject('Ready for Pickup: Your Accreditation Certificate - ' . $application->tracking_number);
-                });
+                Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
+                    $application,
+                    'emails.certificate_ready',
+                    'Ready for Pickup: Your Accreditation Certificate - ' . $application->tracking_number,
+                ));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Ready for pickup email failed: ' . $e->getMessage());
             }
@@ -2274,10 +2451,15 @@ class ApplicationController extends Controller
      */
     private function generateNewAccreditationNumber(string $datePrefix): string
     {
-        // Use a single SQL query to find the max numeric suffix — avoids loading the full table into PHP
-        $maxFromDb = (int) Accreditation::selectRaw(
-            "MAX(CAST(SPLIT_PART(accreditation_number, '-', 3) AS INTEGER))"
-        )->value('max') ?? 0;
+        // Parsed in PHP rather than a raw SQL function (SPLIT_PART is Postgres-only, SUBSTRING_INDEX
+        // is MySQL-only) so this works identically on both the local MySQL DB and Supabase Postgres in
+        // production. The accreditations table is small, so pulling just this one column is cheap.
+        $maxFromDb = Accreditation::pluck('accreditation_number')
+            ->map(function ($number) {
+                $parts = explode('-', $number);
+                return (int) end($parts);
+            })
+            ->max() ?? 0;
 
         $maxIncrement = max(46, $maxFromDb);
 
