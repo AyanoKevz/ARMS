@@ -1476,10 +1476,20 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                         <div class="mt-2">
                             <input type="file" name="signed_recommendation_letter" class="form-control" accept=".pdf" {{ !($application->payment && $application->payment->signed_recommendation_letter) ? 'required' : '' }}>
                             @if($application->payment && $application->payment->signed_recommendation_letter)
-                            <div class="mt-2 d-flex align-items-center gap-2">
-                                <span class="text-success fw-semibold small"><i class="fas fa-check-circle"></i> Already uploaded:</span>
-                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}" data-file-modal data-file-title="Signed Recommendation Letter" class="btn btn-sm btn-outline-success px-3 py-0" style="font-size:.78rem;">
-                                    <i class="bi bi-eye me-1"></i>View
+                            <div class="mt-3">
+                                <div class="text-success fw-semibold small mb-1">
+                                    <i class="fas fa-check-circle me-1"></i>Already uploaded
+                                </div>
+                                <div class="text-muted small mb-2" style="font-size: 0.72rem; word-break: break-all;">
+                                    {{ basename($application->payment->signed_recommendation_letter) }}
+                                </div>
+                                {{-- ?v= busts the browser cache so re-uploading a corrected letter
+                                     shows the new PDF instead of the previously viewed one. --}}
+                                <a href="{{ route('admin.hcd.payments.view', ['payment' => $application->payment->id, 'fileType' => 'signed_recommendation_letter']) }}?v={{ $application->payment->updated_at?->timestamp ?? time() }}"
+                                   data-file-modal
+                                   data-file-title="Signed Recommendation Letter"
+                                   class="btn btn-outline-success btn-sm fw-semibold px-3">
+                                    <i class="fas fa-eye me-1"></i> View Signed Letter
                                 </a>
                             </div>
                             @else

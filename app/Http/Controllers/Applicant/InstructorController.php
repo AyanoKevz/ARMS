@@ -17,7 +17,16 @@ class InstructorController extends Controller
     {
         // Get all instructors belonging to the user, ordered by ID desc so the latest version is first.
         // Then filter duplicates in memory keeping only the latest version, and sort alphabetically by last_name.
+        //
+        // Instructors still awaiting evaluation are excluded. Submitting a renewal creates a
+        // fresh set of instructor rows (status 'pending' by default) alongside the already
+        // accredited ones, and because those rows have higher IDs the de-duplication below
+        // would otherwise surface the in-flight renewal copy instead of the approved record.
+        // This list is meant to show the FATPro's accredited instructors, not the contents of
+        // an application that is still under review.
         $instructors = Instructor::where('user_id', auth()->id())
+            ->where('status', '!=', 'pending')
+            ->whereDoesntHave('credentials', fn ($q) => $q->where('status', 'pending'))
             ->with('credentials')
             ->orderBy('id', 'desc')
             ->get()

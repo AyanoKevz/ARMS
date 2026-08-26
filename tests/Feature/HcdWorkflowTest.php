@@ -731,7 +731,7 @@ test('approved application hides documents and credentials if there is a pending
     expect($html)->not->toContain('Instructor Credentials</h5>');
 });
 
-test('applicant instructor list deduplicates instructors and shows the latest version', function () {
+test('applicant instructor list hides instructors still pending evaluation', function () {
     $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
     $applicant = User::forceCreate([
         'email' => 'app_test_dedup@example.com',
@@ -740,16 +740,16 @@ test('applicant instructor list deduplicates instructors and shows the latest ve
         'profile_type' => 'Organization',
     ]);
 
-    // Active approved application instructor
-    $oldInstructor = \App\Models\Instructor::create([
+    // Instructor from the active accreditation — already evaluated
+    $approvedInstructor = \App\Models\Instructor::create([
         'user_id' => $applicant->id,
         'first_name' => 'John',
         'last_name' => 'Doe',
         'status' => 'approved',
     ]);
 
-    // Cloned renewal application instructor (newer)
-    $newInstructor = \App\Models\Instructor::create([
+    // Clone created by submitting a renewal — higher id, still awaiting evaluation
+    \App\Models\Instructor::create([
         'user_id' => $applicant->id,
         'first_name' => 'John',
         'last_name' => 'Doe',
@@ -764,9 +764,43 @@ test('applicant instructor list deduplicates instructors and shows the latest ve
     // Retrieve the view data
     $instructors = $response->viewData('instructors');
 
+    // The in-flight renewal copy must not surface here even though it is newer —
+    // this list shows the FATPro's accredited instructors, not an application
+    // that is still under review.
     expect($instructors->count())->toBe(1);
-    expect($instructors->first()->id)->toBe($newInstructor->id);
-    expect($instructors->first()->status)->toBe('pending');
+    expect($instructors->first()->id)->toBe($approvedInstructor->id);
+    expect($instructors->first()->status)->toBe('approved');
+});
+
+test('applicant instructor list hides instructors whose credentials are still pending', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_test_pending_cred@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // Service agreement is approved, but a credential is still awaiting evaluation.
+    $instructor = \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'first_name' => 'Jane',
+        'last_name' => 'Roe',
+        'status' => 'approved',
+    ]);
+
+    \App\Models\InstructorCredential::create([
+        'instructor_id' => $instructor->id,
+        'type' => 'certificate',
+        'status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($applicant)
+        ->get(route('applicant.instructors.index'));
+
+    $response->assertStatus(200);
+
+    expect($response->viewData('instructors')->count())->toBe(0);
 });
 
 test('accreditation number middle part updates to current date on renewal', function () {
