@@ -2130,3 +2130,67 @@ test('renewal application from an accredited FATPro proceeds to interview instea
         ->where('status_id', $scheduled->id)
         ->exists())->toBeTrue();
 });
+
+test('applicant instructor list shows only the accredited roster during an ongoing renewal', function () {
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_renewal_roster@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // The application behind the FATPro's current accreditation.
+    $accreditedApplication = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-ROSTER-ORIG',
+    ]);
+
+    \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $accreditedApplication->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-260101-777',
+        'date_of_accreditation' => now()->subYears(3)->toDateString(),
+        'validity_date' => now()->addMonth()->toDateString(),
+        'status' => 'active',
+    ]);
+
+    $accreditedInstructor = \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'application_id' => $accreditedApplication->id,
+        'first_name' => 'Jhames',
+        'middle_name' => null,
+        'last_name' => 'Yup',
+        'status' => 'approved',
+    ]);
+
+    // An ongoing renewal clones the roster. Note the middle name differs, so the
+    // name-based de-duplication does NOT collapse these two rows.
+    $renewal = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-ROSTER-RENEWAL',
+    ]);
+
+    \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'application_id' => $renewal->id,
+        'first_name' => 'Jhames',
+        'middle_name' => 'Munzon',
+        'last_name' => 'Yup',
+        'status' => 'approved', // already approved by the evaluator, but not yet accredited
+    ]);
+
+    $response = $this->actingAs($applicant)->get(route('applicant.instructors.index'));
+    $response->assertStatus(200);
+
+    $instructors = $response->viewData('instructors');
+
+    expect($instructors->count())->toBe(1);
+    expect($instructors->first()->id)->toBe($accreditedInstructor->id);
+    expect($instructors->first()->middle_name)->toBeNull();
+});

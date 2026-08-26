@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Applicant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Accreditation;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use Illuminate\Http\Request;
@@ -15,20 +16,38 @@ class InstructorController extends Controller
      */
     public function index()
     {
-        // Get all instructors belonging to the user, ordered by ID desc so the latest version is first.
-        // Then filter duplicates in memory keeping only the latest version, and sort alphabetically by last_name.
+        $userId = auth()->id();
+
+        // Every application carries its own copy of the instructor roster — submitting a
+        // renewal or reinstatement clones each instructor with the new application_id.
+        // A FATPro with an application in progress therefore has two rows per person, and
+        // they are not reliably de-duplicated by name (a middle name filled in on one copy
+        // and blank on the other reads as two different people).
         //
-        // Instructors still awaiting evaluation are excluded. Submitting a renewal creates a
-        // fresh set of instructor rows (status 'pending' by default) alongside the already
-        // accredited ones, and because those rows have higher IDs the de-duplication below
-        // would otherwise surface the in-flight renewal copy instead of the approved record.
-        // This list is meant to show the FATPro's accredited instructors, not the contents of
-        // an application that is still under review.
-        $instructors = Instructor::where('user_id', auth()->id())
-            ->where('status', '!=', 'pending')
-            ->whereDoesntHave('credentials', fn ($q) => $q->where('status', 'pending'))
-            ->with('credentials')
-            ->orderBy('id', 'desc')
+        // This page shows the roster attached to the FATPro's CURRENT accreditation, so
+        // scope it to the application that produced it and ignore in-flight copies
+        // entirely. Once a renewal is approved it becomes the active accreditation, and
+        // its roster takes over here automatically.
+        $accreditedApplicationId = Accreditation::where('user_id', $userId)
+            ->where('status', 'active')
+            ->orderByDesc('id')
+            ->value('application_id');
+
+        $query = Instructor::where('user_id', $userId)->with('credentials');
+
+        if ($accreditedApplicationId) {
+            $query->where('application_id', $accreditedApplicationId);
+        } else {
+            // First-time applicant with no accreditation yet: there is no accredited
+            // roster to scope to, so fall back to whatever has already been evaluated
+            // rather than showing them an empty page.
+            $query->where('status', '!=', 'pending')
+                ->whereDoesntHave('credentials', fn ($q) => $q->where('status', 'pending'));
+        }
+
+        // Ordered by ID desc so the latest version is first, then de-duplicated by name
+        // as a safety net for legacy rows, and sorted alphabetically by last_name.
+        $instructors = $query->orderBy('id', 'desc')
             ->get()
             ->unique(function ($item) {
                 return strtolower(trim($item->first_name) . '|' . trim($item->middle_name) . '|' . trim($item->last_name));
