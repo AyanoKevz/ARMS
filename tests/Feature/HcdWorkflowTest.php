@@ -2020,3 +2020,113 @@ test('admin finalize evaluation sends acknowledgment email to applicant when all
 
 
 
+
+test('renewal application from an accredited FATPro proceeds to interview instead of the credential-update shortcut', function () {
+    $this->withoutExceptionHandling();
+    Mail::fake();
+
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'eval_renewal_interview@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_renewal_interview@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    // The FATPro's original application and the accreditation it produced. This stays
+    // 'active' for the whole time the renewal is under evaluation.
+    $originalApplication = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'new',
+        'tracking_number' => 'ARMS-TEST-RENEW-ORIG',
+    ]);
+
+    \App\Models\Accreditation::create([
+        'user_id' => $applicant->id,
+        'application_id' => $originalApplication->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'accreditation_number' => '235-260101-001',
+        'date_of_accreditation' => now()->subYears(3)->toDateString(),
+        'validity_date' => now()->addMonth()->toDateString(),
+        'status' => 'active',
+    ]);
+
+    // The renewal now under evaluation.
+    $renewal = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-TEST-RENEW-01',
+    ]);
+
+    $docType = DocumentType::firstOrCreate(['code' => 'TEST_TYPE'], ['name' => 'Test Type']);
+    $field = DocumentField::firstOrCreate(['code' => 'TEST_RENEWAL_01'], [
+        'name' => 'Test Renewal Document',
+        'input_type' => 'file',
+        'document_type_id' => $docType->id,
+    ]);
+
+    $userDoc = UserDocument::create([
+        'user_id' => $applicant->id,
+        'document_field_id' => $field->id,
+        'file_path' => 'dummy.pdf',
+    ]);
+
+    $appDoc = ApplicationDocument::create([
+        'application_id' => $renewal->id,
+        'document_field_id' => $field->id,
+        'user_document_id' => $userDoc->id,
+        'status' => 'pending',
+    ]);
+
+    $underEvaluation = ApplicationStatus::firstOrCreate(['name' => 'Under Evaluation']);
+    ApplicationStatusLog::create([
+        'application_id' => $renewal->id,
+        'status_id' => $underEvaluation->id,
+    ]);
+
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.applications.finalize_evaluation', $renewal->id), [
+            'evaluations' => [
+                ['id' => $appDoc->id, 'status' => 'approved'],
+            ],
+        ]);
+
+    $response->assertStatus(200);
+
+    // The active accreditation from the previous cycle must not divert this renewal
+    // into the instructor-credential-update branch.
+    $response->assertJson([
+        'success' => true,
+        'action' => 'proceed_to_interview',
+        'new_status' => 'Scheduled for Interview',
+    ]);
+
+    // And the status transition must actually be recorded.
+    $scheduled = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
+    expect(ApplicationStatusLog::where('application_id', $renewal->id)
+        ->where('status_id', $scheduled->id)
+        ->exists())->toBeTrue();
+});

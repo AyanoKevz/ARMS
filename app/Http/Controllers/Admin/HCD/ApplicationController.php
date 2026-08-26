@@ -620,9 +620,29 @@ class ApplicationController extends Controller
         $credentialEvals = $castIds($request->input('credential_evaluations', []));
 
         $application->load(['accreditation', 'user.accreditations']);
-        $isAccredited = (bool) $application->accreditation 
-            || ($application->user && $application->user->accreditations()->where('status', 'active')->exists());
-        
+
+        // An already-accredited FATPro can reach this method in two very different
+        // situations, and they must not be conflated:
+        //
+        //   1. An instructor credential update against their existing accreditation.
+        //      No interview is required — approving simply completes the update.
+        //   2. A renewal or reinstatement application. This is a full application and
+        //      follows the normal flow, interview included.
+        //
+        // A renewing FATPro keeps their previous accreditation 'active' until the
+        // renewal is approved, so an active accreditation on its own does NOT mean
+        // this is a credential update. Without the application_type guard below,
+        // every renewal took the credential-update shortcut: it emailed "Instructor
+        // Credentials Update Approved" and returned without logging a status change
+        // or advancing to the interview step.
+        $isRenewalApplication = in_array($application->application_type, ['renewal', 'reinstatement'], true);
+
+        $isAccredited = !$isRenewalApplication && (
+            (bool) $application->accreditation
+            || ($application->user && $application->user->accreditations()->where('status', 'active')->exists())
+        );
+
+
         $hasRejections = false;
 
         // Resolve every submitted ID up front: three queries total instead of one
