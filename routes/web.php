@@ -191,6 +191,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Admin directory (own portal admins list)
             Route::get('/directory/admins', [AccreditationApplicationController::class, 'adminsList'])->name('directory.admins');
+            Route::post('/directory/admins/invite', [AccreditationApplicationController::class, 'inviteAdmin'])->name('directory.admins.invite');
         });
     });
 });

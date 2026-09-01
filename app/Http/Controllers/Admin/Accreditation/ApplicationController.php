@@ -3,9 +3,15 @@
 namespace App\Http\Controllers\Admin\Accreditation;
 
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
+use App\Mail\AdminInvitationEmail;
+use App\Models\AdminRole;
 use App\Models\Application;
+use App\Models\PendingAdmin;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 /**
  * Accreditation Division Portal Controller
@@ -59,6 +65,84 @@ class ApplicationController extends HCDApplicationController
     public function show(Application $application)
     {
         return parent::show($application);
+    }
+
+    /**
+     * Admin directory for the Accreditation division.
+     *
+     * The parent builds the same division-scoped list; only the view differs.
+     * No $adminRoles are passed because this portal has a single role — every
+     * admin here is a Verifier — so the invite form has no role picker.
+     */
+    public function adminsList()
+    {
+        $parentResponse = parent::adminsList();
+        $viewData = $parentResponse->getData();
+
+        return view('admin.accreditation.admins_list', $viewData);
+    }
+
+    /**
+     * Invite an admin into the Accreditation division.
+     *
+     * Overridden rather than inherited for two reasons:
+     *   1. The parent requires the Team Lead role. That role does not exist in this
+     *      portal, so inheriting it would make the feature unreachable — any admin
+     *      in the Accreditation division may invite here.
+     *   2. The role is not chosen by the user. Everyone in this portal is a Verifier,
+     *      so it is resolved server-side and the form has no role field.
+     */
+    public function inviteAdmin(Request $request)
+    {
+        $request->validate([
+            'email' => ['required', 'email', 'unique:users,email', 'unique:pending_admins,email'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'position' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $verifierRole = AdminRole::where('name', 'Verifier')->first();
+
+        if (!$verifierRole) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'The Verifier role is missing from this installation. Please contact the system administrator.',
+            ], 500);
+        }
+
+        $divisionId = auth()->user()->adminProfile->division_id ?? null;
+
+        $pendingAdmin = PendingAdmin::create([
+            'token' => Str::random(64),
+            'email' => $request->email,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'position' => $request->position,
+            'admin_role_id' => $verifierRole->id,
+            'division_id' => $divisionId,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $invitationUrl = url('/admin/setup-password/' . $pendingAdmin->token);
+
+        try {
+            Mail::to($request->email)->send(new AdminInvitationEmail($invitationUrl, $request->email));
+        } catch (\Exception $e) {
+            // AdminInvitationEmail is deliberately not queued so this rollback works —
+            // see the note on that class.
+            $pendingAdmin->delete();
+            Log::error('SMTP Error during accreditation admin invitation: ' . $e->getMessage());
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unable to send invitation email due to a mail server error. Please try again later.',
+            ], 500);
+        }
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Invitation sent to ' . $request->email . ' successfully.',
+        ]);
     }
 
     /**

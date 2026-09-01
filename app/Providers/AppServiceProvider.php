@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Support\UploadLimits;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Http\Request;
 
@@ -23,6 +25,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Upload ceilings, derived from PHP's own limits and shared with every
+        // view so the browser-side guards track the server instead of being
+        // hardcoded. See App\Support\UploadLimits for why that matters.
+        View::share('armsMaxUploadBytes', UploadLimits::maxTotalUploadBytes());
+        View::share('armsMaxFileBytes', UploadLimits::maxFileBytes());
+        View::share('armsMaxFileCount', UploadLimits::maxFileCount());
+
         // ── HTTPS & Trusted Proxies (Production / Live SSL Environments) ────
         // Forces all generated URLs (asset(), route(), url()) to use https://
         // when accessed over HTTPS or when APP_ENV is production / APP_URL is https.

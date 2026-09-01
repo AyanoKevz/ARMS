@@ -310,7 +310,14 @@ class RenewalController extends Controller
 
         try {
             $application = null;
-            DB::transaction(function () use ($request, $user, $documentFields, &$application) {
+
+            // Files superseded by this submission. Collected during the transaction but
+            // deleted only after it commits — Storage operations are not transactional,
+            // so deleting inline would destroy the applicant's existing files if the
+            // transaction later rolled back.
+            $supersededFiles = [];
+
+            DB::transaction(function () use ($request, $user, $documentFields, &$application, &$supersededFiles) {
                 $timestamp = time();
                 $isOrg = $user->profile_type === 'Organization';
 
@@ -384,6 +391,13 @@ class RenewalController extends Controller
 
                     if ($field->input_type === 'file') {
                         if ($request->hasFile("documents.{$code}")) {
+                            // The file this upload replaces, so it can be removed after commit
+                            // instead of accumulating in arms_storage alongside the new one.
+                            $supersededFiles[] = UserDocument::where('user_id', $user->id)
+                                ->where('document_field_id', $field->id)
+                                ->orderBy('id', 'desc')
+                                ->value('file_path');
+
                             $newFile = $request->file("documents.{$code}");
                             $filePath = "{$baseDocPath}/{$code}_{$timestamp}.pdf";
                             $newFile->storeAs($baseDocPath, "{$code}_{$timestamp}.pdf", 'local');
@@ -440,6 +454,9 @@ class RenewalController extends Controller
                     // Handle service agreement file
                     $saPermanent = $existingInst ? $existingInst->service_agreement_path : null;
                     if ($request->hasFile("instructors.{$i}.service_agreement")) {
+                        // Superseded by the upload below; removed after commit.
+                        $supersededFiles[] = $saPermanent;
+
                         $saFile = $request->file("instructors.{$i}.service_agreement");
                         $saPermanent = "{$baseCredPath}/sa_{$instFirst}_{$instLast}_{$timestamp}.pdf";
                         $saFile->storeAs($baseCredPath, "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
@@ -465,6 +482,9 @@ class RenewalController extends Controller
                         $credPermanent = $existingCred ? $existingCred->pdf_path : null;
 
                         if ($request->hasFile("instructors.{$i}.credentials.{$type}.pdf")) {
+                            // Superseded by the upload below; removed after commit.
+                            $supersededFiles[] = $credPermanent;
+
                             $credFile = $request->file("instructors.{$i}.credentials.{$type}.pdf");
                             $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $type));
                             $credPermanent = "{$baseCredPath}/{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf";
@@ -504,6 +524,30 @@ class RenewalController extends Controller
                     ]);
                 }
             });
+
+            // ── Remove the files this submission replaced ─────────────────────
+            // Runs only after the transaction has committed. Each path is re-checked
+            // against the database first: when a required document is not re-uploaded
+            // its path is carried forward onto the new row, and several rows can share
+            // one path, so a file is deleted only once nothing references it any more.
+            foreach (array_unique(array_filter($supersededFiles)) as $path) {
+                $stillReferenced = UserDocument::where('file_path', $path)->exists()
+                    || Instructor::where('service_agreement_path', $path)->exists()
+                    || InstructorCredential::where('pdf_path', $path)->exists();
+
+                if ($stillReferenced) {
+                    continue;
+                }
+
+                try {
+                    if (Storage::disk('local')->exists($path)) {
+                        Storage::disk('local')->delete($path);
+                    }
+                } catch (\Throwable $e) {
+                    // Never fail a successful submission over cleanup.
+                    Log::warning("Could not delete superseded file [{$path}]: " . $e->getMessage());
+                }
+            }
 
             // Notify Admin Evaluators after HTTP response (instant user feedback)
             dispatch(function () use ($application) {

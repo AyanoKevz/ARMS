@@ -1223,6 +1223,22 @@ document.addEventListener('DOMContentLoaded', function() {
         })
     }
 
+    /**
+     * Report a rejected file as a bottom-right toast rather than a blocking
+     * alert() — this form is long, and an alert interrupts the applicant mid-way
+     * through filling it in.
+     *
+     * @param {string} html      Message for the toast (may contain markup).
+     * @param {string} plainText Fallback if js/toast.js did not load.
+     */
+    function notifyFileProblem(html, plainText) {
+        if (window.ARMS && window.ARMS.showToast) {
+            window.ARMS.showToast(html, 'warning');
+        } else {
+            alert(plainText);
+        }
+    }
+
     function bindFileInputs(container = document) {
         container.querySelectorAll('.real-file-input').forEach(input => {
             if (input.dataset.bound === 'true') return;
@@ -1248,8 +1264,42 @@ document.addEventListener('DOMContentLoaded', function() {
                         isValid = file.name.toLowerCase().endsWith('.pdf');
                     }
 
+                    // Size limit, matching the server's max:10240 rule. This applies to
+                    // every file input on the page — documents, instructor service
+                    // agreements and instructor credentials alike.
+                    const maxSize = 10 * 1024 * 1024; // 10 MB
+                    if (isValid && file.size > maxSize) {
+                        const fileMB = (file.size / (1024 * 1024)).toFixed(1);
+                        notifyFileProblem(
+                            `<strong>${file.name}</strong> is ${fileMB} MB, over the 10 MB per-file limit.`,
+                            file.name + ' is ' + fileMB + ' MB. Maximum file size is 10 MB.'
+                        );
+                        this.value = '';
+                        this.classList.add('is-invalid');
+                        if (nameSpan) {
+                            nameSpan.textContent = 'No file chosen';
+                            nameSpan.classList.add('text-muted');
+                            nameSpan.classList.remove('text-primary', 'fw-semibold');
+                        }
+                        if (fileBtn) {
+                            fileBtn.classList.add('btn-outline-primary');
+                            fileBtn.classList.remove('btn-primary', 'text-white');
+                            if (fileBtn.style.color) {
+                                fileBtn.style.backgroundColor = '';
+                                fileBtn.style.borderColor = '#d4ac4b';
+                                fileBtn.style.color = '#7a5c00';
+                            }
+                        }
+                        return;
+                    }
+
+                    this.classList.remove('is-invalid');
+
                     if (!isValid) {
-                        alert('Only ' + allowedMsg + ' files are allowed.');
+                        notifyFileProblem(
+                            'Only ' + allowedMsg + ' files are allowed.',
+                            'Only ' + allowedMsg + ' files are allowed.'
+                        );
                         this.value = '';
                         if (nameSpan) {
                             nameSpan.textContent = 'No file chosen';
@@ -1482,22 +1532,65 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 e.stopPropagation();
                 this.classList.add('was-validated');
-                
+
                 // Focus on the first invalid field for better UX
                 const firstInvalid = this.querySelector(':invalid');
                 if (firstInvalid) {
                     firstInvalid.focus();
                     firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-            } else {
-                this.classList.add('was-validated');
-                const btn = document.getElementById('renewalSubmitBtn');
-                const text = document.getElementById('renewalSubmitText');
-                const spinner = document.getElementById('renewalSubmitSpinner');
-                if (btn) btn.disabled = true;
-                if (text) text.classList.add('d-none');
-                if (spinner) spinner.classList.remove('d-none');
+                return;
             }
+
+            // Total payload / file-count guard. A renewal re-uploads documents AND
+            // instructor credentials, so it carries more files than any other form,
+            // yet it previously had no total check at all: exceeding post_max_size
+            // made PHP discard the body and the applicant saw a blank failure after
+            // a long upload. Ceilings come from the server (see App\Support\UploadLimits).
+            const limits = (window.ARMS && window.ARMS.limits) || {};
+            const fileInputs = this.querySelectorAll('input[type="file"]');
+            let totalBytes = 0;
+            let fileCount = 0;
+
+            fileInputs.forEach(input => {
+                if (!input.files) return;
+                for (let i = 0; i < input.files.length; i++) {
+                    totalBytes += input.files[i].size;
+                    fileCount++;
+                }
+            });
+
+            if (limits.maxTotalUploadBytes && totalBytes > limits.maxTotalUploadBytes) {
+                e.preventDefault();
+                e.stopPropagation();
+                const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+                const limitMB = (limits.maxTotalUploadBytes / (1024 * 1024)).toFixed(1);
+                notifyFileProblem(
+                    `Your uploads total <strong>${totalMB} MB</strong>, over the ${limitMB} MB limit for one submission. ` +
+                    `Please compress your PDFs before submitting.`,
+                    `Your uploads total ${totalMB} MB, over the ${limitMB} MB limit.`
+                );
+                return;
+            }
+
+            if (limits.maxFileCount && fileCount > limits.maxFileCount) {
+                e.preventDefault();
+                e.stopPropagation();
+                notifyFileProblem(
+                    `You are uploading <strong>${fileCount} files</strong>, above the ${limits.maxFileCount} the server accepts at once.`,
+                    `You are uploading ${fileCount} files, above the ${limits.maxFileCount} allowed.`
+                );
+                return;
+            }
+
+            // All guards passed — let the submission proceed.
+            this.classList.add('was-validated');
+            const btn = document.getElementById('renewalSubmitBtn');
+            const text = document.getElementById('renewalSubmitText');
+            const spinner = document.getElementById('renewalSubmitSpinner');
+            if (btn) btn.disabled = true;
+            if (text) text.classList.add('d-none');
+            if (spinner) spinner.classList.remove('d-none');
         });
     }
 

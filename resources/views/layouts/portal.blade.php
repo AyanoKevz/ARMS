@@ -7,6 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Upload ceilings derived from PHP config (App\Support\UploadLimits) so the
+         client-side guards always track the server rather than a hardcoded number. --}}
+    <meta name="arms-max-upload-bytes" content="{{ $armsMaxUploadBytes ?? 0 }}">
+    <meta name="arms-max-file-bytes" content="{{ $armsMaxFileBytes ?? 0 }}">
+    <meta name="arms-max-file-count" content="{{ $armsMaxFileCount ?? 0 }}">
 
     <title>@yield('title', 'ARMS') | Portal</title>
     <link rel="icon" href="{{ asset('images/oshc-icon.ico') }}" type="image/x-icon">
@@ -362,6 +367,8 @@
 
     <!-- Intro.js library (defer — non-critical, only needed for the tour) -->
     <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js" defer></script>
+    <!-- Shared toast notifications (window.ARMS.showToast) -->
+    <script src="{{ asset('js/toast.js') }}" defer></script>
     <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
     <script src="{{ asset('js/portal.js') }}" defer></script>
     @stack('scripts')

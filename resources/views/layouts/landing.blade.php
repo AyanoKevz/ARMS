@@ -7,6 +7,11 @@
      <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>@yield('title', 'ARMS – Accreditation Reporting and Monitoring System')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- Upload ceilings derived from PHP config (App\Support\UploadLimits) so the
+         client-side guards always track the server rather than a hardcoded number. --}}
+    <meta name="arms-max-upload-bytes" content="{{ $armsMaxUploadBytes ?? 0 }}">
+    <meta name="arms-max-file-bytes" content="{{ $armsMaxFileBytes ?? 0 }}">
+    <meta name="arms-max-file-count" content="{{ $armsMaxFileCount ?? 0 }}">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,6 +145,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollToPlugin.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollSmoother.min.js" defer></script>
     @stack('scripts')
+    {{-- Must load before landing.js, which delegates to window.ARMS.showToast.
+         Both are deferred, so execution follows document order. --}}
+    <script src="{{ asset('js/toast.js') }}" defer></script>
     <script src="{{ asset('js/landing.js') }}" defer></script>
 
 </body>

@@ -603,6 +603,16 @@
         setTimeout(() => { alertEl.classList.add('d-none'); }, 6000);
     }
 
+    /* Toasts live in js/toast.js (window.ARMS.showToast), shared with the portal. */
+    function showToast(message, type, duration) {
+        if (window.ARMS && window.ARMS.showToast) {
+            window.ARMS.showToast(message, type, duration);
+        } else {
+            // toast.js failed to load — fall back rather than losing the message.
+            showTopAlert(message, type);
+        }
+    }
+
     const fieldMap = {
         accreditation_type_id: 'accreditation_type',
         email: 'email',
@@ -684,7 +694,11 @@
         if (!files || files.length === 0) return true;
 
         const file = files[0];
-        const maxSize = 10 * 1024 * 1024; // 10 MB
+        // Server-published ceiling: the lower of the app's 10 MB rule and PHP's
+        // upload_max_filesize, so the browser can never accept a file PHP rejects.
+        const maxSize = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
+            || (10 * 1024 * 1024);
+        const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
         const allowedExt = ['pdf'];
         const fileName = file.name;
         const fileExt = fileName.split('.').pop().toLowerCase();
@@ -700,14 +714,15 @@
         if (!allowedExt.includes(fileExt)) {
             input.classList.add('is-invalid');
             if (fb) fb.textContent = 'Invalid file format. Please upload PDF only.';
-            showTopAlert(`Field "${fieldName}": Only PDF files are allowed.`, 'warning');
+            showToast(`Field <strong>${fieldName}</strong>: only PDF files are allowed.`, 'warning');
             return false;
         }
 
         if (file.size > maxSize) {
+            const fileMB = (file.size / (1024 * 1024)).toFixed(1);
             input.classList.add('is-invalid');
-            if (fb) fb.textContent = 'File is too large. Maximum size is 10 MB.';
-            showTopAlert(`Field "${fieldName}": File exceeds 10 MB limit.`, 'warning');
+            if (fb) fb.textContent = `File is too large (${fileMB} MB). Maximum size is ${maxSizeMB} MB.`;
+            showToast(`Field <strong>${fieldName}</strong>: file is ${fileMB} MB, over the ${maxSizeMB} MB per-file limit.`, 'warning');
             return false;
         }
 
@@ -775,11 +790,37 @@
         }
         if (!filesValid) return;
 
-        // Total upload payload limit guard (50MB max to prevent server TCP connection reset / HTTP 413)
-        const maxTotalUploadBytes = 50 * 1024 * 1024;
+        // Total payload guard. The ceiling comes from the server's own post_max_size
+        // (published as a meta tag) rather than a hardcoded number — a client limit
+        // set ABOVE post_max_size is worse than none, because PHP then discards the
+        // whole request body and the applicant gets a blank error after a long upload.
+        const limits = (window.ARMS && window.ARMS.limits) || {};
+        const maxTotalUploadBytes = limits.maxTotalUploadBytes || (6 * 1024 * 1024);
+
         if (totalUploadBytes > maxTotalUploadBytes) {
             const sizeMB = (totalUploadBytes / (1024 * 1024)).toFixed(1);
-            showTopAlert(`Total size of uploaded files (${sizeMB} MB) exceeds the maximum allowed limit of 50 MB. Please reduce file sizes before submitting.`, 'danger');
+            const limitMB = (maxTotalUploadBytes / (1024 * 1024)).toFixed(1);
+            showToast(
+                `Your uploads total <strong>${sizeMB} MB</strong>, over the ${limitMB} MB limit for one submission. ` +
+                `Please compress your PDFs or submit fewer files at a time.`,
+                'danger',
+                10000
+            );
+            return;
+        }
+
+        // PHP silently discards files past max_file_uploads, which would look like
+        // "required document missing" rather than a size problem.
+        const fileCount = Array.from(fileInputs)
+            .reduce((n, input) => n + (input.files ? input.files.length : 0), 0);
+
+        if (limits.maxFileCount && fileCount > limits.maxFileCount) {
+            showToast(
+                `You are uploading <strong>${fileCount} files</strong>, above the ${limits.maxFileCount} the server accepts in one submission. ` +
+                `Please reduce the number of instructors or documents submitted at once.`,
+                'danger',
+                10000
+            );
             return;
         }
 
@@ -853,6 +894,14 @@
         }
     });
 
+    // Shared with the instructor-card IIFE below, which clones cards after this
+    // block has already wired up the file inputs it can see.
+    // NOTE: do not assign window.ARMS.showToast here — the local showToast is a
+    // wrapper that delegates to it, so overwriting it would recurse forever.
+    // The real implementation is installed by js/toast.js.
+    window.ARMS = window.ARMS || {};
+    window.ARMS.validateFile = validateFile;
+
 })();
 
 /* ═══════════════════════════════════════════════════════════
@@ -910,6 +959,25 @@
                 if (!wrapper) return;
                 const nameSpan = wrapper.querySelector('.file-name-text');
                 const fileBtn  = wrapper.querySelector('.custom-file-btn');
+
+                // Instructor cards are cloned after the page-load pass that wires
+                // validateFile onto file inputs, so without this call their service
+                // agreements and credentials were the only uploads with no PDF/size
+                // check until submit time.
+                const validate = window.ARMS && window.ARMS.validateFile;
+                if (this.files && this.files.length > 0 && validate && !validate(this)) {
+                    this.value = '';
+                    if (nameSpan) {
+                        nameSpan.textContent = 'No file chosen';
+                        nameSpan.classList.add('text-muted');
+                        nameSpan.classList.remove('text-primary', 'fw-semibold');
+                    }
+                    if (fileBtn) {
+                        fileBtn.classList.add('btn-outline-primary');
+                        fileBtn.classList.remove('btn-primary', 'text-white');
+                    }
+                    return;
+                }
 
                 if (this.files && this.files.length > 0) {
                     if (nameSpan) {

@@ -1266,7 +1266,14 @@ class ApplicationController extends Controller
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
-            'admin_role_id' => ['required', 'exists:admin_roles,id'],
+            // Verifier is not selectable here — that role is owned by the Accreditation
+            // portal, which assigns it itself. Enforced server-side so it cannot simply
+            // be posted around the missing dropdown option.
+            'admin_role_id' => [
+                'required',
+                \Illuminate\Validation\Rule::exists('admin_roles', 'id')
+                    ->where(fn ($q) => $q->where('name', '!=', 'Verifier')),
+            ],
         ]);
 
         $token = \Illuminate\Support\Str::random(64);
@@ -1325,7 +1332,9 @@ class ApplicationController extends Controller
             ->with(['role', 'adminProfile.division', 'adminProfile.adminRole'])
             ->get();
 
-        $adminRoles = \App\Models\AdminRole::all();
+        // Verifier is excluded: that role belongs to the Accreditation division and is
+        // invited from its own portal, which assigns the role automatically.
+        $adminRoles = \App\Models\AdminRole::where('name', '!=', 'Verifier')->get();
 
         return view('admin.hcd.admins_list', compact('admins', 'adminRoles'));
     }
@@ -2199,7 +2208,12 @@ class ApplicationController extends Controller
                         preg_match('/\d+$/', $lastPart, $matches);
                         $suffix = isset($matches[0]) ? str_pad(substr($matches[0], -3), 3, '0', STR_PAD_LEFT) : '000';
                     }
-                    $accNumber = "235-{$datePrefix}-{$suffix}";
+                    // A renewal keeps the FATPro's original sequence suffix and only moves the
+                    // date part forward. accreditation_number is UNIQUE, so building the number
+                    // directly can collide — most easily when the same FATPro is re-accredited
+                    // twice on the same day, which produced an uncaught QueryException (HTTP 500)
+                    // instead of a usable error. Fall back to the next free number in that case.
+                    $accNumber = $this->makeUniqueAccreditationNumber($datePrefix, $suffix);
 
                     // Mark previous accreditation as expired
                     $prevAccreditation->update([
@@ -2469,6 +2483,24 @@ class ApplicationController extends Controller
     /**
      * Generate a unique accreditation number for new accreditations.
      */
+    /**
+     * Build a renewal's accreditation number, preferring the FATPro's existing
+     * sequence suffix but never returning one that is already taken.
+     *
+     * accreditation_number carries a UNIQUE constraint, so returning a duplicate
+     * turns an approval into a 500 rather than a recoverable error.
+     */
+    private function makeUniqueAccreditationNumber(string $datePrefix, string $preferredSuffix): string
+    {
+        $candidate = "235-{$datePrefix}-{$preferredSuffix}";
+
+        if (!Accreditation::where('accreditation_number', $candidate)->exists()) {
+            return $candidate;
+        }
+
+        return $this->generateNewAccreditationNumber($datePrefix);
+    }
+
     private function generateNewAccreditationNumber(string $datePrefix): string
     {
         // Parsed in PHP rather than a raw SQL function (SPLIT_PART is Postgres-only, SUBSTRING_INDEX
