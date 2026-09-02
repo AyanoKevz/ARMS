@@ -50,15 +50,10 @@ $myAccreditation = $myAccreditation ?? \App\Models\Accreditation::where('user_id
     ->orderBy('id', 'desc')
     ->first();
 
-$instructors = $instructors ?? \App\Models\Instructor::where('user_id', auth()->id())
-    ->with('credentials')
-    ->orderBy('id', 'desc')
-    ->get()
-    ->unique(function ($item) {
-        return strtolower(trim($item->first_name) . '|' . trim($item->middle_name) . '|' . trim($item->last_name));
-    })
-    ->sortBy('last_name')
-    ->values();
+// Shared with the FATPRO Instructor list so both pages show the same roster.
+// Scoped to the active accreditation, which excludes the duplicate copies a
+// renewal creates. See Instructor::accreditedRosterFor().
+$instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth()->id());
 @endphp
 
 <div class="">
