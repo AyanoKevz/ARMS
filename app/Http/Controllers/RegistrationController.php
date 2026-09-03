@@ -95,7 +95,13 @@ class RegistrationController extends Controller
         $request->validate(array_merge([
             'accreditation_type_id' => ['required', 'integer', 'exists:accreditation_types,id'],
             'profile_type'          => ['required', 'in:Individual,Organization'],
-            'email'                 => ['required', 'email', 'unique:users,email', 'unique:pending_registrations,email'],
+            // No unique:pending_registrations rule here on purpose. An unverified
+            // pending row must not lock an applicant out of their own address —
+            // they may never have received the link. Re-registering simply replaces
+            // the previous attempt: the cleanup further down deletes any existing
+            // pending row (and its temp files) for this email before the insert,
+            // which is also what satisfies the unique index on the column.
+            'email'                 => ['required', 'email', 'unique:users,email'],
             'password'              => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
 
             // Organization fields
@@ -473,8 +479,15 @@ class RegistrationController extends Controller
                     }
                 }
 
-                // 8. Clean up temp folder
+                // 8. Clean up temp folder AND the pending record itself.
+                // The row has done its job once the User/Application exist; leaving it
+                // behind kept a bcrypt password hash and the applicant's full form data
+                // in the table indefinitely, and (with the unique index on email) would
+                // block that address from ever registering again. Deleting inside the
+                // transaction keeps it atomic: if anything below fails and rolls back,
+                // the pending row survives and the link can be retried.
                 Storage::disk('local')->deleteDirectory("pending/{$pending->token}");
+                $pending->delete();
 
                 // 9. Create initial status log
                 $submittedStatus = ApplicationStatus::findByName('Submitted');

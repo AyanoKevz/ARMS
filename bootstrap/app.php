@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('accreditation:expiry-check')->daily();
         $schedule->command('instructor-credential:expiry-check')->daily();
+        // Verification links live for one hour, so hourly keeps abandoned
+        // registrations (and the password hashes they carry) from lingering.
+        $schedule->command('pending-registrations:prune')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Inject security response headers on every web request.

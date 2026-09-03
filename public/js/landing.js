@@ -780,6 +780,11 @@
                 // Deliberately no scrollIntoView/focus here: validateFile already
                 // marks the field and raises a bottom-right toast, and yanking a
                 // very long form to another step loses the applicant's place.
+                // Unfold the section though — a marked field inside a collapsed
+                // document group or instructor card is invisible feedback.
+                if (window.ARMS && window.ARMS.expandSection) {
+                    window.ARMS.expandSection(input);
+                }
                 filesValid = false;
                 break;
             }
@@ -1036,4 +1041,187 @@
     // Initialise with one card and wire the Add button
     addCard();
     addBtn.addEventListener('click', addCard);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   COLLAPSIBLE SECTIONS — only activates on /register
+
+   The registration form shows six document groups and every
+   instructor card fully expanded at once, which is a very long
+   scroll. Each group and each instructor card gets a chevron at
+   the top right that folds its body away, plus an "n/m" badge so
+   a folded section still says how many of its files are attached.
+
+   Built here rather than with Bootstrap's collapse component
+   because instructor cards are cloned from a template with
+   __IDX__ placeholders — data-bs-target needs unique ids per
+   card, which the clone would have to rewrite on every add.
+═══════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    const registerForm = document.getElementById('registerForm');
+    if (!registerForm) return; /* not on the register page — bail out */
+
+    const SECTION_SELECTOR = '.doc-type-section, .instructor-card';
+
+    function setExpanded(section, expanded) {
+        const body   = section._armsBody;
+        const toggle = section._armsToggle;
+        if (!body || !toggle) return;
+
+        body.classList.toggle('d-none', !expanded);
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + (section._armsTitle || 'section'));
+        toggle.querySelector('i').className = 'bi ' + (expanded ? 'bi-chevron-up' : 'bi-chevron-down');
+    }
+
+    function isExpanded(section) {
+        return !!section._armsBody && !section._armsBody.classList.contains('d-none');
+    }
+
+    /** "3/7" attachment counter, so a folded section still reports progress. */
+    function updateCount(section) {
+        const badge = section._armsToggle && section._armsToggle.querySelector('.arms-collapse-count');
+        if (!badge) return;
+
+        const inputs = section._armsBody.querySelectorAll('input[type="file"]');
+        if (!inputs.length) {
+            badge.textContent = '';
+            return;
+        }
+
+        let filled = 0;
+        inputs.forEach(input => {
+            if (input.files && input.files.length > 0) filled++;
+        });
+
+        badge.textContent = filled + '/' + inputs.length;
+        const done = filled === inputs.length;
+        badge.style.background = done ? '#d1e7dd' : '#eef2f9';
+        badge.style.color      = done ? '#0a3622' : '#0b3d91';
+    }
+
+    function buildToggle() {
+        const btn = document.createElement('button');
+        // type=button matters: a bare <button> inside a form submits it.
+        btn.type = 'button';
+        btn.className = 'btn btn-sm p-0 ms-2 d-flex align-items-center gap-2 arms-collapse-toggle';
+        btn.style.cssText = 'background:transparent;border:0;color:#0b3d91;line-height:1';
+        btn.innerHTML =
+            '<span class="arms-collapse-count badge rounded-pill" style="font-weight:600;font-size:.7rem;"></span>' +
+            '<i class="bi bi-chevron-up"></i>';
+        return btn;
+    }
+
+    /**
+     * Move everything after the header into a wrapper we can hide, and put a
+     * toggle in the header. Document groups have a bare <h6>, so they need a
+     * flex row built around it; instructor cards already have one holding the
+     * title and the Remove button.
+     */
+    function makeCollapsible(section) {
+        if (section.dataset.armsCollapsible === 'true') return;
+
+        let headerRow = section.querySelector(':scope > .d-flex');
+
+        if (!headerRow) {
+            const heading = section.querySelector(':scope > h6');
+            if (!heading) return;
+
+            headerRow = document.createElement('div');
+            headerRow.className = 'd-flex align-items-center justify-content-between mb-3';
+            section.insertBefore(headerRow, heading);
+            headerRow.appendChild(heading);
+            heading.classList.remove('mb-3');
+            heading.classList.add('mb-0');
+        }
+
+        section.dataset.armsCollapsible = 'true';
+        section._armsTitle = (headerRow.textContent || '').trim();
+
+        const body = document.createElement('div');
+        body.className = 'arms-collapse-body';
+
+        let node = headerRow.nextSibling;
+        while (node) {
+            const next = node.nextSibling;
+            body.appendChild(node);
+            node = next;
+        }
+        section.appendChild(body);
+
+        const toggle = buildToggle();
+        headerRow.appendChild(toggle);
+
+        section._armsBody   = body;
+        section._armsToggle = toggle;
+
+        headerRow.style.cursor = 'pointer';
+        headerRow.addEventListener('click', function (e) {
+            // Remove is a real action, not a header click.
+            if (e.target.closest('.remove-instructor-btn')) return;
+            setExpanded(section, !isExpanded(section));
+        });
+
+        setExpanded(section, true);
+        updateCount(section);
+    }
+
+    // ── Document groups: leave the first open so the step still reads as a form
+    document.querySelectorAll('.doc-type-section').forEach((section, index) => {
+        makeCollapsible(section);
+        if (index > 0) setExpanded(section, false);
+    });
+
+    // ── Instructor cards. The card manager IIFE above already added the first
+    //    one by the time this runs, so wire up what exists, then watch for adds.
+    const instructorContainer = document.getElementById('instructorCardsContainer');
+
+    if (instructorContainer) {
+        instructorContainer.querySelectorAll('.instructor-card').forEach(makeCollapsible);
+
+        new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType !== 1 || !node.classList.contains('instructor-card')) return;
+
+                    // Adding an instructor folds the previous ones away — filling
+                    // in the newest card is the only reason to add one.
+                    instructorContainer.querySelectorAll('.instructor-card').forEach(function (card) {
+                        if (card !== node) setExpanded(card, false);
+                    });
+
+                    makeCollapsible(node);
+                });
+            });
+        }).observe(instructorContainer, { childList: true });
+    }
+
+    // Keep the "n/m" badges honest as files are chosen or cleared.
+    registerForm.addEventListener('change', function (e) {
+        if (!e.target.matches('input[type="file"]')) return;
+        const section = e.target.closest(SECTION_SELECTOR);
+        if (section) updateCount(section);
+    });
+
+    /**
+     * A required input inside a collapsed section is display:none, and the
+     * browser refuses to focus it — checkValidity() would block submission
+     * with nothing on screen to explain why. The invalid event fires in the
+     * capture phase before that focus attempt, so unfolding here keeps the
+     * offending field reachable.
+     */
+    registerForm.addEventListener('invalid', function (e) {
+        const section = e.target.closest(SECTION_SELECTOR);
+        if (section) setExpanded(section, true);
+    }, true);
+
+    // Same idea for our own PDF/size checks, which the browser knows nothing about.
+    window.ARMS = window.ARMS || {};
+    window.ARMS.expandSection = function (el) {
+        const section = el && el.closest ? el.closest(SECTION_SELECTOR) : null;
+        if (section) setExpanded(section, true);
+    };
+
 })();
