@@ -712,9 +712,25 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Server-side limit is max:10240 (kilobytes) for these uploads — keep in sync with
-        // TrackingController's resubmitAll()/submitPaymentPublic() validation rules.
-        const MAX_FILE_BYTES = 10240 * 1024;
+        // Server-side limit is max:10240 (kilobytes) for these uploads. Read the
+        // ceiling the server publishes (App\Support\UploadLimits) instead of a
+        // literal, so the browser guard can never sit above what PHP accepts; the
+        // fallback mirrors TrackingController's resubmitAll()/submitPaymentPublic()
+        // validation rules.
+        const MAX_FILE_BYTES = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
+            || (10240 * 1024);
+        const MAX_FILE_MB = (MAX_FILE_BYTES / (1024 * 1024)).toFixed(0);
+
+        // Upload problems belong next to the field the applicant is looking at, not
+        // in a banner at the top of a long tracking page — same bottom-right toast
+        // the renewal/reinstatement form uses.
+        function notifyFileProblem(html, plainText) {
+            if (window.ARMS && window.ARMS.showToast) {
+                window.ARMS.showToast(html, 'warning');
+            } else {
+                alert(plainText);
+            }
+        }
 
         // Show filename next to each file input after selection
         document.querySelectorAll('.batch-file-input, .payment-file-input').forEach(function(input) {
@@ -732,11 +748,16 @@
                 if (this.files.length > 0 && this.files[0].size > MAX_FILE_BYTES) {
                     // Oversized file — reject it immediately, don't let it reach the form
                     const sizeMb = (this.files[0].size / (1024 * 1024)).toFixed(1);
+                    const rejectedName = this.files[0].name; // read before clearing the input
                     this.value = '';
                     this.classList.add('is-invalid');
                     if (feedback) {
-                        feedback.textContent = `File is ${sizeMb}MB — the maximum allowed size is 10MB. Please choose a smaller PDF.`;
+                        feedback.textContent = `File is ${sizeMb}MB — the maximum allowed size is ${MAX_FILE_MB}MB. Please choose a smaller PDF.`;
                     }
+                    notifyFileProblem(
+                        `<strong>${rejectedName}</strong> is ${sizeMb} MB, over the ${MAX_FILE_MB} MB per-file limit.`,
+                        `${rejectedName} is ${sizeMb} MB. Maximum file size is ${MAX_FILE_MB} MB.`
+                    );
                     if (hint) {
                         hint.textContent = 'No file chosen';
                         hint.classList.add('text-muted');
@@ -808,7 +829,10 @@
             form.addEventListener('submit', function(e) {
                 if (hasOversizedFile(form)) {
                     e.preventDefault();
-                    alert('One or more selected files exceed the 10MB limit. Please choose smaller PDFs before resubmitting.');
+                    notifyFileProblem(
+                        `One or more selected files exceed the <strong>${MAX_FILE_MB} MB</strong> per-file limit. Please choose smaller PDFs before resubmitting.`,
+                        `One or more selected files exceed the ${MAX_FILE_MB} MB limit. Please choose smaller PDFs before resubmitting.`
+                    );
                     return;
                 }
                 btn.disabled = true;
@@ -823,7 +847,10 @@
             paymentForm.addEventListener('submit', function(e) {
                 if (hasOversizedFile(paymentForm)) {
                     e.preventDefault();
-                    alert('The selected file exceeds the 10MB limit. Please choose a smaller file before uploading.');
+                    notifyFileProblem(
+                        `The selected file exceeds the <strong>${MAX_FILE_MB} MB</strong> limit. Please choose a smaller file before uploading.`,
+                        `The selected file exceeds the ${MAX_FILE_MB} MB limit. Please choose a smaller file before uploading.`
+                    );
                     return;
                 }
                 paymentBtn.disabled = true;

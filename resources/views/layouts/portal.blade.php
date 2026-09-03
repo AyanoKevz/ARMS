@@ -368,9 +368,9 @@
     <!-- Intro.js library (defer — non-critical, only needed for the tour) -->
     <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js" defer></script>
     <!-- Shared toast notifications (window.ARMS.showToast) -->
-    <script src="{{ asset('js/toast.js') }}" defer></script>
+    <script src="{{ \App\Support\AssetVersion::url('js/toast.js') }}" defer></script>
     <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
-    <script src="{{ asset('js/portal.js') }}" defer></script>
+    <script src="{{ \App\Support\AssetVersion::url('js/portal.js') }}" defer></script>
     @stack('scripts')
     @stack('tour')
 </body>

@@ -147,8 +147,8 @@
     @stack('scripts')
     {{-- Must load before landing.js, which delegates to window.ARMS.showToast.
          Both are deferred, so execution follows document order. --}}
-    <script src="{{ asset('js/toast.js') }}" defer></script>
-    <script src="{{ asset('js/landing.js') }}" defer></script>
+    <script src="{{ \App\Support\AssetVersion::url('js/toast.js') }}" defer></script>
+    <script src="{{ \App\Support\AssetVersion::url('js/landing.js') }}" defer></script>
 
 </body>
 

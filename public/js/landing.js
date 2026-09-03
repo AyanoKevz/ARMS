@@ -777,9 +777,10 @@
         const fileInputs = this.querySelectorAll('input[type="file"]');
         for (const input of fileInputs) {
             if (!validateFile(input)) {
+                // Deliberately no scrollIntoView/focus here: validateFile already
+                // marks the field and raises a bottom-right toast, and yanking a
+                // very long form to another step loses the applicant's place.
                 filesValid = false;
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                input.focus();
                 break;
             }
             if (input.files) {

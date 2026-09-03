@@ -1266,13 +1266,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // Size limit, matching the server's max:10240 rule. This applies to
                     // every file input on the page — documents, instructor service
-                    // agreements and instructor credentials alike.
-                    const maxSize = 10 * 1024 * 1024; // 10 MB
+                    // agreements and instructor credentials alike. Read from the
+                    // server-published ceiling (App\Support\UploadLimits) rather than a
+                    // literal, so the browser guard can never drift above what PHP
+                    // accepts; the fallback mirrors the max:10240 rule.
+                    const maxSize = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
+                        || (10 * 1024 * 1024);
+                    const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
                     if (isValid && file.size > maxSize) {
                         const fileMB = (file.size / (1024 * 1024)).toFixed(1);
                         notifyFileProblem(
-                            `<strong>${file.name}</strong> is ${fileMB} MB, over the 10 MB per-file limit.`,
-                            file.name + ' is ' + fileMB + ' MB. Maximum file size is 10 MB.'
+                            `<strong>${file.name}</strong> is ${fileMB} MB, over the ${maxSizeMB} MB per-file limit.`,
+                            file.name + ' is ' + fileMB + ' MB. Maximum file size is ' + maxSizeMB + ' MB.'
                         );
                         this.value = '';
                         this.classList.add('is-invalid');
