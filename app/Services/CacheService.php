@@ -26,6 +26,18 @@ class CacheService
 
     // ── Cache key helpers ────────────────────────────────────────────────────
 
+    /**
+     * Public landing-page statistics.
+     *
+     * This is the highest-traffic page in the system and every visitor was
+     * triggering a cross-region query to Supabase for counts that change only
+     * when an accreditation is approved or revoked.
+     */
+    public static function landingStatsKey(): string
+    {
+        return 'arms:landing:stats';
+    }
+
     public static function dashboardKey(int $year): string
     {
         return "arms:dashboard:{$year}";

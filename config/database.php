@@ -97,6 +97,26 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+
+            /*
+             * Supabase's transaction pooler (pgBouncer, port 6543) hands each
+             * statement to whichever backend connection is free, so a server-side
+             * prepared statement created by one query is gone by the next. That
+             * surfaces as random 500s:
+             *
+             *   SQLSTATE[26000]: prepared statement "pdo_stmt_00000001" does not exist
+             *
+             * Emulating prepares makes PDO interpolate (properly quoted) values
+             * client-side and send plain SQL, so no server-side statement is ever
+             * created and pooling works. Set DB_EMULATE_PREPARES=false only when
+             * connecting directly or through the session pooler on port 5432.
+             */
+            'options' => [
+                PDO::ATTR_EMULATE_PREPARES => filter_var(
+                    env('DB_EMULATE_PREPARES', true),
+                    FILTER_VALIDATE_BOOLEAN
+                ),
+            ],
         ],
 
         'sqlsrv' => [

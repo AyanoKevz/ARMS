@@ -21,10 +21,17 @@ Route::get('/', function () {
         return AuthController::redirectAuthenticatedUser(Auth::user());
     }
 
-    $typeCounts = \App\Models\Accreditation::where('status', 'active')
-        ->selectRaw('accreditation_type_id, count(*) as total')
-        ->groupBy('accreditation_type_id')
-        ->pluck('total', 'accreditation_type_id');
+    // Cached: this is the public entry point, so every visitor was making a
+    // cross-region round trip to Supabase for counts that only change when an
+    // accreditation is approved or revoked.
+    $typeCounts = \App\Services\CacheService::remember(
+        \App\Services\CacheService::landingStatsKey(),
+        \App\Services\CacheService::TTL_DASHBOARD,
+        fn () => \App\Models\Accreditation::where('status', 'active')
+            ->selectRaw('accreditation_type_id, count(*) as total')
+            ->groupBy('accreditation_type_id')
+            ->pluck('total', 'accreditation_type_id')
+    );
 
     $stats = [
         ['num' => $typeCounts->get(1, 0), 'label' => 'Practitioners'],
