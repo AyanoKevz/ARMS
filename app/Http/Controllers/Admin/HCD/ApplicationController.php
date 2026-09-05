@@ -299,6 +299,19 @@ class ApplicationController extends Controller
         $latestStatusName = $application->latestStatus?->status?->name;
 
         if ($latestStatusName !== 'Submitted') {
+            // The pending listing is cached, so a row can linger there after it has
+            // already moved on. Bust the caches so the refreshed page shows reality.
+            CacheService::bustApplicationCaches();
+
+            if ($latestStatusName === 'Under Evaluation') {
+                $assigned = $application->assignedEvaluator?->adminProfile;
+                $assignedName = $assigned
+                    ? trim($assigned->first_name . ' ' . $assigned->last_name)
+                    : ($application->assignedEvaluator?->email ?? 'an evaluator');
+
+                return back()->with('error', 'Application ' . $application->tracking_number . ' is already under evaluation (assigned to ' . $assignedName . ').');
+            }
+
             return back()->with('error', 'Only newly submitted applications can be moved to evaluation.');
         }
 
@@ -308,45 +321,59 @@ class ApplicationController extends Controller
             return back()->with('error', 'Configuration error: "Under Evaluation" status not found.');
         }
 
-        // Assign the decked evaluator
-        $application->assigned_evaluator_id = $evaluator->id;
-        $application->save();
+        // Assign the decked evaluator and log the status as one unit. A failure part
+        // way through used to leave the application already moved while the request
+        // 500'd, which made every retry report "only newly submitted" applications.
+        try {
+            DB::transaction(function () use ($application, $evaluator, $underEvaluationStatus) {
+                $application->assigned_evaluator_id = $evaluator->id;
+                $application->save();
 
-        if ($underEvaluationStatus) {
-            \App\Models\ApplicationStatusLog::create([
-                'application_id' => $application->id,
-                'status_id'      => $underEvaluationStatus->id,
-                'updated_by'     => auth()->id(),
-                'remarks'        => 'Application is now being evaluated.',
-            ]);
+                ApplicationStatusLog::create([
+                    'application_id' => $application->id,
+                    'status_id'      => $underEvaluationStatus->id,
+                    'updated_by'     => auth()->id(),
+                    'remarks'        => 'Application is now being evaluated.',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Evaluator assignment failed for application ' . $application->id . ': ' . $e->getMessage(), ['exception' => $e]);
 
-            // ── PCT: Initialize Steps 1+2 (auto) and start Step 3 (Evaluation)
+            return back()->with('error', 'Could not assign the evaluator right now. Please try again — if it keeps failing, contact the system administrator.');
+        }
+
+        // Bust listing + dashboard caches right after the commit, so the lists stay
+        // truthful even if one of the follow-up steps below fails.
+        CacheService::bustApplicationCaches();
+
+        // ── PCT: Initialize Steps 1+2 (auto) and start Step 3 (Evaluation).
+        // Non-fatal: SLA tracking must never block the assignment itself.
+        try {
             $this->pctService->initializeFromEvaluation($application);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('PCT initialization failed for application ' . $application->id . ': ' . $e->getMessage(), ['exception' => $e]);
+        }
 
-            // Notify applicant via email
-            $applicantEmail = $application->user?->email;
-            if ($applicantEmail) {
-                try {
-                    \Illuminate\Support\Facades\Mail::to($applicantEmail)
-                        ->send(new \App\Mail\ApplicationEvaluationStartedEmail($application));
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluation started email: ' . $e->getMessage());
-                }
-            }
-
-            // Notify the assigned evaluator only
-            if ($evaluator->email) {
-                try {
-                    \Illuminate\Support\Facades\Mail::to($evaluator->email)
-                        ->send(new \App\Mail\EvaluatorAssignedEmail($application));
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluator assigned email: ' . $e->getMessage());
-                }
+        // Notify applicant via email
+        $applicantEmail = $application->user?->email;
+        if ($applicantEmail) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($applicantEmail)
+                    ->send(new \App\Mail\ApplicationEvaluationStartedEmail($application));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluation started email: ' . $e->getMessage());
             }
         }
 
-        // Bust listing + dashboard caches
-        CacheService::bustApplicationCaches();
+        // Notify the assigned evaluator only
+        if ($evaluator->email) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($evaluator->email)
+                    ->send(new \App\Mail\EvaluatorAssignedEmail($application));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('SMTP Error sending evaluator assigned email: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('admin.hcd.applications.show', $application->id)->with('success', 'Application ' . $application->tracking_number . ' is now Under Evaluation and assigned to ' . ($evaluator->adminProfile?->first_name ?? $evaluator->email) . '.');
     }
