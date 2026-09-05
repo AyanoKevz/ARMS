@@ -2364,7 +2364,6 @@ class ApplicationController extends Controller
      */
     public function archiveFromPayment(Request $request, Application $application)
     {
-        $this->checkEvaluatorAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
         $trackingNumber = $application->tracking_number;
