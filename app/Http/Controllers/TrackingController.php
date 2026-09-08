@@ -77,13 +77,13 @@ class TrackingController extends Controller
         $request->validate([
             'application_id' => ['required', 'exists:applications,id'],
             'files'          => ['nullable', 'array'],
-            'files.*'        => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'files.*'        => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'values'         => ['nullable', 'array'],
             'values.*'       => ['required', 'string', 'max:500'],
             'instructor_files' => ['nullable', 'array'],
-            'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'credential_files' => ['nullable', 'array'],
-            'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
         ]);
 
         $userId      = $application->user_id;
@@ -295,7 +295,7 @@ class TrackingController extends Controller
     {
         $request->validate([
             'application_id'   => ['required', 'exists:applications,id'],
-            'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:15360'],
         ]);
 
         $application = Application::findOrFail($request->input('application_id'));

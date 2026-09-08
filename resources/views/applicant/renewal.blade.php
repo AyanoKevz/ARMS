@@ -10,6 +10,10 @@
     $reps  = $org?->authorizedRepresentatives ?? collect();
     $rep   = $reps->first();
     $instructors = $instructors ?? $user->instructors;
+
+    // The per-file ceiling the server actually enforces (App\Support\UploadLimits),
+    // so the instructions can never quote a number this form would go on to reject.
+    $maxFileMB = (int) floor(($armsMaxFileBytes ?? 0) / 1048576);
 @endphp
 
 <div class="">
@@ -74,7 +78,10 @@
             @if($renewalStatus === 'For Update')
                 <p class="text-muted mb-0">Some of your documents or credentials require revisions. Please upload the replacements below.</p>
             @elseif($renewalStatus === 'Awaiting Payment')
-                <p class="text-muted mb-0">Congratulations! Your interview has passed. Please submit the payment details and signatures below to finalize your accreditation.</p>
+                <p class="text-muted mb-0">
+                    Congratulations! {{ $pendingRenewal->skipsInterview() ? 'Your evaluation has been approved — a renewal requires no interview.' : 'Your interview has passed.' }}
+                    Please submit the payment details and signatures below to finalize your accreditation.
+                </p>
             @elseif($renewalStatus === 'Payment Verification')
                 @php
                     $payment = $pendingRenewal->payment;
@@ -243,7 +250,7 @@
                                                     </div>
                                                     <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                                 </div>
-                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                                             @else
                                                 <label class="form-label small fw-semibold mb-1" style="color:#842029;">
                                                     Update Value <span class="text-danger">*</span>
@@ -308,7 +315,7 @@
                                     </div>
                                     <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                 </div>
-                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                             </div>
                         </div>
                         @endforeach
@@ -348,7 +355,7 @@
                                     </div>
                                     <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                 </div>
-                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                             </div>
                         </div>
                         @endforeach
@@ -890,7 +897,11 @@
         <div class="x_panel">
             <div class="x_title"><h2><i class="fas fa-chalkboard-teacher me-2"></i>Instructors & Credentials</h2><div class="clearfix"></div></div>
             <div class="x_content">
-                <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Add at least <strong>one instructor</strong>. Each requires credentials and a service agreement PDF.</div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>Add at least <strong>one instructor</strong>.
+                    Each requires credentials and a service agreement in <strong>PDF format only</strong>
+                    (max <strong>{{ $maxFileMB }} MB</strong> per file).
+                </div>
                 <div id="instructorCardsContainer">
                     @foreach($instructors as $idx => $inst)
                     <div class="instructor-card border rounded-3 bg-white shadow-sm p-3 mb-3" data-idx="{{ $idx }}">
@@ -913,19 +924,14 @@
                             </div>
                         </div>
 
-                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
+                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC'] as $type => $label)
                         @php $cred = $inst->credentials->firstWhere('type', $type); @endphp
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
                             <div class="row g-2">
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][number]" value="{{ $cred?->number }}" required></div>
-                                @if($type !== 'BOSH')
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][issued_date]" value="{{ $cred?->issued_date }}" required></div>
-                                @endif
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][validity_date]" value="{{ $cred?->validity_date }}" required></div>
-                                @if($type === 'BOSH')
-                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[{{ $idx }}][credentials][{{ $type }}][training_dates]" value="{{ $cred?->training_dates }}" required></div>
-                                @endif
                                 <div class="col-12">
                                     <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span> @if($cred?->pdf_path)<span class="text-success">(current: {{ basename($cred->pdf_path) }})</span> <a href="{{ route('applicant.instructors.credentials.view', $cred->id) }}" data-file-modal data-file-title="{{ $type }} Certificate PDF" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</label>
                                     <div class="file-upload-wrapper mt-1">
@@ -943,6 +949,19 @@
                         </div>
                         @endforeach
 
+                        <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">CV</span>Instructor CV / Resume <span class="text-danger">*</span> @if($inst->cv_path)<span class="text-success">(current: {{ basename($inst->cv_path) }})</span> <a href="{{ route('applicant.instructors.cv.view', $inst->id) }}" data-file-modal data-file-title="CV / Resume – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[{{ $idx }}][cv]" id="inst_{{ $idx }}_cv" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_{{ $idx }}_cv" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the instructor's CV / Resume PDF.</div>
+                            </div>
+                        </div>
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span> @if($inst->service_agreement_path)<span class="text-success">(current: {{ basename($inst->service_agreement_path) }})</span> <a href="{{ route('applicant.instructors.service_agreement.view', $inst->id) }}" data-file-modal data-file-title="Service Agreement – {{ $inst->first_name }} {{ $inst->last_name }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a>@endif</p>
                             <div class="file-upload-wrapper mt-1">
@@ -977,14 +996,13 @@
                                 </select>
                             </div>
                         </div>
-                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
+                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC'] as $type => $label)
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
                             <div class="row g-2">
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][number]" required></div>
-                                @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][issued_date]" required></div>@endif
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][issued_date]" required></div>
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][validity_date]" required></div>
-                                @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[0][credentials][{{ $type }}][training_dates]" required></div>@endif
                                 <div class="col-12">
                                     <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
                                     <div class="file-upload-wrapper mt-1">
@@ -1001,6 +1019,19 @@
                             </div>
                         </div>
                         @endforeach
+                        <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">CV</span>Instructor CV / Resume <span class="text-danger">*</span></p>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[0][cv]" id="inst_0_cv" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_0_cv" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the instructor's CV / Resume PDF.</div>
+                            </div>
+                        </div>
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
                             <div class="file-upload-wrapper mt-1">
@@ -1044,14 +1075,13 @@
                                 </select>
                             </div>
                         </div>
-                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC', 'BOSH' => 'BOSH SO1/SO2'] as $type => $label)
+                        @foreach(['EMS' => 'TESDA EMS NC II/III', 'TM1' => 'TESDA TM1', 'NTTC' => 'TESDA NTTC'] as $type => $label)
                         <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">{{ $type }}</span>{{ $label }}</p>
                             <div class="row g-2">
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][number]" required></div>
-                                @if($type !== 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][issued_date]" required></div>@endif
+                                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Issued Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][issued_date]" required></div>
                                 <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label><input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][validity_date]" required></div>
-                                @if($type === 'BOSH')<div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem;">Training Dates <span class="text-danger">*</span></label><input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][{{ $type }}][training_dates]" required></div>@endif
                                 <div class="col-12">
                                     <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
                                     <div class="file-upload-wrapper mt-1">
@@ -1068,6 +1098,19 @@
                             </div>
                         </div>
                         @endforeach
+                        <div class="border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
+                            <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">CV</span>Instructor CV / Resume <span class="text-danger">*</span></p>
+                            <div class="file-upload-wrapper mt-1">
+                                <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][cv]" id="inst_cv___IDX__" accept=".pdf" required>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="inst_cv___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                        <i class="fas fa-upload me-1"></i> Choose PDF
+                                    </label>
+                                    <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                                </div>
+                                <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please upload the instructor's CV / Resume PDF.</div>
+                            </div>
+                        </div>
                         <div class="border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
                             <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="fas fa-file-contract me-1"></i>Service Agreement <span class="text-danger">*</span></p>
                             <div class="file-upload-wrapper mt-1">
@@ -1090,7 +1133,10 @@
         <div class="x_panel">
             <div class="x_title"><h2><i class="fas fa-file-upload me-2"></i>Required Documents</h2><div class="clearfix"></div></div>
             <div class="x_content">
-                <div class="alert alert-info mb-3"><i class="fas fa-info-circle me-2"></i>Upload updated documents in <strong>PDF format</strong> (max 10 MB). Leave empty to keep the current file.</div>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>Upload updated documents in <strong>PDF format</strong>
+                    (max <strong>{{ $maxFileMB }} MB</strong> per file). Leave empty to keep the current file.
+                </div>
 
                 @php
                 $docSections = [
@@ -1101,13 +1147,13 @@
                         ['code'=>'LEGAL_04','title'=>"Mayor's Permit",'label'=>"Valid Mayor's Permit",'required'=>true],
                         ['code'=>'LEGAL_05','title'=>'BIR Registration & TIN','label'=>'Registration Certificate with BIR, TIN, receipts, and Books of Accounts','required'=>true],
                         ['code'=>'LEGAL_06','title'=>'DOLE clearance','label'=>'DOLE-issued certificate of no pending labor standard case','required'=>true],
-                        ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of building','required'=>false],
+                        ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of the building/space.','required'=>true],
                     ]],
                     ['title' => 'Training Management and Staff', 'badge' => '2', 'docs' => [
                         ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
                         ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
                         ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
-                        ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Comprehensive plan for managing training programs and operations','required'=>true],
+                        ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Proposed planned training schedule for one quarter.','required'=>true],
                     ]],
                     ['title' => 'Premises Including Occupational Safety', 'badge' => '3', 'docs' => [
                         ['code'=>'PREM_01','title'=>'Location Map','label'=>"Organization's location map",'required'=>true],
@@ -1115,6 +1161,7 @@
                         ['code'=>'PREM_03','title'=>'OSH Policy & Program','label'=>'Occupational Safety and Health Policy and Program','required'=>true],
                         ['code'=>'PREM_04','title'=>'Decontamination Procedures','label'=>'Written procedures for decontamination of first aid tools/equipment.','required'=>true],
                         ['code'=>'PREM_05','title'=>'Safety Officers List','label'=>'List of qualified and designated "safety officers".','required'=>true],
+                        ['code'=>'PREM_08','title'=>'BOSH SO1/SO2','label'=>'BOSH SO1 or SO2 certificate of the designated safety officer(s). No expiration/validity period required.','required'=>true],
                         ['code'=>'PREM_06','title'=>'First-Aiders List','label'=>'List of qualified first-aiders in the organization.','required'=>true],
                         ['code'=>'PREM_07','title'=>'First-Aider Certificate','label'=>'Valid first-aider certificate in your organization.','required'=>true],
                     ]],
@@ -1123,7 +1170,7 @@
                         ['code'=>'IP_02','title'=>'Intellectual Property Policy','label'=>'Written policy on use of intellectual properties as applicable.','required'=>true],
                     ]],
                     ['title' => 'Quality Assurance and Enhancement', 'badge' => '5', 'docs' => [
-                        ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>false],
+                        ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>true],
                         ['code'=>'QA_02','title'=>'Test Results Summary','label'=>'Template summary of the pre- and post-test results.','required'=>true],
                         ['code'=>'QA_03','title'=>'Evaluation Summary','label'=>'Template summary of general and individual trainer evaluation numerical ratings.','required'=>true],
                         ['code'=>'QA_04','title'=>'Assessment Tools','label'=>'Sample assessment tools such as test questions, etc.','required'=>true],
@@ -1134,7 +1181,7 @@
                         ['code'=>'QA_09','title'=>'Standard First Aid Manual','label'=>'Standard First Aid (4-days) Manual.','required'=>true],
                     ]],
                     ['title' => 'Training Equipment and Materials', 'badge' => '6', 'docs' => [
-                        ['code'=>'EQUIP_01','title'=>'Equipment & Materials List','label'=>'Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to FATPro MOP).','required'=>true],
+                        ['code'=>'EQUIP_01','title'=>'Equipment & Materials List','label'=>'Unified document with photos of First-Aid materials, general equipment, and participant kits','mop_link'=>true,'required'=>true],
                     ]],
                 ];
                 @endphp
@@ -1157,16 +1204,32 @@
 
                         @foreach($section['docs'] as $f)
                         @php $existing = $existingDocs->get($f['code']); @endphp
+                        @if($f['code'] === 'LEGAL_02')
+                        {{-- Registering authority. Drives whether Articles of Incorporation
+                             is shown and required — SEC-registered FATPros only. --}}
+                        @php $existingRegType = $existingDocs->get('LEGAL_02_TYPE'); @endphp
                         <div class="col-md-6 mb-2">
+                            <label class="form-label fw-bold mb-1" style="font-size:.88rem;">Business Registration Authority <span class="text-danger">*</span></label>
+                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Agency your business is registered with.</div>
+                            <select class="form-select form-select-sm mt-1" name="documents[LEGAL_02_TYPE]" id="doc_LEGAL_02_TYPE" required>
+                                <option value="" disabled {{ $existingRegType?->value ? '' : 'selected' }}>Select registering authority</option>
+                                <option value="DTI" {{ $existingRegType?->value === 'DTI' ? 'selected' : '' }}>Department of Trade and Industry (DTI)</option>
+                                <option value="SEC" {{ $existingRegType?->value === 'SEC' ? 'selected' : '' }}>Securities and Exchange Commission (SEC)</option>
+                                <option value="CDA" {{ $existingRegType?->value === 'CDA' ? 'selected' : '' }}>Cooperative Development Authority (CDA)</option>
+                            </select>
+                            <div class="invalid-feedback" style="font-size: 0.8rem;">Please select a registering authority.</div>
+                        </div>
+                        @endif
+                        <div class="col-md-6 mb-2" @if($f['code'] === 'LEGAL_03') id="legal03Container" @if(($existingDocs->get('LEGAL_02_TYPE')?->value) !== 'SEC') hidden @endif @endif>
                             <label class="form-label fw-bold mb-1" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
-                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
+                            <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}@if($f['mop_link'] ?? false) (Refer to <a href="https://oshc.dole.gov.ph/guidelines/#flipbook-df_21124/48/" target="_blank" rel="noopener noreferrer" style="color:#0b3d91;text-decoration:underline;font-weight:600;">FATPro MOP</a>).@endif</div>
                             @if($existing && $existing->file_path)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Current: {{ basename($existing->file_path) }} <a href="{{ route('applicant.user_documents.view', $existing->id) }}" data-file-modal data-file-title="{{ $f['title'] }}" class="btn btn-xs btn-outline-dark py-0 px-2 fw-semibold ms-2" style="font-size: 0.7rem;"><i class="fas fa-eye me-1"></i>View</a></div>
                             @elseif($existing && $existing->value)
                                 <div class="form-text mt-0 mb-1" style="font-size:.75rem;color:#198754;"><i class="fas fa-check-circle me-1"></i>Value: {{ Str::limit($existing->value, 30) }}</div>
                             @endif
                             <div class="file-upload-wrapper mt-1">
-                                <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required']) required @endif>
+                                <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['code'] === 'LEGAL_03') data-conditional-required="1" @elseif($f['required']) required @endif>
                                 <div class="d-flex align-items-center gap-2">
                                     <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
                                         <i class="fas fa-upload me-1"></i> Choose File
@@ -1264,14 +1327,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         isValid = file.name.toLowerCase().endsWith('.pdf');
                     }
 
-                    // Size limit, matching the server's max:10240 rule. This applies to
+                    // Size limit, matching the server's max:15360 rule. This applies to
                     // every file input on the page — documents, instructor service
                     // agreements and instructor credentials alike. Read from the
                     // server-published ceiling (App\Support\UploadLimits) rather than a
                     // literal, so the browser guard can never drift above what PHP
-                    // accepts; the fallback mirrors the max:10240 rule.
+                    // accepts; the fallback mirrors the max:15360 rule.
                     const maxSize = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
-                        || (10 * 1024 * 1024);
+                        || (15 * 1024 * 1024);
                     const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
                     if (isValid && file.size > maxSize) {
                         const fileMB = (file.size / (1024 * 1024)).toFixed(1);
@@ -1359,6 +1422,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Bind file inputs on initial page load
     bindFileInputs(document);
+
+    /**
+     * Articles of Incorporation exist only for SEC-registered entities, so a
+     * DTI or CDA applicant has nothing to upload there. Keep the container
+     * hidden and its input un-required until SEC is picked, and clear anything
+     * already attached on the way out so a hidden field cannot smuggle a file
+     * into the submission. Mirrors the same rule on the registration form.
+     */
+    (function () {
+        const regTypeSelect = document.getElementById('doc_LEGAL_02_TYPE');
+        const legal03Box    = document.getElementById('legal03Container');
+        if (!regTypeSelect || !legal03Box) return;
+
+        const legal03Input = document.getElementById('doc_LEGAL_03');
+
+        function syncArticles() {
+            const needsArticles = regTypeSelect.value === 'SEC';
+            legal03Box.hidden = !needsArticles;
+            if (!legal03Input) return;
+
+            legal03Input.required = needsArticles;
+
+            if (!needsArticles && legal03Input.value) {
+                legal03Input.value = '';
+                legal03Input.classList.remove('is-invalid');
+                const wrapper  = legal03Input.closest('.file-upload-wrapper');
+                const nameSpan = wrapper && wrapper.querySelector('.file-name-text');
+                const fileBtn  = wrapper && wrapper.querySelector('.custom-file-btn');
+                if (nameSpan) {
+                    nameSpan.textContent = 'No file chosen';
+                    nameSpan.classList.add('text-muted');
+                    nameSpan.classList.remove('text-primary', 'fw-semibold');
+                }
+                if (fileBtn) {
+                    fileBtn.classList.add('btn-outline-primary');
+                    fileBtn.classList.remove('btn-primary', 'text-white');
+                }
+            }
+        }
+
+        regTypeSelect.addEventListener('change', syncArticles);
+        syncArticles();
+    })();
 
     const container = document.getElementById('instructorCardsContainer');
     if (container) {
@@ -1529,6 +1635,124 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    /**
+     * Mark the fields a 422 came back about and say so once, at the top.
+     *
+     * Laravel reports keys in dot form ("instructors.0.cv"); the inputs are named
+     * in bracket form ("instructors[0][cv]"), hence the rewrite.
+     */
+    function renderRenewalErrors(form, errors) {
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+        let firstInvalid = null;
+        const messages = [];
+
+        Object.keys(errors).forEach(function (key) {
+            const message = Array.isArray(errors[key]) ? errors[key][0] : String(errors[key]);
+            const name = key.replace(/\.([^.]+)/g, '[$1]');
+            const input = form.querySelector('[name="' + name + '"]');
+
+            if (input) {
+                input.classList.add('is-invalid');
+                if (!firstInvalid) firstInvalid = input;
+            }
+            messages.push(message);
+        });
+
+        if (firstInvalid) {
+            // A field inside a collapsed accordion cannot be seen being marked.
+            let panel = firstInvalid.closest('.collapse:not(.show)');
+            while (panel) {
+                panel.classList.add('show');
+                panel = panel.parentElement ? panel.parentElement.closest('.collapse:not(.show)') : null;
+            }
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        const shown = messages.slice(0, 5).map(m => '<li>' + m + '</li>').join('');
+        const more = messages.length > 5 ? '<li>…and ' + (messages.length - 5) + ' more.</li>' : '';
+        notifyFileProblem(
+            '<div class="fw-bold mb-1">Please correct the following:</div><ul class="mb-0 ps-3">' + shown + more + '</ul>',
+            messages.slice(0, 5).join('\n')
+        );
+    }
+
+    /**
+     * POST the renewal over XHR so xhr.upload.onprogress can drive the same
+     * progress card the new-application form uses. Only reached when the browser
+     * supports it; otherwise the native submit runs instead.
+     */
+    function submitRenewalWithProgress(form, unlockButton) {
+        const progress = window.ARMS.showUploadProgress('Uploading your application…');
+        const xhr = new XMLHttpRequest();
+
+        xhr.open('POST', form.getAttribute('action') || window.location.href, true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        const csrf = document.querySelector('meta[name="csrf-token"]');
+        if (csrf && csrf.content) xhr.setRequestHeader('X-CSRF-TOKEN', csrf.content);
+
+        xhr.upload.addEventListener('progress', function (ev) {
+            // Not computable behind some proxies; the card then holds at 0% rather
+            // than reporting a figure that is not real.
+            if (ev.lengthComputable) progress.update(ev.loaded, ev.total);
+        });
+
+        xhr.addEventListener('load', function () {
+            // Bytes are all sent; the server is now writing files and rows.
+            progress.processing();
+
+            let data = null;
+            try { data = JSON.parse(xhr.responseText); } catch (err) { data = null; }
+
+            if (xhr.status >= 200 && xhr.status < 300 && data && data.redirect) {
+                // The flash message is already in the session, so it survives this.
+                window.location.href = data.redirect;
+                return;
+            }
+
+            if (xhr.status === 422 && data && data.errors) {
+                progress.fail('Some fields need correcting.');
+                renderRenewalErrors(form, data.errors);
+                unlockButton();
+                return;
+            }
+
+            if (xhr.status === 419) {
+                progress.fail('Your session expired.');
+                notifyFileProblem(
+                    'Your session expired before the upload finished. Please reload the page and try again.',
+                    'Your session expired. Please reload the page and try again.'
+                );
+                unlockButton();
+                return;
+            }
+
+            progress.fail('Submission failed (' + xhr.status + ').');
+            notifyFileProblem(
+                'The server rejected the submission (error ' + xhr.status + '). Please try again, or contact support if it keeps happening.',
+                'The server rejected the submission (error ' + xhr.status + ').'
+            );
+            unlockButton();
+        });
+
+        function transportFailure(message) {
+            progress.fail(message);
+            notifyFileProblem(
+                message + ' Nothing was submitted — please check your connection and try again.',
+                message
+            );
+            unlockButton();
+        }
+
+        xhr.addEventListener('error',   function () { transportFailure('Connection lost during upload.'); });
+        xhr.addEventListener('abort',   function () { transportFailure('Upload cancelled.'); });
+        xhr.addEventListener('timeout', function () { transportFailure('Upload timed out.'); });
+
+        xhr.send(new FormData(form));
+    }
+
     // Form submission loading state
     const renewalForm = document.getElementById('renewalForm');
     if (renewalForm) {
@@ -1588,14 +1812,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // All guards passed — let the submission proceed.
+            // All guards passed.
             this.classList.add('was-validated');
+
             const btn = document.getElementById('renewalSubmitBtn');
             const text = document.getElementById('renewalSubmitText');
             const spinner = document.getElementById('renewalSubmitSpinner');
-            if (btn) btn.disabled = true;
-            if (text) text.classList.add('d-none');
-            if (spinner) spinner.classList.remove('d-none');
+
+            function lockButton() {
+                if (btn) btn.disabled = true;
+                if (text) text.classList.add('d-none');
+                if (spinner) spinner.classList.remove('d-none');
+            }
+            function unlockButton() {
+                if (btn) btn.disabled = false;
+                if (text) text.classList.remove('d-none');
+                if (spinner) spinner.classList.add('d-none');
+            }
+
+            lockButton();
+
+            // Progress reporting needs XHR. Where anything it depends on is
+            // missing, fall through to the plain submit rather than blocking it.
+            const canReportProgress = window.ARMS
+                && typeof window.ARMS.showUploadProgress === 'function'
+                && typeof window.FormData === 'function'
+                && typeof window.XMLHttpRequest === 'function';
+
+            if (!canReportProgress) return;
+
+            e.preventDefault();
+            submitRenewalWithProgress(this, unlockButton);
         });
     }
 

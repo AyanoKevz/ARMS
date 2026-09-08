@@ -100,10 +100,10 @@
     @php
         $fieldLabels = [
             'service_agreement' => 'Service Agreement between FATPro head and instructor',
+            'cv' => 'Instructor CV / Resume',
             'EMS'  => 'TESDA Emergency Medical Services NC II or III Certificate',
             'TM1'  => 'TESDA Trainers Methodology Certificate 1',
             'NTTC' => 'TESDA National TVET Trainer Certificate',
-            'BOSH' => 'BOSH SO1 or SO2 Certificate',
         ];
         $fields = $instructor->update_request_fields ?? [];
         $reasons = json_decode($instructor->update_request_reason, true);

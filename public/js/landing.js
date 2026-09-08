@@ -491,7 +491,11 @@
                         // Service Agreement
                         const saInput = card.querySelector('input[name$="[service_agreement]"]');
                         const saFileName = saInput && saInput.files && saInput.files.length > 0 ? saInput.files[0].name : '';
-                        
+
+                        // CV / Resume
+                        const cvInput = card.querySelector('input[name$="[cv]"]');
+                        const cvFileName = cvInput && cvInput.files && cvInput.files.length > 0 ? cvInput.files[0].name : '';
+
                         summaryHtml += `<div class="instructor-summary-card mb-3 p-3 border rounded bg-white shadow-sm" style="border-left: 4px solid #0b3d91 !important;">`;
                         summaryHtml += `<div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">`;
                         summaryHtml += `<span class="fw-bold text-dark" style="font-size: 0.95rem;"><i class="bi bi-person-badge-fill text-primary me-2"></i>Instructor #${i + 1}: ${fullName}</span>`;
@@ -504,34 +508,37 @@
                         summaryHtml += `</div>`;
                         
                         if (saFileName) {
-                            summaryHtml += `<div class="mb-3 small text-muted"><i class="bi bi-paperclip me-1"></i>Service Agreement PDF: <strong>${saFileName}</strong></div>`;
+                            summaryHtml += `<div class="mb-1 small text-muted"><i class="bi bi-paperclip me-1"></i>Service Agreement PDF: <strong>${saFileName}</strong></div>`;
+                        }
+
+                        if (cvFileName) {
+                            summaryHtml += `<div class="mb-3 small text-muted"><i class="bi bi-paperclip me-1"></i>CV / Resume PDF: <strong>${cvFileName}</strong></div>`;
+                        } else {
+                            summaryHtml += `<div class="mb-3 small text-danger"><i class="bi bi-exclamation-triangle me-1"></i>No CV / Resume attached</div>`;
                         }
 
                         // Grid for credentials
                         summaryHtml += `<div class="row g-2">`;
                         let hasCreds = false;
                         
-                        ['EMS', 'TM1', 'NTTC', 'BOSH'].forEach(type => {
+                        ['EMS', 'TM1', 'NTTC'].forEach(type => {
                             const number = card.querySelector(`input[name$="[credentials][${type}][number]"]`)?.value || '';
                             const issuedDate = card.querySelector(`input[name$="[credentials][${type}][issued_date]"]`)?.value || '';
                             const validityDate = card.querySelector(`input[name$="[credentials][${type}][validity_date]"]`)?.value || '';
-                            const trainingDates = card.querySelector(`input[name$="[credentials][${type}][training_dates]"]`)?.value || '';
                             const pdfInput = card.querySelector(`input[name$="[credentials][${type}][pdf]`);
                             const pdfName = pdfInput && pdfInput.files && pdfInput.files.length > 0 ? pdfInput.files[0].name : '';
 
-                            if (number || issuedDate || validityDate || trainingDates || pdfName) {
+                            if (number || issuedDate || validityDate || pdfName) {
                                 hasCreds = true;
                                 summaryHtml += `<div class="col-md-6">`;
                                 summaryHtml += `<div class="card h-100 border-0 shadow-none bg-light p-2 rounded-2" style="border-left: 3px solid #6c757d !important;">`;
-                                summaryHtml += `<div class="fw-bold mb-1 text-dark" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;">${type === 'EMS' ? 'TESDA EMS NC II/III' : type === 'TM1' ? 'TESDA TM1' : type === 'NTTC' ? 'TESDA NTTC' : 'BOSH SO1/SO2'}</div>`;
+                                summaryHtml += `<div class="fw-bold mb-1 text-dark" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;">${type === 'EMS' ? 'TESDA EMS NC II/III' : type === 'TM1' ? 'TESDA TM1' : 'TESDA NTTC'}</div>`;
                                 
                                 summaryHtml += `<table class="table table-sm table-borderless mb-0" style="font-size: 0.78rem; line-height: 1.3; background: transparent;">`;
                                 if (number) {
                                     summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Number:</td><td class="fw-semibold text-dark p-0 py-0.5" style="background: transparent;">${number}</td></tr>`;
                                 }
-                                if (type === 'BOSH' && trainingDates) {
-                                    summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Training:</td><td class="text-dark p-0 py-0.5" style="background: transparent;">${trainingDates}</td></tr>`;
-                                } else if (issuedDate) {
+                                if (issuedDate) {
                                     summaryHtml += `<tr><td class="text-muted p-0 py-0.5" style="width: 40%; background: transparent;">Issued:</td><td class="text-dark p-0 py-0.5" style="background: transparent;">${issuedDate}</td></tr>`;
                                 }
                                 if (validityDate) {
@@ -688,16 +695,58 @@
         registerForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
     }
 
-    /* ── File validation (PDF & 10MB) ── */
+    /**
+     * POST a FormData with upload-progress reporting.
+     *
+     * XMLHttpRequest rather than fetch() purely for xhr.upload.onprogress —
+     * fetch exposes no upload progress, and these submissions are large enough
+     * that silence reads as a hang. Resolves for any HTTP status (the caller
+     * inspects .status); rejects only on a genuine transport failure, matching
+     * how the fetch version behaved.
+     */
+    function postFormWithProgress(url, formData, onProgress) {
+        return new Promise(function (resolve, reject) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Accept', 'application/json');
+
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            if (csrf && csrf.content) {
+                xhr.setRequestHeader('X-CSRF-TOKEN', csrf.content);
+            }
+
+            xhr.upload.addEventListener('progress', function (e) {
+                // Not computable on some proxies; the card then just stays at 0%
+                // rather than reporting a bogus figure.
+                if (e.lengthComputable) onProgress(e.loaded, e.total);
+            });
+
+            xhr.addEventListener('load', function () {
+                resolve({
+                    ok: xhr.status >= 200 && xhr.status < 300,
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    text: xhr.responseText
+                });
+            });
+            xhr.addEventListener('error',   function () { reject(new Error('Network error during upload')); });
+            xhr.addEventListener('abort',   function () { reject(new Error('Upload aborted')); });
+            xhr.addEventListener('timeout', function () { reject(new Error('Upload timed out')); });
+
+            xhr.send(formData);
+        });
+    }
+
+    /* ── File validation (PDF & 15MB) ── */
     function validateFile(input) {
         const files = input.files;
         if (!files || files.length === 0) return true;
 
         const file = files[0];
-        // Server-published ceiling: the lower of the app's 10 MB rule and PHP's
+        // Server-published ceiling: the lower of the app's 15 MB rule and PHP's
         // upload_max_filesize, so the browser can never accept a file PHP rejects.
         const maxSize = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
-            || (10 * 1024 * 1024);
+            || (15 * 1024 * 1024);
         const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
         const allowedExt = ['pdf'];
         const fileName = file.name;
@@ -845,26 +894,33 @@
             targetAction = targetAction.replace(/^http:/, 'https:');
         }
 
+        // A submission can run to hundreds of megabytes of PDFs. fetch() reports no
+        // upload progress at all, so the applicant saw only a spinner and could not
+        // tell a slow upload from a hung one — hence duplicate submissions.
+        let uploadProgress = (window.ARMS && window.ARMS.showUploadProgress)
+            ? window.ARMS.showUploadProgress('Uploading your documents…')
+            : null;
+
         try {
             const formData = new FormData(this);
-            const response = await fetch(targetAction, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
-                body: formData,
+            const response = await postFormWithProgress(targetAction, formData, function (loaded, total) {
+                if (uploadProgress) uploadProgress.update(loaded, total);
             });
+
+            // Bytes are all sent; the server is now writing files and rows, which
+            // reports nothing back until it answers.
+            if (uploadProgress) uploadProgress.processing();
 
             // ── Parse JSON separately ──────────────────────────────────────────────
             // If the server returns an HTML error page (PHP exception, timeout, etc.)
-            // response.json() will throw. We catch it here so the outer catch block
+            // parsing will throw. We catch it here so the outer catch block
             // (which shows "Connection error") is reserved for real network failures.
             let data;
             try {
-                data = await response.json();
+                data = JSON.parse(response.text);
             } catch (jsonErr) {
                 console.error('[ARMS] Server returned non-JSON. HTTP', response.status, response.statusText);
+                if (uploadProgress) uploadProgress.fail(`Server error (${response.status}).`);
                 showTopAlert(`Server error (${response.status}). Please try again or contact support.`, 'danger');
                 return; // finally still runs to re-enable the button
             }
@@ -886,13 +942,17 @@
 
         } catch (err) {
             // Only reaches here on a true network failure (no internet, server down, CORS, scheme mismatch)
-            console.error('[ARMS] Fetch/network error:', err);
+            console.error('[ARMS] Upload/network error:', err);
             let userMsg = 'Connection error. Please check your internet connection and try again.';
             if (window.location.protocol === 'https:' && (this.action || '').startsWith('http:')) {
                 userMsg = 'Security/protocol mismatch detected (HTTP vs HTTPS). Please reload the page or contact support.';
             }
+            if (uploadProgress) uploadProgress.fail('Connection lost during upload.');
             showTopAlert(userMsg, 'danger');
         } finally {
+            // done() is a no-op after fail(), which keeps its own message on screen
+            // for a few seconds rather than having it wiped by this cleanup.
+            if (uploadProgress) uploadProgress.done();
             if (window.hidePreloader) window.hidePreloader();
             if (submitBtn) submitBtn.disabled = false;
             if (submitText) submitText.classList.remove('d-none');
@@ -1085,7 +1145,11 @@
         const badge = section._armsToggle && section._armsToggle.querySelector('.arms-collapse-count');
         if (!badge) return;
 
-        const inputs = section._armsBody.querySelectorAll('input[type="file"]');
+        // Conditionally shown uploads (Articles of Incorporation, which only
+        // applies to SEC registrations) sit in a [hidden] container. Counting
+        // them would leave the badge permanently short of its own total.
+        const inputs = Array.from(section._armsBody.querySelectorAll('input[type="file"]'))
+            .filter(input => !input.closest('[hidden]'));
         if (!inputs.length) {
             badge.textContent = '';
             return;
@@ -1198,9 +1262,11 @@
         }).observe(instructorContainer, { childList: true });
     }
 
-    // Keep the "n/m" badges honest as files are chosen or cleared.
+    // Keep the "n/m" badges honest as files are chosen or cleared, and as
+    // conditional uploads are shown or hidden by the registering-authority
+    // selector.
     registerForm.addEventListener('change', function (e) {
-        if (!e.target.matches('input[type="file"]')) return;
+        if (!e.target.matches('input[type="file"], select')) return;
         const section = e.target.closest(SECTION_SELECTOR);
         if (section) updateCount(section);
     });
@@ -1224,4 +1290,52 @@
         if (section) setExpanded(section, true);
     };
 
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   BUSINESS REGISTRATION AUTHORITY — only activates on /register
+
+   Articles of Incorporation exist only for SEC-registered
+   entities, so a DTI or CDA applicant has nothing to upload
+   there. The container stays hidden and its input un-required
+   until SEC is picked; anything already attached is cleared on
+   the way out so a hidden field can never smuggle a file into
+   the submission.
+═══════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    const select    = document.getElementById('doc_LEGAL_02_TYPE');
+    const container = document.getElementById('legal03Container');
+    if (!select || !container) return; /* not on the register page */
+
+    const input = document.getElementById('doc_LEGAL_03');
+
+    function sync() {
+        const needsArticles = select.value === 'SEC';
+        container.hidden = !needsArticles;
+        if (!input) return;
+
+        input.required = needsArticles;
+
+        if (!needsArticles && input.value) {
+            input.value = '';
+            input.classList.remove('is-invalid');
+            const wrapper  = input.closest('.file-upload-wrapper');
+            const nameSpan = wrapper && wrapper.querySelector('.file-name-text');
+            const fileBtn  = wrapper && wrapper.querySelector('.custom-file-btn');
+            if (nameSpan) {
+                nameSpan.textContent = 'No file chosen';
+                nameSpan.classList.add('text-muted');
+                nameSpan.classList.remove('text-primary', 'fw-semibold');
+            }
+            if (fileBtn) {
+                fileBtn.classList.add('btn-outline-primary');
+                fileBtn.classList.remove('btn-primary', 'text-white');
+            }
+        }
+    }
+
+    select.addEventListener('change', sync);
+    sync();
 })();

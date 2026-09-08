@@ -405,6 +405,7 @@
 .pct-step-active .pct-step-icon { color: #3b82f6; animation: pctPulse 2s ease-in-out infinite; }
 .pct-step-paused .pct-step-icon { color: #f59e0b; }
 .pct-step-pending .pct-step-icon { color: #d1d5db; }
+.pct-step-skipped .pct-step-icon { color: #d1d5db; }
 
 @keyframes pctPulse {
     0%, 100% { transform: scale(1); opacity: 1; }
@@ -435,6 +436,7 @@
     color: #374151;
 }
 .pct-step-pending .pct-step-name { color: #9ca3af; }
+.pct-step-skipped .pct-step-name { color: #9ca3af; text-decoration: line-through; }
 
 .pct-step-badge {
     font-size: .7rem;

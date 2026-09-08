@@ -15,6 +15,7 @@ class DocumentFieldSeeder extends Seeder
             // ── Type 1: Legal Requirements to Operate Business
             'LEGAL_REQ' => [
                 ['name' => 'DOLE Registration',           'code' => 'LEGAL_01', 'input_type' => 'file'],
+                ['name' => 'Business Registration Authority', 'code' => 'LEGAL_02_TYPE', 'input_type' => 'text'],
                 ['name' => 'Business Registration',       'code' => 'LEGAL_02', 'input_type' => 'file'],
                 ['name' => 'Articles of Incorporation',   'code' => 'LEGAL_03', 'input_type' => 'file'],
                 ['name' => 'Mayor\'s Permit',             'code' => 'LEGAL_04', 'input_type' => 'file'],
@@ -38,6 +39,7 @@ class DocumentFieldSeeder extends Seeder
                 ['name' => 'OSH Policy & Program',        'code' => 'PREM_03', 'input_type' => 'file'],
                 ['name' => 'Decontamination Procedures',  'code' => 'PREM_04', 'input_type' => 'file'],
                 ['name' => 'Safety Officers List',        'code' => 'PREM_05', 'input_type' => 'file'],
+                ['name' => 'BOSH SO1/SO2',                'code' => 'PREM_08', 'input_type' => 'file'],
                 ['name' => 'First-Aiders List',           'code' => 'PREM_06', 'input_type' => 'file'],
                 ['name' => 'First-Aider Certificate',      'code' => 'PREM_07', 'input_type' => 'file'],
                 ['name' => 'Certificate Validity Date',   'code' => 'PREM_DATE', 'input_type' => 'date'],

@@ -5,6 +5,8 @@
  *  1. pending > 0          → disabled · grey   · "Pending Documents (X remaining)"
  *  2. no pending, rejected > 0 → enabled · red · "Send Rejection Email (X rejected)" → POST finalize
  *  3. all approved         → enabled · green   · "Schedule Interview" → opens modal
+ *                            (renewals skip the interview: the same button finalizes
+ *                             the evaluation straight through to Awaiting Payment)
  */
 
 (function () {
@@ -13,6 +15,15 @@
     const isScheduled = window.ARMS?.isScheduled ?? false;
     const hasInterviewRecord = window.ARMS?.hasInterviewRecord ?? false;
     const allApproved = window.ARMS?.allApproved ?? false;
+    const skipsInterview = window.ARMS?.skipsInterview ?? false;
+
+    /* Label for the finalize button once everything is approved. */
+    function approvalButtonLabel() {
+        if (window.ARMS?.isApproved || window.ARMS?.isAccredited) return 'Save Approvals';
+        return skipsInterview
+            ? 'Save Approvals and Proceed to Payment'
+            : 'Save Approvals and Schedule Interview';
+    }
 
     let activeSavesCount = 0;
 
@@ -485,8 +496,7 @@
             btn.removeAttribute('data-bs-target');
             btn.onclick = submitAllApproved;
             if (btnText) {
-                const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
-                btnText.textContent = isAccepted ? 'Save Approvals' : 'Save Approvals and Schedule Interview';
+                btnText.textContent = approvalButtonLabel();
             }
         }
     }
@@ -513,7 +523,7 @@
             if (!data.success) {
                 alert(data.message || 'Submission failed. Please try again.');
                 mainBtn.disabled = false;
-                mainBtn.innerHTML = 'Save Approvals and Schedule Interview';
+                mainBtn.innerHTML = approvalButtonLabel();
                 return;
             }
 
@@ -521,7 +531,8 @@
             const statusBadge = document.getElementById('app-status-badge');
             if (statusBadge && data.new_status) {
                 statusBadge.textContent = data.new_status;
-                statusBadge.className   = 'badge fs-6 px-3 py-2 bg-primary';
+                statusBadge.className   = 'badge fs-6 px-3 py-2 '
+                    + (data.action === 'proceed_to_payment' ? 'bg-warning text-dark' : 'bg-primary');
             }
 
             showToast(data.message || 'Approvals saved!', 'success');
@@ -532,12 +543,12 @@
 
             const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
 
+            mainBtn.textContent = 'Approvals Saved';
             if (isAccepted || data.action === 'update_accepted') {
                 // Instructor credential update accepted — just reload, no interview needed
-                mainBtn.textContent = 'Approvals Saved';
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                mainBtn.textContent = 'Approvals Saved';
+                // Covers both 'proceed_to_interview' and, for renewals, 'proceed_to_payment'
                 setTimeout(() => {
                     window.location.reload();
                 }, 1000);
@@ -547,8 +558,7 @@
             console.error('Approval submission error:', err);
             alert('A network error occurred. Please try again.');
             mainBtn.disabled = false;
-            const isAccepted = window.ARMS?.isApproved || window.ARMS?.isAccredited;
-            mainBtn.textContent = isAccepted ? 'Save Approvals' : 'Save Approvals and Schedule Interview';
+            mainBtn.textContent = approvalButtonLabel();
         }
     }
 

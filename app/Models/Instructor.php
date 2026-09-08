@@ -17,6 +17,7 @@ class Instructor extends Model
         'last_name',
         'ins_sex',
         'service_agreement_path',
+        'cv_path',
         'status',
         'remarks',
         'update_request_status',
@@ -80,13 +81,25 @@ class Instructor extends Model
         $query = static::where('user_id', $userId)->with('credentials');
 
         if ($accreditedApplicationId) {
-            $query->where('application_id', $accreditedApplicationId);
+            $query->where(function ($q) use ($accreditedApplicationId) {
+                $q->where('application_id', $accreditedApplicationId)
+                    // An instructor added from the portal is attached to the
+                    // application currently under evaluation, which is not the
+                    // accredited one during a renewal. Keep them visible to the
+                    // FATPro while they wait for the evaluator.
+                    ->orWhere('update_request_status', 'pending_review');
+            });
         } else {
             // No accreditation yet (first-time applicant): there is no accredited
             // roster to scope to, so fall back to whatever has been evaluated
-            // rather than showing an empty list.
-            $query->where('status', '!=', 'pending')
-                ->whereDoesntHave('credentials', fn ($q) => $q->where('status', 'pending'));
+            // rather than showing an empty list — plus anything the FATPro has
+            // deliberately submitted for review from the portal.
+            $query->where(function ($q) {
+                $q->where(function ($evaluated) {
+                    $evaluated->where('status', '!=', 'pending')
+                        ->whereDoesntHave('credentials', fn ($c) => $c->where('status', 'pending'));
+                })->orWhere('update_request_status', 'pending_review');
+            });
         }
 
         return $query->orderBy('id', 'desc')

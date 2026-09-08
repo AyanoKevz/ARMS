@@ -149,8 +149,129 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    /** Injected once, for the indeterminate sweep shown while the server works. */
+    function ensureProgressStyles() {
+        if (document.getElementById('armsProgressStyles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'armsProgressStyles';
+        style.textContent =
+            '@keyframes armsIndeterminate{' +
+            '0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}';
+        document.head.appendChild(style);
+    }
+
+    /**
+     * Bottom-right upload progress card.
+     *
+     * A registration can carry a couple of hundred megabytes across dozens of
+     * PDFs; with only a spinner on the submit button there is nothing to
+     * distinguish "still uploading" from "frozen", and applicants resubmit.
+     *
+     * Returns a handle:
+     *   update(loaded, total) — bytes sent so far
+     *   processing()          — upload finished, server still working
+     *   done() / fail(msg)    — terminal states
+     */
+    function showUploadProgress(title) {
+        ensureProgressStyles();
+
+        const container = getToastContainer();
+        const style = TOAST_STYLES.info;
+
+        const card = document.createElement('div');
+        card.setAttribute('role', 'status');
+        card.setAttribute('aria-live', 'polite');
+        card.style.cssText = [
+            'pointer-events:auto',
+            'padding:.75rem .9rem',
+            'border-radius:.5rem',
+            'font-size:.87rem',
+            'line-height:1.35',
+            'box-shadow:0 .5rem 1rem rgba(0,0,0,.15)',
+            'background:' + style.bg,
+            'border:1px solid ' + style.border,
+            'color:' + style.text,
+            'min-width:16rem'
+        ].join(';');
+
+        const label = document.createElement('div');
+        label.style.cssText = 'font-weight:600;margin-bottom:.4rem';
+        label.textContent = title || 'Uploading files…';
+
+        const track = document.createElement('div');
+        track.setAttribute('role', 'progressbar');
+        track.setAttribute('aria-valuemin', '0');
+        track.setAttribute('aria-valuemax', '100');
+        track.style.cssText =
+            'height:.4rem;border-radius:.2rem;background:rgba(0,0,0,.12);overflow:hidden';
+
+        const fill = document.createElement('div');
+        fill.style.cssText =
+            'height:100%;width:0%;border-radius:.2rem;background:' + style.text + ';transition:width .2s ease';
+
+        const detail = document.createElement('div');
+        detail.style.cssText = 'margin-top:.35rem;font-size:.78rem;opacity:.85';
+        detail.textContent = 'Preparing…';
+
+        track.appendChild(fill);
+        card.appendChild(label);
+        card.appendChild(track);
+        card.appendChild(detail);
+        container.appendChild(card);
+
+        let removed = false;
+        let failed  = false;
+
+        function remove() {
+            if (removed) return;
+            removed = true;
+            card.style.transition = 'opacity .25s ease';
+            card.style.opacity = '0';
+            setTimeout(() => card.remove(), 250);
+        }
+
+        return {
+            update(loaded, total) {
+                if (removed || !total) return;
+                const percent = Math.min(100, Math.round((loaded / total) * 100));
+                fill.style.animation = '';
+                fill.style.width = percent + '%';
+                track.setAttribute('aria-valuenow', String(percent));
+                detail.textContent = percent + '% — ' + formatBytes(loaded) + ' of ' + formatBytes(total);
+            },
+            processing() {
+                if (removed) return;
+                label.textContent = 'Upload complete — processing…';
+                // Indeterminate: the server gives no progress to report, and a bar
+                // parked at 100% reads as hung.
+                track.removeAttribute('aria-valuenow');
+                fill.style.width = '25%';
+                fill.style.animation = 'armsIndeterminate 1.2s ease-in-out infinite';
+                detail.textContent = 'Saving your documents. Please keep this tab open.';
+            },
+            // No-op after fail(), so a caller's finally-block cleanup cannot wipe
+            // the error message off the screen before anyone reads it.
+            done() {
+                if (failed) return;
+                remove();
+            },
+            fail(message) {
+                if (removed) return;
+                failed = true;
+                fill.style.animation = '';
+                fill.style.width = '100%';
+                fill.style.background = TOAST_STYLES.danger.text;
+                label.textContent = 'Upload failed';
+                detail.textContent = message || 'Please try again.';
+                setTimeout(remove, 6000);
+            }
+        };
+    }
+
     window.ARMS = window.ARMS || {};
     window.ARMS.showToast = showToast;
+    window.ARMS.showUploadProgress = showUploadProgress;
     window.ARMS.formatBytes = formatBytes;
     window.ARMS.limits = {
         // Conservative fallbacks matching a stock PHP install, used only if the

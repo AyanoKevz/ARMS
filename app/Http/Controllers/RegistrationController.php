@@ -29,8 +29,10 @@ use Illuminate\Validation\Rules\Password;
 
 class RegistrationController extends Controller
 {
-    // Credential types with their required fields
-    private const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+    // Credential types with their required fields.
+    // Public so the FATPRO portal's "Add Instructor" form validates against the
+    // same list registration does instead of keeping a second copy of it.
+    public const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC'];
 
     // ─────────────────────────────────────────────────────────────
     //  POST /register  — Save pending data, send verification email
@@ -56,13 +58,19 @@ class RegistrationController extends Controller
         foreach ($documentFields as $code => $field) {
             $key = "documents.{$code}";
             if ($field->input_type === 'file') {
-                $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:15360'];
             } elseif ($field->input_type === 'date') {
                 $documentRules[$key] = ['nullable', 'date'];
             } elseif ($field->input_type === 'text') {
                 $documentRules[$key] = ['nullable', 'string', 'max:500'];
             }
         }
+
+        // Business registration authority drives the Articles of Incorporation
+        // requirement: only SEC-registered entities have one to submit, and the
+        // form hides that upload entirely for DTI and CDA.
+        $documentRules['documents.LEGAL_02_TYPE'] = ['required', 'in:DTI,SEC,CDA'];
+        $documentRules['documents.LEGAL_03']      = ['required_if:documents.LEGAL_02_TYPE,SEC', 'nullable', 'file', 'mimes:pdf', 'max:15360'];
 
         // ── Build instructor validation rules ──────────────────────
         $instructorRules = [];
@@ -75,18 +83,16 @@ class RegistrationController extends Controller
                 $instructorRules["instructors.{$i}.last_name"]   = ['required', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.sex"]         = ['required', 'in:Male,Female'];
 
-                // Service agreement PDF (nullable)
-                $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                // Service agreement and CV PDFs (nullable)
+                $instructorRules["instructors.{$i}.service_agreement"] = ['nullable', 'file', 'mimes:pdf', 'max:15360'];
+                $instructorRules["instructors.{$i}.cv"]                = ['nullable', 'file', 'mimes:pdf', 'max:15360'];
 
                 foreach (self::CREDENTIAL_TYPES as $type) {
                     $base = "instructors.{$i}.credentials.{$type}";
                     $instructorRules["{$base}.number"]         = ['nullable', 'string', 'max:255'];
                     $instructorRules["{$base}.issued_date"]    = ['nullable', 'date'];
                     $instructorRules["{$base}.validity_date"]  = ['nullable', 'date'];
-                    $instructorRules["{$base}.pdf"]            = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
-                    if ($type === 'BOSH') {
-                        $instructorRules["{$base}.training_dates"] = ['nullable', 'string', 'max:500'];
-                    }
+                    $instructorRules["{$base}.pdf"]            = ['nullable', 'file', 'mimes:pdf', 'max:15360'];
                 }
             }
         }
@@ -171,6 +177,7 @@ class RegistrationController extends Controller
                 'last_name'   => $inst['last_name']   ?? '',
                 'sex'         => $inst['sex']         ?? null,
                 'service_agreement_path' => null,
+                'cv_path'     => null,
                 'credentials' => [],
             ];
 
@@ -184,6 +191,16 @@ class RegistrationController extends Controller
                 );
             }
 
+            // CV / resume PDF
+            if ($request->hasFile("instructors.{$i}.cv")) {
+                $file = $request->file("instructors.{$i}.cv");
+                $entry['cv_path'] = $file->storeAs(
+                    "pending/{$token}/instructors/{$i}",
+                    'cv.pdf',
+                    'local'
+                );
+            }
+
             // Credentials
             foreach (self::CREDENTIAL_TYPES as $type) {
                 $cred = $inst['credentials'][$type] ?? [];
@@ -191,7 +208,6 @@ class RegistrationController extends Controller
                     'number'         => $cred['number']         ?? null,
                     'issued_date'    => $cred['issued_date']    ?? null,
                     'validity_date'  => $cred['validity_date']  ?? null,
-                    'training_dates' => $cred['training_dates'] ?? null,
                     'pdf_path'       => null,
                 ];
 
@@ -207,8 +223,7 @@ class RegistrationController extends Controller
 
                 // Only store if at least one field is populated
                 $hasData = ($credEntry['number'] || $credEntry['issued_date']
-                    || $credEntry['validity_date'] || $credEntry['training_dates']
-                    || $credEntry['pdf_path']);
+                    || $credEntry['validity_date'] || $credEntry['pdf_path']);
 
                 if ($hasData) {
                     $entry['credentials'][$type] = $credEntry;
@@ -449,6 +464,13 @@ class RegistrationController extends Controller
                         Storage::disk('local')->move($instData['service_agreement_path'], $saPermanent);
                     }
 
+                    // Move CV / resume PDF
+                    $cvPermanent = null;
+                    if ($instData['cv_path'] ?? null) {
+                        $cvPermanent = "{$baseCredPath}/cv_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+                        Storage::disk('local')->move($instData['cv_path'], $cvPermanent);
+                    }
+
                     $instructor = Instructor::create([
                         'user_id'                => $user->id,
                         'application_id'         => $application->id,
@@ -457,6 +479,7 @@ class RegistrationController extends Controller
                         'last_name'              => $instData['last_name']   ?? '',
                         'ins_sex'                => $instData['sex']         ?? null,
                         'service_agreement_path' => $saPermanent,
+                        'cv_path'                => $cvPermanent,
                     ]);
 
                     foreach ($instData['credentials'] ?? [] as $type => $credData) {
@@ -473,7 +496,6 @@ class RegistrationController extends Controller
                             'number'         => $credData['number']         ?? null,
                             'issued_date'    => $credData['issued_date']    ?? null,
                             'validity_date'  => $credData['validity_date']  ?? null,
-                            'training_dates' => $credData['training_dates'] ?? null,
                             'pdf_path'       => $credPermanent,
                         ]);
                     }

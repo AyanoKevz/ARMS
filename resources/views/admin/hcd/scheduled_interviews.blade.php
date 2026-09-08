@@ -107,6 +107,7 @@
                                      <th class="column-title text-center">Interview Time</th>
                                      <th class="column-title text-center">Mode</th>
                                      <th class="column-title">Venue</th>
+                                     <th class="column-title">In-Charge</th>
                                      <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                  </tr>
                              </thead>
@@ -162,6 +163,7 @@
                                          @endif
                                      </td>
                                      <td>{{ $schedule?->venue ?? '—' }}</td>
+                                     <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                      <td class="last text-center">
                                          <a href="{{ route('admin.hcd.applications.show', $app->id) }}"
                                              class="btn btn-info btn-xs m-0 fw-bold">

@@ -56,6 +56,7 @@
                                     <th class="column-title">FATPro Name</th>
                                     <th class="column-title">Date Submitted</th>
                                     <th class="column-title">Date Archived</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -88,6 +89,7 @@
                                         <td>{{ $displayName }}</td>
                                         <td data-order="{{ $app->created_at->format('Y-m-d') }}">{{ $app->created_at->format('M d, Y') }}</td>
                                         <td data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
+                                        <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center">
                                             @if($isAccredited || $latestName === 'Approved')
                                                 <span class="badge bg-success text-white">Approved</span>

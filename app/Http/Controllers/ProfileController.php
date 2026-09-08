@@ -17,9 +17,10 @@ class ProfileController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $isAdmin = ($user->role && strtolower($user->role->name) === 'admin');
 
         // Load the relationship based on profile type
-        if ($user->role && strtolower($user->role->name) === 'admin') {
+        if ($isAdmin) {
             $user->load(['adminProfile.division', 'adminProfile.adminRole']);
             $profile = $user->adminProfile;
             $layout = 'layouts.admin';
@@ -33,8 +34,14 @@ class ProfileController extends Controller
             $layout = 'layouts.applicant';
         }
 
-        $readOnly = false;
-        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly'));
+        // FATPro applicants view their own details but cannot change them: their
+        // organisation/individual particulars are what the accreditation was granted
+        // against, so corrections go through an application, not a self-service edit.
+        // Password changes stay available — see $canChangePassword.
+        $readOnly = ! $isAdmin;
+        $canChangePassword = true;
+
+        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly', 'canChangePassword'));
     }
 
     /**
@@ -68,7 +75,9 @@ class ProfileController extends Controller
         }
 
         $readOnly = true;
-        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly'));
+        $canChangePassword = false; // someone else's profile
+
+        return view('layouts.profile', compact('user', 'profile', 'layout', 'readOnly', 'canChangePassword'));
     }
 
     /**
@@ -78,6 +87,10 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
         $isAdmin = ($user->role && strtolower($user->role->name) === 'admin');
+
+        // The FATPro profile page is read-only (see index()); reject a hand-crafted
+        // POST too, rather than trusting the disabled inputs to hold the line.
+        abort_unless($isAdmin, 403, 'Your profile details cannot be edited from this portal.');
 
         // Base validation rules
         $rules = [

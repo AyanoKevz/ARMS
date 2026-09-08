@@ -3,9 +3,14 @@
 namespace App\Http\Controllers\Applicant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\RegistrationController;
+use App\Models\Application;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class InstructorController extends Controller
@@ -18,7 +23,240 @@ class InstructorController extends Controller
         // Shared with the applicant dashboard so both pages show the same roster.
         $instructors = Instructor::accreditedRosterFor(auth()->id());
 
-        return view('applicant.instructor_list', compact('instructors'));
+        // Ids the minimum-roster rule allows removing, resolved here so the view
+        // stays free of the branching.
+        $deletableIds = $instructors
+            ->filter(fn ($instructor) => $this->isDeletable($instructor, $instructors))
+            ->pluck('id')
+            ->all();
+
+        $credentialTypes = RegistrationController::CREDENTIAL_TYPES;
+
+        return view('applicant.instructor_list', compact('instructors', 'deletableIds', 'credentialTypes'));
+    }
+
+    /**
+     * Add a new instructor to the roster from the FATPRO portal.
+     *
+     * Allowed at any time, including while an accreditation or renewal is still
+     * being evaluated: the instructor is filed against the application currently
+     * under evaluation and follows the same review path as one submitted with a
+     * new or renewal application.
+     */
+    public function store(Request $request)
+    {
+        $userId = auth()->id();
+        $credentialTypes = RegistrationController::CREDENTIAL_TYPES;
+
+        $rules = [
+            'first_name'        => ['required', 'string', 'max:255'],
+            'middle_name'       => ['nullable', 'string', 'max:255'],
+            'last_name'         => ['required', 'string', 'max:255'],
+            'ins_sex'           => ['required', 'in:Male,Female'],
+            // 15 MB per file, the same ceiling the new and renewal applications
+            // use for instructor uploads. PDF is enforced twice: by extension and
+            // by the file's real MIME type.
+            'service_agreement' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:15360'],
+            'cv'                => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:15360'],
+        ];
+
+        foreach ($credentialTypes as $type) {
+            $rules["credentials.{$type}.number"]        = ['required', 'string', 'max:255'];
+            $rules["credentials.{$type}.issued_date"]   = ['required', 'date'];
+            $rules["credentials.{$type}.validity_date"] = ['required', 'date'];
+            $rules["credentials.{$type}.pdf"]           = ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:15360'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $application = Application::with('accreditationType')
+            ->where('user_id', $userId)
+            ->latest()
+            ->first();
+
+        if (!$application) {
+            return redirect()->route('applicant.instructors.index')
+                ->with('error', 'You have no application on record yet, so an instructor cannot be added.');
+        }
+
+        [$baseCredPath, $timestamp] = $this->credentialStoragePath($application);
+        $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $validated['first_name']));
+        $instLast  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $validated['last_name']));
+
+        $instructor = DB::transaction(function () use ($request, $validated, $application, $userId, $credentialTypes, $baseCredPath, $timestamp, $instFirst, $instLast) {
+            $saPath = $request->file('service_agreement')
+                ->storeAs($baseCredPath, "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
+            $cvPath = $request->file('cv')
+                ->storeAs($baseCredPath, "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
+
+            $instructor = Instructor::create([
+                'user_id'                => $userId,
+                'application_id'         => $application->id,
+                'first_name'             => $validated['first_name'],
+                'middle_name'            => $validated['middle_name'] ?? null,
+                'last_name'              => $validated['last_name'],
+                'ins_sex'                => $validated['ins_sex'],
+                'service_agreement_path' => $saPath,
+                'cv_path'                => $cvPath,
+                'status'                 => 'pending',
+                'update_request_status'  => 'pending_review',
+                'update_request_fields'  => array_merge(['service_agreement', 'cv'], $credentialTypes),
+            ]);
+
+            foreach ($credentialTypes as $type) {
+                $typeClean = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $type));
+                $credPath = $request->file("credentials.{$type}.pdf")->storeAs(
+                    $baseCredPath,
+                    "{$typeClean}_{$instFirst}_{$instLast}_{$timestamp}.pdf",
+                    'local'
+                );
+
+                InstructorCredential::create([
+                    'instructor_id' => $instructor->id,
+                    'type'          => $type,
+                    'number'        => $validated['credentials'][$type]['number'],
+                    'issued_date'   => $validated['credentials'][$type]['issued_date'],
+                    'validity_date' => $validated['credentials'][$type]['validity_date'],
+                    'pdf_path'      => $credPath,
+                    'status'        => 'pending',
+                ]);
+            }
+
+            return $instructor;
+        });
+
+        // Same notification the instructor update flow sends: the assigned
+        // evaluator is the one who reviews the submitted files.
+        $this->notifyAssignedEvaluator(
+            $application,
+            fn () => new \App\Mail\AdminDocumentsUploadedEmail(
+                $application,
+                count($credentialTypes) + 2,
+                true,
+                $instructor
+            ),
+            'New instructor notification'
+        );
+
+        return redirect()->route('applicant.instructors.index')
+            ->with('success', 'Instructor added and submitted for admin review.');
+    }
+
+    /**
+     * Remove an instructor, their credentials and every uploaded file.
+     *
+     * The files are deleted outright rather than left orphaned on disk, since an
+     * abandoned roster entry keeps its PDFs on the host forever otherwise.
+     */
+    public function destroy(Instructor $instructor)
+    {
+        abort_if($instructor->user_id !== auth()->id(), 403);
+
+        $roster = Instructor::accreditedRosterFor(auth()->id());
+
+        if (!$this->isDeletable($instructor, $roster)) {
+            return redirect()->route('applicant.instructors.index')
+                ->with('error', 'You must keep at least one instructor on your roster, so this instructor cannot be removed.');
+        }
+
+        $instructor->load('credentials');
+
+        $application = Application::with('accreditationType')
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->first();
+
+        $removedName = trim("{$instructor->first_name} {$instructor->middle_name} {$instructor->last_name}");
+        $wasApproved = $instructor->status === 'approved';
+
+        $filePaths = $instructor->credentials->pluck('pdf_path')
+            ->push($instructor->service_agreement_path)
+            ->push($instructor->cv_path)
+            ->filter()
+            ->all();
+
+        DB::transaction(function () use ($instructor) {
+            $instructor->credentials()->delete();
+            $instructor->delete();
+        });
+
+        // Files go after the rows commit: a missing file must not roll back or
+        // fail a removal that has already been agreed to.
+        foreach ($filePaths as $path) {
+            try {
+                if (Storage::disk('local')->exists($path)) {
+                    Storage::disk('local')->delete($path);
+                }
+            } catch (\Exception $e) {
+                Log::warning("Instructor file cleanup failed for {$path}: " . $e->getMessage());
+            }
+        }
+
+        if ($application) {
+            $this->notifyAssignedEvaluator(
+                $application,
+                fn () => new \App\Mail\InstructorRemovedEmail($application, $removedName, $wasApproved),
+                'Instructor removal notification'
+            );
+        }
+
+        return redirect()->route('applicant.instructors.index')
+            ->with('success', "{$removedName} has been removed from your instructor roster.");
+    }
+
+    /**
+     * Whether the minimum-roster rule allows removing this instructor.
+     *
+     * A FATPro must always keep one instructor, and only an approved one counts
+     * toward that minimum — a pending submission is not yet a roster member.
+     * When nothing is approved yet (a first accreditation still under review),
+     * the rule falls back to "keep one row", otherwise an instructor added by
+     * mistake could never be taken back out.
+     */
+    private function isDeletable(Instructor $instructor, $roster): bool
+    {
+        $approvedCount = $roster->where('status', 'approved')->count();
+
+        if ($approvedCount === 0) {
+            return $roster->count() > 1;
+        }
+
+        return !($instructor->status === 'approved' && $approvedCount === 1);
+    }
+
+    /**
+     * Storage folder for this FATPro's instructor files, matching the layout
+     * registration and the instructor update flow already write to.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function credentialStoragePath(Application $application): array
+    {
+        $accreditationName = $application->accreditationType->name ?? 'Unknown';
+        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', auth()->user()->name)) ?: 'unknown';
+
+        return ["public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials", time()];
+    }
+
+    /**
+     * Mail the evaluator assigned to this application, logging (never throwing)
+     * when there is no evaluator or the send fails.
+     */
+    private function notifyAssignedEvaluator(Application $application, callable $mailableFactory, string $context): void
+    {
+        try {
+            $application->loadMissing(['assignedEvaluator', 'user', 'accreditationType']);
+            $assignedEvaluatorEmail = $application->assignedEvaluator?->email;
+
+            if ($assignedEvaluatorEmail) {
+                Mail::to($assignedEvaluatorEmail)->send($mailableFactory());
+            } else {
+                Log::warning("{$context} skipped: application {$application->tracking_number} has no assigned evaluator.");
+            }
+        } catch (\Exception $mailEx) {
+            Log::warning("{$context} email failed: " . $mailEx->getMessage());
+        }
     }
 
     /**
@@ -77,18 +315,18 @@ class InstructorController extends Controller
         }
 
         $rules = [
-            'service_agreement' => 'nullable|file|mimes:pdf|max:10240',
+            'service_agreement' => 'nullable|file|mimes:pdf|max:15360',
+            'cv' => 'nullable|file|mimes:pdf|max:15360',
             'credentials.*.number' => 'nullable|string|max:255',
             'credentials.*.issued_date' => 'nullable|date',
             'credentials.*.validity_date' => 'nullable|date',
-            'credentials.*.training_dates' => 'nullable|string|max:500',
-            'credentials.*.pdf_file' => 'nullable|file|mimes:pdf|max:10240',
+            'credentials.*.pdf_file' => 'nullable|file|mimes:pdf|max:15360',
         ];
 
         $request->validate($rules);
 
         // Guard 2: Require at least one uploaded file or modified credential field
-        $hasAnyFile = $request->hasFile('service_agreement');
+        $hasAnyFile = $request->hasFile('service_agreement') || $request->hasFile('cv');
         $hasAnyFieldChange = false;
 
         if ($request->has('credentials')) {
@@ -107,9 +345,6 @@ class InstructorController extends Controller
                     }
                     $existingValid = $credential->validity_date ? $credential->validity_date->format('Y-m-d') : '';
                     if (isset($credData['validity_date']) && trim((string)$credData['validity_date']) !== $existingValid) {
-                        $hasAnyFieldChange = true;
-                    }
-                    if (isset($credData['training_dates']) && trim((string)$credData['training_dates']) !== trim((string)$credential->training_dates)) {
                         $hasAnyFieldChange = true;
                     }
                 }
@@ -156,6 +391,25 @@ class InstructorController extends Controller
             }
         }
 
+        // 1b. Handle CV / Resume Update
+        if ($request->hasFile('cv')) {
+            if ($instructor->cv_path && Storage::disk('local')->exists($instructor->cv_path)) {
+                Storage::disk('local')->delete($instructor->cv_path);
+            }
+            $filename = "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+            $path = $request->file('cv')->storeAs($baseCredPath, $filename, 'local');
+
+            $instructor->update([
+                'cv_path' => $path,
+                'status'  => 'pending',
+                'remarks' => null,
+            ]);
+
+            if (!in_array('cv', $updatedFields)) {
+                $updatedFields[] = 'cv';
+            }
+        }
+
         // 2. Handle Credentials Update
         if ($request->has('credentials')) {
             foreach ($request->input('credentials') as $credId => $credData) {
@@ -180,14 +434,7 @@ class InstructorController extends Controller
                     $validChanged = ($newValid !== $existingValid);
                 }
 
-                $trainingChanged = false;
-                if (isset($credData['training_dates'])) {
-                    $existingTraining = trim((string)($credential->training_dates ?? ''));
-                    $newTraining = trim((string)$credData['training_dates']);
-                    $trainingChanged = ($newTraining !== $existingTraining);
-                }
-
-                $isCredUpdated = $hasFile || $numberChanged || $issuedChanged || $validChanged || $trainingChanged;
+                $isCredUpdated = $hasFile || $numberChanged || $issuedChanged || $validChanged;
 
                 // Skip unchanged credentials so their status remains intact (e.g. approved)
                 if (!$isCredUpdated) {
@@ -198,7 +445,6 @@ class InstructorController extends Controller
                     'number'         => $credData['number'] ?? $credential->number,
                     'issued_date'    => $credData['issued_date'] ?? $credential->issued_date,
                     'validity_date'  => $credData['validity_date'] ?? $credential->validity_date,
-                    'training_dates' => $credData['training_dates'] ?? $credential->training_dates,
                     'status'         => 'pending', // Reset for admin re-review ONLY if updated
                     'remarks'        => null,
                 ];
@@ -278,6 +524,23 @@ class InstructorController extends Controller
         return response()->file(Storage::disk('local')->path($instructor->service_agreement_path), [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . basename($instructor->service_agreement_path) . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Serve this applicant's own instructor CV / resume PDF.
+     */
+    public function serveCv(Instructor $instructor)
+    {
+        abort_if($instructor->user_id !== auth()->id(), 403);
+        abort_if(!$instructor->cv_path || !Storage::disk('local')->exists($instructor->cv_path), 404);
+
+        return response()->file(Storage::disk('local')->path($instructor->cv_path), [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . basename($instructor->cv_path) . '"',
             'Cache-Control'       => 'no-cache, no-store, must-revalidate',
             'Pragma'              => 'no-cache',
             'Expires'             => '0',

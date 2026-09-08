@@ -92,10 +92,10 @@
                     $reasons = json_decode($instructor->update_request_reason, true);
                     $fieldLabels = [
                         'service_agreement' => 'Service Agreement',
+                        'cv'   => 'CV / Resume',
                         'EMS'  => 'TESDA EMS NC II or III Certificate',
                         'TM1'  => 'TESDA Trainers Methodology Certificate 1',
                         'NTTC' => 'TESDA National TVET Trainer Certificate',
-                        'BOSH' => 'BOSH SO1 or SO2 Certificate',
                     ];
                 @endphp
                 @if(is_array($reasons))
@@ -209,7 +209,83 @@
                         </div>
                         <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Uploading will replace the existing file and submit for admin re-review (max 10MB).
+                            Uploading will replace the existing file and submit for admin re-review (max 15MB).
+                        </small>
+                    </div>
+                    @endif
+
+                </div>
+            </div>
+
+            {{-- ── CV / Resume ──
+                 Its own card, but it shares the instructor row's status: the admin
+                 evaluates the person, not each of their two files separately. --}}
+            <div class="cred-card">
+                <div class="cred-header">
+                    <h6><i class="bi bi-file-earmark-person me-2"></i> CV / Resume</h6>
+                    @php
+                        $cvStatus = $instructor->status;
+                        if (in_array('cv', $requestedFields)) {
+                            if ($instructor->update_request_status === 'admin_requested') {
+                                $cvStatus = 'update requested';
+                            } elseif ($instructor->update_request_status === 'pending_review') {
+                                $cvStatus = 'pending review';
+                            }
+                        }
+                        $cvColor = match($cvStatus) {
+                            'approved' => 'badge-approved',
+                            'returned' => 'badge-returned',
+                            'rejected' => 'badge-rejected',
+                            default    => 'badge-pending',
+                        };
+                    @endphp
+                    <span class="badge {{ $cvColor }}">{{ ucwords($cvStatus) }}</span>
+                </div>
+                <div class="cred-body">
+                    <div class="info-row">
+                        <div class="info-item">
+                            <div class="info-label">File</div>
+                            <div class="info-val">
+                                @if($instructor->cv_path)
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <span class="text-muted" style="font-size:0.82rem;">
+                                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i>
+                                            {{ basename($instructor->cv_path) }}
+                                        </span>
+                                        <a href="{{ route('applicant.instructors.cv.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp }}"
+                                           data-file-modal data-file-title="CV / Resume – {{ $instructor->first_name }} {{ $instructor->last_name }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye me-1"></i> View PDF
+                                        </a>
+                                    </div>
+                                @else
+                                    <span class="text-muted fst-italic">No file uploaded</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Same gate as the service agreement, since both belong to the
+                         instructor record rather than to a credential. --}}
+                    @if($isAccredited || ($instructor->update_request_status === 'admin_requested' && in_array('cv', $requestedFields)))
+                    @php
+                        $isCvRequested = in_array('cv', $requestedFields);
+                        $isCvRequired  = $isCvRequested || !$instructor->cv_path;
+                    @endphp
+                    <div class="update-section mt-2">
+                        <label class="form-label mb-1">Replace / Upload CV / Resume PDF @if($isCvRequired)<span class="text-danger">*</span>@else (optional)@endif</label>
+                        <div class="file-upload-wrapper mt-1">
+                            <input class="real-file-input visually-hidden" type="file" name="cv" id="cv" accept=".pdf" {{ $isCvRequired ? 'required' : '' }}>
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="cv" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
+                                    <i class="fas fa-upload me-1"></i> Choose PDF
+                                </label>
+                                <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 250px;">No file chosen</span>
+                            </div>
+                            <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                        </div>
+                        <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Uploading will replace the existing file and submit for admin re-review (max 15MB).
                         </small>
                     </div>
                     @endif
@@ -223,7 +299,6 @@
                     'EMS'  => 'TESDA Emergency Medical Services NC II or III',
                     'TM1'  => 'TESDA Trainers Methodology Certificate 1',
                     'NTTC' => 'TESDA National TVET Trainer Certificate',
-                    'BOSH' => 'BOSH SO1 or SO2 Certificate',
                 ];
             @endphp
 
@@ -269,13 +344,11 @@
                             <div class="info-val">{{ $credential->number }}</div>
                         </div>
                         @endif
-                        @if($credential->type !== 'BOSH')
-                            @if($credential->issued_date)
-                            <div class="info-item">
-                                <div class="info-label">Issued Date</div>
-                                <div class="info-val">{{ \Carbon\Carbon::parse($credential->issued_date)->format('F d, Y') }}</div>
-                            </div>
-                            @endif
+                        @if($credential->issued_date)
+                        <div class="info-item">
+                            <div class="info-label">Issued Date</div>
+                            <div class="info-val">{{ \Carbon\Carbon::parse($credential->issued_date)->format('F d, Y') }}</div>
+                        </div>
                         @endif
                         @if($credential->validity_date)
                         <div class="info-item">
@@ -284,12 +357,6 @@
                                 {{ \Carbon\Carbon::parse($credential->validity_date)->format('F d, Y') }}
                                 @if($isExpired) (Expired) @endif
                             </div>
-                        </div>
-                        @endif
-                        @if($credential->type === 'BOSH' && $credential->training_dates)
-                        <div class="info-item">
-                            <div class="info-label">Training Date(s)</div>
-                            <div class="info-val">{{ $credential->training_dates }}</div>
                         </div>
                         @endif
                         <div class="info-item">
@@ -326,26 +393,16 @@
                                 <input type="text" name="credentials[{{ $credential->id }}][number]" class="form-control form-control-sm"
                                        value="{{ old('credentials.'.$credential->id.'.number', $credential->number) }}" placeholder="e.g. TESDA-2024-0001">
                             </div>
-                            @if($credential->type !== 'BOSH')
                             <div class="col-md-4">
                                 <label class="form-label">Issued Date</label>
                                 <input type="date" name="credentials[{{ $credential->id }}][issued_date]" class="form-control form-control-sm"
                                        value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}">
                             </div>
-                            @endif
                             <div class="col-md-4">
                                 <label class="form-label">Valid Until</label>
                                 <input type="date" name="credentials[{{ $credential->id }}][validity_date]" class="form-control form-control-sm"
                                        value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}">
                             </div>
-                            @if($credential->type === 'BOSH')
-                            <div class="col-md-8">
-                                <label class="form-label">Training Date(s)</label>
-                                <input type="text" name="credentials[{{ $credential->id }}][training_dates]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.training_dates', $credential->training_dates) }}"
-                                       placeholder="e.g. April 10-14, 2024">
-                            </div>
-                            @endif
                         </div>
                         <label class="form-label mb-1">Replace / Upload Credential PDF @if($isCredRequired)<span class="text-danger">*</span>@else (optional) @endif</label>
                         <div class="file-upload-wrapper mt-1">
@@ -360,7 +417,7 @@
                         </div>
                         <small class="text-muted mt-2 d-block" style="font-size: 0.75rem;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Saving will reset this credential to <strong>Pending</strong> for admin re-review (max 10MB).
+                            Saving will reset this credential to <strong>Pending</strong> for admin re-review (max 15MB).
                         </small>
                     </div>
                     @endif

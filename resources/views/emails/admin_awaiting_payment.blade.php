@@ -16,7 +16,7 @@
         Hello Accreditation Division Verifier,
     </p>
     <p>
-        The applicant has passed the evaluator interview and is now ready for Recommendation Letter signature and Payment review. Please log into the portal to review this application.
+        The applicant has passed {{ $application->skipsInterview() ? 'the document evaluation (renewals require no interview)' : 'the evaluator interview' }} and is now ready for Recommendation Letter signature and Payment review. Please log into the portal to review this application.
     </p>
 
     <div class="tracking-card">

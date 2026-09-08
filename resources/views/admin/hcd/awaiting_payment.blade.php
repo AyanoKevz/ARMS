@@ -62,13 +62,17 @@
                 
                 <div class="x_content">
                     <div class="table-responsive">
-                        <table id="awaiting_payment_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-date-index="4">
+                        {{-- data-date-index tracks the Passed Date column; it moved to 6
+                             when Accreditation Type and In-Charge were inserted before it. --}}
+                        <table id="awaiting_payment_table" class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table" style="width:100%" data-date-index="6">
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
                                     <th class="column-title">FATPro Name</th>
+                                    <th class="column-title">Accreditation Type</th>
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Email</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Passed Date</th>
                                     <th class="column-title text-center no-sort">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
@@ -93,8 +97,10 @@
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
                                         </td>
+                                        <td>{{ $app->accreditationType->name ?? '—' }}</td>
                                         <td>{{ $org->head_name ?? '—' }}</td>
                                         <td>{{ $app->user->email }}</td>
+                                        <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center" data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
                                         <td class="text-center">
                                             @php

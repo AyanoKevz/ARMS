@@ -13,6 +13,8 @@ use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use App\Models\UserDocument;
 use App\Services\CacheService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,15 +28,17 @@ use App\Services\PctService;
 class RenewalController extends Controller
 {
     // Credential types with their required fields
-    private const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+    private const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC'];
 
     // Required document field codes
+    // LEGAL_03 (Articles of Incorporation) is deliberately absent: it is required
+    // only when LEGAL_02_TYPE is SEC, which is resolved per-request below.
     private const REQUIRED_DOCUMENT_FIELDS = [
-        'LEGAL_01', 'LEGAL_02', 'LEGAL_03', 'LEGAL_04', 'LEGAL_05', 'LEGAL_06',
+        'LEGAL_01', 'LEGAL_02', 'LEGAL_02_TYPE', 'LEGAL_04', 'LEGAL_05', 'LEGAL_06', 'LEGAL_07',
         'TRAIN_01', 'TRAIN_03', 'TRAIN_04',
-        'PREM_01', 'PREM_02', 'PREM_03', 'PREM_04', 'PREM_05', 'PREM_06', 'PREM_07',
+        'PREM_01', 'PREM_02', 'PREM_03', 'PREM_04', 'PREM_05', 'PREM_06', 'PREM_07', 'PREM_08',
         'IP_01', 'IP_02',
-        'QA_02', 'QA_03', 'QA_04', 'QA_05', 'QA_06', 'QA_07', 'QA_08', 'QA_09',
+        'QA_01', 'QA_02', 'QA_03', 'QA_04', 'QA_05', 'QA_06', 'QA_07', 'QA_08', 'QA_09',
         'EQUIP_01',
         'IP_DPO_NAME', 'PREM_DATE'
     ];
@@ -128,7 +132,35 @@ class RenewalController extends Controller
      * Process the renewal / reinstatement submission.
      * Creates a new application, overwrites old files, updates profile info.
      */
-    public function store(Request $request)
+    /**
+     * Submit a renewal / reinstatement application.
+     *
+     * The form posts over XHR so the applicant can watch an upload progress bar —
+     * a renewal carries every document plus every instructor credential, and a
+     * native submit reports nothing until the browser navigates. XHR follows a 302
+     * transparently, which would consume the flash message on a request the user
+     * never sees, so for a JSON caller the redirect is handed back as a URL for the
+     * browser to navigate to itself. RedirectResponse::with() has already written
+     * the flash to the session by then, so the message still shows on arrival.
+     *
+     * Everything else — the guards, the validation, the writes — lives unchanged in
+     * storeApplication(); wrapping it here means no return path can be missed.
+     */
+    public function store(Request $request): RedirectResponse|JsonResponse
+    {
+        $response = $this->storeApplication($request);
+
+        if ($request->expectsJson() && $response instanceof RedirectResponse) {
+            return response()->json([
+                'status'   => 'ok',
+                'redirect' => $response->getTargetUrl(),
+            ]);
+        }
+
+        return $response;
+    }
+
+    private function storeApplication(Request $request)
     {
         $user = Auth::user();
         $user->load(['organizationProfile.authorizedRepresentatives', 'instructors.credentials']);
@@ -236,11 +268,16 @@ class RenewalController extends Controller
 
             $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
 
+            // Articles of Incorporation only exists for SEC-registered entities.
+            if ($code === 'LEGAL_03') {
+                $isRequired = $request->input('documents.LEGAL_02_TYPE') === 'SEC';
+            }
+
             if ($field->input_type === 'file') {
                 if ($isRequired && (!$existing || !$existing->file_path)) {
-                    $documentRules[$key] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+                    $documentRules[$key] = ['required', 'file', 'mimes:pdf', 'max:15360'];
                 } else {
-                    $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+                    $documentRules[$key] = ['nullable', 'file', 'mimes:pdf', 'max:15360'];
                 }
             } elseif ($field->input_type === 'date') {
                 if ($isRequired && (!$existing || !$existing->value)) {
@@ -257,6 +294,9 @@ class RenewalController extends Controller
             }
         }
 
+        // Registering authority is a fixed choice, not free text.
+        $documentRules['documents.LEGAL_02_TYPE'] = ['required', 'in:DTI,SEC,CDA'];
+
         // ── Build instructor validation rules ──────────────────────
         $instructorRules = [];
         $instructors = $request->input('instructors', []);
@@ -271,24 +311,19 @@ class RenewalController extends Controller
                 $instructorRules["instructors.{$i}.last_name"]   = ['required', 'string', 'max:255'];
                 $instructorRules["instructors.{$i}.sex"]         = ['required', 'in:Male,Female'];
 
-                // Service agreement is strictly required
-                $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+                // Service agreement and CV are strictly required
+                $instructorRules["instructors.{$i}.service_agreement"] = ['required', 'file', 'mimes:pdf', 'max:15360'];
+                $instructorRules["instructors.{$i}.cv"]                = ['required', 'file', 'mimes:pdf', 'max:15360'];
 
                 foreach (self::CREDENTIAL_TYPES as $type) {
                     $base = "instructors.{$i}.credentials.{$type}";
-                    $existingCred = $existingInst ? $existingInst->credentials->firstWhere('type', $type) : null;
 
                     $instructorRules["{$base}.number"]         = ['required', 'string', 'max:255'];
-                    if ($type !== 'BOSH') {
-                        $instructorRules["{$base}.issued_date"]    = ['required', 'date'];
-                    }
+                    $instructorRules["{$base}.issued_date"]    = ['required', 'date'];
                     $instructorRules["{$base}.validity_date"]  = ['required', 'date'];
-                    if ($type === 'BOSH') {
-                        $instructorRules["{$base}.training_dates"] = ['required', 'string', 'max:500'];
-                    }
 
                     // Certificate PDF is strictly required
-                    $instructorRules["{$base}.pdf"] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+                    $instructorRules["{$base}.pdf"] = ['required', 'file', 'mimes:pdf', 'max:15360'];
                 }
             }
         } else {
@@ -389,6 +424,13 @@ class RenewalController extends Controller
                     $textValue = null;
                     $isRequired = in_array($code, self::REQUIRED_DOCUMENT_FIELDS);
 
+                    // Articles of Incorporation only exists for SEC-registered entities.
+                    // Carrying the previous file forward is right for an SEC applicant who
+                    // did not re-upload, and wrong for one who has since moved to DTI/CDA.
+                    if ($code === 'LEGAL_03') {
+                        $isRequired = $request->input('documents.LEGAL_02_TYPE') === 'SEC';
+                    }
+
                     if ($field->input_type === 'file') {
                         if ($request->hasFile("documents.{$code}")) {
                             // The file this upload replaces, so it can be removed after commit
@@ -462,6 +504,17 @@ class RenewalController extends Controller
                         $saFile->storeAs($baseCredPath, "sa_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
                     }
 
+                    // Handle CV / resume file
+                    $cvPermanent = $existingInst ? $existingInst->cv_path : null;
+                    if ($request->hasFile("instructors.{$i}.cv")) {
+                        // Superseded by the upload below; removed after commit.
+                        $supersededFiles[] = $cvPermanent;
+
+                        $cvFile = $request->file("instructors.{$i}.cv");
+                        $cvPermanent = "{$baseCredPath}/cv_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+                        $cvFile->storeAs($baseCredPath, "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
+                    }
+
                     $instructor = Instructor::create([
                         'user_id'                => $user->id,
                         'application_id'         => $application->id,
@@ -470,6 +523,7 @@ class RenewalController extends Controller
                         'last_name'              => $instData['last_name'] ?? '',
                         'ins_sex'                => $instData['sex'] ?? null,
                         'service_agreement_path' => $saPermanent,
+                        'cv_path'                => $cvPermanent,
                         'status'                 => 'pending',
                         'remarks'                => null,
                     ]);
@@ -494,7 +548,6 @@ class RenewalController extends Controller
                         $hasData = (($credData['number'] ?? null)
                             || ($credData['issued_date'] ?? null)
                             || ($credData['validity_date'] ?? null)
-                            || ($credData['training_dates'] ?? null)
                             || $credPermanent);
 
                         if ($hasData) {
@@ -504,7 +557,6 @@ class RenewalController extends Controller
                                 'number'         => $credData['number'] ?? null,
                                 'issued_date'    => $credData['issued_date'] ?? null,
                                 'validity_date'  => $credData['validity_date'] ?? null,
-                                'training_dates' => $credData['training_dates'] ?? null,
                                 'pdf_path'       => $credPermanent,
                                 'status'         => 'pending',
                                 'remarks'        => null,
@@ -533,6 +585,7 @@ class RenewalController extends Controller
             foreach (array_unique(array_filter($supersededFiles)) as $path) {
                 $stillReferenced = UserDocument::where('file_path', $path)->exists()
                     || Instructor::where('service_agreement_path', $path)->exists()
+                    || Instructor::where('cv_path', $path)->exists()
                     || InstructorCredential::where('pdf_path', $path)->exists();
 
                 if ($stillReferenced) {
@@ -630,13 +683,13 @@ class RenewalController extends Controller
         $request->validate([
             'application_id'     => ['required', 'exists:applications,id'],
             'files'              => ['nullable', 'array'],
-            'files.*'            => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'files.*'            => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'values'             => ['nullable', 'array'],
             'values.*'           => ['required', 'string', 'max:500'],
             'instructor_files'   => ['nullable', 'array'],
-            'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'credential_files'   => ['nullable', 'array'],
-            'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
         ]);
 
         // Strict backend validation: Make sure all rejected/returned items are provided in the upload
@@ -884,7 +937,7 @@ class RenewalController extends Controller
     {
         $request->validate([
             'application_id'   => ['required', 'exists:applications,id'],
-            'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:15360'],
         ]);
 
         $user = Auth::user();

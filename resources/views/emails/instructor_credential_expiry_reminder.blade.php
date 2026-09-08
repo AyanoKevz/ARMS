@@ -35,7 +35,6 @@
         'EMS'  => 'TESDA Emergency Medical Services NC II or III Certificate',
         'TM1'  => 'TESDA Trainers Methodology Certificate 1',
         'NTTC' => 'TESDA National TVET Trainer Certificate',
-        'BOSH' => 'BOSH SO1 or SO2 Certificate',
     ];
     $credName = $credLabels[$credential->type] ?? $credential->type;
     $instructor = $credential->instructor;

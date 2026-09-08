@@ -113,6 +113,8 @@
 </li>
 @endif
 
-<li id="tour-step-active-fatpro" class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> Active FatPro </a></li>
+{{-- The Training Evaluator keeps "Active FatPro": they only ever work FATPro
+     training reports, so the broader label would be misleading for them. --}}
+<li id="tour-step-active-fatpro" class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> {{ ($isEvaluator || $isTeamLead) ? 'Active Accreditation' : 'Active FatPro' }} </a></li>
 <li id="tour-step-inactive-fatpro" class="{{ $inactiveFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
 <li id="tour-step-archived" class="{{ $archivedActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>

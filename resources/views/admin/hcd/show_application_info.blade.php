@@ -19,6 +19,12 @@ $isVerifier  = strtolower($isAdminRole) === 'verifier';
 $isTeamLead  = strtolower($isAdminRole) === 'team lead';
 $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
 
+// Roles that read this page but take no action on it. The Team Lead oversees the
+// evaluation rather than performing it; the Training Evaluator is here only for the
+// FATPro's details behind its training reports. Every action control below is gated
+// on this, and the matching endpoints reject both roles server-side.
+$isViewOnly = $isTeamLead || $isTrainingEvaluator;
+
 // Check if currently within working hours for PCT
 $pctNow = \Carbon\Carbon::now();
 $pctTodayHolidays = \App\Services\PctService::getHolidays($pctNow->year, $pctNow->year);
@@ -86,6 +92,9 @@ $credApproved = $applicationInstructors->count() === 0 || $applicationInstructor
 $allApproved = $application->documents->count() > 0 && $docApproved && $instApproved && $credApproved;
 
 $interview = $application->interview;
+// Renewals are not interviewed — the whole interview stage is hidden for them and
+// an approved evaluation goes straight to Awaiting Payment.
+$skipsInterview = $application->skipsInterview();
 $isAccredited = (bool) $application->accreditation;
 $isApproved = $currentStatus === 'Approved';
 $isRejected = $currentStatus === 'Rejected';
@@ -158,6 +167,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             </button>
             @endif
         </div>
+        @if(!$isTrainingEvaluator)
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-danger btn-sm m-0 fw-bold" style="border-radius:8px;font-size:.78rem;" data-bs-toggle="modal" data-bs-target="#revokeAccreditationModal">
                 <i class="bi bi-shield-x me-1"></i> Revoke Accreditation
@@ -166,6 +176,7 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
                 <i class="bi bi-archive me-1"></i> Move to Archived
             </button>
         </div>
+        @endif
         <small style="color:#166534;">
             {{ $application->accreditationType->name ?? 'N/A' }}
         </small>
@@ -185,9 +196,11 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <span class="badge fs-6 px-3 py-2 bg-danger text-white">
                 <i class="bi bi-x-circle-fill me-1"></i> Revoked
             </span>
+            @if(!$isTrainingEvaluator)
             <button type="button" class="btn btn-warning btn-sm m-0 text-dark fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
                 <i class="bi bi-archive me-1"></i> Move to Archived
             </button>
+            @endif
         </div>
         <small style="color:#991b1b;">
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -207,9 +220,11 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <span class="badge fs-6 px-3 py-2 bg-warning text-dark">
                 <i class="bi bi-exclamation-triangle-fill me-1"></i> Expired
             </span>
+            @if(!$isTrainingEvaluator)
             <button type="button" class="btn btn-warning btn-sm m-0 text-dark fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archiveAccreditationModal">
                 <i class="bi bi-archive me-1"></i> Move to Archived
             </button>
+            @endif
         </div>
         <small style="color:#92400e;">
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -230,9 +245,11 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <span class="badge fs-6 px-3 py-2 bg-secondary text-white">
                 <i class="bi bi-archive-fill me-1"></i> Archived
             </span>
+            @if(!$isTrainingEvaluator)
             <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveAccreditationModal">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Accreditation
             </button>
+            @endif
         </div>
         <small style="color:#4b5563;">
             {{ $application->accreditationType->name ?? 'N/A' }}
@@ -268,11 +285,11 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
             <span id="app-status-badge" class="badge fs-6 px-3 py-2 {{ $statusColor }}">
                 {{ $displayStatusName }}
             </span>
-            @if($displayStatusName === 'Rejected')
+            @if($displayStatusName === 'Rejected' && !$isTrainingEvaluator)
             <button type="button" class="btn btn-success btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#unarchiveApplicationModal">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Unarchive Application
             </button>
-            @elseif(!$isTeamLead && !$isAccredited && !$isRejected)
+            @elseif(!$isViewOnly && !$isAccredited && !$isRejected)
             <button type="button" class="btn btn-danger btn-sm m-0 text-white fw-bold" style="border-radius:8px;font-size:.82rem;" data-bs-toggle="modal" data-bs-target="#archivePaymentModal">
                 <i class="bi bi-archive me-1"></i> Archive Application
             </button>
@@ -368,20 +385,28 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                     $displayStatus = 'paused';
                 }
 
+                // A "skipped" step is one this application never runs at all — the
+                // interview steps of a renewal. It carries no clock, so it is drawn
+                // like a pending step but labelled, and it never gets an SLA bar.
+                $isSkippedStep = $stepStatus === 'skipped';
+                $isUntimedStep = $isSkippedStep || $stepStatus === 'pending';
+
                 $stepColorClass = match($displayStatus) {
                     'completed' => 'pct-step-completed',
                     'active'    => 'pct-step-active',
                     'paused'    => 'pct-step-paused',
+                    'skipped'   => 'pct-step-skipped',
                     default     => 'pct-step-pending',
                 };
                 $stepIcon = match($displayStatus) {
                     'completed' => 'bi-check-circle-fill',
                     'active'    => 'bi-play-circle-fill',
                     'paused'    => 'bi-pause-circle-fill',
+                    'skipped'   => 'bi-slash-circle',
                     default     => 'bi-circle',
                 };
                 $stepSlaClass = '';
-                if ($stepStatus !== 'pending') {
+                if (!$isUntimedStep) {
                     if ($step['is_overdue']) {
                         $stepSlaClass = 'pct-sla-overdue';
                     } elseif ($step['percent'] >= 80) {
@@ -425,7 +450,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                         <span class="pct-step-name">
                             {{ $step['name'] }}<span @if($stepStatus === 'active') id="pct-paused-reason-live" @endif class="text-warning fw-semibold ms-1 pct-paused-reason-text" style="{{ $pausedReason ? '' : 'display: none;' }}">@if($pausedReason) — {{ $pausedReason }} @endif</span>
                         </span>
-                        @if($stepStatus !== 'pending')
+                        @if(!$isUntimedStep)
                         @php
                             $s = $step['elapsed_seconds'] ?? 0;
                             $dCount = round($s / 32400, 1);
@@ -439,10 +464,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                             <i class="bi bi-stopwatch me-1"></i>({{ $timeFmt }}) &nbsp;&nbsp;{{ $dCount }} days / {{ $step['target_days'] }} days
                         </span>
                         @else
-                        <span class="pct-step-badge pct-sla-pending">{{ $step['target_days'] }} days target</span>
+                        <span class="pct-step-badge pct-sla-pending">{{ $isSkippedStep ? 'Not required for renewal' : $step['target_days'] . ' days target' }}</span>
                         @endif
                     </div>
-                    @if($stepStatus !== 'pending')
+                    @if(!$isUntimedStep)
                     <div class="pct-step-bar-wrapper">
                         <div class="pct-step-bar">
                             <div class="pct-step-bar-fill {{ $stepSlaClass }}" style="width: {{ min(100, $step['percent']) }}%;"></div>
@@ -759,7 +784,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @endif
 
                                     {{-- Approve / Reject buttons + Reject panel (hidden once all docs approved) --}}
-                                    @if(!$isTeamLead && !$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
+                                    @if(!$isViewOnly && !$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited)
                                         @if($currentStatus !== 'For Update')
                                         <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
                                             <button type="button"
@@ -876,10 +901,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                             @foreach($instructor->update_request_fields as $field)
                                             <li>
                                                 @if($field === 'service_agreement') Service Agreement between FATPro head and instructor
+                                                @elseif($field === 'cv') Instructor CV / Resume
                                                 @elseif($field === 'EMS') TESDA EMS NC II/III
                                                 @elseif($field === 'TM1') TESDA TM1
                                                 @elseif($field === 'NTTC') TESDA NTTC
-                                                @elseif($field === 'BOSH') BOSH SO1/SO2
                                                 @else {{ $field }}
                                                 @endif
                                             </li>
@@ -914,7 +939,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                      <th class="column-title">Certificate Number</th>
                                                      <th class="column-title text-center">Issued On</th>
                                                      <th class="column-title text-center">Valid Until</th>
-                                                     <th class="column-title">Training Date(s)</th>
                                                      <th class="column-title no-link last text-center no-sort"><span class="nobr">File View</span></th>
                                                  </tr>
                                              </thead>
@@ -925,7 +949,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                              'NTTC'  => 1,
                                                              'TM1'   => 2,
                                                              'EMS'   => 3,
-                                                             'BOSH'  => 99,
                                                              default => 50,
                                                          };
                                                      });
@@ -936,7 +959,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                          @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
                                                          @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
                                                          @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
-                                                         @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
                                                          @else {{ $credItem->type }} Credential
                                                          @endif
                                                      </strong></td>
@@ -957,7 +979,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                              —
                                                          @endif
                                                      </td>
-                                                     <td>{{ $credItem->training_dates ?? '—' }}</td>
                                                      <td class="last text-center" style="white-space:nowrap;">
                                                          @if($credItem->pdf_path)
                                                          <a href="{{ route('admin.hcd.instructors.credentials.view', $credItem->id) }}?v={{ $credItem->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="{{ $credItem->type }} Credential" class="btn btn-info btn-xs m-0">
@@ -981,7 +1002,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                              'NTTC'  => 1,
                                              'TM1'   => 2,
                                              'EMS'   => 3,
-                                             'BOSH'  => 99,
                                              default => 50,
                                          };
                                      });
@@ -1025,8 +1045,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                                 TESDA Trainers Methodology Certificate 1
                                                 @elseif($credential->type === 'NTTC')
                                                 TESDA National TVET Trainer Certificate
-                                                @elseif($credential->type === 'BOSH')
-                                                BOSH SO1 or SO2 Certificate
                                                 @else
                                                 {{ $credential->type }} Credential
                                                 @endif
@@ -1041,9 +1059,6 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                             @endif
                                             @if($credential->validity_date)
                                             <div><strong style="color:#555;">Valid Until:</strong> {{ \Carbon\Carbon::parse($credential->validity_date)->format('M d, Y') }}</div>
-                                            @endif
-                                            @if($credential->training_dates)
-                                            <div><strong style="color:#555;">Training date(s):</strong> {{ $credential->training_dates }}</div>
                                             @endif
                                         </div>
                                     </div>
@@ -1066,7 +1081,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @php
                                     $isRequested = $instructor->update_request_status === 'pending_review' &&
                                     (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields)) || $credential->status === 'pending');
-                                    $showEvalButtons = !$isTeamLead && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested);
+                                    $showEvalButtons = !$isViewOnly && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isRequested);
                                     @endphp
 
                                     @if($showEvalButtons)
@@ -1094,6 +1109,26 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 </div>
                                 @endforeach
                                 @endif
+
+                                {{-- CV / Resume. Read-only: it has no evaluation status of its
+                                     own, the instructor row's status covers the person. --}}
+                                <div class="doc-row">
+                                    <div class="doc-field-name">
+                                        <i class="bi bi-file-earmark-person text-primary me-1"></i>
+                                        <span class="fw-bold">Instructor CV / Resume</span>
+                                    </div>
+                                    <div class="doc-value text-muted" style="font-size:.75rem;">
+                                        {{ $instructor->cv_path ? basename($instructor->cv_path) : 'No file' }}
+                                    </div>
+
+                                    @if($instructor->cv_path)
+                                    <div class="doc-actions">
+                                        <a href="{{ route('admin.hcd.instructors.cv.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="CV / Resume – {{ $instructor->first_name }} {{ $instructor->last_name }}" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
+                                            <i class="bi bi-eye me-1"></i>View
+                                        </a>
+                                    </div>
+                                    @endif
+                                </div>
 
                                 {{-- Service Agreement --}}
                                 @php
@@ -1147,7 +1182,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @php
                                     $isSaRequested = $instructor->update_request_status === 'pending_review' &&
                                     (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array('service_agreement', $instructor->update_request_fields)) || $instructor->status === 'pending');
-                                    $showSaEvalButtons = !$isTeamLead && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested);
+                                    $showSaEvalButtons = !$isViewOnly && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isSaRequested);
                                     @endphp
 
                                     @if($showSaEvalButtons)
@@ -1175,7 +1210,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 </div>
 
                                 {{-- Instructor Evaluation Dynamic Action Bar --}}
-                                @if(!$isTeamLead && ($instructor->update_request_status === 'pending_review' || ($isAccredited && $hasPendingUpdate)))
+                                @if(!$isViewOnly && ($instructor->update_request_status === 'pending_review' || ($isAccredited && $hasPendingUpdate)))
                                 <div class="m-3 mt-3 p-3 rounded d-flex align-items-center justify-content-between flex-wrap gap-2"
                                      id="instructor-action-panel-{{ $instructor->id }}"
                                      style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
@@ -1210,7 +1245,10 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
 
 
 {{-- ══ Interview Schedule Card ══ --}}
-@if($interview)
+{{-- A renewal never has a schedule, a result, or a start/stop control — the branch
+     below it still renders #btn-open-schedule, which is also the evaluation submit
+     button, so hiding the card must not hide that. --}}
+@if($interview && !$skipsInterview)
 <div class="mt-3 mb-3"
     style="background:#fff;border:1px solid #dee2e6;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
 
@@ -1276,7 +1314,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     </div>
 
     {{-- Card Footer — centered button --}}
-    @if(!$isTeamLead && !$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
+    @if(!$isViewOnly && !$isRejected && !in_array($currentStatus, ['Awaiting Payment', 'Approved']) && ($activeStep === 5 && $pctStatus === 'paused'))
     <div class="px-4 py-2 text-center" style="border-top:1px solid #f0f0f0;">
         <button type="button"
             id="btn-open-schedule"
@@ -1300,7 +1338,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <small class="text-muted">This application did not pass the interview process.</small>
         </div>
     </div>
-    @elseif(!$isTeamLead && $activeStep === 5 && $pctStatus === 'paused')
+    @elseif(!$isViewOnly && $activeStep === 5 && $pctStatus === 'paused')
     {{-- Interview is scheduled, but PCT is paused (waiting to start) --}}
     <div class="px-4 py-3 bg-light border-top text-center">
         <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
@@ -1328,7 +1366,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             </button>
         </form>
     </div>
-    @elseif(!$isTeamLead && $activeStep === 5 && $pctStatus === 'active')
+    @elseif(!$isViewOnly && $activeStep === 5 && $pctStatus === 'active')
     {{-- Interview is Running --}}
     <div class="px-4 py-3 bg-light border-top text-center" style="background-color: #fff4e5 !important;">
         <p class="fw-bold mb-2 text-danger" style="font-size: 0.95rem; animation: pulse 2s infinite;">
@@ -1338,7 +1376,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
             <i class="bi bi-stop-fill me-1"></i> Stop Interview
         </button>
     </div>
-    @elseif(!$isTeamLead && $activeStep === 6)
+    @elseif(!$isViewOnly && $activeStep === 6)
     {{-- Interview completed, record result --}}
     <div class="px-4 py-3 bg-light border-top text-center">
         <p class="fw-semibold mb-2" style="font-size: 0.9rem; color: #2A3F54;">
@@ -1366,7 +1404,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     @endif
 
 </div>
-@elseif(!$isTeamLead && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
+@elseif(!$isViewOnly && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
 {{-- Just the button if no schedule yet --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
@@ -1377,7 +1415,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
         data-bs-toggle="modal" data-bs-target="#scheduleInterviewModal"
         style="border-radius:6px;">
         <span id="btn-schedule-icon"></span>
-        <span id="btn-schedule-text">Set Schedule</span>
+        <span id="btn-schedule-text">{{ $skipsInterview ? 'Save Approvals' : 'Set Schedule' }}</span>
     </button>
 </div>
 @endif
@@ -1403,7 +1441,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
         <h5>Recommendation Form</h5>
     </div>
     <div class="x_content p-3 mt-2">
-        <p class="text-muted small">This application has passed the interview stage. Fill out the recommendation form details and generate the PDF to print.</p>
+        <p class="text-muted small">{{ $skipsInterview ? 'This renewal has passed evaluation — renewals require no interview.' : 'This application has passed the interview stage.' }} Fill out the recommendation form details and generate the PDF to print.</p>
 
         <form action="{{ route('admin.hcd.applications.generate_recommendation', $application->id) }}" method="POST" target="_blank" class="mb-3">
             @csrf
@@ -2435,7 +2473,6 @@ $accTypeName = $application->accreditationType->name ?? '—';
                                 @if($cred->type === 'EMS') TESDA EMS NC II/III
                                 @elseif($cred->type === 'TM1') TESDA TM1
                                 @elseif($cred->type === 'NTTC') TESDA NTTC
-                                @elseif($cred->type === 'BOSH') BOSH SO1/SO2
                                 @else {{ $cred->type }}
                                 @endif
                             </label>
@@ -2501,6 +2538,7 @@ $accTypeName = $application->accreditationType->name ?? '—';
     window.ARMS = window.ARMS || {};
     window.ARMS.csrfToken = '{{ csrf_token() }}';
     window.ARMS.isScheduled = {{ $isScheduled ? 'true' : 'false' }};
+    window.ARMS.skipsInterview = {{ $skipsInterview ? 'true' : 'false' }};
     window.ARMS.hasInterviewRecord = {{ $interview ? 'true' : 'false' }};
     window.ARMS.allApproved = {{ $allApproved ? 'true' : 'false' }};
     window.ARMS.isApproved = {{ $isApproved ? 'true' : 'false' }};

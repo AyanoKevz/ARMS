@@ -57,7 +57,8 @@ class ApplicationController extends Controller
 
     /**
      * Helper to block Team Lead role from evaluation/interview/payment/recommendation actions.
-     * Team Lead only assigns applications via decking — they do not evaluate.
+     * Team Lead only assigns applications via decking — they do not evaluate. The read-only
+     * listings they reach from their sidebar are not guarded by this.
      */
     private function checkTeamLeadAccess()
     {
@@ -283,7 +284,6 @@ class ApplicationController extends Controller
     public function updateToEvaluation(Request $request, Application $application)
     {
         $this->requireTeamLeadAccess();
-
         $request->validate([
             'evaluator_id' => ['required', 'integer', 'exists:users,id'],
         ]);
@@ -423,9 +423,10 @@ class ApplicationController extends Controller
         $isTeamLead  = strtolower($isAdminRole) === 'team lead';
         $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
 
-        if ($isTrainingEvaluator) {
-            abort(403, 'Unauthorized action. Training Evaluator does not have access to this page.');
-        }
+        // The Training Evaluator reads this page — they need the FATPro's details to
+        // work its training reports — but takes no action on it. The view drops every
+        // action control for them (see $isViewOnly there) and the mutating endpoints
+        // reject them, so opening the page up is read-only in both directions.
 
         if ($isVerifier) {
             $statusName = $application->latestStatus?->status?->name;
@@ -512,7 +513,10 @@ class ApplicationController extends Controller
         $statusChanged = false;
         $newStatusName = null;
 
-        if ($allApproved && $allDocs->count() > 0) {
+        // A renewal has no interview stage: finalizeEvaluation() is what moves it out
+        // of evaluation, and it sends it straight to Awaiting Payment. Never promote
+        // one to "Scheduled for Interview" from here.
+        if ($allApproved && $allDocs->count() > 0 && !$application->skipsInterview()) {
             $currentStatus = $application->latestStatus?->status?->name;
 
             if ($currentStatus !== 'Scheduled for Interview') {
@@ -917,6 +921,24 @@ class ApplicationController extends Controller
             ->exists();
 
         if ($allApproved && $allInstApproved && $allCredApproved) {
+            // ── Renewal: skip the interview ─────────────────────────────────
+            // The FATPro was already interviewed in the cycle they are renewing,
+            // so an all-approved evaluation advances straight to payment. PCT
+            // Steps 4-6 are never started and render as skipped on the timeline.
+            if ($application->skipsInterview()) {
+                $this->moveToAwaitingPayment(
+                    $application,
+                    'All documents approved. Renewal — no interview required. Payment instructions automatically emailed to applicant.'
+                );
+
+                return response()->json([
+                    'success'    => true,
+                    'action'     => 'proceed_to_payment',
+                    'message'    => 'All documents approved! Renewals skip the interview — the application now awaits payment.',
+                    'new_status' => 'Awaiting Payment',
+                ]);
+            }
+
             // Status: Scheduled for Interview (ID 4)
             $scheduledStatus = ApplicationStatus::findByName('Scheduled for Interview');
             if ($scheduledStatus) {
@@ -968,6 +990,11 @@ class ApplicationController extends Controller
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
+
+        if ($application->skipsInterview()) {
+            return back()->with('error', 'Renewal applications do not go through an interview.');
+        }
+
         $isNewInterview = !$application->interview;
 
         $request->validate([
@@ -1092,11 +1119,13 @@ class ApplicationController extends Controller
 
     /**
      * List applicants with status "For Interview" that have no schedule yet.
+     *
+     * Team Lead reaches this from their sidebar, so the list is read-only for them —
+     * the scheduling and interview actions below stay blocked.
      */
     public function pendingInterview()
     {
         $this->checkVerifierAccess();
-        $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
@@ -1105,6 +1134,7 @@ class ApplicationController extends Controller
             'accreditationType',
             'latestStatus.status',
             'interview',
+            'assignedEvaluator',
         ])
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {
@@ -1120,11 +1150,12 @@ class ApplicationController extends Controller
 
     /**
      * List applicants who already have an interview scheduled.
+     *
+     * Read-only for Team Lead, same as the pending list.
      */
     public function scheduledInterviews()
     {
         $this->checkVerifierAccess();
-        $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
         $this->pctService->autoResumeAllScheduledInterviews();
         $applications = Application::with([
@@ -1133,6 +1164,7 @@ class ApplicationController extends Controller
             'accreditationType',
             'latestStatus.status',
             'interview',
+            'assignedEvaluator',
         ])
             ->whereHas('interview')
             ->orderBy('updated_at', 'desc')
@@ -1149,6 +1181,10 @@ class ApplicationController extends Controller
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
+        if ($application->skipsInterview()) {
+            return back()->with('error', 'Renewal applications do not go through an interview.');
+        }
+
         $activePct = $application->activePctEntry;
         
         if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'paused') {
@@ -1167,6 +1203,10 @@ class ApplicationController extends Controller
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
+        if ($application->skipsInterview()) {
+            return back()->with('error', 'Renewal applications do not go through an interview.');
+        }
+
         $activePct = $application->activePctEntry;
         
         if ($activePct && $activePct->step_number === 5 && $activePct->stepStatus() === 'active') {
@@ -1182,6 +1222,55 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Move an application into "Awaiting Payment": log the status, advance PCT to
+     * Step 7 (Recommendation & Payment), email the payment instructions and notify
+     * the Verifiers.
+     *
+     * Two paths land here — a passed interview, and an approved renewal evaluation,
+     * which has no interview at all. transitionToStep() completes whichever step is
+     * currently active, so the renewal jump from Step 3 needs no special casing.
+     */
+    private function moveToAwaitingPayment(Application $application, string $remarks): void
+    {
+        $application->load('user');
+
+        $awaitingPaymentStatus = ApplicationStatus::findByName('Awaiting Payment');
+        if ($awaitingPaymentStatus) {
+            ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $awaitingPaymentStatus->id,
+                'updated_by'     => auth()->id(),
+                'remarks'        => $remarks,
+            ]);
+        }
+
+        // PCT: Complete the current step -> Step 7 (Recommendation & Payment)
+        $this->pctService->transitionToStep($application, 7);
+
+        // Trigger payment instructions email automatically
+        if ($application->user && $application->user->email) {
+            try {
+                Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
+                    $application,
+                    'emails.payment_instructions',
+                    'Action Required: Submit Payment - ' . $application->tracking_number,
+                ));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send auto payment instructions email: ' . $e->getMessage());
+            }
+        }
+
+        // Notify Verifiers
+        $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
+            $q->where('name', 'Verifier');
+        })->get();
+        \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\AwaitingPaymentNotification($application));
+
+        // Bust caches — status changed to Awaiting Payment
+        CacheService::bustApplicationCaches();
+    }
+
+    /**
      * Record the interview result: Passed → accredit, Not Passed → delete application.
      */
     public function recordInterviewResult(Request $request, Application $application)
@@ -1192,6 +1281,10 @@ class ApplicationController extends Controller
         $request->validate([
             'result' => ['required', 'in:passed,not_passed'],
         ]);
+
+        if ($application->skipsInterview()) {
+            return back()->with('error', 'Renewal applications do not go through an interview.');
+        }
 
         // Guard: must have an interview scheduled
         if (! $application->interview) {
@@ -1204,43 +1297,10 @@ class ApplicationController extends Controller
         }
 
         if ($request->input('result') === 'passed') {
-            $application->load('user');
-
-            // Log status: Awaiting Payment
-            $awaitingPaymentStatus = ApplicationStatus::findByName('Awaiting Payment');
-            if ($awaitingPaymentStatus) {
-                ApplicationStatusLog::create([
-                    'application_id' => $application->id,
-                    'status_id'      => $awaitingPaymentStatus->id,
-                    'updated_by'     => auth()->id(),
-                    'remarks'        => 'Interview passed. Payment instructions automatically emailed to applicant.',
-                ]);
-            }
-
-            // ⏱ PCT: Complete Step 6 (Result) ➔ Step 7 (Recommendation & Payment)
-            $this->pctService->transitionToStep($application, 7);
-
-            // Trigger payment instructions email automatically
-            if ($application->user && $application->user->email) {
-                try {
-                    Mail::to($application->user->email)->queue(new \App\Mail\ApplicationNoticeEmail(
-                        $application,
-                        'emails.payment_instructions',
-                        'Action Required: Submit Payment - ' . $application->tracking_number,
-                    ));
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Failed to send auto payment instructions email: ' . $e->getMessage());
-                }
-            }
-
-            // Notify Verifiers
-            $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                $q->where('name', 'Verifier');
-            })->get();
-            \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\AwaitingPaymentNotification($application));
-
-            // Bust caches — status changed to Awaiting Payment
-            CacheService::bustApplicationCaches();
+            $this->moveToAwaitingPayment(
+                $application,
+                'Interview passed. Payment instructions automatically emailed to applicant.'
+            );
 
             return back()->with('success', 'Interview passed. Application status updated to Awaiting Payment.');
 
@@ -1449,7 +1509,15 @@ class ApplicationController extends Controller
                 $query->where('name', 'like', '%FATPro%')
                       ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
-            ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application'])
+            ->with([
+                'user.organizationProfile.authorizedRepresentatives',
+                'accreditationType',
+                'application',
+                // In-Charge column: name resolves through the admin profile, so pull
+                // both relations here rather than lazy-loading two queries per row.
+                'application.assignedEvaluator.adminProfile',
+                'application.assignedEvaluator.role',
+            ])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -1468,7 +1536,7 @@ class ApplicationController extends Controller
                 $q->where('name', 'like', '%FATPro%')
                   ->orWhere('name', 'like', '%First Aid Training Providers%');
             })
-            ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application']);
+            ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application.assignedEvaluator']);
 
         if ($status === 'revoked') {
             $query->where('status', 'revoked');
@@ -1486,6 +1554,8 @@ class ApplicationController extends Controller
      */
     public function archiveAccreditation(Request $request, \App\Models\Accreditation $accreditation)
     {
+        $this->checkTrainingEvaluatorAccess();
+
         $application = $accreditation->application;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation) {
@@ -1510,6 +1580,8 @@ class ApplicationController extends Controller
      */
     public function unarchiveAccreditation(Request $request, \App\Models\Accreditation $accreditation)
     {
+        $this->checkTrainingEvaluatorAccess();
+
         $application = $accreditation->application;
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($accreditation, $application) {
@@ -1548,6 +1620,8 @@ class ApplicationController extends Controller
      */
     public function unarchiveApplication(Request $request, Application $application)
     {
+        $this->checkTrainingEvaluatorAccess();
+
         \Illuminate\Support\Facades\DB::transaction(function () use ($application) {
             // If accreditation exists, restore accreditation
             if ($application->accreditation) {
@@ -1721,6 +1795,30 @@ class ApplicationController extends Controller
         return response()->file($fullPath, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
+        ]);
+    }
+
+    /**
+     * Serve a local-disk instructor CV / resume file to the admin browser.
+     */
+    public function serveInstructorCv(Instructor $instructor)
+    {
+        if (! $instructor || ! $instructor->cv_path) {
+            abort(404, 'File path not found.');
+        }
+
+        $path = $instructor->cv_path;
+
+        if (! Storage::disk('local')->exists($path)) {
+            abort(404, 'File not found on disk.');
+        }
+
+        return response()->file(Storage::disk('local')->path($path), [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
             'Cache-Control'       => 'no-cache, no-store, must-revalidate',
             'Pragma'              => 'no-cache',
             'Expires'             => '0',
@@ -1942,6 +2040,7 @@ class ApplicationController extends Controller
                 'accreditationType',
                 'accreditation',
                 'latestStatus.status',
+                'assignedEvaluator',
             ])
                 ->where(function ($query) {
                     $query->whereHas('latestStatus', function ($q) {
@@ -1965,6 +2064,8 @@ class ApplicationController extends Controller
      */
     public function destroy(Application $application)
     {
+        $this->checkTrainingEvaluatorAccess();
+
         $trackingNumber = $application->tracking_number;
         $user = $application->user;
 
@@ -2020,6 +2121,10 @@ class ApplicationController extends Controller
             'accreditationType',
             'latestStatus.status',
             'payment',
+            // In-Charge column: name resolves through the admin profile, so pull
+            // both relations here rather than lazy-loading two queries per row.
+            'assignedEvaluator.adminProfile',
+            'assignedEvaluator.role',
         ])
             ->whereHas('latestStatus', function ($query) {
                 $query->whereHas('status', function ($q) {

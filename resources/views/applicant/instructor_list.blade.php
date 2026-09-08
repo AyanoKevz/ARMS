@@ -30,15 +30,40 @@
         </div>
     @endif
 
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            The instructor could not be added. Please reopen <strong>Add Instructor</strong> and correct the following:
+            <ul class="mb-0 mt-2">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     <div class="row">
         <div class="col-md-12 col-sm-12">
             <div class="x_panel">
-                <div class="x_title">
-                    <h2><i class="fas fa-chalkboard-teacher me-2"></i> My Instructors under {{ auth()->user()->name }}</h2>
-                    <ul class="nav navbar-right panel_toolbox">
-                        <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
-                    </ul>
-                    <div class="clearfix"></div>
+                <div class="x_title d-flex justify-content-between align-items-center flex-wrap">
+                    <h2 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i> My Instructors under {{ auth()->user()->name }}</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-primary btn-sm m-0"
+                                data-bs-toggle="modal" data-bs-target="#addInstructorModal">
+                            <i class="fas fa-user-plus me-1"></i> Add Instructor
+                        </button>
+                        <ul class="nav navbar-right panel_toolbox m-0">
+                            <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="x_content">
@@ -91,20 +116,45 @@
                                     <td class="last text-center" style="white-space:nowrap;">
                                         <a href="{{ route('applicant.instructors.show', $instructor->id) }}"
                                            class="btn btn-info btn-xs m-0"
-                                           title="View / Update Instructor Details">
-                                            <i class="fas fa-eye me-1"></i> View / Update
+                                           title="View Instructor Details">
+                                            <i class="fas fa-eye me-1"></i> View
                                         </a>
+                                        @if(in_array($instructor->id, $deletableIds))
+                                            <button type="button" class="btn btn-danger btn-xs m-0"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteInstructorModal-{{ $instructor->id }}"
+                                                    title="Remove Instructor">
+                                                <i class="fas fa-trash me-1"></i> Delete
+                                            </button>
+                                        @else
+                                            <span class="d-inline-block" tabindex="0"
+                                                  title="You must keep at least one instructor on your roster.">
+                                                <button type="button" class="btn btn-danger btn-xs m-0" disabled
+                                                        style="pointer-events:none;">
+                                                    <i class="fas fa-trash me-1"></i> Delete
+                                                </button>
+                                            </span>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
+
+                    {{-- Kept outside the table: DataTables detaches paged-out rows. --}}
+                    @foreach($instructors as $instructor)
+                        @if(in_array($instructor->id, $deletableIds))
+                            @include('applicant.partials._delete_instructor_modal', ['instructor' => $instructor])
+                        @endif
+                    @endforeach
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@include('applicant.partials._add_instructor_modal', ['credentialTypes' => $credentialTypes])
 @endsection
 
 @push('scripts')

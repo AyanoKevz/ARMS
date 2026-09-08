@@ -15,7 +15,6 @@ class InstructorCredential extends Model
         'number',
         'issued_date',
         'validity_date',
-        'training_dates',
         'pdf_path',
         'status',
         'remarks',

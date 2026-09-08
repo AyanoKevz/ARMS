@@ -10,11 +10,23 @@
 <link rel="stylesheet" href="{{ asset('css/table-component.css') }}">
 @endpush
 
+@php
+    $adminRoleName = strtolower(auth()->user()?->adminProfile?->adminRole?->name ?? '');
+
+    // Accreditation Type belongs to the Evaluator / Team Lead workflow. The Training
+    // Evaluator works FATPro training reports only, so the column would read the same
+    // on every row for them — and their sidebar label stays "Active FatPro" to match.
+    $showTypeColumn = in_array($adminRoleName, ['evaluator', 'team lead']);
+
+    // In-Charge is useful to every HCD role: it says who to raise a FATPro with.
+    $showInChargeColumn = in_array($adminRoleName, ['evaluator', 'team lead', 'training evaluator']);
+@endphp
+
 @section('content')
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3>Active FATPro Registry</h3>
+            <h3>{{ $showTypeColumn ? 'Active Accreditation Registry' : 'Active FATPro Registry' }}</h3>
         </div>
     </div>
 
@@ -51,8 +63,14 @@
                                 <tr class="headings">
                                     <th class="column-title">Accreditation No.</th>
                                     <th class="column-title">FATPro Name</th>
+                                    @if($showTypeColumn)
+                                    <th class="column-title">Accreditation Type</th>
+                                    @endif
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Email</th>
+                                    @if($showInChargeColumn)
+                                    <th class="column-title">In-Charge</th>
+                                    @endif
                                     <th class="column-title text-center">Valid Until</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -67,8 +85,14 @@
                                     <tr class="even pointer">
                                         <td><strong>{{ $acc->accreditation_number }}</strong></td>
                                         <td>{{ $user->name }}</td>
+                                        @if($showTypeColumn)
+                                        <td>{{ $acc->accreditationType->name ?? '—' }}</td>
+                                        @endif
                                         <td>{{ $org->head_name ?? '—' }}</td>
                                         <td>{{ $user->email }}</td>
+                                        @if($showInChargeColumn)
+                                        <td>{{ $acc->application?->assignedEvaluator?->name ?? 'Unassigned' }}</td>
+                                        @endif
                                         <td class="text-center">
                                             <span class="badge bg-success text-white">
                                                 {{ $acc->validity_date ? $acc->validity_date->format('M d, Y') : '—' }}

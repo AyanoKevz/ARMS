@@ -28,6 +28,13 @@ class PctService
     public const MAX_INTERVIEW_SECONDS = 14400; // 4 hours in seconds (4 * 3600)
 
     /**
+     * Steps that exist only to cover the interview stage. Applications that skip
+     * the interview (renewals — see Application::skipsInterview()) never get an
+     * entry for these, and their target days drop out of the overall SLA.
+     */
+    public const INTERVIEW_STEPS = [4, 5, 6];
+
+    /**
      * Initialize PCT when an application is first moved to evaluation.
      * Auto-completes Steps 1 (Submission) and 2 (Receipt of Requirements)
      * since these are system-automatic steps.
@@ -179,10 +186,13 @@ class PctService
             return;
         }
 
-        // Complete Step 4, 5, 6
-        $this->createCompletedStep($application, 4, $now);
-        $this->createCompletedStep($application, 5, $now);
-        $this->createCompletedStep($application, 6, $now);
+        // Complete Step 4, 5, 6 — unless this application never had an interview
+        // stage to begin with, in which case they stay absent (rendered "skipped").
+        if (!$application->skipsInterview()) {
+            $this->createCompletedStep($application, 4, $now);
+            $this->createCompletedStep($application, 5, $now);
+            $this->createCompletedStep($application, 6, $now);
+        }
 
         if (in_array($statusName, ['Awaiting Payment', 'Payment Verification'])) {
             $this->startStep($application, 7);
@@ -451,6 +461,15 @@ class PctService
         $totalElapsed = 0;
         $steps = [];
 
+        // Renewals never enter the interview stage, so Steps 4-6 have no entry.
+        // Report them as explicitly skipped rather than perpetually pending, and
+        // take their target days out of the overall SLA.
+        $skippedSteps = $application->skipsInterview() ? self::INTERVIEW_STEPS : [];
+        $totalTarget  = self::TOTAL_TARGET_DAYS;
+        foreach ($skippedSteps as $skippedStep) {
+            $totalTarget -= self::STEPS[$skippedStep]['target_days'];
+        }
+
         foreach (self::STEPS as $num => $def) {
             $entry = $entries->firstWhere('step_number', $num);
 
@@ -477,7 +496,7 @@ class PctService
                     'number'      => $num,
                     'name'        => $def['name'],
                     'target_days' => $def['target_days'],
-                    'status'      => 'pending',
+                    'status'      => in_array($num, $skippedSteps, true) ? 'skipped' : 'pending',
                     'elapsed_days' => 0,
                     'started_at'  => null,
                     'completed_at' => null,
@@ -493,9 +512,9 @@ class PctService
         return [
             'steps'          => $steps,
             'total_elapsed'  => $totalDays,
-            'total_target'   => self::TOTAL_TARGET_DAYS,
-            'percent'        => self::TOTAL_TARGET_DAYS > 0 ? min(100, round(($totalDays / self::TOTAL_TARGET_DAYS) * 100)) : 0,
-            'is_overdue'     => $totalDays > self::TOTAL_TARGET_DAYS,
+            'total_target'   => $totalTarget,
+            'percent'        => $totalTarget > 0 ? min(100, round(($totalDays / $totalTarget) * 100)) : 0,
+            'is_overdue'     => $totalDays > $totalTarget,
             'has_entries'    => $entries->isNotEmpty(),
         ];
     }

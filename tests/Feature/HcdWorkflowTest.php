@@ -950,8 +950,8 @@ test('optional documents not uploaded in renewal are not created and thus hidden
         'status' => 'active',
     ]);
 
-    // Seed document fields: one optional (LEGAL_07) and one required (LEGAL_01)
-    $optField = DocumentField::where('code', 'LEGAL_07')->first();
+    // Seed document fields: one optional (TRAIN_02) and one required (LEGAL_01)
+    $optField = DocumentField::where('code', 'TRAIN_02')->first();
     $reqField = DocumentField::where('code', 'LEGAL_01')->first();
 
     // Let's seed UserDocument for ALL document fields for the user
@@ -992,11 +992,15 @@ test('optional documents not uploaded in renewal are not created and thus hidden
             'rep_position' => 'Rep Position',
             'rep_contact_number' => '09171234567',
             'rep_email' => 'rep@example.com',
+            'documents' => [
+                'LEGAL_02_TYPE' => 'DTI',
+            ],
             'instructors' => [
                 [
                     'first_name' => 'John',
                     'last_name' => 'Doe',
                     'service_agreement' => $file,
+                    'cv' => $file,
                     'credentials' => [
                         'EMS' => [
                             'number' => 'EMS-123',
@@ -1016,12 +1020,6 @@ test('optional documents not uploaded in renewal are not created and thus hidden
                             'validity_date' => '2028-01-01',
                             'pdf' => $file,
                         ],
-                        'BOSH' => [
-                            'number' => 'BOSH-123',
-                            'validity_date' => '2028-01-01',
-                            'training_dates' => 'Jan 1-5, 2026',
-                            'pdf' => $file,
-                        ],
                     ],
                 ],
             ],
@@ -1039,7 +1037,7 @@ test('optional documents not uploaded in renewal are not created and thus hidden
         ->first();
     expect($reqAppDoc)->not->toBeNull();
 
-    // Verify ApplicationDocument for LEGAL_07 was NOT created (optional and not uploaded)
+    // Verify ApplicationDocument for TRAIN_02 was NOT created (optional and not uploaded)
     $optAppDoc = ApplicationDocument::where('application_id', $renewalApp->id)
         ->where('document_field_id', $optField->id)
         ->first();
@@ -2021,7 +2019,7 @@ test('admin finalize evaluation sends acknowledgment email to applicant when all
 
 
 
-test('renewal application from an accredited FATPro proceeds to interview instead of the credential-update shortcut', function () {
+test('renewal application from an accredited FATPro skips the interview and proceeds to payment instead of taking the credential-update shortcut', function () {
     $this->withoutExceptionHandling();
     Mail::fake();
 
@@ -2117,18 +2115,90 @@ test('renewal application from an accredited FATPro proceeds to interview instea
     $response->assertStatus(200);
 
     // The active accreditation from the previous cycle must not divert this renewal
-    // into the instructor-credential-update branch.
+    // into the instructor-credential-update branch — and a renewal is not interviewed,
+    // so an all-approved evaluation lands straight on Awaiting Payment.
     $response->assertJson([
         'success' => true,
-        'action' => 'proceed_to_interview',
-        'new_status' => 'Scheduled for Interview',
+        'action' => 'proceed_to_payment',
+        'new_status' => 'Awaiting Payment',
     ]);
 
     // And the status transition must actually be recorded.
+    $awaitingPayment = ApplicationStatus::where('name', 'Awaiting Payment')->first();
+    expect(ApplicationStatusLog::where('application_id', $renewal->id)
+        ->where('status_id', $awaitingPayment->id)
+        ->exists())->toBeTrue();
+
+    // The interview status must never be logged for a renewal.
     $scheduled = ApplicationStatus::where('name', 'Scheduled for Interview')->first();
     expect(ApplicationStatusLog::where('application_id', $renewal->id)
-        ->where('status_id', $scheduled->id)
-        ->exists())->toBeTrue();
+        ->where('status_id', $scheduled?->id)
+        ->exists())->toBeFalse();
+
+    // PCT jumps Evaluation (3) → Recommendation & Payment (7); the interview steps
+    // 4-6 are never started.
+    $steps = \App\Models\PctEntry::where('application_id', $renewal->id)->pluck('step_number')->all();
+    expect($steps)->not->toContain(4)
+        ->and($steps)->not->toContain(5)
+        ->and($steps)->not->toContain(6)
+        ->and($steps)->toContain(7);
+});
+
+test('interview endpoints are refused for a renewal application', function () {
+    $adminRole = Role::firstOrCreate(['name' => 'Admin']);
+    $evaluatorAdminRole = AdminRole::firstOrCreate(['name' => 'Evaluator']);
+    $division = Division::firstOrCreate(['name' => 'HCD']);
+
+    $evaluator = User::forceCreate([
+        'email' => 'eval_renewal_no_interview@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $adminRole->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id' => $evaluator->id,
+        'division_id' => $division->id,
+        'first_name' => 'Test',
+        'last_name' => 'Evaluator',
+        'position' => 'LSO III',
+        'admin_role_id' => $evaluatorAdminRole->id,
+    ]);
+
+    $applicantRole = Role::firstOrCreate(['name' => 'Applicant']);
+    $applicant = User::forceCreate([
+        'email' => 'app_renewal_no_interview@example.com',
+        'password' => bcrypt('password'),
+        'role_id' => $applicantRole->id,
+        'profile_type' => 'Organization',
+    ]);
+
+    $renewal = Application::create([
+        'user_id' => $applicant->id,
+        'accreditation_type_id' => $this->fatproTypeId,
+        'application_type' => 'renewal',
+        'tracking_number' => 'ARMS-TEST-RENEW-NOINT',
+    ]);
+
+    $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.applications.schedule_interview', $renewal->id), [
+            'interview_date' => now()->addDay()->toDateString(),
+            'interview_time' => '10:00',
+            'mode'           => 'online',
+            'venue'          => 'https://meet.example.com/abc',
+        ]);
+
+    $response->assertSessionHas('error', 'Renewal applications do not go through an interview.');
+    expect(\App\Models\Interview::where('application_id', $renewal->id)->exists())->toBeFalse();
+
+    $result = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+        ->actingAs($evaluator)
+        ->post(route('admin.hcd.applications.interview_result', $renewal->id), [
+            'result' => 'passed',
+        ]);
+
+    $result->assertSessionHas('error', 'Renewal applications do not go through an interview.');
 });
 
 test('applicant instructor list shows only the accredited roster during an ongoing renewal', function () {

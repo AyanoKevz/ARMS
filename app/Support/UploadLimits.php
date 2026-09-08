@@ -37,11 +37,11 @@ class UploadLimits
 
     /**
      * Largest single file, in bytes: the smaller of PHP's limit and the
-     * application's own 10 MB rule, so the two can never disagree.
+     * application's own 15 MB rule, so the two can never disagree.
      */
     public static function maxFileBytes(): int
     {
-        $appLimit = 10 * 1024 * 1024; // mirrors the max:10240 validation rule
+        $appLimit = 15 * 1024 * 1024; // mirrors the max:15360 validation rule
         $phpLimit = self::toBytes((string) ini_get('upload_max_filesize'));
 
         if ($phpLimit <= 0) {

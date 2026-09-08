@@ -114,7 +114,7 @@
                                                     <i class="bi bi-bell-fill text-warning me-1"></i> FATPro Accreditation &mdash; Required Documents &amp; Checklist Reminder
                                                 </h6>
                                                 <p class="mb-2 text-dark" style="font-size: 0.84rem; line-height: 1.45;">
-                                                    Before proceeding, please prepare and ensure you have all required documents in <strong>PDF format (max 10MB per file)</strong> ready for upload:
+                                                    Before proceeding, please prepare and ensure you have all required documents in <strong>PDF format (max 15MB per file)</strong> ready for upload:
                                                 </p>
                                                 <div class="row g-2 text-dark mt-1" style="font-size: 0.81rem; line-height: 1.5;">
                                                     <div class="col-md-6">
@@ -122,8 +122,8 @@
                                                             <div class="fw-bold text-primary mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>1. Legal Requirements to Operate Business</div>
                                                             <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
                                                                 <li>DOLE Registration</li>
-                                                                <li>Business Registration &amp; Mayor's Permit</li>
-                                                                <li>Articles of Incorporation &amp; BIR TIN / Receipt</li>
+                                                                <li>Business Registration (DTI, SEC or CDA) &amp; Mayor's Permit</li>
+                                                                <li>Articles of Incorporation (SEC only) &amp; BIR TIN / Receipt</li>
                                                                 <li>DOLE Clearance &amp; Lease/Ownership Agreement</li>
                                                             </ul>
                                                             <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-folder-fill me-1"></i>2. Training Management and Staff</div>
@@ -137,7 +137,8 @@
                                                             <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
                                                                 <li>Location Map &amp; Site Floor Plan</li>
                                                                 <li>OSH Policy &amp; Decontamination Procedures</li>
-                                                                <li>Safety Officers &amp; First-Aiders List &amp; Cert.</li>
+                                                                <li>Safety Officers List &amp; BOSH SO1/SO2</li>
+                                                                <li>First-Aiders List &amp; Certificate</li>
                                                             </ul>
                                                         </div>
                                                     </div>
@@ -162,7 +163,8 @@
                                                             <div class="fw-bold text-primary mt-2 mb-1" style="color:#0b3d91 !important;"><i class="bi bi-person-badge-fill me-1"></i>7. FATPro Instructors &amp; Credentials</div>
                                                             <ul class="mb-0 ps-3 text-secondary" style="font-size:0.78rem;">
                                                                 <li>Instructor Personal Info &amp; Service Agreement PDF</li>
-                                                                <li>Instructor Credentials (EMS, TM1, NTTC, BOSH)</li>
+                                                                <li>Instructor CV / Resume PDF</li>
+                                                                <li>Instructor Credentials (EMS, TM1, NTTC)</li>
                                                             </ul>
                                                         </div>
                                                     </div>
@@ -420,7 +422,7 @@
                                         <div class="alert alert-info rounded-3" style="background:rgba(46,111,216,.08);border:1px solid rgba(46,111,216,.2);color:var(--blue-deep);">
                                             <h6 class="fw-bold mb-1"><i class="bi bi-person-badge-fill me-2 text-primary"></i>Instructor Credentials</h6>
                                             <p class="mb-0" style="font-size:.85rem;">
-                                                Add at least <strong>one instructor</strong>. Each instructor must provide personal information and at least one credential with supporting PDF. Upload PDFs in <strong>PDF format only</strong> (max 10 MB each).
+                                                Add at least <strong>one instructor</strong>. Each instructor must provide personal information and at least one credential with supporting PDF. Upload PDFs in <strong>PDF format only</strong> (max 15 MB each).
                                             </p>
                                         </div>
                                     </div>
@@ -565,36 +567,16 @@
                                                 </div>
                                             </div>
 
-                                            {{-- BOSH SO1/SO2 --}}
+                                            {{-- Instructor CV / Resume --}}
                                             <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
-                                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">BOSH</span>BOSH SO1/SO2</p>
-                                                <div class="row g-2">
-                                                    <div class="col-md-4">
-                                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
-                                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][number]" placeholder="e.g. BOSH-2024-00001" required>
-                                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">CV</span>Instructor CV / Resume <span class="text-danger">*</span></p>
+                                                <div class="file-upload-wrapper">
+                                                    <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][cv]" id="inst_cv___IDX__" accept=".pdf" required>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <label for="inst_cv___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose PDF</label>
+                                                        <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
                                                     </div>
-                                                    <div class="col-md-4">
-                                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
-                                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][validity_date]" required>
-                                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <label class="form-label mb-1" style="font-size:.8rem;">Training Date(s) <span class="text-danger">*</span></label>
-                                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][training_dates]" placeholder="e.g. Jan 10-12, 2024" required>
-                                                        <div class="invalid-feedback" style="font-size:.78rem;">Training date(s) are required.</div>
-                                                    </div>
-                                                    <div class="col-12">
-                                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
-                                                        <div class="file-upload-wrapper">
-                                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][BOSH][pdf]" id="inst_bosh_pdf___IDX__" accept=".pdf" required>
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <label for="inst_bosh_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
-                                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
-                                                            </div>
-                                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the BOSH certificate PDF.</div>
-                                                        </div>
-                                                    </div>
+                                                    <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the instructor's CV / Resume PDF.</div>
                                                 </div>
                                             </div>
 
@@ -627,7 +609,7 @@
                                             <div class="alert alert-info rounded-3" style="background: rgba(46,111,216,.08); border: 1px solid rgba(46,111,216,.2); color: var(--blue-deep);">
                                                 <h6 class="fw-bold mb-2"><i class="bi bi-info-circle-fill me-2 text-primary"></i>Document Upload Instructions</h6>
                                                 <p class="mb-0" style="font-size: 0.85rem;">
-                                                    Upload each required file in <strong>PDF format only</strong> (Maximum: <strong>10 MB</strong> per file).
+                                                    Upload each required file in <strong>PDF format only</strong> (Maximum: <strong>15 MB</strong> per file).
                                                     Fill in all text and date fields exactly as they appear.
                                                 </p>
                                             </div>
@@ -645,13 +627,28 @@
                                                     ['code'=>'LEGAL_04','title'=>'Mayor\'s Permit','label'=>'Valid Mayor\'s Permit','required'=>true],
                                                     ['code'=>'LEGAL_05','title'=>'BIR Registration & TIN','label'=>'Registration Certificate with BIR, TIN, receipts, and Books of Accounts','required'=>true],
                                                     ['code'=>'LEGAL_06','title'=>'DOLE clearance','label'=>'DOLE-issued certificate of no pending labor standard case','required'=>true],
-                                                    ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of building','required'=>false],
+                                                    ['code'=>'LEGAL_07','title'=>'Lease/Ownership Agreement','label'=>'Lease agreement or evidence of ownership of the building/space.','required'=>true],
                                                     ] as $f)
+                                                    @if($f['code'] === 'LEGAL_02')
+                                                    {{-- Registering authority. Drives whether Articles of Incorporation
+                                                         is shown and required — SEC-registered FATPros only. --}}
                                                     <div class="col-md-6 mb-2">
+                                                        <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Business Registration Authority <span class="text-danger">*</span></label>
+                                                        <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Agency your business is registered with.</div>
+                                                        <select class="form-select form-select-sm mt-1" name="documents[LEGAL_02_TYPE]" id="doc_LEGAL_02_TYPE" required>
+                                                            <option value="" selected disabled>Select registering authority</option>
+                                                            <option value="DTI">Department of Trade and Industry (DTI)</option>
+                                                            <option value="SEC">Securities and Exchange Commission (SEC)</option>
+                                                            <option value="CDA">Cooperative Development Authority (CDA)</option>
+                                                        </select>
+                                                        <div class="invalid-feedback" style="font-size: 0.8rem;">Please select a registering authority.</div>
+                                                    </div>
+                                                    @endif
+                                                    <div class="col-md-6 mb-2" @if($f['code'] === 'LEGAL_03') id="legal03Container" hidden @endif>
                                                         <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif </label>
                                                         <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">{{ $f['label'] }}</div>
                                                         <div class="file-upload-wrapper mt-1">
-                                                            <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['required'] ?? true) required @endif>
+                                                            <input class="real-file-input visually-hidden" type="file" name="documents[{{ $f['code'] }}]" id="doc_{{ $f['code'] }}" accept=".pdf" @if($f['code'] === 'LEGAL_03') data-conditional-required="1" @elseif($f['required'] ?? true) required @endif>
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <label for="doc_{{ $f['code'] }}" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn">
                                                                     <i class="bi bi-cloud-upload me-1"></i> Choose File
@@ -675,7 +672,7 @@
                                                     ['code'=>'TRAIN_01','title'=>'Organizational Chart','label'=>'Chart showing management, teaching and support staff','required'=>true],
                                                     ['code'=>'TRAIN_02','title'=>'TESDA Certificate','label'=>'For TVIs: EMS NC II Program Registration from TESDA (if applicable)','required'=>false],
                                                     ['code'=>'TRAIN_03','title'=>'Training Monitoring','label'=>'Monitoring of delivery of training program plan','required'=>true],
-                                                    ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Comprehensive plan for managing training programs and operations','required'=>true],
+                                                    ['code'=>'TRAIN_04','title'=>'Training Management Plan','label'=>'Proposed planned training schedule for one quarter.','required'=>true],
                                                     ] as $f)
                                                     <div class="col-12 mb-2">
                                                         <label class="form-label fw-bold mb-0" style="font-size:.88rem;">{{ $f['title'] }} @if($f['required']) <span class="text-danger">*</span> @endif</label>
@@ -707,6 +704,7 @@
                                                     ['code'=>'PREM_03','title'=>'OSH Policy & Program','label'=>'Occupational Safety and Health Policy and Program','required'=>true],
                                                     ['code'=>'PREM_04','title'=>'Decontamination Procedures','label'=>'Written procedures for decontamination of first aid tools/equipment.','required'=>true],
                                                     ['code'=>'PREM_05','title'=>'Safety Officers List','label'=>'List of qualified and designated "safety officers".','required'=>true],
+                                                    ['code'=>'PREM_08','title'=>'BOSH SO1/SO2','label'=>'BOSH SO1 or SO2 certificate of the designated safety officer(s). No expiration/validity period required.','required'=>true],
                                                     ['code'=>'PREM_06','title'=>'First-Aiders List','label'=>'List of qualified first-aiders in the organization.','required'=>true],
                                                     ['code'=>'PREM_07','title'=>'First-Aider Certificate','label'=>'Valid first-aider certificate in your organization.','required'=>true],
                                                     ] as $f)
@@ -777,7 +775,7 @@
                                             <h6 class="fw-bold mb-3" style="color:#0b3d91;"><span class="badge me-2" style="background:#0b3d91;">5</span>Quality Assurance and Enhancement</h6>
                                             <div class="row g-3">
                                                 @foreach([
-                                                ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>false],
+                                                ['code'=>'QA_01','title'=>'Course Review Procedures','label'=>'Written procedures for conducting training course review, including programs and names of trainers.','required'=>true],
                                                 ['code'=>'QA_02','title'=>'Test Results Summary','label'=>'Template summary of the pre- and post-test results.','required'=>true],
                                                 ['code'=>'QA_03','title'=>'Evaluation Summary','label'=>'Template summary of general and individual trainer evaluation numerical ratings.','required'=>true],
                                                 ['code'=>'QA_04','title'=>'Assessment Tools','label'=>'Sample assessment tools such as test questions, etc.','required'=>true],
@@ -813,7 +811,7 @@
                                             <div class="row g-3">
                                                 <div class="col-md-6 mb-2">
                                                     <label class="form-label fw-bold mb-0" style="font-size:.88rem;">Equipment & Materials List <span class="text-danger">*</span></label>
-                                                    <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to FATPro MOP).</div>
+                                                    <div class="form-text mt-0 mb-2" style="font-size:.75rem; line-height: 1.2; color: #6c757d;">Unified document with photos of First-Aid materials, general equipment, and participant kits (Refer to <a href="https://oshc.dole.gov.ph/guidelines/#flipbook-df_21124/48/" target="_blank" rel="noopener noreferrer" style="color:#0b3d91;text-decoration:underline;font-weight:600;">FATPro MOP</a>).</div>
                                                     <div class="file-upload-wrapper mt-1">
                                                         <input class="real-file-input visually-hidden" type="file" name="documents[EQUIP_01]" id="doc_EQUIP_01" accept=".pdf" required>
                                                         <div class="d-flex align-items-center gap-2">
@@ -1005,36 +1003,16 @@
                                 </div>
                             </div>
 
-                            {{-- BOSH SO1/SO2 --}}
+                            {{-- Instructor CV / Resume --}}
                             <div class="credential-block border rounded-2 p-3 mb-2" style="background:#f8f9ff;">
-                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">BOSH</span>BOSH SO1/SO2</p>
-                                <div class="row g-2">
-                                    <div class="col-md-4">
-                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate Number <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][number]" placeholder="e.g. BOSH-2024-00001" required>
-                                        <div class="invalid-feedback" style="font-size:.78rem;">Certificate number is required.</div>
+                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#0b3d91;"><span class="badge me-1" style="background:#0b3d91;font-size:.7rem;">CV</span>Instructor CV / Resume <span class="text-danger">*</span></p>
+                                <div class="file-upload-wrapper">
+                                    <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][cv]" id="inst_cv___IDX__" accept=".pdf" required>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="inst_cv___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose PDF</label>
+                                        <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
                                     </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label mb-1" style="font-size:.8rem;">Validity Date <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][validity_date]" required>
-                                        <div class="invalid-feedback" style="font-size:.78rem;">Validity date is required.</div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label mb-1" style="font-size:.8rem;">Training Date(s) <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control form-control-sm" name="instructors[__IDX__][credentials][BOSH][training_dates]" placeholder="e.g. Jan 10-12, 2024" required>
-                                        <div class="invalid-feedback" style="font-size:.78rem;">Training date(s) are required.</div>
-                                    </div>
-                                    <div class="col-12">
-                                        <label class="form-label mb-1" style="font-size:.8rem;">Certificate PDF <span class="text-danger">*</span></label>
-                                        <div class="file-upload-wrapper">
-                                            <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][credentials][BOSH][pdf]" id="inst_bosh_pdf___IDX__" accept=".pdf" required>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <label for="inst_bosh_pdf___IDX__" class="btn btn-outline-primary btn-sm mb-0 px-3 fw-semibold custom-file-btn"><i class="bi bi-cloud-upload me-1"></i>Choose File</label>
-                                                <span class="file-name-text text-muted" style="font-size:.78rem;">No file chosen</span>
-                                            </div>
-                                            <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the BOSH certificate PDF.</div>
-                                        </div>
-                                    </div>
+                                    <div class="invalid-feedback file-invalid-feedback" style="font-size:0.8rem;margin-top:4px;">Please upload the instructor's CV / Resume PDF.</div>
                                 </div>
                             </div>
 

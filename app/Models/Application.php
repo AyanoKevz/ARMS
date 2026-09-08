@@ -129,4 +129,20 @@ class Application extends Model
     {
         return $this->hasMany(Instructor::class);
     }
+
+    /**
+     * Whether this application bypasses the interview stage.
+     *
+     * A renewing FATPro was already interviewed in the cycle that produced the
+     * accreditation they are renewing, so there is nothing to interview them for
+     * again: an approved evaluation goes straight to payment, and PCT Steps 4-6
+     * (Pending Interview / Interview / Interview Result) are never started.
+     *
+     * Reinstatement is deliberately NOT included — a lapsed accreditation is
+     * re-assessed in full, interview included.
+     */
+    public function skipsInterview(): bool
+    {
+        return strtolower((string) $this->application_type) === 'renewal';
+    }
 }

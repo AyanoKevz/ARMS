@@ -85,7 +85,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
+        Route::post('/instructors', [ApplicantInstructorController::class, 'store'])->name('instructors.store')->middleware('throttle:5,1');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
+        Route::delete('/instructors/{instructor}', [ApplicantInstructorController::class, 'destroy'])->name('instructors.destroy')->middleware('throttle:5,1');
         Route::post('/instructors/{instructor}/update-name', [ApplicantInstructorController::class, 'updateName'])->name('instructors.update_name');
         Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update')->middleware('throttle:5,1');
         // Note: instructor update requests are now admin-initiated only
@@ -213,6 +215,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/hcd/documents/{document}/view', [HCDApplicationController::class, 'serveDocument'])->name('admin.hcd.documents.view');
     Route::get('/admin/hcd/instructors/credentials/{credential}/view', [HCDApplicationController::class, 'serveInstructorCredential'])->name('admin.hcd.instructors.credentials.view');
     Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
+    Route::get('/admin/hcd/instructors/cv/{instructor}/view', [HCDApplicationController::class, 'serveInstructorCv'])->name('admin.hcd.instructors.cv.view');
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
     Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
 
@@ -221,10 +224,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/accreditation/payments/{payment}/view/{fileType}', [AccreditationApplicationController::class, 'servePaymentFile'])->name('admin.accreditation.payments.view');
     Route::get('/admin/accreditation/instructors/credentials/{credential}/view', [AccreditationApplicationController::class, 'serveInstructorCredential'])->name('admin.accreditation.instructors.credentials.view');
     Route::get('/admin/accreditation/instructors/service-agreement/{instructor}/view', [AccreditationApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.accreditation.instructors.service_agreement.view');
+    Route::get('/admin/accreditation/instructors/cv/{instructor}/view', [AccreditationApplicationController::class, 'serveInstructorCv'])->name('admin.accreditation.instructors.cv.view');
 
     // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');
     Route::get('/applicant/instructors/{instructor}/service-agreement/view', [ApplicantInstructorController::class, 'serveServiceAgreement'])->name('applicant.instructors.service_agreement.view');
+    Route::get('/applicant/instructors/{instructor}/cv/view', [ApplicantInstructorController::class, 'serveCv'])->name('applicant.instructors.cv.view');
     Route::get('/applicant/documents/{document}/view', [RenewalController::class, 'serveDocument'])->name('applicant.documents.view');
     Route::get('/applicant/user-documents/{userDocument}/view', [RenewalController::class, 'serveUserDocument'])->name('applicant.user_documents.view');
 });

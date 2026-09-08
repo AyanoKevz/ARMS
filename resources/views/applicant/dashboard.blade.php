@@ -168,7 +168,6 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
                                                      <th class="column-title">Certificate Number</th>
                                                      <th class="column-title text-center">Issued On</th>
                                                      <th class="column-title text-center">Valid Until</th>
-                                                     <th class="column-title">Training Date(s)</th>
                                                  </tr>
                                              </thead>
                                              <tbody>
@@ -178,7 +177,6 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
                                                              'NTTC'  => 1,
                                                              'TM1'   => 2,
                                                              'EMS'   => 3,
-                                                             'BOSH'  => 99,
                                                              default => 50,
                                                          };
                                                      });
@@ -189,7 +187,6 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
                                                          @if($credItem->type === 'EMS') TESDA Emergency Medical Services NC II or III Certificate
                                                          @elseif($credItem->type === 'TM1') TESDA Trainers Methodology Certificate 1
                                                          @elseif($credItem->type === 'NTTC') TESDA National TVET Trainer Certificate
-                                                         @elseif($credItem->type === 'BOSH') BOSH SO1 or SO2 Certificate
                                                          @else {{ $credItem->type }} Credential
                                                          @endif
                                                      </strong></td>
@@ -210,11 +207,10 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
                                                              —
                                                          @endif
                                                      </td>
-                                                     <td>{{ $credItem->training_dates ?? '—' }}</td>
                                                  </tr>
                                                  @empty
                                                  <tr>
-                                                     <td colspan="5" class="text-center text-muted py-3">No credentials recorded for this instructor.</td>
+                                                     <td colspan="4" class="text-center text-muted py-3">No credentials recorded for this instructor.</td>
                                                  </tr>
                                                  @endforelse
                                              </tbody>

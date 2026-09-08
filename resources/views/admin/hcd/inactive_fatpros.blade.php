@@ -67,6 +67,7 @@
                                     <th class="column-title">Revoked/Expired Date</th>
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Organization Email</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -85,6 +86,7 @@
                                         <td>{{ $acc->updated_at ? $acc->updated_at->format('M d, Y') : '—' }}</td>
                                         <td>{{ $org->head_name ?? '—' }}</td>
                                         <td>{{ $user->email }}</td>
+                                        <td>{{ $acc->application?->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center">
                                             @if($acc->status === 'revoked')
                                                 <span class="badge bg-danger text-white">Revoked</span>

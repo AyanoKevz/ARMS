@@ -402,7 +402,7 @@
                                                                 </div>
                                                                 <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                                             </div>
-                                                            <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                            <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                                                             @else
                                                             <label class="form-label small fw-semibold mb-1" style="color:#842029;">
                                                                 Update Value <span class="text-danger">*</span>
@@ -460,7 +460,7 @@
                                                         </div>
                                                         <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                                     </div>
-                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                                                 </div>
                                             </div>
                                             @endforeach
@@ -493,7 +493,7 @@
                                                         </div>
                                                         <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
                                                     </div>
-                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 10MB · PDF only</div>
+                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
                                                 </div>
                                             </div>
                                             @endforeach
@@ -712,13 +712,13 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Server-side limit is max:10240 (kilobytes) for these uploads. Read the
+        // Server-side limit is max:15360 (kilobytes) for these uploads. Read the
         // ceiling the server publishes (App\Support\UploadLimits) instead of a
         // literal, so the browser guard can never sit above what PHP accepts; the
         // fallback mirrors TrackingController's resubmitAll()/submitPaymentPublic()
         // validation rules.
         const MAX_FILE_BYTES = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
-            || (10240 * 1024);
+            || (15360 * 1024);
         const MAX_FILE_MB = (MAX_FILE_BYTES / (1024 * 1024)).toFixed(0);
 
         // Upload problems belong next to the field the applicant is looking at, not

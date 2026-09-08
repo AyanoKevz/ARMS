@@ -12,19 +12,33 @@
         ->whereIn('status', ['active', 'expired', 'revoked'])
         ->orderBy('created_at', 'desc')
         ->first();
+
+    // Someone else's profile is always read-only; a FATPro's own profile is
+    // read-only too, so the title has to key off ownership rather than $readOnly.
+    $isOwnProfile = $user->id === auth()->id();
 @endphp
 <div class="">
 
     <div class="page-title">
         <div class="title_left">
-            <h3>{{ $readOnly ? 'User Profile' : 'My Profile' }}</h3>
+            <h3>{{ $isOwnProfile ? 'My Profile' : 'User Profile' }}</h3>
         </div>
     </div>
     <div class="clearfix"></div>
 
     <div class="row pt-2">
         <div class="col-12 col-lg-8 mx-auto">
-            
+
+            @if($readOnly && $isOwnProfile)
+                <div class="alert alert-info d-flex align-items-start gap-2" role="alert">
+                    <i class="bi bi-info-circle-fill mt-1"></i>
+                    <div>
+                        These details are part of your accreditation record and cannot be edited here.
+                        To correct them, raise it with the Accreditation Division or submit them with your next application.
+                    </div>
+                </div>
+            @endif
+
             @if(session('success'))
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
@@ -223,12 +237,17 @@
                                 </div>
                             @endif
 
-                            @if(!$readOnly)
+                            @php $canChangePassword = $canChangePassword ?? !$readOnly; @endphp
+                            @if($canChangePassword || !$readOnly)
                             <div class="col-12 mt-4 text-end d-flex justify-content-end gap-2">
+                                @if($canChangePassword)
                                 <button type="button" class="btn px-4" style="background: #1A4A8A; color: #fff; border: none;" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
                                     <i class="bi bi-shield-lock me-1"></i> Change Password
                                 </button>
+                                @endif
+                                @if(!$readOnly)
                                 <button type="submit" class="btn btn-primary px-4"><i class="bi bi-save me-1"></i> Save Changes</button>
+                                @endif
                             </div>
                             @endif
 
@@ -242,7 +261,7 @@
     </div>
 </div>
 
-@if(!$readOnly)
+@if($canChangePassword ?? !$readOnly)
 {{-- ── Change Password Modal ── --}}
 <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

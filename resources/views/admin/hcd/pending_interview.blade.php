@@ -60,6 +60,7 @@
                                     <th class="column-title">FATPro Name</th>
                                     <th class="column-title">Address</th>
                                     <th class="column-title">Organization Email</th>
+                                    <th class="column-title">In-Charge</th>
                                     <th class="column-title text-center">Status</th>
                                     <th class="column-title no-link last text-center no-sort"><span class="nobr">Action</span></th>
                                 </tr>
@@ -96,6 +97,7 @@
                                         </td>
                                         <td>{{ $isOrg && $org ? ($org->address ?? '—') : ($ind->address ?? '—') }}</td>
                                         <td>{{ $isOrg && $org ? ($org->email ?? '—') : ($app->user->email ?? '—') }}</td>
+                                        <td>{{ $app->assignedEvaluator?->name ?? 'Unassigned' }}</td>
                                         <td class="text-center">
                                             <span class="badge bg-warning text-dark">
                                                 Pending

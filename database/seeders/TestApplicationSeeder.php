@@ -33,6 +33,12 @@ class TestApplicationSeeder extends Seeder
         $fatproType = \App\Models\AccreditationType::firstOrCreate(['name' => 'First Aid Training Providers']);
         $fatproTypeId = $fatproType->id;
 
+        // The HCD Evaluator seeded by AdminUserSeeder (which runs before this one).
+        // Applications need an in-charge or the notifications addressed to
+        // $application->assignedEvaluator — instructor updates, document
+        // re-uploads — are logged as skipped and never sent.
+        $evaluatorId = User::where('email', 'data@oshc.dole.gov.ph')->value('id');
+
         // We will create 2 test registrations
         for ($i = 1; $i <= 2; $i++) {
             $email = "testprovider{$i}@example.com";
@@ -130,14 +136,12 @@ class TestApplicationSeeder extends Seeder
                 'last_name' => 'Doe',
                 'ins_sex' => ($i % 2 === 0 ? 'Female' : 'Male'),
                 'service_agreement_path' => "dummy_files/service_agreement_{$i}.pdf",
+                'cv_path' => "dummy_files/instructor_cv_{$i}.pdf",
                 'status' => 'pending',
             ]);
 
             // 7. Create Instructor Credentials
-            // Only BOSH actually collects a training_dates value on the real registration/renewal
-            // forms — the other credential types never have that field, so their real-world rows
-            // are always null. Match that here instead of stamping the same value on all four.
-            $credentialTypes = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+            $credentialTypes = ['EMS', 'TM1', 'NTTC'];
             foreach ($credentialTypes as $type) {
                 InstructorCredential::create([
                     'instructor_id' => $instructor->id,
@@ -145,7 +149,6 @@ class TestApplicationSeeder extends Seeder
                     'number' => strtoupper(Str::random(8)),
                     'issued_date' => Carbon::now()->subMonths(6),
                     'validity_date' => Carbon::now()->addYears(2),
-                    'training_dates' => $type === 'BOSH' ? 'Jan 1-5, 2026' : null,
                     'pdf_path' => "dummy_files/instructor_{$type}_{$i}.pdf",
                     'status' => 'pending',
                 ]);
@@ -195,6 +198,7 @@ class TestApplicationSeeder extends Seeder
             'application_type' => 'new',
             'tracking_number' => "ARMS{$accYear}-000470",
             'submitted_at' => Carbon::now()->subYears(2)->subMonths(9),
+            'assigned_evaluator_id' => $evaluatorId,
         ]);
 
         // 4. Set Application Status logs up to Approved
@@ -248,12 +252,12 @@ class TestApplicationSeeder extends Seeder
             'last_name' => 'John',
             'ins_sex' => 'Male',
             'service_agreement_path' => "dummy_files/service_agreement_acc.pdf",
+            'cv_path' => "dummy_files/instructor_cv_acc.pdf",
             'status' => 'approved',
         ]);
 
         // 7. Create Approved Instructor Credentials
-        // Only BOSH actually collects a training_dates value on the real forms — see note above.
-        $credentialTypes = ['EMS', 'TM1', 'NTTC', 'BOSH'];
+        $credentialTypes = ['EMS', 'TM1', 'NTTC'];
         foreach ($credentialTypes as $type) {
             InstructorCredential::create([
                 'instructor_id' => $accInstructor->id,
@@ -261,7 +265,6 @@ class TestApplicationSeeder extends Seeder
                 'number' => strtoupper(Str::random(8)),
                 'issued_date' => Carbon::now()->subMonths(30),
                 'validity_date' => Carbon::now()->addMonths(6),
-                'training_dates' => $type === 'BOSH' ? 'Jan 1-5, 2024' : null,
                 'pdf_path' => "dummy_files/instructor_{$type}_acc.pdf",
                 'status' => 'approved',
             ]);

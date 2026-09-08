@@ -21,6 +21,8 @@ return new class extends Migration
             $table->string('ins_sex')->nullable();
             $table->string('service_agreement_path')->nullable();
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
+            $table->string('cv_path')->nullable();
+            // Instructor CV / resume PDF, stored alongside the service agreement
             $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
             $table->string('update_request_status')->default('none');
@@ -39,19 +41,15 @@ return new class extends Migration
             // EMS  = TESDA EMS NC II/III
             // TM1  = TESDA TM1
             // NTTC = TESDA NTTC
-            // BOSH = BOSH SO1/SO2
 
             $table->string('number')->nullable();
             // Certificate / credential number
 
             $table->date('issued_date')->nullable();
-            // Issued date — not used for BOSH
+            // Issued date
 
             $table->date('validity_date')->nullable();
             // Validity / expiry date
-
-            $table->text('training_dates')->nullable();
-            // Training date(s) — BOSH only (free-text since multiple dates possible)
 
             $table->string('pdf_path')->nullable();
             // Path to the credential PDF
