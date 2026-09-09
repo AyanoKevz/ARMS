@@ -1459,8 +1459,16 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
     @endif
 
 </div>
-@elseif(!$isViewOnly && !$isAccredited && !$isApproved && $currentStatus !== 'Awaiting Payment')
-{{-- Just the button if no schedule yet --}}
+@elseif(!$isViewOnly && !$isAccredited && !$isApproved && !in_array($currentStatus, ['Awaiting Payment', 'Payment Verification']))
+{{-- The evaluation submit button, which doubles as "Set Schedule" once a new
+     application reaches "Scheduled for Interview" without a booking yet.
+
+     Both post-evaluation statuses have to be excluded, not just Awaiting Payment:
+     a renewal skips the interview and lands on Awaiting Payment directly, then
+     moves to Payment Verification when the applicant uploads proof — at which
+     point there is nothing left to submit and the button was reappearing.
+     "Scheduled for Interview" stays in scope on purpose: that is the state where
+     an evaluator still needs it to open the scheduling modal. --}}
 @if(!$isRejected)
 <div class="mt-4 mb-4 text-center">
     <button type="button"
