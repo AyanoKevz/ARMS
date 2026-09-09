@@ -69,6 +69,11 @@ Route::get('/login', function () {
 
 Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('throttle:5,1');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+// Touched by the idle-timeout warning to extend the session. Kept out of the
+// 'prevent-back-history' group below — it never renders a page to go back to.
+Route::post('/session/keep-alive', [AuthController::class, 'keepAlive'])
+    ->middleware('auth')
+    ->name('session.keep_alive');
 
 // Dashboard placeholders
 Route::middleware(['auth', 'prevent-back-history'])->group(function () {

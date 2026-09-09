@@ -113,6 +113,25 @@ class AuthController extends Controller
     }
 
     /**
+     * Refresh the session without doing anything else.
+     *
+     * The idle-timeout warning calls this when the user clicks "Stay signed in".
+     * Laravel's session lifetime counts from the last request, so simply handling
+     * this request is what extends it — the empty 204 body is the point.
+     *
+     * Returns 401 rather than a redirect when the session has already gone, so the
+     * browser can tell "still signed in" from "too late" without following HTML.
+     */
+    public function keepAlive(Request $request)
+    {
+        if (! Auth::check()) {
+            return response()->json(['status' => 'expired'], 401);
+        }
+
+        return response()->noContent();
+    }
+
+    /**
      * Log the user out of the application.
      */
     public function logout(Request $request)

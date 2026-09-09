@@ -361,6 +361,11 @@
     <script src="{{ \App\Support\AssetVersion::url('js/toast.js') }}" defer></script>
     <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
     <script src="{{ \App\Support\AssetVersion::url('js/portal.js') }}" defer></script>
+    @auth
+    <!-- Idle-session warning (self-initialising; reads its config from the partial) -->
+    @include('partials.session_timeout')
+    <script src="{{ \App\Support\AssetVersion::url('js/session-timeout.js') }}" defer></script>
+    @endauth
     @stack('scripts')
 </body>
 </html>
