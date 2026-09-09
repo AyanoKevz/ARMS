@@ -273,6 +273,39 @@
                                                     <option value="{{ $optValue }}" @selected($rdoc->userDocument?->value === $optValue)>{{ $optLabel }}</option>
                                                     @endforeach
                                                 </select>
+                                                @if($rdoc->documentField?->code === 'LEGAL_02_TYPE')
+                                                {{-- SEC-only: Articles of Incorporation. The applicant may be switching away from
+                                                     DTI/CDA, in which case this document was never uploaded and no rejected row
+                                                     exists for it — so the field is rendered here rather than in the loop above. --}}
+                                                @php
+                                                    $legal03Existing = $application->documents->first(fn($d) => $d->documentField?->code === 'LEGAL_03' && $d->userDocument?->file_path);
+                                                    $legal03NeededNow = ($rdoc->userDocument?->value === 'SEC');
+                                                @endphp
+                                                <div class="mt-3 pt-3 border-top" id="resubmitLegal03Container" @unless($legal03NeededNow) hidden @endunless>
+                                                    <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                                        Articles of Incorporation (PDF) @unless($legal03Existing)<span class="text-danger">*</span>@endunless
+                                                    </label>
+                                                    <div class="text-muted mb-2" style="font-size:.75rem;">
+                                                        Articles of Incorporation with By-Laws — required when registered with the SEC.
+                                                    </div>
+                                                    @if($legal03Existing)
+                                                    <div class="text-success small mb-2" style="font-size:.75rem;">
+                                                        <i class="bi bi-check-circle-fill me-1"></i>Already on file. Upload only if you need to replace it.
+                                                    </div>
+                                                    @endif
+                                                    <div class="file-upload-wrapper mt-1">
+                                                        <input type="file" name="legal03_file" id="resubmit_doc_LEGAL_03" class="real-file-input batch-file-input visually-hidden" accept=".pdf" @unless($legal03Existing) data-legal03-required="1" @endunless>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <label for="resubmit_doc_LEGAL_03" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                                                <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                                            </label>
+                                                            <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                                        </div>
+                                                        <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                                    </div>
+                                                    <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
+                                                </div>
+                                                @endif
                                                 @else
                                                 <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}"
                                                        name="values[{{ $rdoc->id }}]"
@@ -1334,6 +1367,45 @@
     @endif
     @endif
 </div>
+<script>
+    /**
+     * Resubmit form: Articles of Incorporation is only required when the applicant
+     * sets the registering authority to SEC. Mirrors the rule on the new-application
+     * form. Clearing the input on the way out stops a hidden field smuggling a file
+     * into the submission.
+     */
+    (function () {
+        const box = document.getElementById('resubmitLegal03Container');
+        if (!box) return;
+
+        const form = box.closest('form');
+        const select = form ? form.querySelector('select[name^="values["]') : null;
+        const input = document.getElementById('resubmit_doc_LEGAL_03');
+        if (!select || !input) return;
+
+        const mustUpload = input.hasAttribute('data-legal03-required');
+
+        function sync() {
+            const needsArticles = select.value === 'SEC';
+            box.hidden = !needsArticles;
+            input.required = needsArticles && mustUpload;
+
+            if (!needsArticles && input.value) {
+                input.value = '';
+                input.classList.remove('is-invalid');
+                const nameText = box.querySelector('.file-name-text');
+                if (nameText) {
+                    nameText.textContent = 'No file chosen';
+                    nameText.classList.add('text-muted');
+                }
+            }
+        }
+
+        select.addEventListener('change', sync);
+        sync();
+    })();
+</script>
+
 @endsection
 
 @push('scripts')

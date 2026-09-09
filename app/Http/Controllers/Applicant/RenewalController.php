@@ -686,7 +686,7 @@ class RenewalController extends Controller
             'files.*'            => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'values'             => ['nullable', 'array'],
             'values.*'           => ['required', 'string', 'max:500'],
-            'instructor_files'   => ['nullable', 'array'],
+            'legal03_file' => ['nullable', 'file', 'mimes:pdf', 'max:15360'],            'instructor_files'   => ['nullable', 'array'],
             'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'credential_files'   => ['nullable', 'array'],
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
@@ -792,6 +792,72 @@ class RenewalController extends Controller
         }
 
         // File documents
+
+        // ── SEC-only: Articles of Incorporation ─────────────────────────────
+        // The registering authority may have just changed to SEC, in which case
+        // this document has never been uploaded and has no rejected row of its
+        // own. Resolve the authority AFTER the value loop above so a change made
+        // in this same submission counts.
+        $legal03File = $request->file('legal03_file');
+        if ($legal03File) {
+            $authority = ApplicationDocument::with('userDocument')
+                ->where('application_id', $application->id)
+                ->whereHas('documentField', fn ($q) => $q->where('code', 'LEGAL_02_TYPE'))
+                ->first()?->userDocument?->value;
+
+            if ($authority === 'SEC') {
+                $legal03Field = DocumentField::where('code', 'LEGAL_03')->first();
+
+                if ($legal03Field) {
+                    $timestamp = time();
+                    $filename  = "LEGAL_03_{$timestamp}.pdf";
+                    $finalPath = "{$baseDocPath}/{$filename}";
+
+                    $legal03Doc = ApplicationDocument::with('userDocument')
+                        ->where('application_id', $application->id)
+                        ->where('document_field_id', $legal03Field->id)
+                        ->first();
+
+                    $userDoc = $legal03Doc?->userDocument
+                        ?? UserDocument::where('user_id', $userId)
+                            ->where('document_field_id', $legal03Field->id)
+                            ->first();
+
+                    if ($userDoc && $userDoc->file_path && Storage::disk('local')->exists($userDoc->file_path)) {
+                        Storage::disk('local')->delete($userDoc->file_path);
+                    }
+
+                    $legal03File->storeAs($baseDocPath, $filename, 'local');
+
+                    if ($userDoc) {
+                        $userDoc->update(['file_path' => $finalPath]);
+                    } else {
+                        $userDoc = UserDocument::create([
+                            'user_id'           => $userId,
+                            'document_field_id' => $legal03Field->id,
+                            'file_path'         => $finalPath,
+                        ]);
+                    }
+
+                    if ($legal03Doc) {
+                        $legal03Doc->update([
+                            'user_document_id' => $userDoc->id,
+                            'status'           => 'pending',
+                            'remarks'          => null,
+                        ]);
+                    } else {
+                        ApplicationDocument::create([
+                            'application_id'    => $application->id,
+                            'document_field_id' => $legal03Field->id,
+                            'user_document_id'  => $userDoc->id,
+                            'status'            => 'pending',
+                        ]);
+                    }
+
+                    $resubmitted++;
+                }
+            }
+        }
         foreach ($files as $appDocId => $file) {
             $appDoc = ApplicationDocument::with(['documentField', 'userDocument'])
                 ->where('id', $appDocId)
