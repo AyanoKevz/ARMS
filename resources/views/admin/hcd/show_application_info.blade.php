@@ -761,7 +761,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     @if($inputType === 'date' && $textVal)
                                     <div class="doc-value">{{ \Carbon\Carbon::parse($textVal)->format('M d, Y') }}</div>
                                     @elseif($inputType === 'text' && $textVal)
-                                    <div class="doc-value">{{ $textVal }}</div>
+                                    <div class="doc-value">{{ $field ? $field->displayValue($textVal) : $textVal }}</div>
                                     @elseif($inputType === 'file')
                                     <div class="doc-value text-muted" style="font-size:.75rem;">
                                         {{ $filePath ? basename($filePath) : 'No file' }}

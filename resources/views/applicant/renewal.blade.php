@@ -260,12 +260,27 @@
                                                 <label class="form-label small fw-semibold mb-1" style="color:#842029;">
                                                     Update Value <span class="text-danger">*</span>
                                                 </label>
-                                                <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}" 
-                                                       name="values[{{ $rdoc->id }}]" 
-                                                       id="doc_{{ $rdoc->id }}" 
-                                                       class="form-control form-control-sm" 
-                                                       value="{{ $rdoc->userDocument?->value }}" 
+                                                @php $rdocOptions = $rdoc->documentField->selectOptions(); @endphp
+                                                @if($rdocOptions)
+                                                {{-- Fixed choices (e.g. registering authority): match the new-application
+                                                     form and let the applicant pick rather than retype. --}}
+                                                <select name="values[{{ $rdoc->id }}]"
+                                                        id="doc_{{ $rdoc->id }}"
+                                                        class="form-select form-select-sm"
+                                                        required>
+                                                    <option value="" @if(!$rdoc->userDocument?->value) selected @endif disabled>Select an option</option>
+                                                    @foreach($rdocOptions as $optValue => $optLabel)
+                                                    <option value="{{ $optValue }}" @selected($rdoc->userDocument?->value === $optValue)>{{ $optLabel }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @else
+                                                <input type="{{ $rdoc->documentField->input_type === 'date' ? 'date' : 'text' }}"
+                                                       name="values[{{ $rdoc->id }}]"
+                                                       id="doc_{{ $rdoc->id }}"
+                                                       class="form-control form-control-sm"
+                                                       value="{{ $rdoc->userDocument?->value }}"
                                                        required>
+                                                @endif
                                             @endif
                                         </div>
                                     </div>
@@ -488,8 +503,9 @@
                                                         {{ ucfirst($doc->status) }}
                                                     </span>
                                                     @if(!$isPdf && $doc->userDocument?->value)
-                                                        <span class="text-muted small" title="{{ $doc->userDocument->value }}" style="font-size: 0.72rem;">
-                                                            Value: {{ Str::limit($doc->userDocument->value, 30) }}
+                                                        @php $docShownValue = $doc->documentField?->displayValue($doc->userDocument->value) ?? $doc->userDocument->value; @endphp
+                                                        <span class="text-muted small" title="{{ $docShownValue }}" style="font-size: 0.72rem;">
+                                                            Value: {{ Str::limit($docShownValue, 40) }}
                                                         </span>
                                                     @endif
                                                 </div>

@@ -118,6 +118,14 @@ class TrackingController extends Controller
             $field = $appDoc->documentField;
             if (! $field || $field->input_type === 'file') continue;
 
+            // Fields with a fixed choice list are rendered as a <select>, but the
+            // resubmit endpoints accept a raw POST — so re-check the value here
+            // rather than trusting the form.
+            $allowed = $field->selectOptions();
+            if ($allowed !== null && ! array_key_exists($value, $allowed)) {
+                continue;
+            }
+
             $userDoc = $appDoc->userDocument;
 
             if ($userDoc) {
