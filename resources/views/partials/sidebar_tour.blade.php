@@ -13,7 +13,16 @@
 --}}
 
 
-{{-- Bootstrap the tour for the given role --}}
+{{-- Bootstrap the tour for the given role.
+
+     portal.js is loaded with `defer`, so it has NOT executed yet while this inline
+     script runs during parsing — window.ARMSTour is still undefined at this point.
+     Calling init() directly here silently did nothing. Leave the request in a global
+     instead; portal.js picks it up as soon as it evaluates. The direct call is kept
+     for the case where portal.js somehow ran first. --}}
 <script>
-    window.ARMSTour && window.ARMSTour.init('{{ $tourType }}', '{{ session()->getId() }}');
+    window.__armsTourRequest = ['{{ $tourType }}', '{{ session()->getId() }}'];
+    if (window.ARMSTour) {
+        window.ARMSTour.init.apply(null, window.__armsTourRequest);
+    }
 </script>

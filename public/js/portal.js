@@ -228,6 +228,14 @@
                 intro: 'Access historical records of archived accreditation applications.',
                 position: 'right',
             },
+            {
+                // Only rendered for the Training Evaluator; buildSteps() drops this
+                // step for every other admin because the element will not exist.
+                element: '#tour-step-reports',
+                title: 'Training Reports',
+                intro: 'Review the training reports (NTC) submitted by accredited FatPro providers.',
+                position: 'right',
+            },
         ],
 
         verifier: [
@@ -456,7 +464,18 @@
                 return;
             }
 
-            document.addEventListener('DOMContentLoaded', function () {
+            // Normally this file (deferred) runs before DOMContentLoaded, so the
+            // listener below fires. Guard the already-loaded case too: a listener
+            // registered after the event has fired would never run, killing the tour.
+            var whenReady = function (fn) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', fn);
+                } else {
+                    fn();
+                }
+            };
+
+            whenReady(function () {
                 if (isDismissed(tourType)) {
                     // Already dismissed permanently — show the re-launch button instead
                     showTriggerButton(tourType);
@@ -488,6 +507,13 @@
             });
         },
     };
+
+    // The bootstrap in partials/sidebar_tour.blade.php is an inline script, so it
+    // runs while the document is still parsing — before this deferred file executes.
+    // It leaves its request here rather than calling init() into thin air.
+    if (window.__armsTourRequest) {
+        window.ARMSTour.init.apply(null, window.__armsTourRequest);
+    }
 
     /* ─────────────────────────────────────────────
        COLLAPSED-SECTION VALIDATION

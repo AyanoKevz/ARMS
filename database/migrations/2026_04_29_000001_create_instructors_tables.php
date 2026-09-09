@@ -23,6 +23,12 @@ return new class extends Migration
             // PDF path stored in local disk (public/instructors/{user_id}/{instructor_id}/sa.pdf)
             $table->string('cv_path')->nullable();
             // Instructor CV / resume PDF, stored alongside the service agreement
+            $table->string('cv_status')->default('pending');
+            $table->text('cv_remarks')->nullable();
+            // The CV is evaluated in its own right — `status`/`remarks` below cover
+            // the service agreement, so a wrong CV can be rejected on its own.
+            // An instructor with no cv_path is treated as "not applicable" by the
+            // approval gates rather than as pending (Instructor::cvApproved()).
             $table->string('status')->default('pending');
             $table->text('remarks')->nullable();
             $table->string('update_request_status')->default('none');

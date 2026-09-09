@@ -1150,6 +1150,7 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     </div>
 
                                     @if($instructor->cv_path)
+                                    <input type="hidden" name="cv_evaluations[{{ $instructor->id }}][id]" value="{{ $instructor->id }}">
                                     <input type="hidden" name="cv_evaluations[{{ $instructor->id }}][status]" id="status-input-cv-{{ $instructor->id }}" value="{{ $cvStatus }}" data-db-status="{{ $instructor->cv_status }}">
                                     <span class="doc-badge {{ $cvBadgeClass }}" id="badge-cv-{{ $instructor->id }}">{{ $cvBadgeLabel }}</span>
 
