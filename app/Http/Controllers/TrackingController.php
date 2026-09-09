@@ -82,6 +82,8 @@ class TrackingController extends Controller
             'values.*'       => ['required', 'string', 'max:500'],
             'instructor_files' => ['nullable', 'array'],
             'instructor_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
+            'cv_files' => ['nullable', 'array'],
+            'cv_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'credential_files' => ['nullable', 'array'],
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
         ]);
@@ -100,6 +102,7 @@ class TrackingController extends Controller
         $files             = $request->file('files') ?? [];
         $values            = $request->input('values') ?? [];
         $instructorFiles   = $request->file('instructor_files') ?? [];
+        $cvFiles           = $request->file('cv_files') ?? [];
         $credentialFiles   = $request->file('credential_files') ?? [];
         $resubmitted       = 0;
 
@@ -204,6 +207,33 @@ class TrackingController extends Controller
                 'service_agreement_path' => $finalPath,
                 'status'                 => 'pending',
                 'remarks'                => null,
+            ]);
+
+            $resubmitted++;
+        }
+
+        // Instructor CVs. Keyed by instructor id like the service agreements, but
+        // gated on cv_status so rejecting one never forces a re-upload of the other.
+        foreach ($cvFiles as $instructorId => $file) {
+            $instructor = $application->instructors->firstWhere('id', $instructorId);
+            if (! $instructor || ! in_array($instructor->cv_status, ['rejected', 'returned'])) continue;
+
+            $timestamp = time();
+            $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
+            $instLast  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
+            $filename  = "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf";
+            $finalPath = "{$baseCredPath}/{$filename}";
+
+            if ($instructor->cv_path && Storage::disk('local')->exists($instructor->cv_path)) {
+                Storage::disk('local')->delete($instructor->cv_path);
+            }
+
+            $file->storeAs($baseCredPath, $filename, 'local');
+
+            $instructor->update([
+                'cv_path'    => $finalPath,
+                'cv_status'  => 'pending',
+                'cv_remarks' => null,
             ]);
 
             $resubmitted++;

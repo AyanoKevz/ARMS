@@ -1110,8 +1110,36 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 @endforeach
                                 @endif
 
-                                {{-- CV / Resume. Read-only: it has no evaluation status of its
-                                     own, the instructor row's status covers the person. --}}
+                                {{-- CV / Resume. Evaluated in its own right (cv_status), so a
+                                     wrong CV can be rejected without touching the service
+                                     agreement. Instructors with no CV on file stay read-only. --}}
+                                @php
+                                $cvStatus = in_array($instructor->cv_status, ['approved','rejected','returned']) ? $instructor->cv_status : 'pending';
+                                $isCvRequested = $instructor->update_request_status === 'pending_review' &&
+                                    (empty($instructor->update_request_fields) || (is_array($instructor->update_request_fields) && in_array('cv', $instructor->update_request_fields)));
+
+                                if ($instructor->update_request_status === 'admin_requested'
+                                    && is_array($instructor->update_request_fields)
+                                    && in_array('cv', $instructor->update_request_fields)) {
+                                    $cvBadgeClass = 'doc-badge-pending';
+                                    $cvBadgeLabel = 'Awaiting Upload';
+                                } else {
+                                    $cvBadgeClass = match($cvStatus) {
+                                        'approved' => 'doc-badge-approved',
+                                        'rejected' => 'doc-badge-for_revision',
+                                        'returned' => 'doc-badge-for_revision',
+                                        default    => 'doc-badge-pending',
+                                    };
+                                    $cvBadgeLabel = match($cvStatus) {
+                                        'approved' => 'Accepted',
+                                        'rejected' => 'Rejected',
+                                        'returned' => 'Requires Resubmission',
+                                        default    => 'Pending',
+                                    };
+                                }
+
+                                $showCvEvalButtons = $instructor->cv_path && !$isViewOnly && ((!$allApproved && !in_array($currentStatus, ['Scheduled for Interview', 'Awaiting Payment', 'Payment Verification', 'Approved', 'Rejected']) && !$isAccredited) || $isCvRequested);
+                                @endphp
                                 <div class="doc-row">
                                     <div class="doc-field-name">
                                         <i class="bi bi-file-earmark-person text-primary me-1"></i>
@@ -1122,11 +1150,37 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                     </div>
 
                                     @if($instructor->cv_path)
+                                    <input type="hidden" name="cv_evaluations[{{ $instructor->id }}][status]" id="status-input-cv-{{ $instructor->id }}" value="{{ $cvStatus }}" data-db-status="{{ $instructor->cv_status }}">
+                                    <span class="doc-badge {{ $cvBadgeClass }}" id="badge-cv-{{ $instructor->id }}">{{ $cvBadgeLabel }}</span>
+
                                     <div class="doc-actions">
                                         <a href="{{ route('admin.hcd.instructors.cv.view', $instructor->id) }}?v={{ $instructor->updated_at->timestamp ?? time() }}" data-file-modal data-file-title="CV / Resume – {{ $instructor->first_name }} {{ $instructor->last_name }}" class="btn btn-outline-primary btn-xs px-2 py-0" style="font-size:.78rem;">
                                             <i class="bi bi-eye me-1"></i>View
                                         </a>
                                     </div>
+
+                                    @if($showCvEvalButtons)
+                                        @if($currentStatus !== 'For Update')
+                                        <div class="doc-eval-actions pct-working-only" style="display: flex !important;">
+                                            <button type="button" class="btn-eval btn-approve {{ $cvStatus === 'approved' ? 'active' : '' }}" data-doc-id="cv-{{ $instructor->id }}" onclick="evaluateItem('cv-{{ $instructor->id }}', 'approved')">
+                                                <i class="bi bi-check-circle-fill"></i> Approve
+                                            </button>
+                                            <button type="button" class="btn-eval btn-reject {{ $cvStatus === 'rejected' ? 'active' : '' }}" data-doc-id="cv-{{ $instructor->id }}" onclick="evaluateItem('cv-{{ $instructor->id }}', 'rejected')">
+                                                <i class="bi bi-x-circle-fill"></i> Reject
+                                            </button>
+                                        </div>
+                                        @endif
+                                        <div class="reject-panel" id="reject-panel-cv-{{ $instructor->id }}" style="{{ $cvStatus === 'rejected' ? '' : 'display:none;' }}">
+                                            <label class="reject-remarks-label"><i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span></label>
+                                            <textarea class="reject-remarks-input"
+                                                name="cv_evaluations[{{ $instructor->id }}][remarks]"
+                                                id="remarks-cv-{{ $instructor->id }}"
+                                                placeholder="Explain why this CV was rejected…"
+                                                rows="2"
+                                                data-default-readonly="{{ ($instructor->cv_status === 'returned' || $currentStatus === 'For Update') ? 'true' : 'false' }}"
+                                                {{ ($instructor->cv_status === 'returned' || $currentStatus === 'For Update' || !$isWorkingHours) ? 'readonly' : '' }}>{{ $instructor->cv_remarks }}</textarea>
+                                        </div>
+                                    @endif
                                     @endif
                                 </div>
 

@@ -66,6 +66,17 @@
             @endforeach
         @endif
         
+        @if(isset($rejectedCvs))
+            @foreach($rejectedCvs as $rCv)
+            <div class="doc-item red">
+                <div class="doc-item-name">CV / Resume - {{ $rCv->first_name }} {{ $rCv->last_name }}</div>
+                <div class="doc-item-remark">
+                    <span>Remarks:</span> {{ $rCv->cv_remarks ?: 'No specific remark provided. Please ensure the document is complete and legible.' }}
+                </div>
+            </div>
+            @endforeach
+        @endif
+
         @if(isset($rejectedCredentials))
             @foreach($rejectedCredentials as $rCred)
             <div class="doc-item red">
@@ -79,7 +90,7 @@
     </div>
 
     <div class="btn-wrap">
-        @if(($rejectedInstructors->isNotEmpty() || $rejectedCredentials->isNotEmpty()) && $application->user?->accreditations()->where('status', 'active')->exists())
+        @if(($rejectedInstructors->isNotEmpty() || $rejectedCredentials->isNotEmpty() || (isset($rejectedCvs) && $rejectedCvs->isNotEmpty())) && $application->user?->accreditations()->where('status', 'active')->exists())
         <a href="{{ url('/applicant/instructors') }}" class="btn-primary">
             Log In &amp; Update Instructor Credentials
         </a>

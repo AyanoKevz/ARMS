@@ -18,6 +18,8 @@ class DocumentRejectionEmail extends Mailable implements ShouldQueue
     public $rejectedDocuments;
     public $rejectedInstructors;
     public $rejectedCredentials;
+    /** Instructors whose CV was rejected — the CV has its own status. */
+    public $rejectedCvs;
 
     /**
      * Create a new message instance.
@@ -27,7 +29,7 @@ class DocumentRejectionEmail extends Mailable implements ShouldQueue
      * @param \Illuminate\Support\Collection $rejectedInstructors
      * @param \Illuminate\Support\Collection $rejectedCredentials
      */
-    public function __construct(Application $application, $rejectedDocuments, $rejectedInstructors = null, $rejectedCredentials = null)
+    public function __construct(Application $application, $rejectedDocuments, $rejectedInstructors = null, $rejectedCredentials = null, $rejectedCvs = null)
     {
         $this->application = $application;
         $this->application->loadMissing(['user.organizationProfile', 'user.individualProfile', 'accreditationType']);
@@ -38,6 +40,7 @@ class DocumentRejectionEmail extends Mailable implements ShouldQueue
         }
 
         $this->rejectedInstructors = $rejectedInstructors ?? collect();
+        $this->rejectedCvs = $rejectedCvs ?? collect();
         
         $this->rejectedCredentials = $rejectedCredentials ?? collect();
         if ($this->rejectedCredentials && $this->rejectedCredentials->isNotEmpty()) {

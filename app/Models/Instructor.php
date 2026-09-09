@@ -20,6 +20,8 @@ class Instructor extends Model
         'cv_path',
         'status',
         'remarks',
+        'cv_status',
+        'cv_remarks',
         'update_request_status',
         'update_request_reason',
         'update_request_fields',
@@ -51,6 +53,26 @@ class Instructor extends Model
     public function credentials()
     {
         return $this->hasMany(InstructorCredential::class);
+    }
+
+    /**
+     * Whether the CV clears evaluation.
+     *
+     * An instructor with no CV on file has nothing to evaluate, so it counts as
+     * settled — otherwise the default 'pending' would block every approval gate
+     * for rosters that never carried a CV.
+     */
+    public function cvApproved(): bool
+    {
+        return !$this->cv_path || $this->cv_status === 'approved';
+    }
+
+    /**
+     * Whether the CV is actively blocking — uploaded, and not yet approved.
+     */
+    public function cvRejected(): bool
+    {
+        return (bool) $this->cv_path && in_array($this->cv_status, ['rejected', 'returned'], true);
     }
 
     /**

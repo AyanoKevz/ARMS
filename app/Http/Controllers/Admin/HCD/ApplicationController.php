@@ -566,7 +566,7 @@ class ApplicationController extends Controller
         $this->checkTrainingEvaluatorAccess();
 
         $request->validate([
-            'item_type' => ['required', 'in:document,instructor,credential'],
+            'item_type' => ['required', 'in:document,instructor,credential,cv'],
             'item_id'   => ['required', 'integer'],
             'status'    => ['required', 'in:approved,rejected,pending,returned'],
             'remarks'   => ['nullable', 'string', 'max:1000'],
@@ -579,7 +579,9 @@ class ApplicationController extends Controller
 
         if ($itemType === 'document') {
             $item = ApplicationDocument::where('application_id', $application->id)->findOrFail($itemId);
-        } elseif ($itemType === 'instructor') {
+        } elseif ($itemType === 'instructor' || $itemType === 'cv') {
+            // Both address the instructor row; they differ only in which status
+            // column they write — 'instructor' is the service agreement, 'cv' the CV.
             $item = \App\Models\Instructor::where('application_id', $application->id)->findOrFail($itemId);
         } else {
             $item = \App\Models\InstructorCredential::whereHas('instructor', function ($q) use ($application) {
@@ -587,13 +589,12 @@ class ApplicationController extends Controller
             })->findOrFail($itemId);
         }
 
-        $item->update([
-            'status'  => $status,
-            'remarks' => $remarks,
-        ]);
+        $item->update($itemType === 'cv'
+            ? ['cv_status' => $status, 'cv_remarks' => $remarks]
+            : ['status' => $status, 'remarks' => $remarks]);
 
         $instructorCompleted = false;
-        if ($itemType === 'instructor') {
+        if ($itemType === 'instructor' || $itemType === 'cv') {
             $instructorCompleted = $this->checkAndUpdateInstructorRequestStatus($item);
         } elseif ($itemType === 'credential') {
             $inst = $item->instructor;
@@ -637,6 +638,12 @@ class ApplicationController extends Controller
             'credential_evaluations.*.id' => ['required', 'integer'],
             'credential_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'credential_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
+            // Keyed by instructor id — the CV lives on the instructor row, in its own
+            // cv_status/cv_remarks pair rather than the shared status/remarks one.
+            'cv_evaluations' => ['nullable', 'array'],
+            'cv_evaluations.*.id' => ['required', 'integer'],
+            'cv_evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
+            'cv_evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
         // Request payloads arrive as strings; cast the IDs once so they match the
@@ -649,6 +656,7 @@ class ApplicationController extends Controller
         $evaluations = $castIds($request->input('evaluations', []));
         $instructorEvals = $castIds($request->input('instructor_evaluations', []));
         $credentialEvals = $castIds($request->input('credential_evaluations', []));
+        $cvEvals = $castIds($request->input('cv_evaluations', []));
 
         $application->load(['accreditation', 'user.accreditations']);
 
@@ -682,6 +690,9 @@ class ApplicationController extends Controller
         $docModels  = ApplicationDocument::whereIn('id', array_column($evaluations, 'id'))->get()->keyBy('id');
         $instModels = \App\Models\Instructor::whereIn('id', array_column($instructorEvals, 'id'))->get()->keyBy('id');
         $credModels = \App\Models\InstructorCredential::whereIn('id', array_column($credentialEvals, 'id'))->get()->keyBy('id');
+        // Separate instances from $instModels on purpose: the two write different
+        // columns of the same row, so they never contend.
+        $cvModels   = \App\Models\Instructor::whereIn('id', array_column($cvEvals, 'id'))->get()->keyBy('id');
 
         // Preserve the 422 that the removed `exists:` rules used to produce when a
         // submitted ID does not resolve, without paying for a query per row.
@@ -689,6 +700,7 @@ class ApplicationController extends Controller
             ['evaluations', $evaluations, $docModels],
             ['instructor_evaluations', $instructorEvals, $instModels],
             ['credential_evaluations', $credentialEvals, $credModels],
+            ['cv_evaluations', $cvEvals, $cvModels],
         ] as [$field, $rows, $models]) {
             foreach ($rows as $i => $row) {
                 if (!$models->has($row['id'])) {
@@ -709,7 +721,7 @@ class ApplicationController extends Controller
          * IDs are already known to resolve — the check above rejects the request
          * otherwise — so the null guard here is purely defensive.
          */
-        $applyEvaluations = function (array $evals, $models) use (&$hasRejections) {
+        $applyEvaluations = function (array $evals, $models, string $statusCol = 'status', string $remarksCol = 'remarks') use (&$hasRejections) {
             foreach ($evals as $eval) {
                 $model = $models->get($eval['id']);
                 if (!$model) {
@@ -718,15 +730,15 @@ class ApplicationController extends Controller
 
                 $newStatus = $eval['status'];
 
-                if ($model->status === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
+                if ($model->{$statusCol} === 'approved' && !in_array($newStatus, ['rejected', 'returned'])) {
                     continue;
                 }
 
                 $remarks = $newStatus === 'rejected' ? ($eval['remarks'] ?? null) : null;
 
                 // Skip the UPDATE entirely when nothing actually changed.
-                if ($model->status !== $newStatus || $model->remarks !== $remarks) {
-                    $model->update(['status' => $newStatus, 'remarks' => $remarks]);
+                if ($model->{$statusCol} !== $newStatus || $model->{$remarksCol} !== $remarks) {
+                    $model->update([$statusCol => $newStatus, $remarksCol => $remarks]);
                 }
 
                 if ($newStatus === 'rejected') {
@@ -738,6 +750,7 @@ class ApplicationController extends Controller
         $applyEvaluations($evaluations, $docModels);
         $applyEvaluations($instructorEvals, $instModels);
         $applyEvaluations($credentialEvals, $credModels);
+        $applyEvaluations($cvEvals, $cvModels, 'cv_status', 'cv_remarks');
 
         // Hardened Backend Guardrail: Check if there are any rejected items already in the database
         $userInstIds = $application->user ? $application->user->instructors()->pluck('id') : $application->instructors()->pluck('id');
@@ -745,6 +758,10 @@ class ApplicationController extends Controller
             || \App\Models\Instructor::whereIn('id', $userInstIds)->whereIn('status', ['rejected', 'returned'])->exists()
             || \App\Models\InstructorCredential::whereIn('instructor_id', $userInstIds)
                 ->whereIn('status', ['rejected', 'returned'])
+                ->exists()
+            || \App\Models\Instructor::whereIn('id', $userInstIds)
+                ->whereNotNull('cv_path')
+                ->whereIn('cv_status', ['rejected', 'returned'])
                 ->exists();
 
         if ($hasRejectionsInDb) {
@@ -764,6 +781,10 @@ class ApplicationController extends Controller
 
                         if ($inst->status === 'rejected') {
                             $newFields[] = 'service_agreement';
+                        }
+
+                        if ($inst->cvRejected()) {
+                            $newFields[] = 'cv';
                         }
 
                         foreach ($inst->credentials as $cred) {
@@ -790,10 +811,12 @@ class ApplicationController extends Controller
                 $rejectedInstructors = \App\Models\Instructor::whereIn('id', $userInstIds)->where('status', 'rejected')->get();
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $userInstIds)
                                         ->where('status', 'rejected')->get();
+                $rejectedCvs = \App\Models\Instructor::whereIn('id', $userInstIds)
+                                        ->whereNotNull('cv_path')->where('cv_status', 'rejected')->get();
                                         
                 try {
                     if ($application->user && $application->user->email) {
-                        Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials));
+                        Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, collect(), $rejectedInstructors, $rejectedCredentials, $rejectedCvs));
                     }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send document rejection email: ' . $e->getMessage());
@@ -824,9 +847,11 @@ class ApplicationController extends Controller
                 $rejectedInstructors = $application->instructors()->where('status', 'rejected')->get();
                 $rejectedCredentials = \App\Models\InstructorCredential::whereIn('instructor_id', $application->instructors()->pluck('id'))
                                         ->where('status', 'rejected')->get();
+                $rejectedCvs = $application->instructors()
+                                        ->whereNotNull('cv_path')->where('cv_status', 'rejected')->get();
                                         
                 try {
-                    Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials));
+                    Mail::to($application->user->email)->send(new DocumentRejectionEmail($application, $rejectedDocs, $rejectedInstructors, $rejectedCredentials, $rejectedCvs));
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send document rejection email: ' . $e->getMessage());
                 }
@@ -867,7 +892,7 @@ class ApplicationController extends Controller
                     }
                 }
 
-                if ($saApproved && $credsApproved && $inst->update_request_status !== 'completed') {
+                if ($saApproved && $credsApproved && $inst->cvApproved() && $inst->update_request_status !== 'completed') {
                     $inst->update([
                         'update_request_status' => 'completed',
                         'update_request_reason' => null,
@@ -920,7 +945,14 @@ class ApplicationController extends Controller
             ->where($notApproved)
             ->exists();
 
-        if ($allApproved && $allInstApproved && $allCredApproved) {
+        // Only instructors that actually carry a CV are gated on it — a roster with
+        // no CV on file must not be held at "pending" forever.
+        $allCvApproved = !$application->instructors()
+            ->whereNotNull('cv_path')
+            ->where(fn ($q) => $q->where('cv_status', '!=', 'approved')->orWhereNull('cv_status'))
+            ->exists();
+
+        if ($allApproved && $allInstApproved && $allCredApproved && $allCvApproved) {
             // ── Renewal: skip the interview ─────────────────────────────────
             // The FATPro was already interviewed in the cycle they are renewing,
             // so an all-approved evaluation advances straight to payment. PCT
@@ -1885,8 +1917,9 @@ class ApplicationController extends Controller
 
         $saApproved = in_array($instructor->status, ['approved']);
         $credsApproved = $instructor->credentials->every(fn($c) => $c->status === 'approved');
+        $cvApproved = $instructor->cvApproved();
 
-        if ($saApproved && $credsApproved && in_array($instructor->update_request_status, ['pending_review', 'admin_requested'])) {
+        if ($saApproved && $credsApproved && $cvApproved && in_array($instructor->update_request_status, ['pending_review', 'admin_requested'])) {
             $instructor->update([
                 'update_request_status' => 'completed',
                 'update_request_reason' => null,
@@ -1923,8 +1956,8 @@ class ApplicationController extends Controller
         $saApproved = in_array($instructor->status, ['approved']);
         $credsApproved = $instructor->credentials->every(fn($c) => $c->status === 'approved');
 
-        if (!$saApproved || !$credsApproved) {
-            $err = 'All credentials and service agreement must be approved before completing the update.';
+        if (!$saApproved || !$credsApproved || !$instructor->cvApproved()) {
+            $err = 'The CV, service agreement and all credentials must be approved before completing the update.';
             if ($request->expectsJson() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $err], 422);
             }

@@ -163,7 +163,12 @@
                 }
             }
         }
-        $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count();
+        // The CV carries its own status, so it is collected separately from the
+        // service agreement even though both hang off the instructor row.
+        $rejectedCvs = $application->instructors
+            ? $application->instructors->filter(fn($i) => $i->cv_path && in_array($i->cv_status, ['rejected','returned']))
+            : collect();
+        $totalRejected = $rejectedDocs->count() + $rejectedInstructors->count() + $rejectedCredentials->count() + $rejectedCvs->count();
     @endphp
     @if($totalRejected > 0 && optional($application->latestStatus->status)->name === 'For Update')
     <div class="mt-4 p-4 border rounded-3 text-start" style="background:#fff8f8; border-color:#f5c6cb !important;">
@@ -274,7 +279,7 @@
                 @endif
 
                 {{-- Instructor Credentials Section --}}
-                @if($rejectedInstructors->count() > 0 || $rejectedCredentials->count() > 0)
+                @if($rejectedInstructors->count() > 0 || $rejectedCredentials->count() > 0 || $rejectedCvs->count() > 0)
                 <div>
                     <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
                         <i class="bi bi-person-badge me-1"></i> Instructor Credentials
@@ -309,6 +314,46 @@
                                     <input type="file" name="instructor_files[{{ $rInst->id }}]" id="inst_{{ $rInst->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
                                     <div class="d-flex align-items-center gap-2">
                                         <label for="inst_{{ $rInst->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
+                                            <i class="bi bi-cloud-upload me-1"></i> Choose File
+                                        </label>
+                                        <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>
+                                    </div>
+                                    <div class="invalid-feedback file-invalid-feedback" style="font-size: 0.8rem; margin-top: 4px;">Please select a valid PDF file.</div>
+                                </div>
+                                <div class="text-muted" style="font-size:.72rem; margin-top:6px;">Max 15MB · PDF only</div>
+                            </div>
+                        </div>
+                        @endforeach
+
+                        {{-- Instructor CVs --}}
+                        @foreach($rejectedCvs as $rCv)
+                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">
+                                    <i class="bi bi-file-earmark-person text-danger me-1"></i>
+                                    CV / Resume - {{ $rCv->first_name }} {{ $rCv->last_name }}
+                                </div>
+                                @if($rCv->cv_remarks)
+                                <div class="text-muted small mt-1">
+                                    <i class="bi bi-chat-left-text me-1"></i>{{ $rCv->cv_remarks }}
+                                </div>
+                                @endif
+                                @if($rCv->cv_path)
+                                <div class="mt-2">
+                                    <a href="{{ route('applicant.instructors.cv.view', $rCv->id) }}" data-file-modal data-file-title="CV / Resume – {{ $rCv->first_name }} {{ $rCv->last_name }}" class="btn btn-xs btn-outline-primary py-0 px-2 fw-semibold" style="font-size: 0.75rem;">
+                                        <i class="bi bi-eye-fill me-1"></i> View Current File
+                                    </a>
+                                </div>
+                                @endif
+                            </div>
+                            <div style="min-width:260px;">
+                                <label class="form-label small fw-semibold mb-1" style="color:#842029;">
+                                    Upload Replacement (PDF) <span class="text-danger">*</span>
+                                </label>
+                                <div class="file-upload-wrapper mt-1">
+                                    <input type="file" name="cv_files[{{ $rCv->id }}]" id="cv_{{ $rCv->id }}" class="real-file-input batch-file-input visually-hidden" accept=".pdf" required>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label for="cv_{{ $rCv->id }}" class="btn btn-outline-danger btn-sm mb-0 px-3 fw-semibold custom-file-btn" style="border-color:#842029; color:#842029;">
                                             <i class="bi bi-cloud-upload me-1"></i> Choose File
                                         </label>
                                         <span class="file-name-text text-muted text-truncate" style="font-size: .8rem; max-width: 200px;">No file chosen</span>

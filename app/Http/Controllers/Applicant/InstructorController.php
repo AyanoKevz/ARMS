@@ -399,10 +399,13 @@ class InstructorController extends Controller
             $filename = "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf";
             $path = $request->file('cv')->storeAs($baseCredPath, $filename, 'local');
 
+            // The CV has its own status pair. Resetting the shared status/remarks
+            // here re-opened the *service agreement* instead, leaving a replaced CV
+            // still marked rejected.
             $instructor->update([
-                'cv_path' => $path,
-                'status'  => 'pending',
-                'remarks' => null,
+                'cv_path'    => $path,
+                'cv_status'  => 'pending',
+                'cv_remarks' => null,
             ]);
 
             if (!in_array('cv', $updatedFields)) {

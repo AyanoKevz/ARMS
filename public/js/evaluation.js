@@ -172,6 +172,10 @@
             } else if (docId.startsWith('inst-')) {
                 itemType = 'instructor';
                 itemId = parseInt(docId.replace('inst-', ''), 10);
+            } else if (docId.startsWith('cv-')) {
+                // Addresses the instructor row too, but writes cv_status/cv_remarks.
+                itemType = 'cv';
+                itemId = parseInt(docId.replace('cv-', ''), 10);
             } else {
                 itemId = parseInt(docId, 10);
             }
@@ -368,7 +372,7 @@
         }
 
         // Submitted Documents (Main Card Progress Badge)
-        const docInputs = inputs.filter(i => !i.id.includes('cred-') && !i.id.includes('inst-'));
+        const docInputs = inputs.filter(i => !i.id.includes('cred-') && !i.id.includes('inst-') && !i.id.includes('cv-'));
         const docTotal = docInputs.length;
         const docApproved = docInputs.filter(i => i.value === 'approved').length;
         const docProgressEl = document.getElementById('submitted-docs-progress');
@@ -390,7 +394,7 @@
         });
 
         // Instructor Credentials (Main Card Progress Badge)
-        const credInputs = inputs.filter(i => i.id.includes('cred-') || i.id.includes('inst-'));
+        const credInputs = inputs.filter(i => i.id.includes('cred-') || i.id.includes('inst-') || i.id.includes('cv-'));
         const credProgressEl = document.getElementById('instructor-creds-progress');
         if (credProgressEl && credInputs.length > 0 && !document.querySelector('.dynamic-table')) {
             const credTotal = credInputs.length;
@@ -826,6 +830,9 @@
             } else if (docId.startsWith('inst-')) {
                 itemType = 'instructor';
                 itemId = parseInt(docId.replace('inst-', ''), 10);
+            } else if (docId.startsWith('cv-')) {
+                itemType = 'cv';
+                itemId = parseInt(docId.replace('cv-', ''), 10);
             } else {
                 itemId = parseInt(docId, 10);
             }
