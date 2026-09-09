@@ -21,6 +21,15 @@ class AuthController extends Controller
             $request->session()->regenerate();
             $user = Auth::user();
 
+            // Admin accounts hold a single active session: signing in here signs
+            // the account out on every other device. This re-hashes the stored
+            // password, which is what AuthenticateAdminSession compares against —
+            // see that middleware for why the newest device wins rather than the
+            // second login being refused.
+            if ($user->role && in_array(strtolower($user->role->name), ['admin', 'super admin'], true)) {
+                Auth::logoutOtherDevices($credentials['password']);
+            }
+
             return self::redirectAuthenticatedUser($user, $request);
         }
 

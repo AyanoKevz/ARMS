@@ -26,8 +26,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Append archived-account guard to every authenticated web request.
         // This force-logs out applicants whose accreditations have all been archived.
+        //
+        // AuthenticateAdminSession enforces a single active session per ADMIN
+        // account: logging in on a new device signs the account out everywhere
+        // else. It no-ops for guests and applicants, so it is safe on the whole
+        // web group and does not need chasing across every admin route group.
         $middleware->web(append: [
             \App\Http\Middleware\CheckArchivedAccount::class,
+            \App\Http\Middleware\AuthenticateAdminSession::class,
         ]);
 
         $middleware->alias([

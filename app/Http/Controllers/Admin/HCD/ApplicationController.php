@@ -2349,78 +2349,61 @@ class ApplicationController extends Controller
                 return back()->with('error', 'You must upload the signed recommendation letter before final approval.')->withInput();
             }
 
-            // ── PCT: Complete Step 7 (Recommendation & Payment), Start Step 8 (Certificate Issuance)
-            $this->pctService->completeCurrentStep($application);
-            $this->pctService->startStep($application, 8);
-
-            // Create or update accreditation record
+            // ── Accreditation number ────────────────────────────────────────
+            // Format: 235-YYMMDD-NNN. The NNN suffix identifies the FATPro and is
+            // assigned once, when they are first accredited; a renewal keeps it and
+            // only moves the date segment forward. Resolved BEFORE any state is
+            // changed so a number that cannot be issued aborts the approval rather
+            // than leaving PCT advanced and the old accreditation expired.
             $datePrefix = now()->format('ymd'); // YYMMDD
             $isRenewalOrReinstatement = in_array($application->application_type, ['renewal', 'reinstatement']);
             $today = now()->toDateString();
 
-            if ($isRenewalOrReinstatement) {
-                // For renewal/reinstatement: mark previous accreditation as expired and create a new one
-                $prevAccreditation = Accreditation::where('user_id', $application->user_id)
-                    ->orderBy('id', 'desc')
-                    ->first();
+            $prevAccreditation = $isRenewalOrReinstatement
+                ? Accreditation::where('user_id', $application->user_id)->orderBy('id', 'desc')->first()
+                : null;
 
-                if ($prevAccreditation) {
-                    $oldAccNumber = $prevAccreditation->accreditation_number;
-                    $parts = explode('-', $oldAccNumber);
-                    $suffix = '000';
-                    if (count($parts) > 0) {
-                        $lastPart = end($parts);
-                        preg_match('/\d+$/', $lastPart, $matches);
-                        $suffix = isset($matches[0]) ? str_pad(substr($matches[0], -3), 3, '0', STR_PAD_LEFT) : '000';
-                    }
-                    // A renewal keeps the FATPro's original sequence suffix and only moves the
-                    // date part forward. accreditation_number is UNIQUE, so building the number
-                    // directly can collide — most easily when the same FATPro is re-accredited
-                    // twice on the same day, which produced an uncaught QueryException (HTTP 500)
-                    // instead of a usable error. Fall back to the next free number in that case.
-                    $accNumber = $this->makeUniqueAccreditationNumber($datePrefix, $suffix);
+            if ($prevAccreditation) {
+                $accNumber = '235-' . $datePrefix . '-'
+                    . $this->accreditationSuffix($prevAccreditation->accreditation_number);
 
-                    // Mark previous accreditation as expired
-                    $prevAccreditation->update([
-                        'status' => 'expired',
-                    ]);
-
-                    $accreditation = Accreditation::create([
-                        'user_id'               => $application->user_id,
-                        'application_id'        => $application->id,
-                        'accreditation_type_id' => $application->accreditation_type_id,
-                        'accreditation_number'  => $accNumber,
-                        'date_of_accreditation' => $today,
-                        'validity_date'         => now()->addYears(3)->toDateString(),
-                        'status'                => 'active',
-                        'scanned_certificate'   => null,
-                    ]);
-                } else {
-                    // Edge case: no previous accreditation found, create a new one
-                    $accNumber = $this->generateNewAccreditationNumber($datePrefix);
-                    $accreditation = Accreditation::create([
-                        'user_id'               => $application->user_id,
-                        'application_id'        => $application->id,
-                        'accreditation_type_id' => $application->accreditation_type_id,
-                        'accreditation_number'  => $accNumber,
-                        'date_of_accreditation' => $today,
-                        'validity_date'         => now()->addYears(3)->toDateString(),
-                        'status'                => 'active',
-                    ]);
+                // accreditation_number is UNIQUE. With the suffix fixed, the only way
+                // to collide is re-accrediting the same FATPro on the same calendar
+                // day — impossible for a real 3-year cycle. Renumbering them would
+                // break the one rule this identifier has, so stop instead.
+                if (Accreditation::where('accreditation_number', $accNumber)->exists()) {
+                    return back()->with(
+                        'error',
+                        "This FATPro was already issued accreditation {$accNumber} today. "
+                        . 'Their sequence number cannot change, so a second accreditation '
+                        . 'cannot be issued on the same day. Revoke or archive the existing '
+                        . 'record first, or approve this on a later date.'
+                    );
                 }
             } else {
-                // For new applications: create a fresh accreditation record
+                // A first accreditation, or a renewal with no prior record to inherit from.
                 $accNumber = $this->generateNewAccreditationNumber($datePrefix);
-                $accreditation = Accreditation::create([
-                    'user_id'               => $application->user_id,
-                    'application_id'        => $application->id,
-                    'accreditation_type_id' => $application->accreditation_type_id,
-                    'accreditation_number'  => $accNumber,
-                    'date_of_accreditation' => $today,
-                    'validity_date'         => now()->addYears(3)->toDateString(),
-                    'status'                => 'active',
-                ]);
             }
+
+            // ── PCT: Complete Step 7 (Recommendation & Payment), Start Step 8 (Certificate Issuance)
+            $this->pctService->completeCurrentStep($application);
+            $this->pctService->startStep($application, 8);
+
+            // A renewal supersedes the previous cycle.
+            if ($prevAccreditation) {
+                $prevAccreditation->update(['status' => 'expired']);
+            }
+
+            $accreditation = Accreditation::create([
+                'user_id'               => $application->user_id,
+                'application_id'        => $application->id,
+                'accreditation_type_id' => $application->accreditation_type_id,
+                'accreditation_number'  => $accNumber,
+                'date_of_accreditation' => $today,
+                'validity_date'         => now()->addYears(3)->toDateString(),
+                'status'                => 'active',
+                'scanned_certificate'   => null,
+            ]);
 
             // Log status: Approved
             $approvedStatus = ApplicationStatus::findByName('Approved');
@@ -2648,21 +2631,21 @@ class ApplicationController extends Controller
      * Generate a unique accreditation number for new accreditations.
      */
     /**
-     * Build a renewal's accreditation number, preferring the FATPro's existing
-     * sequence suffix but never returning one that is already taken.
+     * Read the 3-digit sequence suffix out of an accreditation number.
      *
-     * accreditation_number carries a UNIQUE constraint, so returning a duplicate
-     * turns an approval into a 500 rather than a recoverable error.
+     * This is the FATPro's permanent identifier within the series — it is issued
+     * with their first accreditation and carried through every renewal, so it is
+     * only ever read from the previous record, never regenerated.
      */
-    private function makeUniqueAccreditationNumber(string $datePrefix, string $preferredSuffix): string
+    private function accreditationSuffix(?string $accreditationNumber): string
     {
-        $candidate = "235-{$datePrefix}-{$preferredSuffix}";
+        $lastPart = last(explode('-', (string) $accreditationNumber));
 
-        if (!Accreditation::where('accreditation_number', $candidate)->exists()) {
-            return $candidate;
+        if (preg_match('/\d+$/', $lastPart, $matches)) {
+            return str_pad(substr($matches[0], -3), 3, '0', STR_PAD_LEFT);
         }
 
-        return $this->generateNewAccreditationNumber($datePrefix);
+        return '000';
     }
 
     private function generateNewAccreditationNumber(string $datePrefix): string

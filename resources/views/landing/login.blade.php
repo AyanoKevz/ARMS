@@ -25,6 +25,19 @@
                         </div>
                     @endif
 
+                    {{-- Set by AuthenticateAdminSession when this account was signed
+                         in from somewhere else. The session is flushed before the
+                         redirect, so the reason travels in the query string. --}}
+                    @if (request('reason') === 'other_device')
+                        <div class="alert alert-warning pt-2 pb-2 mb-3">
+                            <small>
+                                <i class="bi bi-shield-exclamation me-1"></i>
+                                You were signed out because this account was used to sign in on
+                                another device. Admin accounts allow only one active session.
+                            </small>
+                        </div>
+                    @endif
+
                     @if ($errors->any())
                         <div class="alert alert-danger pt-2 pb-2 mb-3">
                             <ul class="mb-0 list-unstyled">
