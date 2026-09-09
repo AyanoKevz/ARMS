@@ -11,6 +11,3 @@
     @include('applicant.sidebar')
 @endsection
 
-@push('tour')
-    @include('partials.sidebar_tour', ['tourType' => 'applicant'])
-@endpush

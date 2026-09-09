@@ -2,8 +2,6 @@
 
 @php
     $division = strtolower(auth()->user()?->adminProfile?->division?->name ?? 'hcd');
-    $isAdminRoleName = strtolower(auth()->user()?->adminProfile?->adminRole?->name ?? '');
-    $isVerifierLayout = ($isAdminRoleName === 'verifier');
 
     // Sidebar subheading label: Accreditation Division → "Accreditation Portal"
     $divisionLabel = $division === 'accreditation' ? 'Accreditation' : strtoupper($division);
@@ -21,8 +19,4 @@
     @includeIf("admin.{$division}.sidebar")
 @endsection
 
-@push('tour')
-    @php $tourType = $isVerifierLayout ? 'verifier' : 'evaluator'; @endphp
-    @include('partials.sidebar_tour', ['tourType' => $tourType])
-@endpush
 

@@ -28,18 +28,18 @@
     $instructorsActive = request()->routeIs('applicant.instructors.*');
 @endphp
 
-<li id="tour-step-dashboard" class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
-<li id="tour-step-profile" class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
+<li class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
+<li class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
 
 @if(!$isRevoked && !$hasOngoingRenewal)
-    <li id="tour-step-submission" class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.ntc.index') }}"><i class="fas fa-file-invoice"></i> Submission report </a></li>
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.ntc.index') }}"><i class="fas fa-file-invoice"></i> Submission report </a></li>
 @elseif($isRevoked)
-    <li id="tour-step-submission" class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report because your accreditation has been revoked.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report because your accreditation has been revoked.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
 @else
-    <li id="tour-step-submission" class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report while your renewal/reinstatement application is ongoing.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report while your renewal/reinstatement application is ongoing.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
 @endif
-<li id="tour-step-renewal" class="{{ $renewalActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.renewal.index') }}"><i class="fas fa-sync-alt"></i> Renewal / Reinstatement </a></li>
-<li id="tour-step-instructors" class="{{ $instructorsActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.instructors.index') }}"><i class="fas fa-chalkboard-teacher"></i> FATPRO Instructor </a></li>
+<li class="{{ $renewalActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.renewal.index') }}"><i class="fas fa-sync-alt"></i> Renewal / Reinstatement </a></li>
+<li class="{{ $instructorsActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.instructors.index') }}"><i class="fas fa-chalkboard-teacher"></i> FATPRO Instructor </a></li>
 
 <!-- ══ Sidebar Notice Modal ══ -->
 <div class="modal fade" id="sidebarNoticeModal" tabindex="-1" aria-labelledby="sidebarNoticeModalLabel" aria-hidden="true">

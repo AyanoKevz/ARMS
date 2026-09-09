@@ -32,9 +32,9 @@
 @endphp
 
 <!-- Accreditation Portal Sidebar (Verifier) -->
-<li id="tour-step-dashboard" class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
-<li id="tour-step-profile" class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
-<li id="tour-step-admin-list" class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.directory.admins') }}"><i class="fas fa-users-cog"></i> Admin List </a></li>
+<li class="{{ $dashActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard </a></li>
+<li class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
+<li class="{{ $adminListActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.directory.admins') }}"><i class="fas fa-users-cog"></i> Admin List </a></li>
 
-<li id="tour-step-payment" class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
-<li id="tour-step-releasing" class="{{ $releasingActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.applications.releasing') }}"><i class="fas fa-file-signature"></i> Certificate Issuance </a></li>
+<li class="{{ $paymentActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.applications.awaiting_payment') }}"><i class="fas fa-money-check-alt"></i> Recommendation/Payment </a></li>
+<li class="{{ $releasingActive ? 'current-page active' : '' }}"><a href="{{ route('admin.accreditation.applications.releasing') }}"><i class="fas fa-file-signature"></i> Certificate Issuance </a></li>

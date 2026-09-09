@@ -29,8 +29,6 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Intro.js — Sidebar Quick Tour -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css">
 
     <!-- Portal UI Overrides -->
     <link rel="stylesheet" href="{{ asset('css/portal.css') }}">
@@ -86,12 +84,6 @@
 
                     <!-- /menu footer buttons -->
                     <div class="sidebar-footer hidden-small d-flex flex-column align-items-center justify-content-center" style="background: #091e3e; border-top: 1px solid var(--portal-gold); position: relative; padding: 6px 0;">
-                        <button id="arms-tour-trigger" aria-label="Relaunch sidebar tour" title="Quick Tour" style="display: none;">
-                            <span>
-                                <i class="fas fa-map-signs"></i>
-                                <span class="tour-text">Quick Tour</span>
-                            </span>
-                        </button>
                         <div id="real-time-date" style="font-size: 0.65rem; font-weight: 500; color: var(--portal-gold); text-transform: uppercase; letter-spacing: 0.05em; line-height: 1;"></div>
                         <div id="real-time-clock" style="font-size: 0.8rem; font-weight: 700; color: #fff; line-height: 1.2;"></div>
                     </div>
@@ -365,13 +357,10 @@
     </div>
     <!-- ══ /File Viewer Modal ══ -->
 
-    <!-- Intro.js library (defer — non-critical, only needed for the tour) -->
-    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/intro.min.js" defer></script>
     <!-- Shared toast notifications (window.ARMS.showToast) -->
     <script src="{{ \App\Support\AssetVersion::url('js/toast.js') }}" defer></script>
     <!-- ARMS Portal JS (tour logic + any shared portal JS) -->
     <script src="{{ \App\Support\AssetVersion::url('js/portal.js') }}" defer></script>
     @stack('scripts')
-    @stack('tour')
 </body>
 </html>
