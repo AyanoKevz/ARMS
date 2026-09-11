@@ -11,6 +11,7 @@ use App\Models\NtcDocumentType;
 use App\Models\NtcReport;
 use App\Models\NtcTrainingMode;
 use App\Models\NtcTrainingType;
+use App\Support\ApplicantStoragePath;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -180,10 +181,8 @@ class NtcController extends Controller
                 // Build base path using the same convention as application documents:
                 // public/{accreditation_type}/{fatpro_name}/reports/ntc/
                 $accreditationType   = $accreditation->accreditationType;
-                $accreditationName   = $accreditationType ? $accreditationType->name : 'Unknown';
-                $sanitizedAccType    = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-                $sanitizedFatPro     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
-                $ntcBasePath         = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+                $accreditationName   = $accreditationType ? $accreditationType->name : null;
+                $ntcBasePath         = ApplicantStoragePath::ntcReports($accreditationName, $user->id);
 
                 foreach ($fileFields as $inputName => $docCode) {
                     if ($request->hasFile($inputName)) {
@@ -309,10 +308,8 @@ class NtcController extends Controller
             // public/{accreditation_type}/{fatpro_name}/reports/ntc/
             $ntcReport           = $document->ntcReport->loadMissing('accreditation.accreditationType');
             $accreditationType   = $ntcReport->accreditation->accreditationType;
-            $accreditationName   = $accreditationType ? $accreditationType->name : 'Unknown';
-            $sanitizedAccType    = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-            $sanitizedFatPro     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
-            $ntcBasePath         = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+            $accreditationName   = $accreditationType ? $accreditationType->name : null;
+            $ntcBasePath         = ApplicantStoragePath::ntcReports($accreditationName, $user->id);
 
             // Delete old file — no stacking
             if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
@@ -375,10 +372,8 @@ class NtcController extends Controller
         $filesUploaded = 0;
         try {
             $accreditationType = $ntcReport->accreditation->accreditationType;
-            $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-            $sanitizedAccType  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-            $sanitizedFatPro   = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
-            $ntcBasePath       = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+            $accreditationName = $accreditationType ? $accreditationType->name : null;
+            $ntcBasePath       = ApplicantStoragePath::ntcReports($accreditationName, $user->id);
 
             $reuploadedDocsInfo = [];
             foreach ($request->file('files') as $docId => $file) {
@@ -547,10 +542,8 @@ class NtcController extends Controller
 
                 $accreditation = $ntcReport->accreditation;
                 $accreditationType = $accreditation->accreditationType;
-                $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-                $sanitizedAccType  = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-                $sanitizedFatPro   = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $user->name)) ?: 'unknown';
-                $ntcBasePath       = "public/{$sanitizedAccType}/{$sanitizedFatPro}/reports/ntc";
+                $accreditationName = $accreditationType ? $accreditationType->name : null;
+                $ntcBasePath       = ApplicantStoragePath::ntcReports($accreditationName, $user->id);
 
                 foreach ($fileFields as $inputName => $docCode) {
                     $docType = NtcDocumentType::where('code', $docCode)->first();

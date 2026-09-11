@@ -11,6 +11,7 @@ use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
 use App\Models\DocumentField;
 use App\Services\CacheService;
+use App\Support\ApplicantStoragePath;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
@@ -90,15 +91,11 @@ class TrackingController extends Controller
         ]);
 
         $userId      = $application->user_id;
-        
-        $accreditationName = $application->accreditationType ? $application->accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
 
-        $fatProName = $application->user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
+        $accreditationName = $application->accreditationType ? $application->accreditationType->name : null;
 
-        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
-        $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+        $baseDocPath = ApplicantStoragePath::documents($accreditationName, $userId);
+        $baseCredPath = ApplicantStoragePath::credentials($accreditationName, $userId);
         
         $files             = $request->file('files') ?? [];
         $values            = $request->input('values') ?? [];
@@ -406,12 +403,8 @@ class TrackingController extends Controller
         $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
 
         $accreditationType = $application->accreditationType;
-        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-        $fatProName = $application->user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        
-        $proofPaymentPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/proof_of_payments";
+        $accreditationName = $accreditationType ? $accreditationType->name : null;
+        $proofPaymentPath = ApplicantStoragePath::proofOfPayments($accreditationName, $application->user_id);
 
         $changed = false;
 

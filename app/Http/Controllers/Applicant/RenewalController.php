@@ -13,6 +13,7 @@ use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use App\Models\UserDocument;
 use App\Services\CacheService;
+use App\Support\ApplicantStoragePath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -358,14 +359,10 @@ class RenewalController extends Controller
 
                 // ── Determine storage paths ───────────────────────
                 $accreditationType = $user->accreditations()->latest()->first()?->accreditationType;
-                $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-                $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+                $accreditationName = $accreditationType ? $accreditationType->name : null;
 
-                $fatProName = $user->name;
-                $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-
-                $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
-                $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+                $baseDocPath = ApplicantStoragePath::documents($accreditationName, $user->id);
+                $baseCredPath = ApplicantStoragePath::credentials($accreditationName, $user->id);
 
                 // ── 1. Update Organization Profile ────────────────
                 if ($isOrg && $user->organizationProfile) {
@@ -734,14 +731,10 @@ class RenewalController extends Controller
             );
         }
 
-        $accreditationName = $application->accreditationType ? $application->accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $accreditationName = $application->accreditationType ? $application->accreditationType->name : null;
 
-        $fatProName = $user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-
-        $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
-        $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+        $baseDocPath = ApplicantStoragePath::documents($accreditationName, $user->id);
+        $baseCredPath = ApplicantStoragePath::credentials($accreditationName, $user->id);
 
         $files             = $request->file('files') ?? [];
         $values            = $request->input('values') ?? [];
@@ -1050,12 +1043,8 @@ class RenewalController extends Controller
         $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
 
         $accreditationType = $application->accreditationType;
-        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-        $fatProName = $user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        
-        $proofPaymentPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/proof_of_payments";
+        $accreditationName = $accreditationType ? $accreditationType->name : null;
+        $proofPaymentPath = ApplicantStoragePath::proofOfPayments($accreditationName, $user->id);
 
         $changed = false;
 

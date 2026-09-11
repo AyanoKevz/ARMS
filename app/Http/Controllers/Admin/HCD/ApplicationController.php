@@ -12,6 +12,7 @@ use App\Models\Instructor;
 use App\Models\InstructorCredential;
 use App\Models\Interview;
 use App\Services\CacheService;
+use App\Support\ApplicantStoragePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -2320,11 +2321,8 @@ class ApplicationController extends Controller
         ]);
 
         $accreditationType = $application->accreditationType;
-        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-        $fatProName = $application->user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        $recommendationPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/recommendation_letter";
+        $accreditationName = $accreditationType ? $accreditationType->name : null;
+        $recommendationPath = ApplicantStoragePath::recommendationLetter($accreditationName, $application->user_id);
 
         // Upload signed recommendation letter if provided
         if ($request->hasFile('signed_recommendation_letter')) {
@@ -2563,11 +2561,8 @@ class ApplicationController extends Controller
         $application = $accreditation->application;
 
         $accreditationType = $application->accreditationType;
-        $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-        $fatProName = $application->user->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-        $certificatePath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/certificate";
+        $accreditationName = $accreditationType ? $accreditationType->name : null;
+        $certificatePath = ApplicantStoragePath::certificate($accreditationName, $application->user_id);
 
         if ($request->hasFile('scanned_certificate')) {
             if ($accreditation->scanned_certificate && Storage::disk('local')->exists($accreditation->scanned_certificate)) {

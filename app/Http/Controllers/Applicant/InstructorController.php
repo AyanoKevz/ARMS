@@ -7,6 +7,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Models\Application;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
+use App\Support\ApplicantStoragePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -232,11 +233,9 @@ class InstructorController extends Controller
      */
     private function credentialStoragePath(Application $application): array
     {
-        $accreditationName = $application->accreditationType->name ?? 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', auth()->user()->name)) ?: 'unknown';
+        $accreditationName = $application->accreditationType->name ?? null;
 
-        return ["public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials", time()];
+        return [ApplicantStoragePath::credentials($accreditationName, auth()->id()), time()];
     }
 
     /**
@@ -356,13 +355,9 @@ class InstructorController extends Controller
         }
 
         $application = \App\Models\Application::with('accreditationType')->where('user_id', auth()->id())->latest()->first();
-        $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : 'Unknown';
-        $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+        $accreditationName = $application && $application->accreditationType ? $application->accreditationType->name : null;
 
-        $fatProName = auth()->user()->name;
-        $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-
-        $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+        $baseCredPath = ApplicantStoragePath::credentials($accreditationName, auth()->id());
         $instFirst = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->first_name));
         $instLast = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $instructor->last_name));
         $timestamp = time();

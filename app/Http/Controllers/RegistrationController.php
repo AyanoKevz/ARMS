@@ -18,6 +18,7 @@ use App\Models\PendingRegistration;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Services\CacheService;
+use App\Support\ApplicantStoragePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -391,24 +392,12 @@ class RegistrationController extends Controller
 
                 $timestamp = time();
                 
-                // Get Accreditation Name and FATProName for Folder Structure
+                // Get Accreditation Name for Folder Structure
                 $accreditationType = \App\Models\AccreditationType::find($pending->accreditation_type_id);
-                $accreditationName = $accreditationType ? $accreditationType->name : 'Unknown';
-                $sanitizedAccreditation = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $accreditationName));
+                $accreditationName = $accreditationType ? $accreditationType->name : null;
 
-                // Derive FATProName from form data
-                $fatProName = 'Unknown';
-                if ($pending->profile_type === 'Organization') {
-                    $fatProName = $form['org_name'] ?? 'Unknown';
-                } else {
-                    $first = $form['first_name'] ?? '';
-                    $last = $form['last_name'] ?? '';
-                    $fatProName = trim("{$first} {$last}");
-                }
-                $sanitizedFatPro = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $fatProName)) ?: 'unknown';
-
-                $baseDocPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/documents";
-                $baseCredPath = "public/{$sanitizedAccreditation}/{$sanitizedFatPro}/instructor_credentials";
+                $baseDocPath = ApplicantStoragePath::documents($accreditationName, $user->id);
+                $baseCredPath = ApplicantStoragePath::credentials($accreditationName, $user->id);
 
                 // 5. Create Application
                 $application = Application::create([
