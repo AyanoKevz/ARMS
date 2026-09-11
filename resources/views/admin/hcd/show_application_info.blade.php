@@ -1010,10 +1010,15 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                                 @php
                                 $evalStatusCred = in_array($credential->status, ['approved','rejected','returned']) ? $credential->status : 'pending';
                                 $isRequestedCred = is_array($instructor->update_request_fields) && in_array($credential->type, $instructor->update_request_fields);
+                                $isExpiredCred = $credential->validity_date && \Carbon\Carbon::parse($credential->validity_date)->endOfDay()->isPast()
+                                    && !in_array($credential->status, ['approved','rejected','returned','for_revision']);
 
                                 if ($instructor->update_request_status === 'admin_requested' && $isRequestedCred) {
                                 $badgeClassCred = 'doc-badge-pending';
                                 $badgeLabelCred = 'Awaiting Upload';
+                                } elseif ($isExpiredCred) {
+                                $badgeClassCred = 'doc-badge-expired';
+                                $badgeLabelCred = 'Expired';
                                 } else {
                                 $badgeClassCred = match($credential->status) {
                                 'approved' => 'doc-badge-approved',

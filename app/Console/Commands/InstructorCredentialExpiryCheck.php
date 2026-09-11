@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Models\InstructorCredential;
@@ -36,12 +37,36 @@ class InstructorCredentialExpiryCheck extends Command
     }
 
     /**
+     * Base query for credentials belonging to the instructor roster tied to each
+     * FATPro's currently active accreditation.
+     *
+     * A renewal clones every instructor onto the new application_id, so a FATPro
+     * who has renewed (or renewed more than once) has one instructor+credential
+     * row per past application. Scoping to the application behind the active
+     * accreditation excludes those superseded/inactive rows, which is what was
+     * causing duplicate expiry emails on repeat renewals.
+     */
+    private function activeAccreditedCredentials()
+    {
+        return InstructorCredential::whereHas('instructor', function ($q) {
+            $q->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('accreditations')
+                    ->whereColumn('accreditations.application_id', 'instructors.application_id')
+                    ->whereColumn('accreditations.user_id', 'instructors.user_id')
+                    ->where('accreditations.status', 'active');
+            });
+        });
+    }
+
+    /**
      * Mark all approved instructor credentials with validity_date < today as expired
      * and notify the applicant via email.
      */
     private function autoExpire(Carbon $today): void
     {
-        $expired = InstructorCredential::where('status', 'approved')
+        $expired = $this->activeAccreditedCredentials()
+            ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereDate('validity_date', '<', $today)
             ->with(['instructor.user', 'instructor.application.user'])
@@ -79,7 +104,8 @@ class InstructorCredentialExpiryCheck extends Command
         $oneMonthFromNow    = $today->copy()->addMonth();
 
         // ── 3-month reminders ────────────────────────────────────────────
-        $threeMonthCandidates = InstructorCredential::where('status', 'approved')
+        $threeMonthCandidates = $this->activeAccreditedCredentials()
+            ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_3mo_sent_at')
             ->whereDate('validity_date', '<=', $threeMonthsFromNow)
@@ -104,7 +130,8 @@ class InstructorCredentialExpiryCheck extends Command
         }
 
         // ── 2-month reminders ────────────────────────────────────────────
-        $twoMonthCandidates = InstructorCredential::where('status', 'approved')
+        $twoMonthCandidates = $this->activeAccreditedCredentials()
+            ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_2mo_sent_at')
             ->whereDate('validity_date', '<=', $twoMonthsFromNow)
@@ -129,7 +156,8 @@ class InstructorCredentialExpiryCheck extends Command
         }
 
         // ── 1-month reminders ────────────────────────────────────────────
-        $oneMonthCandidates = InstructorCredential::where('status', 'approved')
+        $oneMonthCandidates = $this->activeAccreditedCredentials()
+            ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_1mo_sent_at')
             ->whereDate('validity_date', '<=', $oneMonthFromNow)

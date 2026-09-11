@@ -95,6 +95,7 @@
 .doc-badge-rejected    { background:#fee2e2; color:#991b1b; }
 .doc-badge-for_update  { background:#ffedd5; color:#9a3412; border: 1.5px dashed #f97316; }
 .doc-badge-for_revision{ background:#ffedd5; color:#9a3412; }
+.doc-badge-expired     { background:#fee2e2; color:#991b1b; }
 
 /* Remark alert */
 .doc-remark {
