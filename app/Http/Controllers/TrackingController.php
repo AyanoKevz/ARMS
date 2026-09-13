@@ -30,7 +30,16 @@ class TrackingController extends Controller
         $application = null;
 
         if ($request->has('tracking_number')) {
-            $trackingNumber = $request->input('tracking_number');
+            $trackingNumber = strtoupper(trim((string) $request->input('tracking_number')));
+
+            // The cache key is derived from this value, so an unvalidated string
+            // let anyone mint unlimited cache entries (and rows in the file
+            // cache) by varying the query string. Numbers are generated as
+            // ARMS{year}-{2 letters}{4 digits} in RegistrationController; a
+            // value that cannot be one is not worth a database round trip.
+            if (! preg_match('/^ARMS\d{4}-[A-Z]{2}\d{4}$/', $trackingNumber)) {
+                return view('landing.track', ['application' => null]);
+            }
 
             $application = CacheService::remember(
                 CacheService::trackingKey($trackingNumber),

@@ -2588,11 +2588,11 @@ $accTypeName = $application->accreditationType->name ?? '—';
                     Executive Director Name
                 </label>
             </div>
-            <div class="modal-footer border-0 px-4 pb-4 pt-0">
-                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
-                <button type="button" class="btn btn-success btn-sm fw-semibold px-4" id="cert-generate-btn" style="border-radius:8px;background:#15803d;border-color:#166534;" onclick="generateCert()">
+            <div class="modal-footer border-0 px-4 pb-4 pt-0 d-flex flex-column gap-2">
+                <button type="button" class="btn btn-success w-100 fw-semibold" id="cert-generate-btn" style="border-radius:8px;background:#15803d;border-color:#166534;" onclick="generateCert()">
                     <i class="bi bi-file-earmark-arrow-down me-1"></i> Generate PDF
                 </button>
+                <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
             </div>
         </div>
     </div>

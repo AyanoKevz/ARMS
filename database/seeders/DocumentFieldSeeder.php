@@ -69,6 +69,19 @@ class DocumentFieldSeeder extends Seeder
             'TRAINING_EQUIPMENT' => [
                 ['name' => 'Equipment & Materials List',  'code' => 'EQUIP_01', 'input_type' => 'file'],
             ],
+
+            // ── Practitioner Documentary Requirements
+            // PRAC_03 is the only optional upload — it applies solely to
+            // applicants with a previous employer.
+            'PRAC_DOCS' => [
+                ['name' => 'Original Certificate of Employment',            'code' => 'PRAC_01', 'input_type' => 'file'],
+                ['name' => 'Actual Duties and Responsibilities',            'code' => 'PRAC_02', 'input_type' => 'file'],
+                ['name' => 'Certificate of Employment (Previous Employer)', 'code' => 'PRAC_03', 'input_type' => 'file'],
+                ['name' => 'Certificate of Completion — 40-hour Basic OSH', 'code' => 'PRAC_04', 'input_type' => 'file'],
+                ['name' => 'Certificates of Attendance (OSH Trainings)',    'code' => 'PRAC_05', 'input_type' => 'file'],
+                ['name' => 'College Diploma or Transcript of Records',      'code' => 'PRAC_06', 'input_type' => 'file'],
+                ['name' => 'Proof of OSH-Related Accomplishments',          'code' => 'PRAC_07', 'input_type' => 'file'],
+            ],
         ];
 
         foreach ($fields as $typeCode => $typeFields) {

@@ -158,6 +158,12 @@ return new class extends Migration
                 }
             });
         }
+
+        // ── practitioner_* tables ─────────────────────────────────────────────
+        // Not indexed here. They are created by a later migration, so the
+        // hasTable guards above would all be false on a fresh migrate — their
+        // (user_id, application_id) indexes are declared inline in
+        // 2026_09_13_000001_create_practitioner_tables.php instead.
     }
 
     public function down(): void

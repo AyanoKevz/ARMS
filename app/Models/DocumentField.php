@@ -88,7 +88,28 @@ class DocumentField extends Model
         return CacheService::remember(
             CacheService::documentFieldsKey(),
             CacheService::TTL_REFERENCE,
-            fn () => static::all()->keyBy('code')
+            // document_type is eager-loaded because forAccreditationType()
+            // below filters on it for every caller, and this collection is
+            // built once per cache period.
+            fn () => static::with('documentType')->get()->keyBy('code')
         );
+    }
+
+    /**
+     * The fields belonging to one accreditation type's checklist.
+     *
+     * document_types gained an accreditation_type_id when the Practitioner
+     * checklist was added. Without filtering, a FATPro registration would be
+     * validated against the practitioner uploads and vice versa — harmless
+     * while every added rule was `nullable`, but wrong the moment one is not.
+     * A group with a NULL type is shared and always included.
+     */
+    public static function forAccreditationType(int $accreditationTypeId): \Illuminate\Support\Collection
+    {
+        return static::allCached()->filter(function (self $field) use ($accreditationTypeId) {
+            $typeId = $field->documentType?->accreditation_type_id;
+
+            return $typeId === null || (int) $typeId === $accreditationTypeId;
+        });
     }
 }

@@ -39,6 +39,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'prevent-back-history' => \App\Http\Middleware\PreventBackHistory::class,
             'check-archived'       => \App\Http\Middleware\CheckArchivedAccount::class,
+            // Allow-list for the admin portal. The controllers' own role checks
+            // only deny specific ADMIN sub-roles, so without this an applicant
+            // passed straight through them. See EnsureUserIsAdmin.
+            'admin'                => \App\Http\Middleware\EnsureUserIsAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

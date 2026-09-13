@@ -1538,10 +1538,11 @@ class ApplicationController extends Controller
                       ->groupBy('user_id');
             })
             ->where('status', 'active')
-            ->whereHas('accreditationType', function ($query) {
-                $query->where('name', 'like', '%FATPro%')
-                      ->orWhere('name', 'like', '%First Aid Training Providers%');
-            })
+            // Match on the foreign key, not the type name. A LIKE on the name
+            // is case-sensitive under Postgres (Supabase) but not under MySQL,
+            // and this way the lookup uses idx_accreditations_type_id instead
+            // of a correlated subquery over accreditation_types.
+            ->where('accreditation_type_id', config('accreditation.types.fatpro'))
             ->with([
                 'user.organizationProfile.authorizedRepresentatives',
                 'accreditationType',
@@ -1565,10 +1566,8 @@ class ApplicationController extends Controller
         $status = $request->input('status', ''); // 'revoked' or 'expired' or empty
 
         $query = \App\Models\Accreditation::whereIn('status', ['revoked', 'expired'])
-            ->whereHas('accreditationType', function ($q) {
-                $q->where('name', 'like', '%FATPro%')
-                  ->orWhere('name', 'like', '%First Aid Training Providers%');
-            })
+            // Foreign key rather than a name LIKE — see activeFatprosList().
+            ->where('accreditation_type_id', config('accreditation.types.fatpro'))
             ->with(['user.organizationProfile.authorizedRepresentatives', 'accreditationType', 'application.assignedEvaluator']);
 
         if ($status === 'revoked') {
@@ -1634,7 +1633,11 @@ class ApplicationController extends Controller
                 if ($rejectedStatus) {
                     \App\Models\ApplicationStatusLog::where('application_id', $application->id)
                         ->where('status_id', $rejectedStatus->id)
-                        ->where('remarks', 'like', '%Archived%')
+                        // LOWER(): MySQL's default collation matches LIKE
+                        // case-insensitively, Postgres does not. On Supabase a
+                        // plain '%Archived%' would silently stop matching
+                        // remarks written with different casing.
+                        ->whereRaw('LOWER(remarks) LIKE ?', ['%archived%'])
                         ->delete();
                 }
             }

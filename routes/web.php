@@ -113,8 +113,10 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/ntc/{ntcReport}/report-of-changes', [NtcController::class, 'submitReportChanges'])->name('ntc.report_changes')->middleware('throttle:10,1');
     });
 
-    Route::prefix('admin')->name('admin.')->group(function () {
-        
+    // 'admin' is the allow-list that the controllers' per-role deny-lists do not
+    // provide: an applicant has no admin_profile, so those checks pass for them.
+    Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
+
         // Notification Routes
         Route::get('/notifications/{id}/read', function ($id) {
             $notification = auth()->user()->notifications()->findOrFail($id);
@@ -211,12 +213,22 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 });
 
 // Track Registration
-Route::get('/track-application', [TrackingController::class, 'index'])->name('track');
+// Throttled like its POST siblings: this is an unauthenticated lookup that
+// returns an applicant's full dossier, and every distinct query string became a
+// cache entry keyed on raw user input (see TrackingController::index).
+Route::get('/track-application', [TrackingController::class, 'index'])->name('track')->middleware('throttle:20,1');
 Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all')->middleware('throttle:5,1');
 Route::post('/track-application/submit-payment', [TrackingController::class, 'submitPaymentPublic'])->name('track.submit_payment')->middleware('throttle:5,1');
 
-// Document and Instructor file viewers (auth required, but NO prevent-back-history to avoid PDF header errors)
-Route::middleware(['auth'])->group(function () {
+// Document and Instructor file viewers.
+//
+// These sit outside the main groups because prevent-back-history sends
+// no-store headers that break PDF streaming in some browsers. They still need
+// authorization: the admin viewers serve ANY applicant's file by id and have no
+// ownership check of their own (by design — evaluators read everybody's
+// dossier), so the 'admin' allow-list is what keeps them off limits to
+// applicants. The applicant viewers below check ownership in the controller.
+Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/hcd/documents/{document}/view', [HCDApplicationController::class, 'serveDocument'])->name('admin.hcd.documents.view');
     Route::get('/admin/hcd/instructors/credentials/{credential}/view', [HCDApplicationController::class, 'serveInstructorCredential'])->name('admin.hcd.instructors.credentials.view');
     Route::get('/admin/hcd/instructors/service-agreement/{instructor}/view', [HCDApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.hcd.instructors.service_agreement.view');
@@ -230,8 +242,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/accreditation/instructors/credentials/{credential}/view', [AccreditationApplicationController::class, 'serveInstructorCredential'])->name('admin.accreditation.instructors.credentials.view');
     Route::get('/admin/accreditation/instructors/service-agreement/{instructor}/view', [AccreditationApplicationController::class, 'serveInstructorServiceAgreement'])->name('admin.accreditation.instructors.service_agreement.view');
     Route::get('/admin/accreditation/instructors/cv/{instructor}/view', [AccreditationApplicationController::class, 'serveInstructorCv'])->name('admin.accreditation.instructors.cv.view');
+});
 
-    // Applicant-side file viewers (no prevent-back-history to allow PDF streaming)
+// Applicant-side file viewers. Each of these verifies in the controller that the
+// record belongs to the signed-in user, so they take 'auth' only.
+Route::middleware(['auth'])->group(function () {
     Route::get('/applicant/instructors/credentials/{credential}/view', [ApplicantInstructorController::class, 'serveCredential'])->name('applicant.instructors.credentials.view');
     Route::get('/applicant/instructors/{instructor}/service-agreement/view', [ApplicantInstructorController::class, 'serveServiceAgreement'])->name('applicant.instructors.service_agreement.view');
     Route::get('/applicant/instructors/{instructor}/cv/view', [ApplicantInstructorController::class, 'serveCv'])->name('applicant.instructors.cv.view');

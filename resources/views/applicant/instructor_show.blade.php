@@ -399,9 +399,13 @@
                                        value="{{ old('credentials.'.$credential->id.'.issued_date', $credential->issued_date?->format('Y-m-d')) }}">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Valid Until</label>
+                                <label class="form-label">Valid Until @if($isExpired)<span class="text-danger">*</span>@endif</label>
                                 <input type="date" name="credentials[{{ $credential->id }}][validity_date]" class="form-control form-control-sm"
-                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $credential->validity_date?->format('Y-m-d')) }}">
+                                       value="{{ old('credentials.'.$credential->id.'.validity_date', $isExpired ? '' : $credential->validity_date?->format('Y-m-d')) }}"
+                                       {{ $isExpired ? 'required' : '' }}>
+                                @if($isExpired)
+                                    <small class="text-danger" style="font-size:.72rem;">This certificate has expired — enter its new validity date.</small>
+                                @endif
                             </div>
                         </div>
                         <label class="form-label mb-1">Replace / Upload Credential PDF @if($isCredRequired)<span class="text-danger">*</span>@else (optional) @endif</label>

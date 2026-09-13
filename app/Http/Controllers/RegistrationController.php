@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class RegistrationController extends Controller
@@ -53,7 +54,15 @@ class RegistrationController extends Controller
         }
 
         // ── Build document field validation rules ──────────────────
-        $documentFields = DocumentField::allCached();
+        // Only the checklist for the submitted type. Since document_types are
+        // scoped per accreditation type, an unscoped list would validate a
+        // FATPro submission against the practitioner uploads as well.
+        // Falls back to the full list if the type is missing or unknown —
+        // validation below rejects that request anyway.
+        $submittedType  = (int) $request->input('accreditation_type_id');
+        $documentFields = $submittedType > 0
+            ? DocumentField::forAccreditationType($submittedType)
+            : DocumentField::allCached();
 
         $documentRules = [];
         foreach ($documentFields as $code => $field) {
@@ -70,8 +79,14 @@ class RegistrationController extends Controller
         // Business registration authority drives the Articles of Incorporation
         // requirement: only SEC-registered entities have one to submit, and the
         // form hides that upload entirely for DTI and CDA.
-        $documentRules['documents.LEGAL_02_TYPE'] = ['required', 'in:DTI,SEC,CDA'];
-        $documentRules['documents.LEGAL_03']      = ['required_if:documents.LEGAL_02_TYPE,SEC', 'nullable', 'file', 'mimes:pdf', 'max:15360'];
+        //
+        // Guarded on the checklist actually in play — this pair belongs to the
+        // FATPro group, and requiring it of an individual applicant who never
+        // saw the field would reject a valid submission.
+        if ($documentFields->has('LEGAL_02')) {
+            $documentRules['documents.LEGAL_02_TYPE'] = ['required', 'in:DTI,SEC,CDA'];
+            $documentRules['documents.LEGAL_03']      = ['required_if:documents.LEGAL_02_TYPE,SEC', 'nullable', 'file', 'mimes:pdf', 'max:15360'];
+        }
 
         // ── Build instructor validation rules ──────────────────────
         $instructorRules = [];
@@ -100,7 +115,13 @@ class RegistrationController extends Controller
 
         // ── Full validation ────────────────────────────────────────
         $request->validate(array_merge([
-            'accreditation_type_id' => ['required', 'integer', 'exists:accreditation_types,id'],
+            // in: not just exists: — the form disables the other options, but
+            // that is a client-side hint. Only the types this controller can
+            // actually process may open an application.
+            'accreditation_type_id' => [
+                'required', 'integer', 'exists:accreditation_types,id',
+                Rule::in(config('accreditation.open_for_registration', [])),
+            ],
             'profile_type'          => ['required', 'in:Individual,Organization'],
             // No unique:pending_registrations rule here on purpose. An unverified
             // pending row must not lock an applicant out of their own address —

@@ -73,15 +73,15 @@
                                             <option value="" disabled selected> &mdash; Select Accreditation Type &mdash; </option>
                                             {{--
                                             Seeder order (IDs):
-                                            1  Practitioners              â†’ Individual
-                                            2  Consultant                 â†’ Individual
+                                            1  Practitioners              â†’ Individual (OPEN)
+                                            2  Consultant                 â†’ Individual (disabled)
                                             3  WEM Providers              â†’ Organization (disabled)
                                             4  CHETO                      â†’ Organization (disabled)
                                             5  Safety Training Orgs       â†’ Organization (disabled)
                                             6  Safety Consultancy Orgs    â†’ Organization (disabled)
                                             7  First Aid Training Providers â†’ Organization (OPEN)
                                         --}}
-                                            <option value="1" disabled>Practitioners</option>
+                                            <option value="1">Practitioners</option>
                                             <option value="2" disabled>Consultant</option>
                                             <option value="3" disabled>Work and Environment Measurement Providers</option>
                                             <option value="4" disabled>Construction Heavy Equipment Testing Organizations</option>
@@ -92,7 +92,8 @@
                                         <div class="invalid-feedback">Please select an accreditation type.</div>
                                         <div class="form-text">
                                             <i class="bi bi-info-circle me-1"></i>
-                                            Currently open: <strong>First Aid Training Providers</strong> only.
+                                            Currently open: <strong>First Aid Training Providers</strong> and
+                                            <strong>Practitioners</strong>.
                                         </div>
                                     </div>
 
@@ -176,6 +177,8 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    @include('landing.partials.practitioner.notice')
 
                                     {{-- STEP 2  &mdash;  Account Credentials --}}
                                     <p class="form-section-title">Step 2 &mdash; Account Credentials</p>
@@ -294,6 +297,13 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    {{-- PRACTITIONER sections (accreditation type 1).
+                                         Sits after #individualFields because it continues
+                                         the same personal profile — the name, sex, date of
+                                         birth, region, city and city address fields above
+                                         are shared with every individual type. --}}
+                                    @include('landing.partials.practitioner.form')
 
                                     {{-- ORGANIZATION fields --}}
                                     <div id="organizationFields" class="d-none">
@@ -415,6 +425,12 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    {{-- FATPro-only steps. practitioner-form.js hides
+                                         AND disables this block for individual types —
+                                         hiding alone would leave required inputs
+                                         blocking checkValidity() off-screen. --}}
+                                    <div id="fatproSections">
 
                                     {{-- STEP 5  &mdash;  Instructors & Credentials --}}
                                     <p class="form-section-title mt-4">Step 5 &mdash; Instructors &amp; Credentials</p>
@@ -829,10 +845,12 @@
 
                                 </div>
 
+                                </div>{{-- /#fatproSections --}}
+
                             </div><!-- /#allFormSteps -->
 
                             <div id="reviewSection" class="d-none mt-4">
-                                <p class="form-section-title">Step 7 &mdash; Review &amp; Submit</p>
+                                <p class="form-section-title">Final Step &mdash; Review &amp; Submit</p>
                                 <div class="card bg-light border-0 mb-4 p-4 rounded-3" style="font-size: 0.95rem;">
                                     <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-file-earmark-text me-2"></i>Registration Summary</h6>
                                     <div id="reviewContent"></div>
@@ -1044,3 +1062,10 @@
 </div>
 </div>
 @endsection
+
+@push('scripts')
+    {{-- Practitioner branch: section toggling, the CV repeaters, the derived
+         fields and the review summary. Loads ahead of landing.js (the layout
+         stacks scripts above it) so its submit guard is registered first. --}}
+    <script src="{{ \App\Support\AssetVersion::url('js/practitioner-form.js') }}" defer></script>
+@endpush

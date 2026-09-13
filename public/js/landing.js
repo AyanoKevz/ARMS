@@ -474,8 +474,19 @@
             }
             summaryHtml += '</ul>';
 
-            // Gather instructors from the DOM
-            const instructorCardsContainer = document.getElementById('instructorCardsContainer');
+            // Practitioner CV sections render their own summary — the markup is
+            // entirely different from the instructor cards, so practitioner-form.js
+            // publishes a builder here rather than this function growing a second
+            // branch it has no other reason to know about.
+            if (pType === 'Individual' && window.ARMS && typeof window.ARMS.buildPractitionerSummary === 'function') {
+                summaryHtml += window.ARMS.buildPractitionerSummary();
+            }
+
+            // Gather instructors from the DOM — organizations only. Practitioner
+            // applications keep the instructor container in the DOM but disabled.
+            const instructorCardsContainer = pType === 'Organization'
+                ? document.getElementById('instructorCardsContainer')
+                : null;
             if (instructorCardsContainer) {
                 const instructorCards = instructorCardsContainer.querySelectorAll('.instructor-card');
                 if (instructorCards.length > 0) {
@@ -748,7 +759,10 @@
         const maxSize = (window.ARMS && window.ARMS.limits && window.ARMS.limits.maxFileBytes)
             || (15 * 1024 * 1024);
         const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
-        const allowedExt = ['pdf'];
+        // PDF everywhere except the practitioner's 2x2 ID photo, which opts into
+        // image types with data-allowed-ext.
+        const allowedExt = (input.dataset.allowedExt || 'pdf')
+            .split(',').map(ext => ext.trim().toLowerCase()).filter(Boolean);
         const fileName = file.name;
         const fileExt = fileName.split('.').pop().toLowerCase();
 
@@ -761,9 +775,10 @@
         const fieldName = titleLabel ? titleLabel.textContent.replace('*', '').trim() : 'File';
 
         if (!allowedExt.includes(fileExt)) {
+            const allowedLabel = allowedExt.join(' / ').toUpperCase();
             input.classList.add('is-invalid');
-            if (fb) fb.textContent = 'Invalid file format. Please upload PDF only.';
-            showToast(`Field <strong>${fieldName}</strong>: only PDF files are allowed.`, 'warning');
+            if (fb) fb.textContent = `Invalid file format. Please upload ${allowedLabel} only.`;
+            showToast(`Field <strong>${fieldName}</strong>: only ${allowedLabel} files are allowed.`, 'warning');
             return false;
         }
 
