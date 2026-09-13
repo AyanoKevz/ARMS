@@ -134,6 +134,5 @@ test('applicants are exempt and keep concurrent sessions', function () {
 test('the login page explains an other-device sign-out', function () {
     $this->get(route('login', ['reason' => 'other_device']))
         ->assertOk()
-        ->assertSee('used to sign in on', false)
-        ->assertSee('only one active session', false);
+        ->assertSee('signed in on another device', false);
 });

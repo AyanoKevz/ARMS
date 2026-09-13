@@ -32,8 +32,7 @@
                         <div class="alert alert-warning pt-2 pb-2 mb-3">
                             <small>
                                 <i class="bi bi-shield-exclamation me-1"></i>
-                                You were signed out because this account was used to sign in on
-                                another device. Admin accounts allow only one active session.
+                                Signed out — this account was signed in on another device.
                             </small>
                         </div>
                     @endif
