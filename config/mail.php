@@ -115,4 +115,47 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Reply-To Address
+    |--------------------------------------------------------------------------
+    |
+    | Every message ARMS sends is a one-way automated notification, so the
+    | "from" address above is a no-reply mailbox nobody reads. Set an address
+    | here and it is attached to every message as Reply-To, so a recipient who
+    | hits Reply still reaches a monitored inbox rather than the void.
+    |
+    | Leave it empty for strict one-way delivery — no Reply-To header is added
+    | and replies go nowhere.
+    |
+    | Note: this does NOT control where bounces go. Delivery failures follow the
+    | envelope sender, which for SMTP is the authenticated account.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+        'name' => env('MAIL_REPLY_TO_NAME', env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel'))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Return Path (Envelope Sender)
+    |--------------------------------------------------------------------------
+    |
+    | Where DELIVERY FAILURES go, which is a different thing from where replies
+    | go. Replies follow the "from" (or "reply_to") header; bounces follow this
+    | envelope address.
+    |
+    | That distinction is what lets ARMS be genuinely one-way: "from" can be an
+    | unattended no-reply mailbox so human replies land nowhere, while bounces
+    | still reach a monitored address and a dead recipient stays visible.
+    |
+    | Leave empty to let the transport decide (usually the authenticated SMTP
+    | account).
+    |
+    */
+
+    'return_path' => env('MAIL_RETURN_PATH_ADDRESS'),
+
 ];

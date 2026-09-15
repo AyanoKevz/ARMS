@@ -32,6 +32,12 @@ class ApplicantStoragePath
         return self::base($accreditationName, $userId) . '/reports/ntc';
     }
 
+    /** public/{accreditation_type}/user_{id}/reports/post_training */
+    public static function postTrainingReports(?string $accreditationName, int $userId): string
+    {
+        return self::base($accreditationName, $userId) . '/reports/post_training';
+    }
+
     /** public/{accreditation_type}/user_{id}/recommendation_letter */
     public static function recommendationLetter(?string $accreditationName, int $userId): string
     {

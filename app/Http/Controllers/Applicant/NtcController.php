@@ -11,6 +11,7 @@ use App\Models\NtcDocumentType;
 use App\Models\NtcReport;
 use App\Models\NtcTrainingMode;
 use App\Models\NtcTrainingType;
+use App\Models\PtrDocumentType;
 use App\Support\ApplicantStoragePath;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -67,13 +68,40 @@ class NtcController extends Controller
 
         // All NTC reports for this user (via their accreditations)
         $ntcReports = NtcReport::whereHas('accreditation', fn($q) => $q->where('user_id', $user->id))
-            ->with(['trainingType', 'trainingMode', 'documents.documentType'])
+            ->with([
+                'trainingType',
+                'trainingMode',
+                'documents.documentType',
+                'postTrainingReport.documents.documentType',
+            ])
             ->latest()
             ->get();
 
         $trainingTypes  = NtcTrainingType::all();
         $trainingModes  = NtcTrainingMode::all();
         $documentTypes  = NtcDocumentType::all();
+
+        // ── Post Training Report ──────────────────────────────────────────────
+        // Filed from this same page: every training submission starts at the
+        // NTC, so the post training obligation is shown against it rather than
+        // on a page of its own.
+        $acknowledgedNtcs = $ntcReports->where('status', 'acknowledged');
+
+        $ptrPending = $acknowledgedNtcs->filter(
+            fn($ntc) => $ntc->hasTrainingConcluded() && !$ntc->postTrainingReport
+        );
+
+        $ptrUpcoming = $acknowledgedNtcs->filter(
+            fn($ntc) => !$ntc->hasTrainingConcluded()
+        );
+
+        $ptrSubmitted = $acknowledgedNtcs
+            ->filter(fn($ntc) => (bool) $ntc->postTrainingReport)
+            ->map(fn($ntc) => $ntc->postTrainingReport->setRelation('ntcReport', $ntc))
+            ->sortByDesc('submitted_at')
+            ->values();
+
+        $ptrDocumentTypes = PtrDocumentType::orderBy('sort_order')->get();
 
         // Earliest allowed training start date (10 working days from today)
         $earliestStartDate = NtcReport::earliestAllowedStartDate()->format('Y-m-d');
@@ -85,6 +113,10 @@ class NtcController extends Controller
             'trainingModes',
             'documentTypes',
             'earliestStartDate',
+            'ptrPending',
+            'ptrUpcoming',
+            'ptrSubmitted',
+            'ptrDocumentTypes',
         ));
     }
 

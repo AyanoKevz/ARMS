@@ -280,7 +280,7 @@ class TestApplicationSeeder extends Seeder
         $accInterview->save();
 
         // 9. Create Accreditation (Expires in 3 months)
-        \App\Models\Accreditation::create([
+        $accAccreditation = \App\Models\Accreditation::create([
             'user_id' => $accUser->id,
             'application_id' => $accApplication->id,
             'accreditation_type_id' => $fatproTypeId, // FATPro
@@ -315,6 +315,120 @@ class TestApplicationSeeder extends Seeder
                 'elapsed_seconds' => $ps['elapsed'],
                 'is_active'      => false,
             ]);
+        }
+
+        // 11. Acknowledged NTCs so the Post Training Report portal has something
+        //     to work on the moment the database is seeded.
+        $this->seedAcknowledgedNtcs($accAccreditation);
+    }
+
+    /**
+     * Seed acknowledged Notices to Conduct for the accredited FATPro.
+     *
+     * The dates are relative to the seed run, not fixed, so a freshly seeded
+     * database always lands in the same testable state:
+     *
+     *   • EFA ending TODAY  — post training report is open right now
+     *   • SFA ended 10 days ago — already past its deadline (overdue path)
+     *   • OFA starting in 3 weeks — still upcoming, nothing owed yet
+     *
+     * Deleting the user cascades accreditations → ntc_reports → ptr rows, so
+     * re-seeding never stacks duplicates.
+     */
+    private function seedAcknowledgedNtcs(\App\Models\Accreditation $accreditation): void
+    {
+        // firstOrCreate rather than a plain lookup so this still works when the
+        // seeder is run on its own, without NtcSeeder having gone first.
+        $types = [
+            'EFA' => \App\Models\NtcTrainingType::firstOrCreate(['code' => 'EFA'], ['name' => 'Emergency First Aid']),
+            'OFA' => \App\Models\NtcTrainingType::firstOrCreate(['code' => 'OFA'], ['name' => 'Occupational First Aid']),
+            'SFA' => \App\Models\NtcTrainingType::firstOrCreate(['code' => 'SFA'], ['name' => 'Standard First Aid']),
+        ];
+        $f2f     = \App\Models\NtcTrainingMode::firstOrCreate(['code' => 'F2F'], ['name' => 'Face to Face']);
+        $blended = \App\Models\NtcTrainingMode::firstOrCreate(['code' => 'BLENDED'], ['name' => 'Blended']);
+
+        $today = Carbon::today();
+
+        $plans = [
+            [
+                // THE one to test with: a one-day Emergency First Aid course
+                // finishing today, so the report can be filed immediately.
+                'type'       => 'EFA',
+                'mode'       => $f2f,
+                'venue'      => 'Accredited Provider Training Center, 456 Excellence Blvd, Safety City',
+                'start'      => $today->copy(),
+                'end'        => $today->copy(),
+                'submitted'  => $today->copy()->subDays(21),
+                'acked'      => $today->copy()->subDays(18),
+            ],
+            [
+                // Already past its 4-working-day deadline — exercises the
+                // overdue badge, the dashboard alert and the overdue email.
+                'type'       => 'SFA',
+                'mode'       => $f2f,
+                'venue'      => 'Safety City Convention Hall',
+                'start'      => $today->copy()->subDays(13),
+                'end'        => $today->copy()->subDays(10),
+                'submitted'  => $today->copy()->subDays(35),
+                'acked'      => $today->copy()->subDays(30),
+            ],
+            [
+                // Not yet held — should sit under "Upcoming & Ongoing" with no
+                // report owed.
+                'type'       => 'OFA',
+                'mode'       => $blended,
+                'venue'      => 'https://zoom.us/j/900112233',
+                'start'      => $today->copy()->addWeeks(3),
+                'end'        => $today->copy()->addWeeks(3)->addDay(),
+                'submitted'  => $today->copy()->subDays(2),
+                'acked'      => $today->copy()->subDay(),
+            ],
+        ];
+
+        $evaluatorId = User::whereHas('adminProfile.adminRole', function ($q) {
+            $q->where('name', 'Training Evaluator');
+        })->value('id');
+
+        foreach ($plans as $plan) {
+            $ntc = \App\Models\NtcReport::create([
+                'accreditation_id'     => $accreditation->id,
+                'ntc_training_type_id' => $types[$plan['type']]->id,
+                'ntc_training_mode_id' => $plan['mode']->id,
+                'venue'                => $plan['venue'],
+                'training_start_date'  => $plan['start']->toDateString(),
+                'training_end_date'    => $plan['end']->toDateString(),
+                'status'               => 'acknowledged',
+                'submitted_at'         => $plan['submitted'],
+                'acknowledged_at'      => $plan['acked'],
+                'acknowledged_by'      => $evaluatorId,
+            ]);
+
+            // Both NTC forms, already approved — that is what "acknowledged" means.
+            foreach (['RTCMAN' => 'DOLE-OSHC-STO-RTCMan Form', 'PROG' => 'DOLE-OSHC-STO-PROG Form'] as $code => $name) {
+                $docType = \App\Models\NtcDocumentType::firstOrCreate(['code' => $code], ['name' => $name]);
+
+                \App\Models\NtcDocument::create([
+                    'ntc_report_id'        => $ntc->id,
+                    'ntc_document_type_id' => $docType->id,
+                    'file_path'            => "dummy_files/ntc_{$ntc->id}_" . strtolower($code) . '.pdf',
+                    'original_filename'    => strtolower($code) . '_form.pdf',
+                    'mime_type'            => 'application/pdf',
+                    'file_size'            => 245760,
+                    'uploaded_at'          => $plan['submitted'],
+                    'status'               => 'approved',
+                    'evaluated_by'         => $evaluatorId,
+                    'evaluated_at'         => $plan['acked'],
+                ]);
+            }
+
+            $this->command?->info(sprintf(
+                '  NTC-%s  %s  %s → %s  | post training due %s',
+                str_pad($ntc->id, 6, '0', STR_PAD_LEFT),
+                str_pad($plan['type'], 3),
+                $plan['start']->format('M d'),
+                $plan['end']->format('M d'),
+                $ntc->postTrainingDeadlineDate()?->format('M d, Y') ?? 'n/a'
+            ));
         }
     }
 }

@@ -1558,7 +1558,9 @@
             btn.setAttribute('data-bs-toggle', 'modal');
             btn.setAttribute('data-bs-target', '#ntcRejectionConfirmModal');
             btn.onclick = null;
-            if (btnText) btnText.textContent = `Send Rejection Email (${rejected} rejected)`;
+            // The post training page reuses this workflow under its own wording.
+            const rejectLabel = (window.ARMS && window.ARMS.ntcRejectLabel) || 'Send Rejection Email';
+            if (btnText) btnText.textContent = `${rejectLabel} (${rejected} rejected)`;
         } else if (pending > 0 || awaitingUpdate > 0) {
             btn.disabled = true;
             btn.className = 'btn btn-outline-secondary btn-sm fw-semibold px-4';
@@ -1580,7 +1582,10 @@
             btn.removeAttribute('data-bs-toggle');
             btn.removeAttribute('data-bs-target');
             btn.onclick = submitNtcApproved;
-            if (btnText) btnText.textContent = 'Acknowledge Notice to Conduct';
+            if (btnText) {
+                btnText.textContent = (window.ARMS && window.ARMS.ntcApproveLabel)
+                    || 'Acknowledge Notice to Conduct';
+            }
         }
     };
 

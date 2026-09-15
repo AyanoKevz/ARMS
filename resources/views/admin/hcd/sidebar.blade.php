@@ -70,7 +70,8 @@
     // 12. Reports
     $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status !== 'report_changes');
     $reportChangesActive = request()->routeIs('admin.hcd.reports.report_changes.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status === 'report_changes');
-    $reportsParentActive = $ntcReportActive || $reportChangesActive;
+    $postTrainingActive = request()->routeIs('admin.hcd.reports.post_training.*');
+    $reportsParentActive = $ntcReportActive || $reportChangesActive || $postTrainingActive;
 @endphp
 
 <!-- HCD Admin Sidebar -->
@@ -108,7 +109,7 @@
     <ul class="nav child_menu" style="{{ $reportsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $ntcReportActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.ntc.index') }}"><i class="fas fa-clipboard-list"></i> Notice to Conduct</a></li>
         <li class="{{ $reportChangesActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.report_changes.index') }}"><i class="fas fa-exchange-alt"></i> Report of Changes</a></li>
-        <li><a href="#"><i class="fas fa-flag-checkered"></i> Post Training Report</a></li>
+        <li class="{{ $postTrainingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.post_training.index') }}"><i class="fas fa-flag-checkered"></i> Post Training Report</a></li>
     </ul>
 </li>
 @endif

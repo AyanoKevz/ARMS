@@ -116,6 +116,13 @@
                     </div>
                     <nav class="nav navbar-nav ms-auto">
                         <ul class="navbar-right d-flex align-items-center gap-3 pe-3">
+                            @php
+                                // Admins and applicants read the same bell but
+                                // through different route groups: the admin
+                                // notification routes sit behind the 'admin'
+                                // allow-list an applicant cannot pass.
+                                $notificationBase = auth()->user()->adminProfile ? 'admin' : 'applicant';
+                            @endphp
                             <li class="nav-item dropdown">
                                 <a href="#" class="dropdown-toggle info-number" id="navbarDropdown1" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-bell"></i>
@@ -129,7 +136,7 @@
                                     <li class="p-2 border-bottom bg-light">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="fw-bold ms-2">Notifications</span>
-                                            <form action="{{ url('admin/notifications/mark-all-read') }}" method="POST" class="m-0 p-0">
+                                            <form action="{{ url($notificationBase . '/notifications/mark-all-read') }}" method="POST" class="m-0 p-0">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-link text-decoration-none m-0 p-0 me-2" style="font-size: 0.8rem;">Mark all as read</button>
                                             </form>
@@ -137,7 +144,7 @@
                                     </li>
                                     @forelse(auth()->user()->unreadNotifications->take(5) as $notification)
                                         <li class="border-bottom p-2" style="background: transparent;">
-                                            <a class="dropdown-item d-flex flex-column text-wrap" href="{{ url('admin/notifications/' . $notification->id . '/read') }}" style="white-space: normal; line-height: 1.4; padding: 6px 12px; background: transparent;">
+                                            <a class="dropdown-item d-flex flex-column text-wrap" href="{{ url($notificationBase . '/notifications/' . $notification->id . '/read') }}" style="white-space: normal; line-height: 1.4; padding: 6px 12px; background: transparent;">
                                                 <span class="text-muted" style="font-size: 0.72rem; display: block; margin-bottom: 3px; font-weight: normal;">{{ $notification->created_at->diffForHumans() }}</span>
                                                 <span class="text-dark" style="font-size: 0.84rem; display: block; font-weight: 500; white-space: normal;">
                                                     {{ $notification->data['message'] ?? 'You have a new notification.' }}

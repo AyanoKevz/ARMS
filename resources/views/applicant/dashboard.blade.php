@@ -65,6 +65,70 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
 
     <div class="clearfix"></div>
 
+    {{-- ── Post Training Report obligations ─────────────────────────────
+         Acknowledged trainings that have ended without an accepted report.
+         Surfaced here so the deadline is the first thing a FATPro sees. --}}
+    @php
+        $outstandingPostTraining = \App\Models\NtcReport::whereHas(
+                'accreditation',
+                fn ($q) => $q->where('user_id', auth()->id())
+            )
+            ->where('status', 'acknowledged')
+            ->whereDate('training_end_date', '<=', \Carbon\Carbon::today())
+            ->where(function ($q) {
+                $q->whereDoesntHave('postTrainingReport')
+                  ->orWhereHas('postTrainingReport', fn ($q2) => $q2->where('status', '!=', 'accepted'));
+            })
+            ->with('trainingType')
+            ->orderBy('training_end_date')
+            ->get();
+    @endphp
+
+    @if($outstandingPostTraining->isNotEmpty())
+    @php
+        $overduePostTraining = $outstandingPostTraining->filter(fn ($n) => $n->isPostTrainingReportOverdue());
+        $bannerIsOverdue = $overduePostTraining->isNotEmpty();
+    @endphp
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert {{ $bannerIsOverdue ? 'alert-danger' : 'alert-warning' }} d-flex flex-wrap align-items-center justify-content-between gap-3"
+                 style="border-radius: 8px;">
+                <div>
+                    <div class="fw-bold mb-1">
+                        <i class="fas {{ $bannerIsOverdue ? 'fa-exclamation-triangle' : 'fa-flag-checkered' }} me-1"></i>
+                        {{ $bannerIsOverdue
+                            ? 'You have overdue Post Training Reports'
+                            : 'Post Training Report required' }}
+                    </div>
+                    <div style="font-size: 0.88rem;">
+                        {{ $outstandingPostTraining->count() }}
+                        {{ \Illuminate\Support\Str::plural('training', $outstandingPostTraining->count()) }}
+                        {{ $outstandingPostTraining->count() === 1 ? 'is' : 'are' }} still awaiting a Post Training Report.
+                        @foreach($outstandingPostTraining->take(3) as $ntc)
+                            <div class="mt-1">
+                                <strong>{{ $ntc->reference_number }}</strong>
+                                ({{ $ntc->trainingType->code ?? 'N/A' }}) —
+                                due {{ $ntc->postTrainingDeadlineDate()?->format('F d, Y') ?? 'N/A' }}
+                                @if($ntc->isPostTrainingReportOverdue())
+                                    <span class="badge bg-danger ms-1" style="font-size: 0.68rem;">Overdue</span>
+                                @endif
+                            </div>
+                        @endforeach
+                        @if($outstandingPostTraining->count() > 3)
+                            <div class="mt-1 fst-italic">
+                                and {{ $outstandingPostTraining->count() - 3 }} more…
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                <a href="{{ route('applicant.post_training.index') }}" class="btn btn-sm {{ $bannerIsOverdue ? 'btn-danger' : 'btn-warning' }} fw-bold px-3">
+                    <i class="fas fa-cloud-upload-alt me-1"></i> Submit Now
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="row">
 
         {{-- Accreditation Summary --}}

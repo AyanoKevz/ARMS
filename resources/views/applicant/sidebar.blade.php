@@ -23,7 +23,8 @@
     $dashActive        = request()->routeIs('applicant.dashboard');
     $profileActive     = request()->routeIs('profile.index');
     $ntcActive         = request()->routeIs('applicant.ntc.index') || request()->routeIs('applicant.ntc.show');
-    $submissionActive  = $ntcActive; // expand if Report to Changes / Post Training Report get routes
+    $postTrainingActive = request()->routeIs('applicant.post_training.*');
+    $submissionActive  = $ntcActive || $postTrainingActive;
     $renewalActive     = request()->routeIs('applicant.renewal.*');
     $instructorsActive = request()->routeIs('applicant.instructors.*');
 @endphp
@@ -32,7 +33,33 @@
 <li class="{{ $profileActive ? 'current-page active' : '' }}"><a href="{{ route('profile.index') }}"><i class="fas fa-user-circle"></i> My Profile </a></li>
 
 @if(!$isRevoked && !$hasOngoingRenewal)
-    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.ntc.index') }}"><i class="fas fa-file-invoice"></i> Submission report </a></li>
+    @php
+        // Acknowledged trainings that have ended without an accepted post
+        // training report on file — the sidebar carries the count so the
+        // obligation is visible from every page, not just the report page.
+        $outstandingPtrCount = \App\Models\NtcReport::whereHas(
+                'accreditation',
+                fn ($q) => $q->where('user_id', auth()->id())
+            )
+            ->where('status', 'acknowledged')
+            ->whereDate('training_end_date', '<=', \Carbon\Carbon::today())
+            ->where(function ($q) {
+                $q->whereDoesntHave('postTrainingReport')
+                  ->orWhereHas('postTrainingReport', fn ($q2) => $q2->where('status', '!=', 'accepted'));
+            })
+            ->count();
+    @endphp
+    {{-- One entry: every training submission — the NTC, its Report of Changes
+         and the Post Training Report it later owes — is filed from this page. --}}
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}">
+        <a href="{{ route('applicant.ntc.index') }}">
+            <i class="fas fa-file-invoice"></i> Submission report
+            @if($outstandingPtrCount > 0)
+                <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.65rem;"
+                      title="{{ $outstandingPtrCount }} Post Training {{ Str::plural('Report', $outstandingPtrCount) }} awaiting submission">{{ $outstandingPtrCount }}</span>
+            @endif
+        </a>
+    </li>
 @elseif($isRevoked)
     <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report because your accreditation has been revoked.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
 @else

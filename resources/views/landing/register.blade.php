@@ -191,6 +191,15 @@
                                             <input type="email" class="form-control" id="email" name="email"
                                                 placeholder="you@email.com" required>
                                             <div class="invalid-feedback">Please enter a valid email address.</div>
+                                            {{-- The verification link and every later notice go to this address,
+                                                 so a typo or a dormant mailbox strands the application. --}}
+                                            <div class="form-text">
+                                                <i class="bi bi-exclamation-circle me-1"></i>
+                                                Use an <strong>active email address</strong> you check regularly, and make sure it is
+                                                spelled correctly. Your verification link and <strong>all further communication</strong>
+                                                &mdash; evaluation results, document requests, interview schedules and payment
+                                                instructions &mdash; will be sent here.
+                                            </div>
                                         </div>
                                         <div class="col-12">
                                             <label for="password" class="form-label fw-semibold">

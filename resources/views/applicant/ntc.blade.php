@@ -1,6 +1,10 @@
 @extends('layouts.applicant')
 
-@section('title', 'Notice to Conduct')
+@section('title', 'Submission Report')
+
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/post-training.css') }}?v={{ filemtime(public_path('css/post-training.css')) }}">
+@endpush
 
 @section('content')
 <div class="row">
@@ -114,6 +118,28 @@
         </div>
     </div>
 </div>
+
+{{-- ── ROW 0c: POST TRAINING OVERDUE ALERT ──────────────────── --}}
+@php
+    $ptrOverdue = $ptrPending->filter(fn($n) => $n->isPostTrainingReportOverdue());
+@endphp
+@if($ptrOverdue->isNotEmpty())
+<div class="row">
+    <div class="col-md-12">
+        <div class="ptr-notice ptr-notice-danger">
+            <div class="fw-bold mb-1">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                {{ $ptrOverdue->count() }} Post Training {{ Str::plural('Report', $ptrOverdue->count()) }} Overdue
+            </div>
+            <p class="mb-0">
+                The submission deadline has passed for
+                {{ $ptrOverdue->pluck('reference_number')->implode(', ') }}.
+                Please file {{ $ptrOverdue->count() === 1 ? 'it' : 'them' }} immediately from the table below.
+            </p>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- ── ROW 1: SUBMIT NEW NTC FORM ──────────────────────────── --}}
 <div class="row">
@@ -326,21 +352,31 @@
     </div>
 </div>
 
-{{-- ── ROW 2: NTC SUBMISSION HISTORY ────────────────────────── --}}
+{{-- ── ROW 2: TRAINING SUBMISSIONS ──────────────────────────────
+     One table for the whole life of a training: the Notice to Conduct, any
+     Report of Changes, and the Post Training Report it owes once the training
+     has been held. --}}
 <div class="row">
     <div class="col-md-12">
         <div class="card ntc-premium-card mb-4">
-            <div class="card-header border-0 bg-transparent py-3 d-flex align-items-center justify-content-between">
+            <div class="card-header border-0 bg-transparent py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h4 class="m-0 fw-bold" style="color: #2A3F54;">
-                    <i class="fas fa-history me-2" style="color: var(--portal-gold);"></i> My NTC Submissions
+                    <i class="fas fa-history me-2" style="color: var(--portal-gold);"></i> My Training Submissions
                 </h4>
+                @if($ptrPending->isNotEmpty())
+                    <span class="badge-ptr-danger" style="font-size: 0.78rem;">
+                        <i class="fas fa-flag-checkered me-1"></i>
+                        {{ $ptrPending->count() }} post training
+                        {{ Str::plural('report', $ptrPending->count()) }} awaiting submission
+                    </span>
+                @endif
             </div>
             <div class="card-body p-0">
 
                 @if($ntcReports->isEmpty())
                     <div class="text-center py-5">
                         <i class="fas fa-inbox" style="font-size: 3rem; color: #ccc; display:block; margin-bottom: 1rem;"></i>
-                        <p class="text-muted">No NTC submissions yet. Fill out the form to submit your first Notice to Conduct.</p>
+                        <p class="text-muted">No training submissions yet. Fill out the form to submit your first Notice to Conduct.</p>
                     </div>
                 @else
                     <div class="table-responsive">
@@ -353,7 +389,8 @@
                                     <th style="color: #475569;">Submitted</th>
                                     <th style="color: #475569;">Training Period</th>
                                     <th style="color: #475569;">Status</th>
-                                    <th class="pe-4" style="color: #475569; width: 350px;">Documents</th>
+                                    <th style="color: #475569; width: 320px;">NTC Documents</th>
+                                    <th class="pe-4" style="color: #475569; width: 300px;">Post Training Report</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -534,6 +571,12 @@
                                         </form>
                                         @endif
                                     </td>
+
+                                    {{-- Post Training Report: only becomes actionable
+                                         once the training has actually been held. --}}
+                                    <td class="pe-4 ptr-cell">
+                                        @include('applicant.partials.post_training_cell', ['ntc' => $ntc])
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -545,11 +588,14 @@
         </div>
     </div>
 </div>
+{{-- Post Training Report modals (submission + declined re-uploads) --}}
+@include('applicant.partials.post_training_section')
+
 @endif
 
 {{-- Report of Changes Modal --}}
 <div class="modal fade" id="reportChangesModal" tabindex="-1" aria-labelledby="reportChangesModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg portal-scroll-modal">
         <div class="modal-content" style="border-radius: 12px; overflow: hidden; border-top: 4px solid var(--portal-gold);">
             <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold" id="reportChangesModalLabel" style="color: #2A3F54;">
@@ -779,6 +825,9 @@
         font-size: 2rem;
         color: #b8c8e8;
         display: block;
+        /* Font Awesome 7 sets width:1.25em on icons; without releasing it a
+           display:block icon is a narrow box stuck against the left edge. */
+        width: auto;
         margin-bottom: 8px;
         pointer-events: none;
         transition: all 0.2s;
@@ -937,9 +986,20 @@
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
-        padding: 8px 12px;
-        margin-bottom: 8px;
+        padding: 7px 10px;
+        margin-bottom: 6px;
         transition: all 0.2s;
+    }
+    /* Document button and its status badge sit side by side, grouped in the
+       middle. The markup carries `justify-content-between`, which is a
+       Bootstrap utility (hence !important) and pushed the pair to opposite
+       edges of the cell with a wide gap between them. */
+    .ntc-doc-item > .d-flex {
+        justify-content: center !important;
+        flex-wrap: nowrap !important;
+    }
+    .ntc-doc-item .badge {
+        flex-shrink: 0;
     }
     .ntc-doc-item:hover {
         border-color: #cbd5e1;
@@ -1513,4 +1573,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+@endpush
+
+@push('scripts')
+{{-- Post Training Report: drop zones, submit modal and re-upload forms --}}
+<script src="{{ asset('js/post-training.js') }}?v={{ filemtime(public_path('js/post-training.js')) }}"></script>
 @endpush

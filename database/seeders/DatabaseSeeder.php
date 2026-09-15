@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             DocumentTypeSeeder::class,
             DocumentFieldSeeder::class,
             NtcSeeder::class,
+            PostTrainingReportSeeder::class,
             TestApplicationSeeder::class,
         ]);
     }

@@ -13,7 +13,9 @@ use App\Http\Controllers\Admin\Accreditation\ApplicationController as Accreditat
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 use App\Http\Controllers\Applicant\RenewalController;
 use App\Http\Controllers\Applicant\NtcController;
+use App\Http\Controllers\Applicant\PostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\NtcController as AdminNtcController;
+use App\Http\Controllers\Admin\HCD\PostTrainingReportController as AdminPostTrainingReportController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -88,6 +90,20 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             return view('applicant.dashboard');
         })->name('dashboard');
 
+        // Notifications. The admin portal has its own copies of these under the
+        // 'admin' allow-list, which an applicant cannot pass — so applicants
+        // need their own pair for the bell dropdown to work at all.
+        Route::get('/notifications/{id}/read', function ($id) {
+            $notification = auth()->user()->notifications()->findOrFail($id);
+            $notification->markAsRead();
+            return redirect($notification->data['link'] ?? route('applicant.dashboard'));
+        })->name('notifications.read');
+
+        Route::post('/notifications/mark-all-read', function () {
+            auth()->user()->unreadNotifications->markAsRead();
+            return back();
+        })->name('notifications.mark_all_read');
+
         // FATPro Instructor Management
         Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::post('/instructors', [ApplicantInstructorController::class, 'store'])->name('instructors.store')->middleware('throttle:5,1');
@@ -111,6 +127,14 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/ntc/documents/{document}/reupload', [NtcController::class, 'reuploadDocument'])->name('ntc.document.reupload')->middleware('throttle:10,1');
         Route::post('/ntc/{ntcReport}/reupload', [NtcController::class, 'reuploadBatch'])->name('ntc.reupload_batch')->middleware('throttle:10,1');
         Route::post('/ntc/{ntcReport}/report-of-changes', [NtcController::class, 'submitReportChanges'])->name('ntc.report_changes')->middleware('throttle:10,1');
+
+        // Post Training Report. Filed from the NTC page — the obligation belongs
+        // to a Notice to Conduct, so it is shown against it rather than on a page
+        // of its own. The index route is kept as a redirect because reminder
+        // emails already in inboxes point at it.
+        Route::get('/post-training', fn () => redirect()->route('applicant.ntc.index'))->name('post_training.index');
+        Route::post('/post-training/{ntcReport}', [PostTrainingReportController::class, 'store'])->name('post_training.store')->middleware('throttle:10,1');
+        Route::post('/post-training/{postTrainingReport}/reupload', [PostTrainingReportController::class, 'reuploadBatch'])->name('post_training.reupload_batch')->middleware('throttle:10,1');
     });
 
     // 'admin' is the allow-list that the controllers' per-role deny-lists do not
@@ -185,6 +209,12 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
             Route::post('/reports/ntc/{ntcReport}/finalize-evaluation', [AdminNtcController::class, 'finalizeEvaluation'])->name('reports.ntc.finalize_evaluation');
+
+            // Post Training Reports
+            Route::get('/reports/post-training', [AdminPostTrainingReportController::class, 'index'])->name('reports.post_training.index');
+            Route::get('/reports/post-training/{postTrainingReport}', [AdminPostTrainingReportController::class, 'show'])->name('reports.post_training.show');
+            Route::post('/reports/post-training/documents/{document}/evaluate', [AdminPostTrainingReportController::class, 'evaluateDocument'])->name('reports.post_training.documents.evaluate');
+            Route::post('/reports/post-training/{postTrainingReport}/finalize-evaluation', [AdminPostTrainingReportController::class, 'finalizeEvaluation'])->name('reports.post_training.finalize_evaluation');
         });
 
         // ── Accreditation Division (Verifier Portal) ──────────────────────
@@ -235,6 +265,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/hcd/instructors/cv/{instructor}/view', [HCDApplicationController::class, 'serveInstructorCv'])->name('admin.hcd.instructors.cv.view');
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
     Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
+    Route::get('/admin/hcd/reports/post-training/documents/{document}/view', [AdminPostTrainingReportController::class, 'serveDocument'])->name('admin.hcd.reports.post_training.document.view');
 
     // Accreditation Division file viewers (Verifier Portal)
     Route::get('/admin/accreditation/documents/{document}/view', [AccreditationApplicationController::class, 'serveDocument'])->name('admin.accreditation.documents.view');
@@ -252,6 +283,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/applicant/instructors/{instructor}/cv/view', [ApplicantInstructorController::class, 'serveCv'])->name('applicant.instructors.cv.view');
     Route::get('/applicant/documents/{document}/view', [RenewalController::class, 'serveDocument'])->name('applicant.documents.view');
     Route::get('/applicant/user-documents/{userDocument}/view', [RenewalController::class, 'serveUserDocument'])->name('applicant.user_documents.view');
+    Route::get('/applicant/post-training/documents/{document}/view', [PostTrainingReportController::class, 'serveDocument'])->name('applicant.post_training.document.view');
 });
 
 // Password Reset Routes
