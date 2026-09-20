@@ -20,7 +20,7 @@ class PostTrainingReportReminderCheck extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Chase outstanding Post Training Reports: a due notice when the training concludes, a daily countdown across the working-day window set by the training type, and an overdue notice once the deadline passes.';
+    protected $description = 'Chase outstanding Post Training Reports: one due notice when the training concludes, and one overdue notice once the five-working-day deadline passes.';
 
     /**
      * Execute the console command.
@@ -29,11 +29,10 @@ class PostTrainingReportReminderCheck extends Command
     {
         $today = Carbon::today();
 
-        $due       = $this->notifyDue($today);
-        $countdown = $this->notifyCountdown($today);
-        $overdue   = $this->notifyOverdue($today);
+        $due     = $this->notifyDue($today);
+        $overdue = $this->notifyOverdue($today);
 
-        $this->info("Post training reminders sent: {$due} due, {$countdown} countdown, {$overdue} overdue.");
+        $this->info("Post training reminders sent: {$due} due, {$overdue} overdue.");
 
         return self::SUCCESS;
     }
@@ -90,63 +89,8 @@ class PostTrainingReportReminderCheck extends Command
                         continue;
                     }
 
-                    // A one-working-day type (EFA) reaches its deadline on the
-                    // same day this opening notice goes out. "You have 1 day"
-                    // would be misleading there, so lead with the final-day
-                    // wording instead.
-                    $stage = ($deadline && $today->isSameDay($deadline))
-                        ? PostTrainingReportDueEmail::STAGE_COUNTDOWN
-                        : PostTrainingReportDueEmail::STAGE_DUE;
-
-                    if ($this->dispatchNotice($ntcReport, $stage)) {
-                        $ntcReport->update([
-                            'ptr_reminder_sent_at' => now(),
-                            // Claims today, so the countdown pass below does not
-                            // send a second email on the same morning.
-                            'ptr_last_reminded_on' => $today,
-                        ]);
-                        $sent++;
-                    }
-                }
-            });
-
-        return $sent;
-    }
-
-    /**
-     * Daily countdown across the window the training type allows — the stretch
-     * that used to be silent. A Standard First Aid report has four working days
-     * to run down; hearing nothing until the overdue notice is how a deadline
-     * gets missed.
-     */
-    private function notifyCountdown(Carbon $today): int
-    {
-        $sent = 0;
-
-        $this->outstanding($today)
-            // Only after the opening "it is due" notice has gone out.
-            ->whereNotNull('ptr_reminder_sent_at')
-            ->where(function ($q) use ($today) {
-                $q->whereNull('ptr_last_reminded_on')
-                  ->orWhereDate('ptr_last_reminded_on', '<', $today);
-            })
-            ->chunkById(100, function ($reports) use (&$sent, $today) {
-                foreach ($reports as $ntcReport) {
-                    // Nothing to chase once something has been filed; the
-                    // evaluation emails take over from here.
-                    if ($ntcReport->postTrainingReport) {
-                        continue;
-                    }
-
-                    $deadline = $ntcReport->postTrainingDeadlineDate();
-
-                    // Past the deadline is the overdue notice's job, not this one.
-                    if (!$deadline || $today->greaterThan($deadline)) {
-                        continue;
-                    }
-
-                    if ($this->dispatchNotice($ntcReport, PostTrainingReportDueEmail::STAGE_COUNTDOWN)) {
-                        $ntcReport->update(['ptr_last_reminded_on' => $today]);
+                    if ($this->dispatchNotice($ntcReport, PostTrainingReportDueEmail::STAGE_DUE)) {
+                        $ntcReport->update(['ptr_reminder_sent_at' => now()]);
                         $sent++;
                     }
                 }
@@ -207,25 +151,13 @@ class PostTrainingReportReminderCheck extends Command
             $deadlineText = $deadline?->format('F d, Y') ?? 'N/A';
             $daysAllowed  = $ntcReport->postTrainingDaysAllowed();
             $typeName     = $ntcReport->trainingType->name ?? 'training';
-            $workingLeft  = $ntcReport->postTrainingWorkingDaysRemaining();
 
-            $message = match ($stage) {
-                PostTrainingReportDueEmail::STAGE_OVERDUE =>
-                    "The Post Training Report for {$ntcReport->reference_number} is overdue. The deadline was "
-                        . "{$deadlineText}. Please submit it immediately.",
-
-                PostTrainingReportDueEmail::STAGE_COUNTDOWN => $workingLeft === 0
-                    ? "Today is the last day to submit the Post Training Report for {$ntcReport->reference_number}. "
-                        . "Deadline: {$deadlineText}."
-                    : "{$workingLeft} working " . Str::plural('day', $workingLeft)
-                        . " left to submit the Post Training Report for {$ntcReport->reference_number}. "
-                        . "Deadline: {$deadlineText}.",
-
-                default =>
-                    "Your {$typeName} under {$ntcReport->reference_number} has concluded. A {$typeName} allows "
-                        . "{$daysAllowed} working " . Str::plural('day', $daysAllowed)
-                        . ", so submit the Post Training Report on or before {$deadlineText}.",
-            };
+            $message = $stage === PostTrainingReportDueEmail::STAGE_OVERDUE
+                ? "The Post Training Report for {$ntcReport->reference_number} is overdue. The deadline was "
+                    . "{$deadlineText}. Please submit it immediately."
+                : "Your {$typeName} under {$ntcReport->reference_number} has concluded. You have "
+                    . "{$daysAllowed} working " . Str::plural('day', $daysAllowed)
+                    . " to file the Post Training Report — on or before {$deadlineText}.";
 
             $user->notifications()->create([
                 'id'   => Str::uuid(),

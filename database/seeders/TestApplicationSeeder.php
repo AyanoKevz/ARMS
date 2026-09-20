@@ -349,39 +349,37 @@ class TestApplicationSeeder extends Seeder
 
         $today = Carbon::today();
 
+        // End dates are derived from the type the same way the NTC form does it,
+        // so the seed can never disagree with the rule the application enforces.
         $plans = [
             [
-                // THE one to test with: a one-day Emergency First Aid course
-                // finishing today, so the report can be filed immediately.
-                'type'       => 'EFA',
-                'mode'       => $f2f,
-                'venue'      => 'Accredited Provider Training Center, 456 Excellence Blvd, Safety City',
-                'start'      => $today->copy(),
-                'end'        => $today->copy(),
-                'submitted'  => $today->copy()->subDays(21),
-                'acked'      => $today->copy()->subDays(18),
+                // Concluded today: the post training report opens immediately
+                // and has five working days to run.
+                'type'      => 'EFA',
+                'mode'      => $f2f,
+                'venue'     => 'Accredited Provider Training Center, 456 Excellence Blvd, Safety City',
+                'end'       => $today->copy(),
+                'submitted' => $today->copy()->subDays(21),
+                'acked'     => $today->copy()->subDays(18),
             ],
             [
-                // Already past its 4-working-day deadline — exercises the
-                // overdue badge, the dashboard alert and the overdue email.
-                'type'       => 'SFA',
-                'mode'       => $f2f,
-                'venue'      => 'Safety City Convention Hall',
-                'start'      => $today->copy()->subDays(13),
-                'end'        => $today->copy()->subDays(10),
-                'submitted'  => $today->copy()->subDays(35),
-                'acked'      => $today->copy()->subDays(30),
+                // Ended long enough ago that the five-working-day deadline has
+                // passed — exercises the overdue badge, banner and email.
+                'type'      => 'SFA',
+                'mode'      => $f2f,
+                'venue'     => 'Safety City Convention Hall',
+                'end'       => $today->copy()->subDays(14),
+                'submitted' => $today->copy()->subDays(45),
+                'acked'     => $today->copy()->subDays(40),
             ],
             [
-                // Not yet held — should sit under "Upcoming & Ongoing" with no
-                // report owed.
-                'type'       => 'OFA',
-                'mode'       => $blended,
-                'venue'      => 'https://zoom.us/j/900112233',
-                'start'      => $today->copy()->addWeeks(3),
-                'end'        => $today->copy()->addWeeks(3)->addDay(),
-                'submitted'  => $today->copy()->subDays(2),
-                'acked'      => $today->copy()->subDay(),
+                // Not yet held — nothing owed.
+                'type'      => 'OFA',
+                'mode'      => $blended,
+                'venue'     => 'https://zoom.us/j/900112233',
+                'end'       => $today->copy()->addWeeks(3),
+                'submitted' => $today->copy()->subDays(2),
+                'acked'     => $today->copy()->subDay(),
             ],
         ];
 
@@ -390,13 +388,19 @@ class TestApplicationSeeder extends Seeder
         })->value('id');
 
         foreach ($plans as $plan) {
+            // Work backwards from the desired end date: find the start date that
+            // yields it once the type's duration is applied.
+            $duration = \App\Models\NtcReport::durationDaysForCode($plan['type']);
+            $start    = \App\Models\NtcReport::subtractWorkingDays($plan['end'], $duration);
+            $end      = \App\Models\NtcReport::trainingEndDateFor($start, $plan['type']);
+
             $ntc = \App\Models\NtcReport::create([
                 'accreditation_id'     => $accreditation->id,
                 'ntc_training_type_id' => $types[$plan['type']]->id,
                 'ntc_training_mode_id' => $plan['mode']->id,
                 'venue'                => $plan['venue'],
-                'training_start_date'  => $plan['start']->toDateString(),
-                'training_end_date'    => $plan['end']->toDateString(),
+                'training_start_date'  => $start->toDateString(),
+                'training_end_date'    => $end->toDateString(),
                 'status'               => 'acknowledged',
                 'submitted_at'         => $plan['submitted'],
                 'acknowledged_at'      => $plan['acked'],
@@ -425,8 +429,8 @@ class TestApplicationSeeder extends Seeder
                 '  NTC-%s  %s  %s → %s  | post training due %s',
                 str_pad($ntc->id, 6, '0', STR_PAD_LEFT),
                 str_pad($plan['type'], 3),
-                $plan['start']->format('M d'),
-                $plan['end']->format('M d'),
+                $start->format('M d'),
+                $end->format('M d'),
                 $ntc->postTrainingDeadlineDate()?->format('M d, Y') ?? 'n/a'
             ));
         }

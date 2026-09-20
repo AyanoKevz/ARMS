@@ -2,55 +2,45 @@
 
 @php
     use App\Mail\PostTrainingReportDueEmail as Stage;
+    use App\Models\NtcReport;
     use Illuminate\Support\Str;
 
     $deadline    = $ntcReport->postTrainingDeadlineDate();
-    $daysAllowed = $ntcReport->postTrainingDaysAllowed();
+    $daysAllowed = NtcReport::POST_TRAINING_DEADLINE_DAYS;
     $workingLeft = $ntcReport->postTrainingWorkingDaysRemaining();
 
-    $isOverdue   = $stage === Stage::STAGE_OVERDUE;
-    $isCountdown = $stage === Stage::STAGE_COUNTDOWN;
-    $isFinalDay  = $isCountdown && $workingLeft === 0;
-
-    // The final day reads as urgently as the overdue notice; the earlier days
-    // of the window stay in the softer amber.
-    $urgent = $isOverdue || $isFinalDay;
+    $isOverdue = $stage === Stage::STAGE_OVERDUE;
 
     // Carbon 3 returns a SIGNED difference, so counting from today back to a
-    // past deadline yields a negative. Order the operands oldest-first and the
-    // count reads as the plain "days late" figure the reader expects.
+    // past deadline yields a negative. Oldest operand first reads as plain
+    // "days late".
     $daysPastDue = ($isOverdue && $deadline)
         ? $deadline->diffInDays(\Carbon\Carbon::today())
         : 0;
-
-    $title = match (true) {
-        $isOverdue   => 'Overdue: Post Training Report — ARMS',
-        $isFinalDay  => 'Final Day: Post Training Report Due Today — ARMS',
-        $isCountdown => 'Reminder: Post Training Report Due Soon — ARMS',
-        default      => 'Action Required: Post Training Report Due — ARMS',
-    };
 @endphp
 
-@section('title', $title)
+@section('title', $isOverdue
+    ? 'Overdue: Post Training Report — ARMS'
+    : 'Action Required: Post Training Report Due — ARMS')
 
 @section('css')
     .icon-circle {
-        background: {{ $urgent ? 'linear-gradient(135deg, #fde8e8, #fcc5c5)' : 'linear-gradient(135deg, #fef9e7, #fdebd0)' }};
-        color: {{ $urgent ? '#7a2222' : '#7a5c00' }};
+        background: {{ $isOverdue ? 'linear-gradient(135deg, #fde8e8, #fcc5c5)' : 'linear-gradient(135deg, #fef9e7, #fdebd0)' }};
+        color: {{ $isOverdue ? '#7a2222' : '#7a5c00' }};
     }
     .deadline-note {
-        background: {{ $urgent ? '#fff5f5' : '#fff8e6' }};
-        border-left: 4px solid {{ $urgent ? '#d32f2f' : '#D4AC4B' }};
+        background: {{ $isOverdue ? '#fff5f5' : '#fff8e6' }};
+        border-left: 4px solid {{ $isOverdue ? '#d32f2f' : '#D4AC4B' }};
         border-radius: 6px;
         padding: 12px 16px;
         font-size: 0.9rem;
-        color: {{ $urgent ? '#7a2222' : '#7a5c00' }};
+        color: {{ $isOverdue ? '#7a2222' : '#7a5c00' }};
         margin: 18px 0;
         text-align: left;
     }
     .countdown-box {
-        background: {{ $urgent ? '#fff5f5' : '#f4f8ff' }};
-        border: 1px solid {{ $urgent ? '#f5b5b5' : '#c7dbf7' }};
+        background: {{ $isOverdue ? '#fff5f5' : '#f4f8ff' }};
+        border: 1px solid {{ $isOverdue ? '#f5b5b5' : '#c7dbf7' }};
         border-radius: 10px;
         padding: 18px 16px;
         margin: 20px 0;
@@ -60,66 +50,44 @@
         font-size: 2.4rem;
         font-weight: bold;
         line-height: 1.1;
-        color: {{ $urgent ? '#b71c1c' : '#0b3d91' }};
+        color: {{ $isOverdue ? '#b71c1c' : '#0b3d91' }};
         display: block;
     }
     .countdown-label {
         font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.6px;
-        color: {{ $urgent ? '#7a2222' : '#456' }};
+        color: {{ $isOverdue ? '#7a2222' : '#456' }};
         margin-top: 4px;
         display: block;
     }
     .allowance-row {
-        border-top: 1px solid {{ $urgent ? '#f5b5b5' : '#c7dbf7' }};
+        border-top: 1px solid {{ $isOverdue ? '#f5b5b5' : '#c7dbf7' }};
         margin-top: 14px;
         padding-top: 12px;
         font-size: 0.85rem;
-        color: {{ $urgent ? '#7a2222' : '#456' }};
+        color: {{ $isOverdue ? '#7a2222' : '#456' }};
     }
 @endsection
 
 @section('content')
-    <div class="icon-circle">{{ $isOverdue ? '⏰' : ($isFinalDay ? '🚨' : ($isCountdown ? '📅' : '🏁')) }}</div>
+    <div class="icon-circle">{{ $isOverdue ? '⏰' : '🏁' }}</div>
 
-    <h2>
-        @if($isOverdue)
-            Post Training Report Overdue
-        @elseif($isFinalDay)
-            Today Is the Last Day to Submit
-        @elseif($isCountdown)
-            {{ $workingLeft }} Working {{ Str::plural('Day', $workingLeft) }} Left to Submit
-        @else
-            Post Training Report Now Due
-        @endif
-    </h2>
+    <h2>{{ $isOverdue ? 'Post Training Report Overdue' : 'Post Training Report Now Due' }}</h2>
 
     <p>
         @if($isOverdue)
             The deadline to submit the Post Training Report for the training below passed
             <strong>{{ $daysPastDue }} {{ Str::plural('day', $daysPastDue) }} ago</strong>
             and we have not yet received a complete submission. Please file it immediately.
-        @elseif($isFinalDay)
-            Today is the final day to submit the Post Training Report for the training below.
-            A <strong>{{ $ntcReport->trainingType->name ?? 'training' }}</strong> allows
-            <strong>{{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }}</strong>
-            after the last training day, and that window closes at the end of today.
-        @elseif($isCountdown)
-            This is a reminder that your Post Training Report is still outstanding. A
-            <strong>{{ $ntcReport->trainingType->name ?? 'training' }}</strong> allows
-            <strong>{{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }}</strong>
-            after the last training day to file it.
         @else
             Your training has concluded. You are required to submit the <strong>Post Training Report</strong>
-            for the training below within
-            <strong>{{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }}</strong>
-            after the last training day, as the training you conducted was a
-            <strong>{{ $ntcReport->trainingType->name ?? 'first aid training' }}</strong>.
+            within <strong>{{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }}</strong>
+            of the last training day.
         @endif
     </p>
 
-    {{-- Countdown panel: the headline number, then how it was arrived at --}}
+    {{-- Headline number, then how it was arrived at --}}
     <div class="countdown-box">
         @if($isOverdue)
             <span class="countdown-number">{{ $daysPastDue }}</span>
@@ -134,10 +102,10 @@
 
         <div class="allowance-row">
             <strong>{{ $ntcReport->trainingType->name ?? 'Training' }}</strong>
-            ({{ $ntcReport->trainingType->code ?? '—' }})
-            &mdash; {{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }} allowed<br>
+            ({{ $ntcReport->trainingType->code ?? '—' }})<br>
             Last training day: <strong>{{ $ntcReport->training_end_date?->format('F d, Y') ?? 'N/A' }}</strong><br>
             Deadline: <strong>{{ $deadline?->format('F d, Y') ?? 'N/A' }}</strong>
+            &mdash; {{ $daysAllowed }} working {{ Str::plural('day', $daysAllowed) }} after the training
         </div>
     </div>
 
@@ -154,7 +122,7 @@
         </p>
 
         <p class="label">Submission Deadline</p>
-        <p class="value-status" style="color: {{ $urgent ? '#e74c3c' : '#f1c40f' }};">
+        <p class="value-status" style="color: {{ $isOverdue ? '#e74c3c' : '#f1c40f' }};">
             {{ $deadline?->format('F d, Y') ?? 'N/A' }}
         </p>
     </div>

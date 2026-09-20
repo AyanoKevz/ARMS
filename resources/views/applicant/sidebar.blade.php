@@ -55,15 +55,15 @@
         <a href="{{ route('applicant.ntc.index') }}">
             <i class="fas fa-file-invoice"></i> Submission report
             @if($outstandingPtrCount > 0)
-                <span class="badge bg-danger rounded-pill ms-1" style="font-size: 0.65rem;"
+                <span class="badge bg-danger rounded-pill ms-1 sidebar-count-badge"
                       title="{{ $outstandingPtrCount }} Post Training {{ Str::plural('Report', $outstandingPtrCount) }} awaiting submission">{{ $outstandingPtrCount }}</span>
             @endif
         </a>
     </li>
 @elseif($isRevoked)
-    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report because your accreditation has been revoked.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report because your accreditation has been revoked.')" class="sidebar-link-locked"><i class="fas fa-lock me-1"></i> Submission report </a></li>
 @else
-    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report while your renewal/reinstatement application is ongoing.')" style="opacity: 0.6; cursor: not-allowed;"><i class="fas fa-lock" style="margin-right: 5px;"></i> Submission report </a></li>
+    <li class="{{ $submissionActive ? 'current-page active' : '' }}"><a href="javascript:void(0);" onclick="showSidebarNotice('You cannot submit or access the Submission report while your renewal/reinstatement application is ongoing.')" class="sidebar-link-locked"><i class="fas fa-lock me-1"></i> Submission report </a></li>
 @endif
 <li class="{{ $renewalActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.renewal.index') }}"><i class="fas fa-sync-alt"></i> Renewal / Reinstatement </a></li>
 <li class="{{ $instructorsActive ? 'current-page active' : '' }}"><a href="{{ route('applicant.instructors.index') }}"><i class="fas fa-chalkboard-teacher"></i> FATPRO Instructor </a></li>
@@ -71,22 +71,22 @@
 <!-- ══ Sidebar Notice Modal ══ -->
 <div class="modal fade" id="sidebarNoticeModal" tabindex="-1" aria-labelledby="sidebarNoticeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
-            <div class="modal-header py-2 px-3" style="background: linear-gradient(135deg, #0D2B55, #1A4A8A); border-bottom: 2px solid var(--portal-gold); display: flex; align-items: center;">
+        <div class="modal-content sidebar-notice-modal">
+            <div class="modal-header py-2 px-3 sidebar-notice-header">
                 <div class="d-flex align-items-center gap-2">
-                    <i class="fas fa-exclamation-triangle" style="color: var(--portal-gold); font-size: 1.1rem; margin-right: 6px;"></i>
-                    <h5 class="modal-title fw-semibold text-white mb-0" id="sidebarNoticeModalLabel" style="font-size: 0.95rem; display: inline-block;">Action Restrained</h5>
+                    <i class="fas fa-exclamation-triangle sidebar-notice-icon"></i>
+                    <h5 class="modal-title fw-semibold text-white mb-0 sidebar-notice-title" id="sidebarNoticeModalLabel">Action Restrained</h5>
                 </div>
                 <button type="button" class="btn-close btn-close-white btn-sm ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4 text-center">
                 <div class="mb-3">
-                    <i class="fas fa-lock text-danger" style="font-size: 3rem;"></i>
+                    <i class="fas fa-lock text-danger sidebar-notice-lock"></i>
                 </div>
-                <p id="sidebarNoticeModalMessage" class="text-secondary mb-0 fw-semibold" style="font-size: 0.95rem;"></p>
+                <p id="sidebarNoticeModalMessage" class="text-secondary mb-0 fw-semibold sidebar-notice-text"></p>
             </div>
             <div class="modal-footer border-0 p-3 bg-light d-flex justify-content-end">
-                <button type="button" class="btn fw-semibold px-4" data-bs-dismiss="modal" style="background: #0D2B55; color: #fff; border-radius: 6px; font-size: 0.85rem; border: none; padding: 6px 12px; transition: background 0.2s;">
+                <button type="button" class="btn fw-semibold px-4 sidebar-notice-btn" data-bs-dismiss="modal">
                     Close
                 </button>
             </div>

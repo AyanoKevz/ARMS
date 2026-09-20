@@ -24,6 +24,20 @@ use Illuminate\Support\Facades\Storage;
 class NtcController extends Controller
 {
     /**
+     * The last training day for a given type and first day.
+     *
+     * The training type fixes the duration (EFA 1, OFA 2, SFA 4 working days),
+     * so the end date is never taken from the request — the form renders it
+     * read-only and it is recomputed server-side on every write.
+     */
+    private function derivedTrainingEndDate($trainingTypeId, string $startDate): Carbon
+    {
+        $code = NtcTrainingType::whereKey($trainingTypeId)->value('code');
+
+        return NtcReport::trainingEndDateFor(Carbon::parse($startDate), $code);
+    }
+
+    /**
      * Show the NTC report list / creation page.
      */
     public function index()
@@ -175,20 +189,24 @@ class NtcController extends Controller
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
             'venue'                => ['required', 'string', 'max:500'],
             'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
-            'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
             'venue.required' => 'The venue or Zoom link is required.',
             'training_start_date.after_or_equal' =>
                 "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
-            'training_end_date.after_or_equal' =>
-                'The training end date must be on or after the start date.',
             'file_rtcman.required' => 'The DOLE-OSHC-STO-RTCMan Form is required.',
             'file_prog.required'   => 'The DOLE-OSHC-STO-PROG Form is required.',
             'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
             'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
         ]);
+
+        // The last training day follows from the type and the first day; the
+        // form shows it read-only, so it is recomputed here rather than trusted.
+        $validated['training_end_date'] = $this->derivedTrainingEndDate(
+            $validated['ntc_training_type_id'],
+            $validated['training_start_date']
+        )->toDateString();
 
         try {
             DB::transaction(function () use ($validated, $request, $accreditation, $user) {
@@ -538,20 +556,24 @@ class NtcController extends Controller
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
             'venue'                => ['required', 'string', 'max:500'],
             'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
-            'training_end_date'    => ['required', 'date', 'after_or_equal:training_start_date'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
             'venue.required' => 'The venue or Zoom link is required.',
             'training_start_date.after_or_equal' =>
                 "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
-            'training_end_date.after_or_equal' =>
-                'The training end date must be on or after the start date.',
             'file_rtcman.required' => 'The DOLE-OSHC-STO-RTCMan Form is required.',
             'file_prog.required'   => 'The DOLE-OSHC-STO-PROG Form is required.',
             'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
             'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
         ]);
+        // A Report of Changes can move the type or the first day, so the last
+        // training day is re-derived here too rather than carried over.
+        $validated['training_end_date'] = $this->derivedTrainingEndDate(
+            $validated['ntc_training_type_id'],
+            $validated['training_start_date']
+        )->toDateString();
+
         try {
             DB::transaction(function () use ($validated, $request, $ntcReport, $user) {
                 // Update NTC Report details

@@ -1,0 +1,322 @@
+/* ══════════════════════════════════════════════════════════════
+   Notice to Conduct — applicant submission page
+
+   Extracted from an inline <style> block in ntc.blade.php so the
+   view carries markup only.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── NTC File Drop Zone ─────────────────────────────── */
+.ntc-file-drop-zone {
+    border: 2px dashed #b8c8e8;
+    border-radius: 10px;
+    padding: 24px 20px;
+    text-align: center;
+    cursor: pointer;
+    background: #f7f9fd;
+    transition: all 0.2s ease-in-out;
+    position: relative;
+}
+.ntc-file-drop-zone:hover,
+.ntc-file-drop-zone.drag-over {
+    border-color: var(--portal-gold);
+    background: #fffbf0;
+}
+.ntc-file-drop-zone.is-invalid-zone {
+    border-color: #dc3545;
+    background: #fff8f8;
+}
+.ntc-file-drop-zone.has-file {
+    border-color: #27ae60;
+    background: #f4fbf7;
+}
+.ntc-file-icon {
+    font-size: 2rem;
+    color: #b8c8e8;
+    display: block;
+    /* Font Awesome 7 sets width:1.25em on icons; without releasing it a
+       display:block icon is a narrow box stuck against the left edge. */
+    width: auto;
+    margin-bottom: 8px;
+    pointer-events: none;
+    transition: all 0.2s;
+}
+.ntc-file-drop-zone:hover .ntc-file-icon {
+    transform: translateY(-2px);
+}
+.ntc-file-label {
+    font-size: 0.92rem;
+    color: #475569;
+    margin-bottom: 6px;
+    pointer-events: none;
+}
+.ntc-browse-link {
+    color: #0b3d91;
+    font-weight: 600;
+    text-decoration: underline;
+}
+.ntc-file-selected {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin: 0;
+    pointer-events: none;
+    word-break: break-all;
+}
+
+/* ── Compact Drop Zone (for table row re-uploads) ───── */
+.ntc-compact-drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+.ntc-compact-drop-zone.is-invalid-zone {
+    border-color: #dc3545;
+    background: #fff8f8;
+}
+.ntc-compact-drop-zone:hover,
+.ntc-compact-drop-zone.drag-over {
+    border-color: #e11d48;
+    background: #fff5f5;
+}
+.ntc-compact-drop-zone .file-info {
+    font-size: 0.78rem;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.ntc-compact-drop-zone .btn-clear {
+    padding: 0;
+    border: none;
+    background: none;
+    color: #e11d48;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ntc-compact-drop-zone .btn-clear:hover {
+    text-decoration: underline;
+}
+
+/* ── Spin loading on submit ─────────────────────────── */
+#ntcSubmitBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* ── Premium NTC Table Styles ────────────────────────── */
+.ntc-premium-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    background: #fff;
+    overflow: hidden;
+    border-top: 3px solid var(--portal-gold);
+}
+.ntc-table th {
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #eef2f6;
+}
+.ntc-table tbody tr {
+    transition: all 0.2s ease-in-out;
+}
+.ntc-table tbody tr:hover {
+    background-color: #f8fafc !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+.ntc-ref-link {
+    font-size: 0.92rem;
+    color: #0b3d91;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+.ntc-date-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #475569;
+}
+.ntc-date-badge {
+    background: #f1f5f9;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+}
+.badge-premium-success {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+.badge-premium-danger {
+    background: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+.badge-premium-warning {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+.badge-premium-secondary {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+.ntc-doc-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 10px;
+    margin-bottom: 6px;
+    transition: all 0.2s;
+}
+/* Document button and its status badge sit side by side, grouped in the
+   middle. The markup carries `justify-content-between`, which is a
+   Bootstrap utility (hence !important) and pushed the pair to opposite
+   edges of the cell with a wide gap between them. */
+.ntc-doc-item > .d-flex {
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+}
+.ntc-doc-item .badge {
+    flex-shrink: 0;
+}
+.ntc-doc-item:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+.ntc-doc-btn {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    color: #0b3d91;
+    transition: all 0.2s;
+}
+.ntc-doc-btn:hover {
+    background: #0b3d91;
+    color: #fff;
+    border-color: #0b3d91;
+}
+
+/* ── Derived fields ──────────────────────────────────────────
+   The training end date is computed from the type and start date, so it is
+   shown read-only. Styled to read as "filled in for you" rather than as a
+   disabled input the applicant is failing to use. */
+.ntc-derived-field {
+    background-color: #f1f5f9;
+    color: #334155;
+    cursor: default;
+}
+
+.ntc-derived-field:focus {
+    background-color: #f1f5f9;
+    box-shadow: none;
+    border-color: #cbd5e1;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Classes replacing inline style attributes in ntc.blade.php.
+
+   Values are copied verbatim from the attributes they replace, so the
+   rendered result is unchanged — this is a move, not a redesign.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Panels ──────────────────────────────────────────────────── */
+.ntc-panel-gold      { border-left: 4px solid var(--portal-gold); border-top: none; }
+.ntc-panel-danger    { border-left: 4px solid #e74c3c; }
+.ntc-panel-topgold   { border-top: 3px solid var(--portal-gold); }
+.ntc-modal-surface   { border-radius: 12px; overflow: hidden; border-top: 4px solid var(--portal-gold); }
+
+/* ── Typography ──────────────────────────────────────────────── */
+.ntc-heading-navy    { color: #2A3F54; }
+.ntc-icon-gold       { color: var(--portal-gold); }
+.ntc-text-slate      { color: #475569; }
+.ntc-text-ink        { color: #334155; }
+.ntc-text-blue       { color: #0b3d91; }
+
+.ntc-label-caps      { font-size: 0.85rem; text-transform: uppercase; }
+.ntc-text-sm         { font-size: 0.85rem; }
+.ntc-text-88         { font-size: 0.88rem; }
+.ntc-text-xs         { font-size: 0.78rem; }
+.ntc-text-80         { font-size: 0.8rem; }
+.ntc-text-75         { font-size: 0.75rem; }
+.ntc-text-72         { font-size: 0.72rem; }
+.ntc-text-70         { font-size: 0.7rem; }
+
+.ntc-date-cell       { font-size: 0.85rem; color: #475569; white-space: nowrap; }
+.ntc-date-strong     { font-size: 0.85rem; color: #475569; font-weight: 500; white-space: nowrap; }
+.ntc-type-name       { font-size: 0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Empty states ────────────────────────────────────────────── */
+.ntc-empty-icon      { font-size: 3rem; color: #ccc; display: block; margin-bottom: 1rem; }
+.ntc-lock-icon       { font-size: 3rem; color: #e74c3c; display: block; margin-bottom: 1rem; }
+
+/* ── Badges and pills ────────────────────────────────────────── */
+.ntc-badge-lg        { font-size: 0.9rem; padding: 6px 12px; }
+.ntc-badge-type      { background: #eef5ff; color: #0b3d91; font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600; border: 1px solid #eef2f6; }
+.ntc-badge-info      { font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600; }
+.ntc-badge-alert     { font-size: .68rem; padding: 4px 8px; border-radius: 4px; font-weight: 700; }
+.ntc-badge-doc       { font-size: .68rem; padding: 4px 8px; border-radius: 12px; }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.ntc-btn-pill        { font-size: 0.72rem; border-radius: 20px; }
+.ntc-btn-xs          { font-size: 0.72rem; border-radius: 6px; }
+.ntc-btn-gold        { background: linear-gradient(135deg, #D4AC4B, #b8922e); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; letter-spacing: 0.5px; }
+.ntc-btn-gold-sm     { background: linear-gradient(135deg, #D4AC4B, #b8922e); color: #fff; border: none; border-radius: 6px; }
+.ntc-btn-reupload    { font-size: .75rem; padding: 8px 12px; border-radius: 6px; border: none; background: #e11d48; color: #fff; }
+
+/* ── Document states ─────────────────────────────────────────── */
+.ntc-remarks-box     { font-size: .75rem; color: #991b1b; background: #fff5f5; border-radius: 6px; padding: 6px 10px; border: 1px solid #fecaca; line-height: 1.4; }
+.ntc-awaiting-note   { font-size: .72rem; color: #d97706 !important; }
+.ntc-row-attention   { background: #fff8f8; }
+.ntc-thead           { background: #f8fafc; }
+
+/* ── Table column widths ─────────────────────────────────────── */
+.ntc-col-ref         { color: #475569; width: 180px; }
+.ntc-col-docs        { color: #475569; width: 320px; }
+.ntc-col-ptr         { color: #475569; width: 300px; }
+
+/* ── Current-file links in the Report of Changes modal ───────── */
+.ntc-current-file    { font-size: 0.8rem; display: none; }
+
+/* ── Regulatory reminder banners ─────────────────────────────── */
+.ntc-reminder {
+    background: #fff8e6;
+    border: 1px solid #f5d98a;
+    border-left: 5px solid #d4ac4b;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 0.87rem;
+    color: #7a5c00;
+}
+
+.ntc-reminder p:last-child {
+    margin-bottom: 0;
+}

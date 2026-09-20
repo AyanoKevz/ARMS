@@ -19,7 +19,7 @@
     <div class="modal-dialog modal-lg portal-scroll-modal">
         <div class="modal-content ptr-modal-content">
             <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold" id="ptrSubmitModalLabel" style="color: #2A3F54;">
+                <h5 class="modal-title fw-bold ptr-heading-navy" id="ptrSubmitModalLabel">
                     <i class="fas fa-flag-checkered text-warning me-2"></i> Submit Post Training Report
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -37,19 +37,19 @@
                     <div class="ptr-notice ptr-notice-info">
                         <div class="row">
                             <div class="col-md-6 mb-2">
-                                <div class="text-uppercase fw-bold" style="font-size:.7rem; letter-spacing:.4px;">NTC Reference</div>
+                                <div class="text-uppercase fw-bold ptr-modal-label">NTC Reference</div>
                                 <div class="fw-semibold" id="ptrModalNtcRef">—</div>
                             </div>
                             <div class="col-md-6 mb-2">
-                                <div class="text-uppercase fw-bold" style="font-size:.7rem; letter-spacing:.4px;">Training Type</div>
+                                <div class="text-uppercase fw-bold ptr-modal-label">Training Type</div>
                                 <div class="fw-semibold" id="ptrModalTrainingType">—</div>
                             </div>
                             <div class="col-md-6">
-                                <div class="text-uppercase fw-bold" style="font-size:.7rem; letter-spacing:.4px;">Training Period</div>
+                                <div class="text-uppercase fw-bold ptr-modal-label">Training Period</div>
                                 <div class="fw-semibold" id="ptrModalTrainingPeriod">—</div>
                             </div>
                             <div class="col-md-6">
-                                <div class="text-uppercase fw-bold" style="font-size:.7rem; letter-spacing:.4px;">Submission Deadline</div>
+                                <div class="text-uppercase fw-bold ptr-modal-label">Submission Deadline</div>
                                 <div class="fw-semibold" id="ptrModalDeadline">—</div>
                             </div>
                         </div>
@@ -60,10 +60,9 @@
                             <i class="fas fa-exclamation-triangle me-1"></i>
                             <strong>Deadline (OSHC MC 04 Series 2025):</strong>
                         </div>
-                        <p class="mb-1">Counted in working days from the last training day —
-                            Emergency First Aid <strong>1 day</strong>,
-                            Occupational First Aid <strong>2 days</strong>,
-                            Standard First Aid <strong>4 days</strong>.
+                        <p class="mb-1">
+                            Due within <strong>{{ \App\Models\NtcReport::POST_TRAINING_DEADLINE_DAYS }} working days</strong>
+                            of the last training day, for every type of training.
                         </p>
                         <p class="mb-0">All six documents below are <strong>required</strong>, each up to <strong>25 MB</strong>.</p>
                     </div>
@@ -90,10 +89,9 @@
                                     <div class="state-selected d-none">
                                         <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
                                         <p class="fw-bold text-success mb-1">File ready to upload</p>
-                                        <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
+                                        <p class="selected-file-info mb-2 text-dark font-monospace ptr-text-78"></p>
                                         <button type="button"
-                                                class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3"
-                                                style="font-size: 0.72rem; border-radius: 20px;">
+                                                class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3 ptr-pill-sm">
                                             <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                         </button>
                                     </div>
@@ -131,7 +129,7 @@
     <div class="modal-dialog modal-lg portal-scroll-modal">
         <div class="modal-content ptr-modal-content">
             <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold" id="ptrReuploadModalLabel-{{ $report->id }}" style="color: #2A3F54;">
+                <h5 class="modal-title fw-bold" id="ptrReuploadModalLabel-{{ $report->id }}" class="ptr-heading-navy">
                     <i class="fas fa-cloud-upload-alt text-danger me-2"></i>
                     Re-upload Declined Documents &mdash; {{ $report->reference_number }}
                 </h5>
@@ -183,7 +181,7 @@
                 </div>
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-danger fw-bold px-4" style="border-radius:6px;">
+                    <button type="submit" class="btn btn-danger fw-bold px-4 ptr-btn-round">
                         <i class="fas fa-cloud-upload-alt me-1"></i> Submit Re-uploaded Documents
                     </button>
                 </div>

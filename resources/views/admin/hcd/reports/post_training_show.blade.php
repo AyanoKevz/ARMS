@@ -88,9 +88,8 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
             {{ $postTrainingReport->due_date?->format('F d, Y') ?? 'N/A' }}
         </h4>
         <small style="color:{{ $isLate ? '#991b1b' : '#166534' }};">
-            {{ $ntc?->postTrainingDaysAllowed() ?? '—' }} working
-            {{ \Illuminate\Support\Str::plural('day', $ntc?->postTrainingDaysAllowed() ?? 1) }}
-            after the last training day ({{ $ntc?->trainingType->name ?? 'N/A' }})
+            {{ \App\Models\NtcReport::POST_TRAINING_DEADLINE_DAYS }} working days
+            after the last training day, {{ $ntc?->training_end_date?->format('M d, Y') ?? 'N/A' }}
         </small>
     </div>
     <div>

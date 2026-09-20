@@ -25,7 +25,7 @@
 
 @elseif(!$concluded)
     {{-- Training has not been held yet. --}}
-    <span class="badge-ptr-secondary d-inline-block mb-1" style="font-size:.7rem;">Not yet due</span>
+    <span class="badge-ptr-secondary d-inline-block mb-1 ptr-text-70">Not yet due</span>
     <div class="ptr-muted-line">
         Opens after {{ $ntc->training_end_date?->format('F d, Y') ?? 'the training' }}
     </div>
@@ -93,11 +93,11 @@
         @endif
     </div>
 
-    <div class="ptr-ref-link" style="font-size:.8rem;">{{ $ptr->reference_number }}</div>
+    <div class="ptr-ref-link ptr-text-80">{{ $ptr->reference_number }}</div>
     <div class="ptr-muted-line">
         Submitted {{ $ptr->submitted_at?->format('F d, Y') ?? 'N/A' }}
         @if($ptr->wasSubmittedLate())
-            <span class="ptr-deadline-pill ptr-deadline-over ms-1" style="font-size:.65rem;">Late</span>
+            <span class="ptr-deadline-pill ptr-deadline-over ms-1 ptr-text-65">Late</span>
         @endif
     </div>
     <div class="ptr-muted-line mb-2">{{ $approved }} / {{ $totalDocs }} documents accepted</div>
@@ -117,14 +117,12 @@
             @if($doc->file_path)
                 <a href="{{ route('applicant.post_training.document.view', $doc->id) }}"
                    target="_blank"
-                   class="{{ $chipClass }} text-decoration-none"
-                   style="font-size:.65rem; padding:3px 7px;"
+                   class="{{ $chipClass }} text-decoration-none ptr-chip"
                    title="{{ $doc->documentType->name ?? 'Document' }}">
                     {{ $doc->documentType->code ?? 'DOC' }}
                 </a>
             @else
-                <span class="{{ $chipClass }}"
-                      style="font-size:.65rem; padding:3px 7px;"
+                <span class="{{ $chipClass }} ptr-chip"
                       title="{{ $doc->documentType->name ?? 'Document' }} — declined, awaiting re-upload">
                     <i class="fas fa-times"></i> {{ $doc->documentType->code ?? 'DOC' }}
                 </span>
@@ -134,8 +132,7 @@
 
     @if($declined->isNotEmpty())
         <button type="button"
-                class="btn btn-danger btn-sm fw-bold w-100 d-inline-flex align-items-center justify-content-center gap-1"
-                style="font-size:.72rem; padding: 7px 10px; border-radius:6px; border:none; background:#e11d48;"
+                class="btn btn-danger btn-sm fw-bold w-100 d-inline-flex align-items-center justify-content-center gap-1 ptr-btn-reupload"
                 data-bs-toggle="modal"
                 data-bs-target="#ptrReuploadModal-{{ $ptr->id }}">
             <i class="fas fa-cloud-upload-alt"></i>

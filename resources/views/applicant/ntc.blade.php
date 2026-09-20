@@ -3,6 +3,7 @@
 @section('title', 'Submission Report')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('css/ntc.css') }}?v={{ filemtime(public_path('css/ntc.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/post-training.css') }}?v={{ filemtime(public_path('css/post-training.css')) }}">
 @endpush
 
@@ -10,7 +11,7 @@
 <div class="row">
     <div class="page-title">
         <div class="title_left">
-            <h3><i class="fas fa-clipboard-list" style="color: var(--portal-gold);"></i> Notice to Conduct (NTC)</h3>
+            <h3><i class="fas fa-clipboard-list ntc-icon-gold"></i> Notice to Conduct (NTC)</h3>
         </div>
     </div>
 </div>
@@ -36,10 +37,10 @@
 @if(!$accreditation)
     <div class="row">
         <div class="col-md-12">
-            <div class="x_panel" style="border-left: 4px solid #e74c3c;">
+            <div class="x_panel ntc-panel-danger">
                 <div class="x_content">
                     <div class="text-center py-4">
-                        <i class="fas fa-lock" style="font-size: 3rem; color: #e74c3c; margin-bottom: 1rem; display:block;"></i>
+                        <i class="fas fa-lock ntc-lock-icon"></i>
                         <h4 class="fw-bold text-danger">No Active Accreditation</h4>
                         <p class="text-muted">You must have an <strong>active accreditation</strong> before you can submit a Notice to Conduct (NTC) report.</p>
                     </div>
@@ -52,33 +53,33 @@
 {{-- ── ROW 0a: ACCREDITATION SUMMARY CARD (dashboard-style) ── --}}
 <div class="row">
     <div class="col-md-12 col-sm-12">
-        <div class="x_panel" style="border-left: 4px solid var(--portal-gold); border-top: none;">
+        <div class="x_panel ntc-panel-gold">
             <div class="x_title border-0 mb-0 pb-0">
-                <h2 class="fw-bold" style="color: #2A3F54;"><i class="fas fa-award text-warning me-2"></i> Accreditation Summary</h2>
+                <h2 class="fw-bold ntc-heading-navy"><i class="fas fa-award text-warning me-2"></i> Accreditation Summary</h2>
                 <div class="clearfix"></div>
             </div>
             <div class="x_content mt-2">
                 <div class="row text-center text-md-start">
                     <div class="col-md mb-2 mb-md-0 border-end">
-                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Accreditation Number</p>
-                        <p class="fw-bold fs-5 mb-0" style="color: #0b3d91;">{{ $accreditation->accreditation_number ?? 'N/A' }}</p>
+                        <p class="text-muted mb-1 ntc-label-caps">Accreditation Number</p>
+                        <p class="fw-bold fs-5 mb-0 ntc-text-blue">{{ $accreditation->accreditation_number ?? 'N/A' }}</p>
                     </div>
                     <div class="col-md mb-2 mb-md-0 border-end">
-                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Date Accredited</p>
-                        <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
+                        <p class="text-muted mb-1 ntc-label-caps">Date Accredited</p>
+                        <p class="fw-bold fs-5 mb-0 ntc-heading-navy">
                             {{ $accreditation->date_of_accreditation ? \Carbon\Carbon::parse($accreditation->date_of_accreditation)->format('F d, Y') : 'N/A' }}
                         </p>
                     </div>
                     <div class="col-md mb-2 mb-md-0 border-end">
-                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Validity Period</p>
-                        <p class="fw-bold fs-5 mb-0" style="color: #2A3F54;">
+                        <p class="text-muted mb-1 ntc-label-caps">Validity Period</p>
+                        <p class="fw-bold fs-5 mb-0 ntc-heading-navy">
                             {{ $accreditation->validity_date ? \Carbon\Carbon::parse($accreditation->validity_date)->format('F d, Y') : 'N/A' }}
                         </p>
                     </div>
                     <div class="col-md">
-                        <p class="text-muted mb-1" style="font-size: 0.85rem; text-transform: uppercase;">Status</p>
+                        <p class="text-muted mb-1 ntc-label-caps">Status</p>
                         <p class="mb-0 mt-1">
-                            <span class="badge bg-success" style="font-size: 0.9rem; padding: 6px 12px;">Active</span>
+                            <span class="badge bg-success ntc-badge-lg">Active</span>
                         </p>
                     </div>
                 </div>
@@ -88,30 +89,19 @@
 </div>
 
 {{-- ── ROW 0b: REGULATORY REMINDER ────────────────────────────── --}}
-<div class="row" style="margin-bottom: 20px;">
+<div class="row mb-4">
     <div class="col-md-12">
-        <div style="
-            background: #fff8e6;
-            border: 1px solid #f5d98a;
-            border-left: 5px solid #D4AC4B;
-            border-radius: 8px;
-            padding: 14px 18px;
-            font-size: 0.87rem;
-            color: #7a5c00;
-            display: block;
-            visibility: visible;
-            opacity: 1;
-        ">
-            <div style="margin-bottom: 6px;">
-                <i class="fas fa-exclamation-triangle" style="margin-right: 5px;"></i>
+        <div class="ntc-reminder">
+            <div class="mb-2">
+                <i class="fas fa-exclamation-triangle me-1"></i>
                 <strong>Regulatory Reminder (OSHC MC 04 Series 2025):</strong>
             </div>
-            <p style="margin-bottom: 6px;">
+            <p class="mb-2">
                 Notice to Conduct must be submitted at least <strong>ten (10) working days</strong> before the first training day
                 using the <strong>DOLE-OSHC-STO-RTCMan</strong> and <strong>DOLE-OSHC-STO-PROG</strong> forms as per <strong>OSHC MC 04 Series 2025</strong>.
             </p>
-            <p style="margin-bottom: 0;">
-                <i class="fas fa-calendar-check" style="margin-right: 5px;"></i>
+            <p class="mb-0">
+                <i class="fas fa-calendar-check me-1"></i>
                 Earliest allowed training start date:
                 <strong>{{ \Carbon\Carbon::parse($earliestStartDate)->format('F d, Y') }}</strong>.
             </p>
@@ -144,9 +134,9 @@
 {{-- ── ROW 1: SUBMIT NEW NTC FORM ──────────────────────────── --}}
 <div class="row">
     <div class="col-md-12">
-        <div class="x_panel" style="border-top: 3px solid var(--portal-gold);">
+        <div class="x_panel ntc-panel-topgold">
             <div class="x_title">
-                <h2><i class="fas fa-paper-plane me-2" style="color: var(--portal-gold);"></i>Submit New NTC</h2>
+                <h2><i class="fas fa-paper-plane me-2 ntc-icon-gold"></i>Submit New NTC</h2>
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
@@ -170,8 +160,9 @@
                             <option value="" disabled selected>— Select Training Type —</option>
                             @foreach($trainingTypes as $type)
                                 <option value="{{ $type->id }}"
+                                    data-duration="{{ $type->durationDays() }}"
                                     {{ old('ntc_training_type_id') == $type->id ? 'selected' : '' }}>
-                                    {{ $type->name }}
+                                    {{ $type->name }} &mdash; {{ $type->durationLabel() }}
                                 </option>
                             @endforeach
                         </select>
@@ -242,17 +233,19 @@
                         <div class="col-6">
                             <div class="form-group mb-3">
                                 <label class="fw-semibold" for="training_end_date">
-                                    Training End Date <span class="text-danger">*</span>
+                                    Training End Date
                                 </label>
                                 <input type="date"
                                        id="training_end_date"
-                                       name="training_end_date"
-                                       class="form-control @error('training_end_date') is-invalid @enderror"
-                                       value="{{ old('training_end_date') }}"
-                                       required>
-                                @error('training_end_date')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
+                                       class="form-control ntc-derived-field"
+                                       readonly
+                                       tabindex="-1"
+                                       aria-describedby="training_end_date_hint"
+                                       value="{{ old('training_end_date') }}">
+                                <div class="form-text" id="training_end_date_hint">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Set automatically from the training type and start date, skipping weekends.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -262,7 +255,7 @@
                         <label class="fw-semibold" for="file_rtcman">
                             DOLE-OSHC-STO-RTCMan Form <span class="text-danger">*</span>
                         </label>
-                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                        <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
                         <div class="ntc-file-drop-zone @error('file_rtcman') is-invalid-zone @enderror"
@@ -277,8 +270,8 @@
                                 <div class="state-selected d-none">
                                     <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
                                     <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
-                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                    <p class="selected-file-info mb-2 text-dark font-monospace ntc-text-xs"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3 ntc-btn-pill">
                                         <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
@@ -289,11 +282,11 @@
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
                         </div>
-                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_file_rtcman" style="font-size: 0.85rem;">
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none ntc-text-sm" id="error_file_rtcman">
                             Please upload the DOLE-OSHC-STO-RTCMan Form.
                         </div>
                         @error('file_rtcman')
-                            <div class="text-danger mt-1" style="font-size: 0.85rem;">{{ $message }}</div>
+                            <div class="text-danger mt-1 ntc-text-sm">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -302,7 +295,7 @@
                         <label class="fw-semibold" for="file_prog">
                             DOLE-OSHC-STO-PROG Form <span class="text-danger">*</span>
                         </label>
-                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                        <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
                         <div class="ntc-file-drop-zone @error('file_prog') is-invalid-zone @enderror"
@@ -317,8 +310,8 @@
                                 <div class="state-selected d-none">
                                     <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
                                     <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
-                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                    <p class="selected-file-info mb-2 text-dark font-monospace ntc-text-xs"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3 ntc-btn-pill">
                                         <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
@@ -329,19 +322,18 @@
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
                         </div>
-                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_file_prog" style="font-size: 0.85rem;">
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none ntc-text-sm" id="error_file_prog">
                             Please upload the DOLE-OSHC-STO-PROG Form.
                         </div>
                         @error('file_prog')
-                            <div class="text-danger mt-1" style="font-size: 0.85rem;">{{ $message }}</div>
+                            <div class="text-danger mt-1 ntc-text-sm">{{ $message }}</div>
                         @enderror
                     </div>
 
                     <div class="mt-4">
                         <button type="submit"
                                 id="ntcSubmitBtn"
-                                class="btn btn-block fw-bold"
-                                style="background: linear-gradient(135deg, #D4AC4B, #b8922e); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; letter-spacing: 0.5px;">
+                                class="btn btn-block fw-bold ntc-btn-gold">
                             <i class="fas fa-paper-plane me-2"></i> Submit Notice to Conduct
                         </button>
                     </div>
@@ -360,11 +352,11 @@
     <div class="col-md-12">
         <div class="card ntc-premium-card mb-4">
             <div class="card-header border-0 bg-transparent py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h4 class="m-0 fw-bold" style="color: #2A3F54;">
-                    <i class="fas fa-history me-2" style="color: var(--portal-gold);"></i> My Training Submissions
+                <h4 class="m-0 fw-bold ntc-heading-navy">
+                    <i class="fas fa-history me-2 ntc-icon-gold"></i> My Training Submissions
                 </h4>
                 @if($ptrPending->isNotEmpty())
-                    <span class="badge-ptr-danger" style="font-size: 0.78rem;">
+                    <span class="badge-ptr-danger ntc-text-xs">
                         <i class="fas fa-flag-checkered me-1"></i>
                         {{ $ptrPending->count() }} post training
                         {{ Str::plural('report', $ptrPending->count()) }} awaiting submission
@@ -375,22 +367,22 @@
 
                 @if($ntcReports->isEmpty())
                     <div class="text-center py-5">
-                        <i class="fas fa-inbox" style="font-size: 3rem; color: #ccc; display:block; margin-bottom: 1rem;"></i>
+                        <i class="fas fa-inbox ntc-empty-icon"></i>
                         <p class="text-muted">No training submissions yet. Fill out the form to submit your first Notice to Conduct.</p>
                     </div>
                 @else
                     <div class="table-responsive">
-                        <table class="table ntc-table table-hover align-middle mb-0" style="font-size: 0.88rem;">
-                            <thead style="background: #f8fafc;">
+                        <table class="table ntc-table table-hover align-middle mb-0 ntc-text-88">
+                            <thead class="ntc-thead">
                                 <tr>
-                                    <th class="ps-4" style="color: #475569; width: 180px;">Reference #</th>
-                                    <th style="color: #475569;">Type</th>
-                                    <th style="color: #475569;">Mode</th>
-                                    <th style="color: #475569;">Submitted</th>
-                                    <th style="color: #475569;">Training Period</th>
-                                    <th style="color: #475569;">Status</th>
-                                    <th style="color: #475569; width: 320px;">NTC Documents</th>
-                                    <th class="pe-4" style="color: #475569; width: 300px;">Post Training Report</th>
+                                    <th class="ps-4 ntc-col-ref">Reference #</th>
+                                    <th class="ntc-text-slate">Type</th>
+                                    <th class="ntc-text-slate">Mode</th>
+                                    <th class="ntc-text-slate">Submitted</th>
+                                    <th class="ntc-text-slate">Training Period</th>
+                                    <th class="ntc-text-slate">Status</th>
+                                    <th class="ntc-col-docs">NTC Documents</th>
+                                    <th class="pe-4 ntc-col-ptr">Post Training Report</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -401,30 +393,29 @@
                                     $rtcmanDoc = $ntc->documents->first(fn($d) => $d->documentType->code === 'RTCMAN');
                                     $progDoc = $ntc->documents->first(fn($d) => $d->documentType->code === 'PROG');
                                 @endphp
-                                <tr style="{{ $hasRejected ? 'background: #fff8f8;' : '' }}">
+                                <tr class="{{ $hasRejected ? 'ntc-row-attention' : '' }}">
                                     <td class="ps-4">
                                         <div class="ntc-ref-link">NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}</div>
                                         @if($hasRejected)
-                                            <div style="margin-top:4px;">
-                                                <span class="badge bg-danger d-inline-flex align-items-center gap-1" style="font-size:.68rem; padding: 4px 8px; border-radius: 4px; font-weight: 700;">
+                                            <div class="mt-1">
+                                                <span class="badge bg-danger d-inline-flex align-items-center gap-1 ntc-badge-alert">
                                                     <i class="fas fa-exclamation-triangle"></i> Action Required
                                                 </span>
                                             </div>
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="badge"
-                                              style="background: #eef5ff; color: #0b3d91; font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600; border: 1px solid #eef2f6;">
+                                        <span class="badge ntc-badge-type">
                                             {{ $ntc->trainingType->code ?? 'N/A' }}
                                         </span>
-                                        <div class="text-secondary mt-1" style="font-size:0.75rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ $ntc->trainingType->name ?? '' }}">
+                                        <div class="text-secondary mt-1 ntc-type-name" title="{{ $ntc->trainingType->name ?? '' }}">
                                             {{ $ntc->trainingType->name ?? '' }}
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="fw-semibold" style="color: #334155;">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
+                                        <span class="fw-semibold ntc-text-ink">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
                                         @if($ntc->venue)
-                                            <div class="text-muted mt-1" style="font-size:0.75rem;">
+                                            <div class="text-muted mt-1 ntc-text-75">
                                                 @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
                                                     <i class="fas fa-video text-primary me-1"></i><a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none">{{ Str::limit($ntc->venue, 35) }}</a>
                                                 @else
@@ -435,18 +426,18 @@
                                     </td>
                                     <td>
                                         @if($ntc->submitted_at)
-                                            <div style="font-size: 0.85rem; color: #475569; font-weight: 500; white-space: nowrap;">
+                                            <div class="ntc-date-strong">
                                                 {{ $ntc->submitted_at->format('F d, Y') }}
                                             </div>
                                         @else
-                                            <span class="text-muted" style="font-size: 0.85rem;">N/A</span>
+                                            <span class="text-muted ntc-text-sm">N/A</span>
                                         @endif
                                     </td>
                                     <td>
-                                        <div style="font-size: 0.85rem; color: #475569; white-space: nowrap;">
+                                        <div class="ntc-date-cell">
                                             <span class="fw-semibold text-secondary">Start:</span> {{ $ntc->training_start_date ? $ntc->training_start_date->format('F d, Y') : 'N/A' }}
                                         </div>
-                                        <div class="mt-1" style="font-size: 0.85rem; color: #475569; white-space: nowrap;">
+                                        <div class="mt-1 ntc-date-cell">
                                             <span class="fw-semibold text-secondary">End:</span> {{ $ntc->training_end_date ? $ntc->training_end_date->format('F d, Y') : 'N/A' }}
                                         </div>
                                     </td>
@@ -467,18 +458,18 @@
                                                             data-rtcman-file-url="{{ $rtcmanDoc && $rtcmanDoc->file_path ? route('applicant.ntc.document.view', $rtcmanDoc->id) : '' }}"
                                                             data-prog-file-name="{{ $progDoc ? $progDoc->original_filename : '' }}"
                                                             data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}"
-                                                            style="font-size: 0.72rem; border-radius: 6px;">
+                                                            class="ntc-btn-xs">
                                                         <i class="fas fa-exchange-alt me-1"></i> Report of Changes
                                                     </button>
                                                 </div>
                                             @endif
                                             @if($ntc->reportChangesDeadlineDate())
-                                                <div class="text-muted mt-1" style="font-size:0.7rem;">
+                                                <div class="text-muted mt-1 ntc-text-70">
                                                     Changes until: {{ $ntc->reportChangesDeadlineDate()->format('F d, Y') }}
                                                 </div>
                                             @endif
                                         @elseif($ntc->status === 'report_changes')
-                                            <span class="badge bg-info text-white" style="font-size: 0.75rem; padding: 5px 10px; border-radius: 20px; font-weight: 600;">Report of Changes</span>
+                                            <span class="badge bg-info text-white ntc-badge-info">Report of Changes</span>
                                         @elseif($hasRejected)
                                             <span class="badge badge-premium-danger">Requires Re-submission</span>
                                         @elseif($ntc->status === 'submitted')
@@ -519,21 +510,20 @@
                                                 @if($doc->file_path)
                                                 <a href="{{ route('applicant.ntc.document.view', $doc->id) }}"
                                                    target="_blank"
-                                                   class="btn btn-xs ntc-doc-btn fw-bold px-2 py-1 d-inline-flex align-items-center gap-1"
-                                                   style="font-size: 0.72rem; border-radius: 6px;">
+                                                   class="btn btn-xs ntc-doc-btn fw-bold px-2 py-1 d-inline-flex align-items-center gap-1 ntc-btn-xs">
                                                     <i class="far fa-file-pdf text-dark"></i>
                                                     {{ $doc->documentType->code ?? 'DOC' }}
                                                 </a>
                                                 @else
-                                                <span class="text-danger fw-semibold" style="font-size:.75rem;">
+                                                <span class="text-danger fw-semibold ntc-text-75">
                                                     <i class="fas fa-trash-alt me-1"></i>File removed ({{ $doc->documentType->code ?? 'DOC' }})
                                                 </span>
                                                 @endif
-                                                <span class="badge {{ $docBadge[0] }}" style="font-size:.68rem; padding: 4px 8px; border-radius: 12px;">{{ $docBadge[1] }}</span>
+                                                <span class="badge {{ $docBadge[0] }} ntc-badge-doc">{{ $docBadge[1] }}</span>
                                             </div>
                                             @if($isTrueRejected || $isReturned)
                                                 @if($doc->remarks)
-                                                <div class="mt-2" style="font-size:.75rem; color:#991b1b; background:#fff5f5; border-radius:6px; padding:6px 10px; border:1px solid #fecaca; line-height: 1.4;">
+                                                <div class="mt-2 ntc-remarks-box">
                                                     <i class="fas fa-comment me-1"></i><strong>Remarks:</strong> {{ $doc->remarks }}
                                                 </div>
                                                 @endif
@@ -554,7 +544,7 @@
                                                            >
                                                 </div>
                                                 @elseif($isReturned)
-                                                <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold" style="font-size:.72rem; color: #d97706 !important;">
+                                                <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold ntc-awaiting-note">
                                                     <i class="fas fa-hourglass-half spinner-border-sm"></i> Awaiting admin re-evaluation
                                                 </div>
                                                 @endif
@@ -564,8 +554,7 @@
 
                                         @if($rejectedDocsForBatch->isNotEmpty())
                                             <button type="submit"
-                                                    class="btn btn-danger btn-sm fw-bold w-100 mt-2 d-inline-flex align-items-center justify-content-center gap-1"
-                                                    style="font-size:.75rem; padding: 8px 12px; border-radius:6px; border: none; background: #e11d48; color: #fff;">
+                                                    class="btn btn-danger btn-sm fw-bold w-100 mt-2 d-inline-flex align-items-center justify-content-center gap-1 ntc-btn-reupload">
                                                 <i class="fas fa-cloud-upload-alt"></i> Submit Re-uploaded Documents
                                             </button>
                                         </form>
@@ -596,9 +585,9 @@
 {{-- Report of Changes Modal --}}
 <div class="modal fade" id="reportChangesModal" tabindex="-1" aria-labelledby="reportChangesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg portal-scroll-modal">
-        <div class="modal-content" style="border-radius: 12px; overflow: hidden; border-top: 4px solid var(--portal-gold);">
+        <div class="modal-content ntc-modal-surface">
             <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold" id="reportChangesModalLabel" style="color: #2A3F54;">
+                <h5 class="modal-title fw-bold ntc-heading-navy" id="reportChangesModalLabel">
                     <i class="fas fa-exchange-alt text-warning me-2"></i> Submit Report of Changes
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -606,19 +595,12 @@
             <form method="POST" id="reportChangesForm" enctype="multipart/form-data" novalidate>
                 @csrf
                 <div class="modal-body">
-                    <div class="alert alert-warning alert-important py-2 mb-3" style="
-                        background: #fff8e6;
-                        border: 1px solid #f5d98a;
-                        border-left: 5px solid #D4AC4B;
-                        border-radius: 8px;
-                        font-size: 0.87rem;
-                        color: #7a5c00;
-                    ">
+                    <div class="alert alert-important py-2 mb-3 ntc-reminder">
                         <i class="fas fa-exclamation-triangle me-1"></i>
                         <strong>Important Reminder:</strong> Reports of changes must be submitted at least three (3) working days before the first training day using the DOLE-OSHC-STO-RTCMan as per OSHC MC 04 series 2025.
                     </div>
 
-                    <div class="alert alert-info alert-important py-2" style="font-size: 0.85rem;">
+                    <div class="alert alert-info alert-important py-2 ntc-text-sm">
                         <i class="fas fa-info-circle me-1"></i>
                         Use this form to update the training details and re-upload files for your acknowledged Notice to Conduct.
                     </div>
@@ -634,7 +616,9 @@
                                 required>
                             <option value="" disabled selected>— Select Training Type —</option>
                             @foreach($trainingTypes as $type)
-                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                <option value="{{ $type->id }}" data-duration="{{ $type->durationDays() }}">
+                                    {{ $type->name }} &mdash; {{ $type->durationLabel() }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -686,13 +670,18 @@
                         <div class="col-6">
                             <div class="form-group mb-3">
                                 <label class="fw-semibold" for="modal_training_end_date">
-                                    Training End Date <span class="text-danger">*</span>
+                                    Training End Date
                                 </label>
                                 <input type="date"
                                        id="modal_training_end_date"
-                                       name="training_end_date"
-                                       class="form-control"
-                                       required>
+                                       class="form-control ntc-derived-field"
+                                       readonly
+                                       tabindex="-1"
+                                       aria-describedby="modal_training_end_date_hint">
+                                <div class="form-text" id="modal_training_end_date_hint">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Set automatically from the training type and start date.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -702,11 +691,11 @@
                         <label class="fw-semibold" for="modal_file_rtcman">
                             DOLE-OSHC-STO-RTCMan Form <span class="text-danger">*</span>
                         </label>
-                        <div id="modal_rtcman_current_container" class="mb-2" style="font-size: 0.8rem; display: none;">
+                        <div id="modal_rtcman_current_container" class="mb-2 ntc-current-file">
                             <span class="text-muted">Current file:</span>
                             <a href="#" id="modal_rtcman_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>
                         </div>
-                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                        <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
                         <div class="ntc-file-drop-zone"
@@ -721,8 +710,8 @@
                                 <div class="state-selected d-none">
                                     <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
                                     <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
-                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                    <p class="selected-file-info mb-2 text-dark font-monospace ntc-text-xs"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3 ntc-btn-pill">
                                         <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
@@ -733,7 +722,7 @@
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
                         </div>
-                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_modal_file_rtcman" style="font-size: 0.85rem;">
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none ntc-text-sm" id="error_modal_file_rtcman">
                             Please upload the DOLE-OSHC-STO-RTCMan Form.
                         </div>
                     </div>
@@ -743,11 +732,11 @@
                         <label class="fw-semibold" for="modal_file_prog">
                             DOLE-OSHC-STO-PROG Form <span class="text-danger">*</span>
                         </label>
-                        <div id="modal_prog_current_container" class="mb-2" style="font-size: 0.8rem; display: none;">
+                        <div id="modal_prog_current_container" class="mb-2 ntc-current-file">
                             <span class="text-muted">Current file:</span>
                             <a href="#" id="modal_prog_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>
                         </div>
-                        <p class="text-muted mb-1" style="font-size:0.8rem;">
+                        <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
                         <div class="ntc-file-drop-zone"
@@ -762,8 +751,8 @@
                                 <div class="state-selected d-none">
                                     <i class="fas fa-check-circle text-success fs-4 mb-2"></i>
                                     <p class="selected-file-title fw-bold text-success mb-1">File ready to upload</p>
-                                    <p class="selected-file-info mb-2 text-dark font-monospace" style="font-size: 0.78rem;"></p>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3" style="font-size: 0.72rem; border-radius: 20px;">
+                                    <p class="selected-file-info mb-2 text-dark font-monospace ntc-text-xs"></p>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-clear-file no-trigger py-1 px-3 ntc-btn-pill">
                                         <i class="fas fa-trash-alt me-1"></i> Clear Selection
                                     </button>
                                 </div>
@@ -774,7 +763,7 @@
                                    class="d-none ntc-file-input"
                                    accept=".pdf,.doc,.docx">
                         </div>
-                        <div class="invalid-feedback-custom text-danger mt-1 d-none" id="error_modal_file_prog" style="font-size: 0.85rem;">
+                        <div class="invalid-feedback-custom text-danger mt-1 d-none ntc-text-sm" id="error_modal_file_prog">
                             Please upload the DOLE-OSHC-STO-PROG Form.
                         </div>
                     </div>
@@ -783,8 +772,7 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="submit"
                             id="modalSubmitBtn"
-                            class="btn fw-bold"
-                            style="background: linear-gradient(135deg, #D4AC4B, #b8922e); color: #fff; border: none; border-radius: 6px;">
+                            class="btn fw-bold ntc-btn-gold-sm">
                         <i class="fas fa-paper-plane me-1"></i> Submit Changes
                     </button>
                 </div>
@@ -795,787 +783,11 @@
 
 @endsection
 
-@push('styles')
-<style>
-    /* ── NTC File Drop Zone ─────────────────────────────── */
-    .ntc-file-drop-zone {
-        border: 2px dashed #b8c8e8;
-        border-radius: 10px;
-        padding: 24px 20px;
-        text-align: center;
-        cursor: pointer;
-        background: #f7f9fd;
-        transition: all 0.2s ease-in-out;
-        position: relative;
-    }
-    .ntc-file-drop-zone:hover,
-    .ntc-file-drop-zone.drag-over {
-        border-color: var(--portal-gold);
-        background: #fffbf0;
-    }
-    .ntc-file-drop-zone.is-invalid-zone {
-        border-color: #dc3545;
-        background: #fff8f8;
-    }
-    .ntc-file-drop-zone.has-file {
-        border-color: #27ae60;
-        background: #f4fbf7;
-    }
-    .ntc-file-icon {
-        font-size: 2rem;
-        color: #b8c8e8;
-        display: block;
-        /* Font Awesome 7 sets width:1.25em on icons; without releasing it a
-           display:block icon is a narrow box stuck against the left edge. */
-        width: auto;
-        margin-bottom: 8px;
-        pointer-events: none;
-        transition: all 0.2s;
-    }
-    .ntc-file-drop-zone:hover .ntc-file-icon {
-        transform: translateY(-2px);
-    }
-    .ntc-file-label {
-        font-size: 0.92rem;
-        color: #475569;
-        margin-bottom: 6px;
-        pointer-events: none;
-    }
-    .ntc-browse-link {
-        color: #0b3d91;
-        font-weight: 600;
-        text-decoration: underline;
-    }
-    .ntc-file-selected {
-        font-size: 0.8rem;
-        color: #64748b;
-        margin: 0;
-        pointer-events: none;
-        word-break: break-all;
-    }
 
-    /* ── Compact Drop Zone (for table row re-uploads) ───── */
-    .ntc-compact-drop-zone {
-        border: 2px dashed #cbd5e1;
-        border-radius: 8px;
-        padding: 10px 14px;
-        background: #f8fafc;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        transition: all 0.2s;
-    }
-    .ntc-compact-drop-zone.is-invalid-zone {
-        border-color: #dc3545;
-        background: #fff8f8;
-    }
-    .ntc-compact-drop-zone:hover,
-    .ntc-compact-drop-zone.drag-over {
-        border-color: #e11d48;
-        background: #fff5f5;
-    }
-    .ntc-compact-drop-zone .file-info {
-        font-size: 0.78rem;
-        color: #475569;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        max-width: 80%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        pointer-events: none;
-    }
-    .ntc-compact-drop-zone .btn-clear {
-        padding: 0;
-        border: none;
-        background: none;
-        color: #e11d48;
-        font-size: 0.78rem;
-        font-weight: 600;
-        cursor: pointer;
-    }
-    .ntc-compact-drop-zone .btn-clear:hover {
-        text-decoration: underline;
-    }
-
-    /* ── Spin loading on submit ─────────────────────────── */
-    #ntcSubmitBtn:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-    }
-
-    /* ── Premium NTC Table Styles ────────────────────────── */
-    .ntc-premium-card {
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        background: #fff;
-        overflow: hidden;
-        border-top: 3px solid var(--portal-gold);
-    }
-    .ntc-table th {
-        font-weight: 700;
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-bottom: 2px solid #eef2f6;
-    }
-    .ntc-table tbody tr {
-        transition: all 0.2s ease-in-out;
-    }
-    .ntc-table tbody tr:hover {
-        background-color: #f8fafc !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-    }
-    .ntc-ref-link {
-        font-size: 0.92rem;
-        color: #0b3d91;
-        font-weight: 700;
-        letter-spacing: -0.2px;
-    }
-    .ntc-date-container {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.82rem;
-        color: #475569;
-    }
-    .ntc-date-badge {
-        background: #f1f5f9;
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-weight: 600;
-        border: 1px solid #e2e8f0;
-    }
-    .badge-premium-success {
-        background: #ecfdf5;
-        color: #047857;
-        border: 1px solid #a7f3d0;
-        font-weight: 600;
-        padding: 5px 10px;
-        border-radius: 20px;
-    }
-    .badge-premium-danger {
-        background: #fff1f2;
-        color: #be123c;
-        border: 1px solid #fecdd3;
-        font-weight: 600;
-        padding: 5px 10px;
-        border-radius: 20px;
-    }
-    .badge-premium-warning {
-        background: #fffbeb;
-        color: #b45309;
-        border: 1px solid #fde68a;
-        font-weight: 600;
-        padding: 5px 10px;
-        border-radius: 20px;
-    }
-    .badge-premium-secondary {
-        background: #f8fafc;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-        font-weight: 600;
-        padding: 5px 10px;
-        border-radius: 20px;
-    }
-    .ntc-doc-item {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 7px 10px;
-        margin-bottom: 6px;
-        transition: all 0.2s;
-    }
-    /* Document button and its status badge sit side by side, grouped in the
-       middle. The markup carries `justify-content-between`, which is a
-       Bootstrap utility (hence !important) and pushed the pair to opposite
-       edges of the cell with a wide gap between them. */
-    .ntc-doc-item > .d-flex {
-        justify-content: center !important;
-        flex-wrap: nowrap !important;
-    }
-    .ntc-doc-item .badge {
-        flex-shrink: 0;
-    }
-    .ntc-doc-item:hover {
-        border-color: #cbd5e1;
-        background: #f1f5f9;
-    }
-    .ntc-doc-btn {
-        background: #fff;
-        border: 1px solid #cbd5e1;
-        color: #0b3d91;
-        transition: all 0.2s;
-    }
-    .ntc-doc-btn:hover {
-        background: #0b3d91;
-        color: #fff;
-        border-color: #0b3d91;
-    }
-</style>
-@endpush
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-
-    // ── Drop Zone Controller Helper ──────────────────────────
-    function setupFileDropZone(zoneId) {
-        const zone = document.getElementById(zoneId);
-        if (!zone) return null;
-
-        const input = zone.querySelector('.ntc-file-input');
-        const stateEmpty = zone.querySelector('.state-empty');
-        const stateSelected = zone.querySelector('.state-selected');
-        const stateExisting = zone.querySelector('.state-existing');
-        const stateReplacement = zone.querySelector('.state-replacement');
-
-        const selectedInfo = zone.querySelector('.selected-file-info');
-        const existingName = zone.querySelector('.existing-file-name');
-        const btnView = zone.querySelector('.btn-view-file');
-        const replacementInfo = zone.querySelector('.replacement-file-info');
-
-        const btnClear = zone.querySelector('.btn-clear-file');
-        const btnUndo = zone.querySelector('.btn-undo-replacement');
-
-        let currentFileState = {
-            hasExisting: false,
-            existingName: '',
-            existingUrl: '',
-            newFile: null
-        };
-
-        const MAX_MB = 100;
-        const MAX_BYTES = MAX_MB * 1024 * 1024;
-        const validExts = ['.pdf', '.doc', '.docx'];
-
-        function formatBytes(bytes) {
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        }
-
-        function updateUIState() {
-            // Hide all states first
-            stateEmpty.classList.add('d-none');
-            if (stateSelected) stateSelected.classList.add('d-none');
-            if (stateExisting) stateExisting.classList.add('d-none');
-            if (stateReplacement) stateReplacement.classList.add('d-none');
-
-            // Hide validation error if file is present
-            const errorEl = document.getElementById('error_' + input.id);
-            if (currentFileState.newFile) {
-                if (errorEl) errorEl.classList.add('d-none');
-                zone.classList.remove('is-invalid-zone');
-            }
-
-            if (currentFileState.newFile) {
-                // New file selected
-                if (currentFileState.hasExisting) {
-                    if (stateReplacement) {
-                        stateReplacement.classList.remove('d-none');
-                        replacementInfo.textContent = currentFileState.newFile.name + ' (' + formatBytes(currentFileState.newFile.size) + ')';
-                    }
-                } else {
-                    if (stateSelected) {
-                        stateSelected.classList.remove('d-none');
-                        selectedInfo.textContent = currentFileState.newFile.name + ' (' + formatBytes(currentFileState.newFile.size) + ')';
-                    }
-                }
-                zone.classList.add('has-file');
-            } else if (currentFileState.hasExisting) {
-                // Existing file
-                if (stateExisting) {
-                    stateExisting.classList.remove('d-none');
-                    existingName.textContent = currentFileState.existingName;
-                    if (btnView && currentFileState.existingUrl) {
-                        btnView.href = currentFileState.existingUrl;
-                    }
-                }
-                zone.classList.remove('has-file');
-            } else {
-                // Empty state
-                stateEmpty.classList.remove('d-none');
-                zone.classList.remove('has-file');
-            }
-        }
-
-        function validateFile(file) {
-            if (!file) return false;
-            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-            if (!validExts.includes(ext)) {
-                alert('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
-                return false;
-            }
-            if (file.size > MAX_BYTES) {
-                alert('File is too large. Maximum size allowed is 100 MB.');
-                return false;
-            }
-            return true;
-        }
-
-        function selectFile(file) {
-            if (validateFile(file)) {
-                currentFileState.newFile = file;
-                updateUIState();
-            } else {
-                clearSelection();
-            }
-        }
-
-        function clearSelection() {
-            input.value = '';
-            currentFileState.newFile = null;
-            updateUIState();
-        }
-
-        function setExistingFile(name, url) {
-            if (name && url) {
-                currentFileState.hasExisting = true;
-                currentFileState.existingName = name;
-                currentFileState.existingUrl = url;
-            } else {
-                currentFileState.hasExisting = false;
-                currentFileState.existingName = '';
-                currentFileState.existingUrl = '';
-            }
-            clearSelection();
-        }
-
-        zone.addEventListener('click', function(e) {
-            if (e.target.closest('.no-trigger')) {
-                return;
-            }
-            input.click();
-        });
-
-        input.addEventListener('change', function() {
-            if (input.files && input.files.length > 0) {
-                selectFile(input.files[0]);
-            }
-        });
-
-        zone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            zone.classList.add('drag-over');
-        });
-
-        zone.addEventListener('dragleave', function() {
-            zone.classList.remove('drag-over');
-        });
-
-        zone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            zone.classList.remove('drag-over');
-            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                input.files = dataTransfer.files;
-                selectFile(file);
-            }
-        });
-
-        if (btnClear) {
-            btnClear.addEventListener('click', function(e) {
-                e.stopPropagation();
-                clearSelection();
-            });
-        }
-
-        if (btnUndo) {
-            btnUndo.addEventListener('click', function(e) {
-                e.stopPropagation();
-                clearSelection();
-            });
-        }
-
-        // Initial UI update
-        updateUIState();
-
-        return {
-            clear: clearSelection,
-            setExisting: setExistingFile,
-            getCurrentState: () => currentFileState
-        };
-    }
-
-    // ── Setup Compact Drop Zones (for individual rejected docs) ───────
-    function setupCompactDropZone(zoneId) {
-        const zone = document.getElementById(zoneId);
-        if (!zone) return;
-
-        const input = zone.querySelector('.ntc-file-input');
-        const fileInfo = zone.querySelector('.file-info');
-        const btnClear = zone.querySelector('.btn-clear');
-
-        const defaultHTML = fileInfo.innerHTML;
-        const MAX_MB = 100;
-        const MAX_BYTES = MAX_MB * 1024 * 1024;
-        const validExts = ['.pdf', '.doc', '.docx'];
-
-        function selectFile(file) {
-            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-            if (!validExts.includes(ext)) {
-                alert('Invalid file type. Please upload a PDF, DOC, or DOCX file.');
-                input.value = '';
-                return;
-            }
-            if (file.size > MAX_BYTES) {
-                alert('File is too large. Maximum size allowed is 100 MB.');
-                input.value = '';
-                return;
-            }
-
-            fileInfo.innerHTML = `<i class="fas fa-check-circle text-success fs-6"></i> <span class="text-success fw-bold">${file.name}</span>`;
-            btnClear.classList.remove('d-none');
-            zone.classList.remove('is-invalid-zone');
-        }
-
-        function clearSelection() {
-            input.value = '';
-            fileInfo.innerHTML = defaultHTML;
-            btnClear.classList.add('d-none');
-            zone.classList.remove('is-invalid-zone');
-        }
-
-        zone.addEventListener('click', function(e) {
-            if (e.target.closest('.no-trigger')) {
-                return;
-            }
-            input.click();
-        });
-
-        input.addEventListener('change', function() {
-            if (input.files && input.files.length > 0) {
-                selectFile(input.files[0]);
-            }
-        });
-
-        zone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            zone.classList.add('drag-over');
-        });
-
-        zone.addEventListener('dragleave', function() {
-            zone.classList.remove('drag-over');
-        });
-
-        zone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            zone.classList.remove('drag-over');
-            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                input.files = dataTransfer.files;
-                selectFile(file);
-            }
-        });
-
-        if (btnClear) {
-            btnClear.addEventListener('click', function(e) {
-                e.stopPropagation();
-                clearSelection();
-            });
-        }
-    }
-
-    // Initialize Submit Form drop zones
-    const mainRtcmanCtrl = setupFileDropZone('dropZoneRtcman');
-    const mainProgCtrl = setupFileDropZone('dropZoneProg');
-
-    // Initialize Modal drop zones
-    const modalRtcmanCtrl = setupFileDropZone('modalDropZoneRtcman');
-    const modalProgCtrl = setupFileDropZone('modalDropZoneProg');
-
-    // Initialize all existing compact drop zones
-    document.querySelectorAll('.ntc-compact-drop-zone').forEach(zone => {
-        setupCompactDropZone(zone.id);
-    });
-
-    // ── Training End Date: enforce >= Start Date ──────────
-    const startInput = document.getElementById('training_start_date');
-    const endInput   = document.getElementById('training_end_date');
-
-    if (startInput && endInput) {
-        const updateMinEndDate = () => {
-            endInput.min = startInput.value;
-            if (endInput.value && endInput.value < startInput.value) {
-                endInput.value = startInput.value;
-            }
-        };
-        startInput.addEventListener('change', updateMinEndDate);
-        if (startInput.value) {
-            updateMinEndDate();
-        }
-    }
-
-    // ── Venue Label & Placeholder Sync ─────────────────────
-    function syncVenueLabels() {
-        const mainModeSelect = document.getElementById('ntc_training_mode_id');
-        const mainVenueLabel = document.getElementById('ntc_venue_label');
-        const mainVenueInput = document.getElementById('ntc_venue');
-        if (mainModeSelect && mainVenueLabel && mainVenueInput) {
-            const selectedOpt = mainModeSelect.options[mainModeSelect.selectedIndex];
-            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
-            if (code.toUpperCase().includes('BLENDED')) {
-                mainVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
-                mainVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
-            } else {
-                mainVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
-                mainVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
-            }
-        }
-
-        const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
-        const modalVenueLabel = document.getElementById('modal_ntc_venue_label');
-        const modalVenueInput = document.getElementById('modal_ntc_venue');
-        if (modalModeSelect && modalVenueLabel && modalVenueInput) {
-            const selectedOpt = modalModeSelect.options[modalModeSelect.selectedIndex];
-            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
-            if (code.toUpperCase().includes('BLENDED')) {
-                modalVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
-                modalVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
-            } else {
-                modalVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
-                modalVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
-            }
-        }
-    }
-
-    const mainModeSelect = document.getElementById('ntc_training_mode_id');
-    const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
-    if (mainModeSelect) mainModeSelect.addEventListener('change', syncVenueLabels);
-    if (modalModeSelect) modalModeSelect.addEventListener('change', syncVenueLabels);
-    syncVenueLabels();
-
-    // ── Submit spinner guard ──────────────────────────────
-    const form       = document.getElementById('ntcSubmitForm');
-    const submitBtn  = document.getElementById('ntcSubmitBtn');
-
-    if (form && submitBtn) {
-        form.addEventListener('submit', function (e) {
-            let isValid = true;
-
-            // Check RTCMan file
-            const fileRtcman = document.getElementById('file_rtcman');
-            const errorRtcman = document.getElementById('error_file_rtcman');
-            const zoneRtcman = document.getElementById('dropZoneRtcman');
-            if (fileRtcman && (!fileRtcman.files || fileRtcman.files.length === 0)) {
-                if (errorRtcman) errorRtcman.classList.remove('d-none');
-                if (zoneRtcman) zoneRtcman.classList.add('is-invalid-zone');
-                isValid = false;
-            }
-
-            // Check PROG file
-            const fileProg = document.getElementById('file_prog');
-            const errorProg = document.getElementById('error_file_prog');
-            const zoneProg = document.getElementById('dropZoneProg');
-            if (fileProg && (!fileProg.files || fileProg.files.length === 0)) {
-                if (errorProg) errorProg.classList.remove('d-none');
-                if (zoneProg) zoneProg.classList.add('is-invalid-zone');
-                isValid = false;
-            }
-
-            if (!form.checkValidity() || !isValid) {
-                e.preventDefault();
-                form.reportValidity();
-                return;
-            }
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
-        });
-    }
-
-    // ── Report of Changes Modal Populating ────────────────
-    const reportChangesModalEl = document.getElementById('reportChangesModal');
-    const reportChangesModal = reportChangesModalEl ? new bootstrap.Modal(reportChangesModalEl) : null;
-    const reportChangesForm = document.getElementById('reportChangesForm');
-
-    if (reportChangesModalEl && reportChangesModal) {
-        reportChangesModalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
-            btn.addEventListener('click', function () {
-                reportChangesModal.hide();
-            });
-        });
-    }
-
-    document.querySelectorAll('.btn-report-changes').forEach(button => {
-        button.addEventListener('click', function () {
-            const id = this.getAttribute('data-id');
-            const trainingType = this.getAttribute('data-training-type');
-            const trainingMode = this.getAttribute('data-training-mode');
-            const startDate = this.getAttribute('data-start-date');
-            const endDate = this.getAttribute('data-end-date');
-
-            const venue = this.getAttribute('data-venue');
-            const rtcmanName = this.getAttribute('data-rtcman-file-name');
-            const rtcmanUrl = this.getAttribute('data-rtcman-file-url');
-            const progName = this.getAttribute('data-prog-file-name');
-            const progUrl = this.getAttribute('data-prog-file-url');
-
-            if (reportChangesForm) {
-                reportChangesForm.action = `/applicant/ntc/${id}/report-of-changes`;
-
-                const typeSelect = document.getElementById('modal_ntc_training_type_id');
-                if (typeSelect) {
-                    typeSelect.value = trainingType;
-                }
-
-                const modeSelect = document.getElementById('modal_ntc_training_mode_id');
-                if (modeSelect) {
-                    modeSelect.value = trainingMode;
-                }
-
-                const venueInputModal = document.getElementById('modal_ntc_venue');
-                if (venueInputModal) {
-                    venueInputModal.value = venue || '';
-                }
-                syncVenueLabels();
-                
-                const startInputModal = document.getElementById('modal_training_start_date');
-                const endInputModal = document.getElementById('modal_training_end_date');
-                
-                if (startInputModal) {
-                    startInputModal.value = startDate;
-                }
-                if (endInputModal) {
-                    endInputModal.value = endDate;
-                    if (startInputModal) {
-                        endInputModal.min = startInputModal.value;
-                    }
-                }
-            }
-
-            // Update Current File Links
-            const rtcmanCurrentContainer = document.getElementById('modal_rtcman_current_container');
-            const rtcmanCurrentLink = document.getElementById('modal_rtcman_current_link');
-            if (rtcmanCurrentContainer && rtcmanCurrentLink) {
-                if (rtcmanName && rtcmanUrl) {
-                    rtcmanCurrentLink.textContent = rtcmanName;
-                    rtcmanCurrentLink.href = rtcmanUrl;
-                    rtcmanCurrentContainer.style.display = 'block';
-                } else {
-                    rtcmanCurrentContainer.style.display = 'none';
-                }
-            }
-
-            const progCurrentContainer = document.getElementById('modal_prog_current_container');
-            const progCurrentLink = document.getElementById('modal_prog_current_link');
-            if (progCurrentContainer && progCurrentLink) {
-                if (progName && progUrl) {
-                    progCurrentLink.textContent = progName;
-                    progCurrentLink.href = progUrl;
-                    progCurrentContainer.style.display = 'block';
-                } else {
-                    progCurrentContainer.style.display = 'none';
-                }
-            }
-
-            if (modalRtcmanCtrl) {
-                modalRtcmanCtrl.clear();
-            }
-            if (modalProgCtrl) {
-                modalProgCtrl.clear();
-            }
-
-            if (reportChangesModal) {
-                reportChangesModal.show();
-            }
-        });
-    });
-
-    // ── Modal Training End Date: enforce >= Start Date ──────────
-    const modalStartInput = document.getElementById('modal_training_start_date');
-    const modalEndInput   = document.getElementById('modal_training_end_date');
-
-    if (modalStartInput && modalEndInput) {
-        const updateModalMinEndDate = () => {
-            modalEndInput.min = modalStartInput.value;
-            if (modalEndInput.value && modalEndInput.value < modalStartInput.value) {
-                modalEndInput.value = modalStartInput.value;
-            }
-        };
-        modalStartInput.addEventListener('change', updateModalMinEndDate);
-        if (modalStartInput.value) {
-            updateModalMinEndDate();
-        }
-    }
-
-    // ── Modal Submit Spinner Guard ────────────────────────
-    const modalSubmitBtn = document.getElementById('modalSubmitBtn');
-    if (reportChangesForm && modalSubmitBtn) {
-        reportChangesForm.addEventListener('submit', function (e) {
-            let isValid = true;
-
-            // Check RTCMan file in modal
-            const fileRtcman = document.getElementById('modal_file_rtcman');
-            const errorRtcman = document.getElementById('error_modal_file_rtcman');
-            const zoneRtcman = document.getElementById('modalDropZoneRtcman');
-            if (fileRtcman && (!fileRtcman.files || fileRtcman.files.length === 0)) {
-                if (errorRtcman) errorRtcman.classList.remove('d-none');
-                if (zoneRtcman) zoneRtcman.classList.add('is-invalid-zone');
-                isValid = false;
-            }
-
-            // Check PROG file in modal
-            const fileProg = document.getElementById('modal_file_prog');
-            const errorProg = document.getElementById('error_modal_file_prog');
-            const zoneProg = document.getElementById('modalDropZoneProg');
-            if (fileProg && (!fileProg.files || fileProg.files.length === 0)) {
-                if (errorProg) errorProg.classList.remove('d-none');
-                if (zoneProg) zoneProg.classList.add('is-invalid-zone');
-                isValid = false;
-            }
-
-            if (!reportChangesForm.checkValidity() || !isValid) {
-                e.preventDefault();
-                reportChangesForm.reportValidity();
-                return;
-            }
-            modalSubmitBtn.disabled = true;
-            modalSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
-        });
-    }
-
-    // ── Re-upload Batch Submit Spinner Guard ───────────────────
-    document.querySelectorAll('.ntc-reupload-form').forEach(reuploadForm => {
-        reuploadForm.addEventListener('submit', function (e) {
-            let isValid = true;
-            
-            // Check all file inputs in this form
-            reuploadForm.querySelectorAll('.ntc-file-input').forEach(input => {
-                const zone = input.closest('.ntc-compact-drop-zone');
-                if (!input.files || input.files.length === 0) {
-                    if (zone) {
-                        zone.classList.add('is-invalid-zone');
-                    }
-                    isValid = false;
-                }
-            });
-
-            if (!reuploadForm.checkValidity() || !isValid) {
-                e.preventDefault();
-                reuploadForm.reportValidity();
-                return;
-            }
-            const reuploadSubmitBtn = reuploadForm.querySelector('button[type="submit"]');
-            if (reuploadSubmitBtn) {
-                reuploadSubmitBtn.disabled = true;
-                reuploadSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
-            }
-        });
-    });
-
-});
-</script>
-@endpush
-
-@push('scripts')
+{{-- NTC form: drop zones, derived end date, Report of Changes modal --}}
+<script src="{{ asset('js/ntc.js') }}?v={{ filemtime(public_path('js/ntc.js')) }}"></script>
 {{-- Post Training Report: drop zones, submit modal and re-upload forms --}}
 <script src="{{ asset('js/post-training.js') }}?v={{ filemtime(public_path('js/post-training.js')) }}"></script>
 @endpush

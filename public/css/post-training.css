@@ -606,3 +606,19 @@
     background: linear-gradient(135deg, #f0fdf4, #dcfce7);
     border: 1px solid #bbf7d0;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Classes replacing inline style attributes in the post training
+   partials. Values copied verbatim — a move, not a restyle.
+   ══════════════════════════════════════════════════════════════ */
+.ptr-chip           { font-size: .65rem; padding: 3px 7px; }
+.ptr-text-65        { font-size: .65rem; }
+.ptr-text-70        { font-size: .7rem; }
+.ptr-text-72        { font-size: .72rem; }
+.ptr-text-78        { font-size: 0.78rem; }
+.ptr-text-80        { font-size: .8rem; }
+.ptr-btn-reupload   { font-size: .72rem; padding: 7px 10px; border-radius: 6px; border: none; background: #e11d48; }
+.ptr-btn-round      { border-radius: 6px; }
+.ptr-heading-navy   { color: #2A3F54; }
+.ptr-pill-sm        { font-size: 0.72rem; border-radius: 20px; }
+.ptr-modal-label    { font-size: .7rem; letter-spacing: .4px; }

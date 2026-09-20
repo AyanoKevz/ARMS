@@ -113,11 +113,6 @@ return new class extends Migration
 
             // One-shot: the "you have missed the deadline" notice.
             $table->timestamp('ptr_overdue_notified_at')->nullable()->after('ptr_reminder_sent_at');
-
-            // Not one-shot. Countdown reminders go out every day across the
-            // working-day window the training type allows, so this tracks the
-            // last day one was sent rather than merely whether one ever was.
-            $table->date('ptr_last_reminded_on')->nullable()->after('ptr_overdue_notified_at');
         });
     }
 
@@ -130,7 +125,6 @@ return new class extends Migration
             $table->dropColumn([
                 'ptr_reminder_sent_at',
                 'ptr_overdue_notified_at',
-                'ptr_last_reminded_on',
             ]);
         });
 

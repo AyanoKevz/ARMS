@@ -733,3 +733,20 @@ body, button, input, select, textarea {
 }
 
 
+
+/* ══════════════════════════════════════════════════════════════
+   Applicant sidebar — classes replacing inline style attributes
+   in applicant/sidebar.blade.php. Values copied verbatim.
+   Lives here because the sidebar renders on every applicant page,
+   and portal.css is the stylesheet all of them load.
+   ══════════════════════════════════════════════════════════════ */
+.sidebar-link-locked   { opacity: 0.6; cursor: not-allowed; }
+.sidebar-count-badge   { font-size: 0.65rem; }
+
+.sidebar-notice-modal  { border: none; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); }
+.sidebar-notice-header { background: linear-gradient(135deg, #0d2b55, #1a4a8a); border-bottom: 2px solid var(--portal-gold); display: flex; align-items: center; }
+.sidebar-notice-icon   { color: var(--portal-gold); font-size: 1.1rem; margin-right: 6px; }
+.sidebar-notice-title  { font-size: 0.95rem; display: inline-block; }
+.sidebar-notice-text   { font-size: 0.95rem; }
+.sidebar-notice-lock   { font-size: 3rem; }
+.sidebar-notice-btn    { background: #0d2b55; color: #fff; border-radius: 6px; font-size: 0.85rem; border: none; padding: 6px 12px; transition: background 0.2s; }

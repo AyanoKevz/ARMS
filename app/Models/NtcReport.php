@@ -8,17 +8,27 @@ use Illuminate\Database\Eloquent\Model;
 class NtcReport extends Model
 {
     /**
-     * Working days a FATPro gets to file the post training report after the
-     * training ends, keyed by training type code (OSHC MC 04 series 2025).
+     * How long each training runs, in working days, keyed by training type code.
+     *
+     * This is what the type decides — the length of the course, not the
+     * reporting deadline. The end date follows from the start date and this
+     * number, so a FATPro picks a type and a first day and the last day is
+     * derived rather than typed.
      */
-    public const POST_TRAINING_DAYS = [
+    public const TRAINING_DURATION_DAYS = [
         'EFA' => 1,
         'OFA' => 2,
         'SFA' => 4,
     ];
 
     /** Fallback when a training type code is not in the table above. */
-    public const POST_TRAINING_DAYS_DEFAULT = 4;
+    public const TRAINING_DURATION_DAYS_DEFAULT = 1;
+
+    /**
+     * Working days a FATPro gets to file the post training report once the
+     * training ends. One figure for every training type.
+     */
+    public const POST_TRAINING_DEADLINE_DAYS = 5;
 
     protected $fillable = [
         'accreditation_id',
@@ -34,7 +44,6 @@ class NtcReport extends Model
         'remarks',
         'ptr_reminder_sent_at',
         'ptr_overdue_notified_at',
-        'ptr_last_reminded_on',
     ];
 
     protected $casts = [
@@ -44,7 +53,6 @@ class NtcReport extends Model
         'acknowledged_at'         => 'datetime',
         'ptr_reminder_sent_at'    => 'datetime',
         'ptr_overdue_notified_at' => 'datetime',
-        'ptr_last_reminded_on'    => 'date',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -174,21 +182,56 @@ class NtcReport extends Model
         return Carbon::today()->lessThanOrEqualTo($deadline);
     }
 
-    // ── Post Training Report ──────────────────────────────────────────────────
+    // ── Training duration ─────────────────────────────────────────────────────
 
     /**
-     * Working days allowed to file the post training report, by training type.
+     * How many working days this training runs, from its type.
      */
-    public function postTrainingDaysAllowed(): int
+    public function trainingDurationDays(): int
     {
-        $code = strtoupper($this->trainingType->code ?? '');
-
-        return self::POST_TRAINING_DAYS[$code] ?? self::POST_TRAINING_DAYS_DEFAULT;
+        return self::durationDaysForCode($this->trainingType->code ?? '');
     }
 
     /**
-     * The last day the post training report may be submitted: N working days
-     * after the training ends, where N depends on the training type.
+     * Working-day duration for a training type code (EFA / OFA / SFA).
+     */
+    public static function durationDaysForCode(?string $code): int
+    {
+        return self::TRAINING_DURATION_DAYS[strtoupper((string) $code)]
+            ?? self::TRAINING_DURATION_DAYS_DEFAULT;
+    }
+
+    /**
+     * The last training day, derived from the first day and the type.
+     *
+     * A one-day course starting today ends tomorrow, so the duration is added
+     * whole rather than discounted by the start day. Weekends are skipped, so
+     * a four-day course beginning Thursday runs to the following Wednesday.
+     */
+    public static function trainingEndDateFor(Carbon $startDate, ?string $trainingTypeCode): Carbon
+    {
+        return self::addWorkingDays(
+            $startDate->copy()->startOfDay(),
+            self::durationDaysForCode($trainingTypeCode)
+        );
+    }
+
+    // ── Post Training Report ──────────────────────────────────────────────────
+
+    /**
+     * Working days allowed to file the post training report.
+     *
+     * Flat for every training type — the type governs how long the training
+     * runs, not how long the FATPro has to report on it.
+     */
+    public function postTrainingDaysAllowed(): int
+    {
+        return self::POST_TRAINING_DEADLINE_DAYS;
+    }
+
+    /**
+     * The last day the post training report may be submitted: five working days
+     * after the training ends.
      */
     public function postTrainingDeadlineDate(): ?Carbon
     {
@@ -198,7 +241,7 @@ class NtcReport extends Model
 
         return self::addWorkingDays(
             $this->training_end_date->copy()->startOfDay(),
-            $this->postTrainingDaysAllowed()
+            self::POST_TRAINING_DEADLINE_DAYS
         );
     }
 
@@ -288,6 +331,25 @@ class NtcReport extends Model
         }
 
         return $count;
+    }
+
+    /**
+     * Step a date back by N working days, skipping weekends. The inverse of
+     * addWorkingDays — used where a known end date has to yield its start.
+     */
+    public static function subtractWorkingDays(Carbon $from, int $workingDays): Carbon
+    {
+        $cursor = $from->copy();
+        $counted = 0;
+
+        while ($counted < $workingDays) {
+            $cursor->subDay();
+            if (!$cursor->isWeekend()) {
+                $counted++;
+            }
+        }
+
+        return $cursor;
     }
 
     /**
