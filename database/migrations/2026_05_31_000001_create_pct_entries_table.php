@@ -27,6 +27,11 @@ return new class extends Migration
 
             $table->index(['application_id', 'is_active']);
             $table->index(['application_id', 'step_number']);
+
+            // PctService::autoResumeAllScheduledInterviews() sweeps every
+            // paused Step 5 entry on dashboard load. Without this it is a
+            // full scan of the table on the busiest page in the portal.
+            $table->index(['is_active', 'step_number', 'paused_at'], 'idx_pct_active_step_paused');
         });
     }
 

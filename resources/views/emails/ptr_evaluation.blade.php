@@ -68,13 +68,18 @@
     @if($isAccepted)
         <p>All submitted documents have been approved. No further action is required for this training.</p>
     @else
-        <p>Please review the documents listed below and re-upload the corrected files through your Post Training Report portal.</p>
+        <p>Please review the items listed below and submit the corrections through your Post Training Report portal.</p>
 
         <div class="doc-list">
             <p class="doc-list-title">📋 Documents Requiring Revision</p>
             @foreach($declinedDocuments as $doc)
             <div class="doc-item red">
-                <div class="doc-item-name">{{ $doc->documentType->name ?? 'Document' }}</div>
+                <div class="doc-item-name">
+                {{ $doc->documentType->name ?? 'Document' }}
+                @if($doc->documentType?->isEncoded())
+                    <span style="font-weight:400;font-size:0.82rem;color:#777;">&mdash; edit the declined participant rows</span>
+                @endif
+            </div>
                 <div class="doc-item-remark">
                     <span>Remarks:</span> {{ $doc->remarks ?: 'No specific remark provided. Please ensure the document is complete and legible.' }}
                 </div>
@@ -85,7 +90,7 @@
 
     <div class="btn-wrap">
         <a href="{{ url('/applicant/ntc') }}" class="btn-primary">
-            {{ $isAccepted ? 'View My Post Training Reports' : 'Log In &amp; Re-upload Documents' }}
+            {{ $isAccepted ? 'View My Post Training Reports' : 'Log In & Submit Corrections' }}
         </a>
     </div>
 

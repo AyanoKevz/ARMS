@@ -31,6 +31,7 @@ return new class extends Migration
             // Indexes for fast lookups (Normalization & Indexing requirement)
             $table->index('application_id');
             $table->index('proof_of_payment_status');
+            $table->index(['application_id', 'proof_of_payment_status'], 'idx_payments_app_status');
         });
     }
 

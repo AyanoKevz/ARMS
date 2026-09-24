@@ -127,20 +127,36 @@ class User extends Authenticatable
         return $this->hasMany(Instructor::class);
     }
 
+    /**
+     * The display name, whichever profile the user actually has.
+     *
+     * Every lookup goes through loadMissing rather than ->first(). The old
+     * form re-queried on EVERY read, so a table that printed a name per row
+     * fired one query per row even when the relation had been eager-loaded on
+     * a sibling — a name is read all over the app, and this is the accessor
+     * behind all of it.
+     *
+     * loadMissing is a no-op when the relation is already there, so an
+     * eager-loading caller still pays nothing.
+     */
     public function getNameAttribute()
     {
-        $role = $this->relationLoaded('role') ? $this->role : $this->role()->first();
+        $role = $this->loadMissing('role')->role;
+
         if ($role && strtolower($role->name) === 'admin') {
-            $admin = $this->relationLoaded('adminProfile') ? $this->adminProfile : $this->adminProfile()->first();
+            $admin = $this->loadMissing('adminProfile')->adminProfile;
+
             return $admin ? "{$admin->first_name} {$admin->last_name}" : 'Admin';
         }
 
         if ($this->profile_type === 'Organization') {
-            $org = $this->relationLoaded('organizationProfile') ? $this->organizationProfile : $this->organizationProfile()->first();
+            $org = $this->loadMissing('organizationProfile')->organizationProfile;
+
             return $org->name ?? 'Organization User';
         }
 
-        $ind = $this->relationLoaded('individualProfile') ? $this->individualProfile : $this->individualProfile()->first();
+        $ind = $this->loadMissing('individualProfile')->individualProfile;
+
         if ($ind) {
             return "{$ind->first_name} {$ind->last_name}";
         }

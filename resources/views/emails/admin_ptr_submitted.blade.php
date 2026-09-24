@@ -86,7 +86,13 @@
             @endforeach
         @else
             @foreach($report->documents as $doc)
-                <p><strong>{{ $doc->documentType->name ?? 'Document' }}:</strong> {{ $doc->original_filename }}</p>
+                <p><strong>{{ $doc->documentType->name ?? 'Document' }}:</strong>
+                    @if($doc->documentType?->isEncoded())
+                        {{ $report->participants->count() }} {{ Str::plural('participant', $report->participants->count()) }} encoded
+                    @else
+                        {{ $doc->original_filename }}
+                    @endif
+                </p>
             @endforeach
             @if($report->documents->isEmpty())
                 <p style="color:#999;">No documents attached.</p>

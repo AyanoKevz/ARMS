@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Mail\AdminPostTrainingSubmittedEmail;
 use App\Models\Accreditation;
 use App\Models\Application;
+use App\Models\Instructor;
 use App\Models\NtcReport;
 use App\Models\PostTrainingReport;
 use App\Models\PtrDocument;
 use App\Models\PtrDocumentType;
+use App\Models\PtrParticipant;
 use App\Models\User;
 use App\Support\ApplicantStoragePath;
 use Carbon\Carbon;
@@ -19,12 +21,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PostTrainingReportController extends Controller
 {
     /** Per-file upload ceiling, in kilobytes (25 MB). */
     private const MAX_FILE_KB = 25600;
+
+    /** Upper bound on one encoded Directory of Participants. */
+    private const MAX_PARTICIPANTS = 500;
 
     /**
      * The same gate the NTC portal uses: a revoked accreditation or an ongoing
@@ -90,18 +97,37 @@ class PostTrainingReportController extends Controller
 
         $documentTypes = PtrDocumentType::orderBy('sort_order')->get();
         [$rules, $messages] = $this->uploadRules($documentTypes);
-        $request->validate($rules, $messages);
+
+        // A recording of the training is required, but as a link: a full
+        // session runs to gigabytes and no upload here would carry it.
+        $rules['training_video_url'] = ['required', 'url', 'max:500'];
+        $rules['applicant_remarks']  = ['nullable', 'string', 'max:1000'];
+
+        $messages['training_video_url.required'] = 'Please provide the link to the training video.';
+        $messages['training_video_url.url']      = 'The training video link must be a valid URL, starting with http:// or https://.';
+
+        $validated = $request->validate($rules, $messages);
+
+        // The Directory arrives as one JSON field rather than N*19 form inputs,
+        // so the row count never has to fit under max_input_vars.
+        $participants = $this->validateParticipants($request, $user);
+
+        // Requirement 2 is no longer a PDF: the instructors come over from the
+        // NTC pre-selected and the FATPro either proceeds or amends the list.
+        $instructorIds = $this->resolveReportInstructors($request, $ntcReport, $user);
 
         try {
-            DB::transaction(function () use ($request, $ntcReport, $user, $documentTypes) {
+            DB::transaction(function () use ($request, $ntcReport, $user, $documentTypes, $participants, $instructorIds, $validated) {
                 $accreditation = $ntcReport->accreditation()->with('accreditationType')->first();
 
                 $report = PostTrainingReport::create([
-                    'ntc_report_id'    => $ntcReport->id,
-                    'accreditation_id' => $accreditation->id,
-                    'status'           => 'submitted',
-                    'due_date'         => $ntcReport->postTrainingDeadlineDate(),
-                    'submitted_at'     => Carbon::now(),
+                    'ntc_report_id'       => $ntcReport->id,
+                    'accreditation_id'    => $accreditation->id,
+                    'status'              => 'submitted',
+                    'due_date'            => $ntcReport->postTrainingDeadlineDate(),
+                    'submitted_at'        => Carbon::now(),
+                    'training_video_url'  => $validated['training_video_url'],
+                    'applicant_remarks'   => $validated['applicant_remarks'] ?? null,
                 ]);
 
                 $basePath = ApplicantStoragePath::postTrainingReports(
@@ -109,7 +135,26 @@ class PostTrainingReportController extends Controller
                     $user->id
                 );
 
+                $report->instructors()->sync($instructorIds);
+
                 foreach ($documentTypes as $docType) {
+                    // A type captured in the portal still gets a ptr_documents
+                    // row: it is the section the evaluator acts on and where its
+                    // single set of remarks lives. It just has no file.
+                    if (!$docType->isFile()) {
+                        PtrDocument::create([
+                            'post_training_report_id' => $report->id,
+                            'ptr_document_type_id'    => $docType->id,
+                            'file_path'               => null,
+                            'original_filename'       => null,
+                            'mime_type'               => null,
+                            'file_size'               => null,
+                            'uploaded_at'             => Carbon::now(),
+                            'status'                  => 'pending',
+                        ]);
+                        continue;
+                    }
+
                     $file = $request->file($docType->inputName());
                     if (!$file) {
                         continue;
@@ -128,6 +173,8 @@ class PostTrainingReportController extends Controller
                         'status'                  => 'pending',
                     ]);
                 }
+
+                $this->persistParticipants($report, $participants, $basePath, $user);
 
                 $this->notifyEvaluators($report, $user);
             });
@@ -169,6 +216,31 @@ class PostTrainingReportController extends Controller
         );
     }
 
+    /**
+     * Serve a participant's ID picture (private storage).
+     */
+    public function serveParticipantPhoto(PtrParticipant $participant)
+    {
+        $user = Auth::user();
+
+        $latestAccreditation = Accreditation::where('user_id', $user->id)->latest()->first();
+        if ($latestAccreditation && $latestAccreditation->status === 'revoked') {
+            abort(403, 'Your accreditation has been revoked.');
+        }
+
+        if ($participant->postTrainingReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if (!$participant->id_picture_path || !Storage::disk('local')->exists($participant->id_picture_path)) {
+            abort(404, 'ID picture not found.');
+        }
+
+        return Storage::disk('local')->response(
+            $participant->id_picture_path,
+            $participant->id_picture_filename ?: 'id-picture.jpg'
+        );
+    }
     /**
      * Re-upload the documents an evaluator declined.
      */
@@ -275,6 +347,12 @@ class PostTrainingReportController extends Controller
         $messages = [];
 
         foreach ($documentTypes as $docType) {
+            // The Directory of Participants and the instructor roster are both
+            // captured in the portal, so neither has a file to validate.
+            if (!$docType->isFile()) {
+                continue;
+            }
+
             $field = $docType->inputName();
             $extensions = $docType->acceptedExtensions();
 
@@ -294,6 +372,401 @@ class PostTrainingReportController extends Controller
     }
 
     /**
+     * Put right everything an evaluator sent back, in one go.
+     *
+     * A report is declined in four different ways — an attachment is wiped and
+     * must be re-uploaded, participants are rejected row by row, the instructor
+     * list is refused, the video link is unreachable — and any combination can
+     * be outstanding at once. The
+     * FATPro should not have to find three different places to fix them, so
+     * this takes whichever sections are open and applies them together: one
+     * transaction, one notification, one thing to do.
+     *
+     * Only declined sections are touched. Anything already accepted is left
+     * exactly as it is, which is why each branch is guarded by its own check
+     * rather than by what happens to be in the request.
+     */
+    public function submitCorrections(Request $request, PostTrainingReport $postTrainingReport)
+    {
+        $user = Auth::user();
+
+        if ($reason = $this->accessDenialReason($user, 'submit')) {
+            return redirect()->route('applicant.dashboard')->with('error', $reason);
+        }
+
+        if ($postTrainingReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($postTrainingReport->isAccepted()) {
+            return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
+        }
+
+        $declinedDocs     = $postTrainingReport->declinedDocuments();
+        $needsDirectory   = $postTrainingReport->hasDirectoryCorrections();
+        $needsInstructors = $postTrainingReport->hasInstructorCorrections();
+        $needsVideo       = $postTrainingReport->hasVideoCorrections();
+
+        if ($declinedDocs->isEmpty() && !$needsDirectory && !$needsInstructors && !$needsVideo) {
+            return back()->withErrors([
+                'error' => 'Nothing on this Post Training Report has been sent back for correction.',
+            ]);
+        }
+
+        // Everything is validated before anything is written, so a report is
+        // never left half-corrected by a mistake in one section.
+        $files = $declinedDocs->isNotEmpty()
+            ? $this->validateCorrectionFiles($request, $declinedDocs)
+            : [];
+
+        $participants = $needsDirectory
+            ? $this->validateParticipants($request, $user, true)
+            : [];
+
+        $instructorIds = $needsInstructors
+            ? $this->resolveReportInstructors($request, $postTrainingReport->ntcReport, $user)
+            : [];
+
+        $videoUrl = null;
+
+        if ($needsVideo) {
+            $videoUrl = $request->validate([
+                'training_video_url' => ['required', 'url', 'max:500'],
+            ], [
+                'training_video_url.required' => 'Please provide the link to the training video.',
+                'training_video_url.url'      => 'The training video link must be a valid URL, starting with http:// or https://.',
+            ])['training_video_url'];
+        }
+
+        try {
+            $summary = [];
+
+            DB::transaction(function () use (
+                $request, $postTrainingReport, $user, $files, $participants,
+                $instructorIds, $needsDirectory, $needsInstructors, $needsVideo,
+                $videoUrl, &$summary
+            ) {
+                $accreditation = $postTrainingReport->accreditation()->with('accreditationType')->first();
+                $basePath      = ApplicantStoragePath::postTrainingReports(
+                    $accreditation->accreditationType->name ?? null,
+                    $user->id
+                );
+
+                foreach ($files as $docId => $file) {
+                    $document = PtrDocument::with('documentType')->find($docId);
+
+                    // Delete the old file first — no stacking.
+                    if ($document->file_path && Storage::disk('local')->exists($document->file_path)) {
+                        Storage::disk('local')->delete($document->file_path);
+                    }
+
+                    $path = $this->storeUpload($file, $basePath, $document->documentType->code ?? 'doc', $docId);
+
+                    $document->update([
+                        'file_path'         => $path,
+                        'original_filename' => $file->getClientOriginalName(),
+                        'mime_type'         => $file->getMimeType(),
+                        'file_size'         => $file->getSize(),
+                        'uploaded_at'       => Carbon::now(),
+                        'status'            => 'returned',
+                        'remarks'           => null,
+                        'evaluated_by'      => null,
+                        'evaluated_at'      => null,
+                    ]);
+
+                    $summary[] = [
+                        'type'     => $document->documentType->name ?? 'Document',
+                        'filename' => $file->getClientOriginalName(),
+                    ];
+                }
+
+                if ($needsDirectory) {
+                    $corrected = $this->applyParticipantCorrections(
+                        $postTrainingReport,
+                        $participants,
+                        $basePath,
+                        $user
+                    );
+
+                    if ($corrected > 0) {
+                        $summary[] = [
+                            'type'     => 'Directory of Participants',
+                            'filename' => $corrected . ' corrected participant ' . Str::plural('row', $corrected),
+                        ];
+                    }
+                }
+
+                if ($needsInstructors) {
+                    $postTrainingReport->instructors()->sync($instructorIds);
+
+                    $this->reopenSection($postTrainingReport->instructorsDocument());
+
+                    $summary[] = [
+                        'type'     => 'List of Instructors Who Conducted the Training',
+                        'filename' => count($instructorIds) . ' ' . Str::plural('instructor', count($instructorIds)),
+                    ];
+                }
+
+                if ($needsVideo) {
+                    $postTrainingReport->update(['training_video_url' => $videoUrl]);
+
+                    $this->reopenSection($postTrainingReport->videoDocument());
+
+                    $summary[] = [
+                        'type'     => 'Link to the Training Video',
+                        'filename' => $videoUrl,
+                    ];
+                }
+
+                $postTrainingReport->update(['status' => 'submitted']);
+            });
+
+            $this->notifyEvaluators($postTrainingReport, $user, $summary);
+        } catch (\Exception $e) {
+            Log::error('Post Training Report corrections failed: ' . $e->getMessage());
+
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'An error occurred while submitting your corrections. Please try again.']);
+        }
+
+        return redirect()->route('applicant.ntc.index')
+            ->with('success', 'Your corrections have been submitted. Admin has been notified for re-evaluation.');
+    }
+
+    /**
+     * The replacement files for the declined attachments.
+     *
+     * Every declined document needs one: a correction that leaves a section
+     * blank has not corrected it, and submitting partway would re-open the
+     * report for review while still missing what was asked for.
+     *
+     * @return array<int, \Illuminate\Http\UploadedFile>  keyed by document id
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    private function validateCorrectionFiles(Request $request, $declinedDocs): array
+    {
+        $rules    = [];
+        $messages = [];
+
+        foreach ($declinedDocs as $document) {
+            $field      = "files.{$document->id}";
+            $extensions = $document->documentType?->acceptedExtensions() ?: ['pdf'];
+            $name       = $document->documentType->name ?? 'document';
+
+            $rules[$field] = ['required', 'file', 'mimes:' . implode(',', $extensions), 'max:' . self::MAX_FILE_KB];
+
+            $messages["{$field}.required"] = "Please re-upload the {$name}.";
+            $messages["{$field}.mimes"]    = "The {$name} must be a " . strtoupper(implode(' or ', $extensions)) . ' file.';
+            $messages["{$field}.max"]      = "The {$name} must not exceed 25 MB.";
+        }
+
+        $request->validate($rules, $messages);
+
+        $files = [];
+
+        foreach ($declinedDocs as $document) {
+            $files[$document->id] = $request->file("files.{$document->id}");
+        }
+
+        return $files;
+    }
+
+    /**
+     * Write the corrected participant rows and re-open the Directory.
+     *
+     * @return int  how many rows were actually corrected
+     */
+    private function applyParticipantCorrections(
+        PostTrainingReport $report,
+        array $rows,
+        string $basePath,
+        User $user
+    ): int {
+        $editable = $report->participants()
+            ->where('status', 'rejected')
+            ->get()
+            ->keyBy('id');
+
+        $corrected = 0;
+
+        foreach ($rows as $row) {
+            $participant = $editable->get($row['id'] ?? null);
+
+            // Only declined rows are editable; approved ones stay put.
+            if (!$participant) {
+                continue;
+            }
+
+            $attributes = $this->participantAttributes($row);
+
+            // A replacement picture is optional on a correction.
+            if (!empty($row['photo_token'])) {
+                $participant->deleteIdPicture();
+
+                $attributes = array_merge($attributes, $this->claimStagedPhoto(
+                    $user,
+                    $row['photo_token'],
+                    $basePath,
+                    $participant->row_no,
+                    $row['photo_name'] ?? null
+                ));
+            }
+
+            $participant->update($attributes + [
+                'status'       => 'pending',
+                'evaluated_by' => null,
+                'evaluated_at' => null,
+            ]);
+
+            $corrected++;
+        }
+
+        if ($corrected > 0) {
+            $this->reopenSection($report->directoryDocument());
+        }
+
+        return $corrected;
+    }
+
+    /**
+     * Put a section back in front of the evaluator, clearing the verdict that
+     * sent it back.
+     */
+    private function reopenSection(?PtrDocument $section): void
+    {
+        $section?->update([
+            'status'       => 'returned',
+            'remarks'      => null,
+            'evaluated_by' => null,
+            'evaluated_at' => null,
+        ]);
+    }
+    /**
+     * Amend the instructor roster on a report the evaluator sent back.
+     *
+     * The roster is corrected by re-choosing, not by re-uploading, so it has
+     * its own endpoint rather than riding along with reuploadBatch(). Putting
+     * the section back to 'returned' is what tells the evaluator there is
+     * something new to look at.
+     */
+    public function updateInstructors(Request $request, PostTrainingReport $postTrainingReport)
+    {
+        $user = Auth::user();
+
+        if ($reason = $this->accessDenialReason($user, 'submit')) {
+            return redirect()->route('applicant.dashboard')->with('error', $reason);
+        }
+
+        if ($postTrainingReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($postTrainingReport->isAccepted()) {
+            return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
+        }
+
+        $section = $postTrainingReport->instructorsDocument();
+
+        if (!$section || $section->status !== 'rejected') {
+            return back()->withErrors(['error' => 'The list of instructors has not been sent back for correction.']);
+        }
+
+        $instructorIds = $this->resolveReportInstructors(
+            $request,
+            $postTrainingReport->ntcReport,
+            $user
+        );
+
+        try {
+            DB::transaction(function () use ($postTrainingReport, $section, $instructorIds, $user) {
+                $postTrainingReport->instructors()->sync($instructorIds);
+
+                $section->update([
+                    'status'       => 'returned',
+                    'remarks'      => null,
+                    'evaluated_by' => null,
+                    'evaluated_at' => null,
+                ]);
+
+                $this->notifyEvaluators($postTrainingReport, $user);
+            });
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Your corrected list of instructors has been submitted. Admin has been notified.');
+        } catch (\Exception $e) {
+            Log::error('Post Training instructor correction failed: ' . $e->getMessage());
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'An error occurred while submitting your corrected list. Please try again.']);
+        }
+    }
+
+    /**
+     * The instructors recorded as having conducted the training.
+     *
+     * Works in PERSON ids, like the NTC it inherits from, so the record
+     * survives the renewal that replaces the underlying `instructors` rows.
+     *
+     * Two groups may be named. Anyone declared on the parent NTC is allowed
+     * through unconditionally — they were vetted when it was filed, and a
+     * credential that has lapsed in the weeks since does not unmake the fact
+     * that they taught. Anyone NOT declared is a late addition and has to
+     * clear the same bar the NTC applied: on this FATPro's roster, and
+     * eligible as of the last training day.
+     *
+     * @return array<int, int>
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    private function resolveReportInstructors(Request $request, NtcReport $ntcReport, User $user): array
+    {
+        $validated = $request->validate([
+            'instructor_ids'   => ['required', 'array', 'min:1'],
+            'instructor_ids.*' => ['integer', 'exists:instructor_people,id'],
+        ], [
+            'instructor_ids.required' => 'List at least one instructor who conducted this training.',
+            'instructor_ids.min'      => 'List at least one instructor who conducted this training.',
+        ]);
+
+        $declared = $ntcReport->instructors()->pluck('instructor_people.id')->all();
+        $roster   = Instructor::accreditedRosterFor($user->id)
+            ->filter(fn ($instructor) => $instructor->instructor_person_id)
+            ->keyBy('instructor_person_id');
+        $lastDay  = $ntcReport->training_end_date;
+        $chosen   = [];
+
+        foreach (array_unique($validated['instructor_ids']) as $id) {
+            $id = (int) $id;
+
+            if (in_array($id, $declared, true)) {
+                $chosen[] = $id;
+                continue;
+            }
+
+            $instructor = $roster->get($id);
+
+            if (!$instructor) {
+                throw ValidationException::withMessages([
+                    'instructor_ids' => 'One of the listed instructors is not on your accredited roster.',
+                ]);
+            }
+
+            if ($reason = $instructor->ineligibilityReason($lastDay)) {
+                throw ValidationException::withMessages([
+                    'instructor_ids' => $instructor->fullName()
+                        . ' was not declared on the Notice to Conduct and cannot be added: ' . $reason,
+                ]);
+            }
+
+            $chosen[] = (int) $instructor->instructor_person_id;
+        }
+
+        return $chosen;
+    }
+
+    /**
      * Store one upload under the FATPro's post training folder.
      */
     private function storeUpload($file, string $basePath, string $docCode, $suffix = null): string
@@ -302,6 +775,316 @@ class PostTrainingReportController extends Controller
         $filename = strtolower($docCode) . '_' . time() . ($suffix !== null ? '_' . $suffix : '') . '.' . $ext;
 
         return $file->storeAs($basePath, $filename, 'local');
+    }
+
+    /**
+     * Stage one participant's ID picture ahead of submission.
+     *
+     * Pictures upload one at a time instead of riding along with the final form.
+     * Posting them together would have to fit the whole batch inside one request:
+     * at up to 5 MB each they exhaust post_max_size (295M here) long before a
+     * large directory is filed, and a host with PHP's default max_file_uploads
+     * of 20 would silently drop the rest — no error, just missing pictures.
+     */
+    public function stageParticipantPhoto(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($reason = $this->accessDenialReason($user, 'submit')) {
+            return response()->json(['message' => $reason], 403);
+        }
+
+        $request->validate([
+            'photo' => [
+                'required',
+                'file',
+                'mimes:' . implode(',', PtrParticipant::PHOTO_EXTENSIONS),
+                'max:' . PtrParticipant::MAX_PHOTO_KB,
+            ],
+        ], [
+            'photo.required' => 'Please choose an ID picture.',
+            'photo.mimes'    => 'The ID picture must be a ' . strtoupper(implode(' or ', PtrParticipant::PHOTO_EXTENSIONS)) . ' image.',
+            'photo.max'      => 'Each ID picture must not exceed 5 MB.',
+        ]);
+
+        $this->pruneStagedPhotos($user);
+
+        $file = $request->file('photo');
+        $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
+        $name = Str::uuid() . '.' . $ext;
+
+        $file->storeAs($this->stagingPath($user), $name, 'local');
+
+        return response()->json([
+            'token'    => $name,
+            'filename' => $file->getClientOriginalName(),
+            'size'     => $file->getSize(),
+        ]);
+    }
+
+    /**
+     * Correct the participants an evaluator turned down. The Directory is fixed
+     * by editing rows, not by uploading a replacement file.
+     */
+    public function updateParticipants(Request $request, PostTrainingReport $postTrainingReport)
+    {
+        $user = Auth::user();
+
+        if ($reason = $this->accessDenialReason($user, 'submit')) {
+            return redirect()->route('applicant.dashboard')->with('error', $reason);
+        }
+
+        if ($postTrainingReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($postTrainingReport->isAccepted()) {
+            return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
+        }
+
+        $rows = $this->validateParticipants($request, $user, true);
+
+        try {
+            DB::transaction(function () use ($rows, $postTrainingReport, $user) {
+                $accreditation = $postTrainingReport->accreditation()->with('accreditationType')->first();
+                $basePath = ApplicantStoragePath::postTrainingReports(
+                    $accreditation->accreditationType->name ?? null,
+                    $user->id
+                );
+
+                // Shared with submitCorrections, which does the same thing as
+                // one part of a larger submission. It picks the editable rows,
+                // claims any replacement pictures and re-opens the section.
+                $corrected = $this->applyParticipantCorrections(
+                    $postTrainingReport,
+                    $rows,
+                    $basePath,
+                    $user
+                );
+
+                if ($corrected === 0) {
+                    return;
+                }
+
+                $postTrainingReport->update(['status' => 'submitted']);
+
+                $this->notifyEvaluators($postTrainingReport, $user, [[
+                    'type'     => 'Directory of Participants',
+                    'filename' => $corrected . ' corrected participant ' . Str::plural('row', $corrected),
+                ]]);
+            });
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Your corrected participants have been submitted. Admin has been notified for re-evaluation.');
+        } catch (\Exception $e) {
+            Log::error('Post Training Report participant correction failed: ' . $e->getMessage());
+
+            return back()->withErrors(['error' => 'An error occurred while saving your participants. Please try again.']);
+        }
+    }
+
+    // ── Directory of Participants internals ───────────────────────────────────
+
+    /**
+     * Validate the encoded Directory.
+     *
+     * The grid posts one JSON field rather than ~19 inputs per row, so the row
+     * count never approaches max_input_vars. This stack raises it to 10000 in
+     * .user.ini, but a host running PHP's 1000 default would truncate the POST
+     * array at roughly 52 participants without raising an error.
+     */
+    private function validateParticipants(Request $request, User $user, bool $isCorrection = false): array
+    {
+        $decoded = json_decode((string) $request->input('participants'), true);
+
+        if (!is_array($decoded) || $decoded === []) {
+            throw ValidationException::withMessages([
+                'participants' => $isCorrection
+                    ? 'There are no corrected participants to submit.'
+                    : 'Encode at least one participant in the Directory of Participants.',
+            ]);
+        }
+
+        $decoded = array_values($decoded);
+
+        $rules = [
+            'participants'                      => ['required', 'array', 'min:1', 'max:' . self::MAX_PARTICIPANTS],
+            'participants.*.certificate_number' => ['required', 'string', 'max:100'],
+            'participants.*.last_name'          => ['required', 'string', 'max:100'],
+            'participants.*.first_name'         => ['required', 'string', 'max:100'],
+            'participants.*.middle_name'        => ['nullable', 'string', 'max:100'],
+            'participants.*.suffix'             => ['nullable', 'string', 'max:20'],
+            // Only the two the form offers. 'string|max:20' would have taken
+            // anything a crafted post cared to send.
+            'participants.*.sex'                => ['required', 'in:Male,Female'],
+            'participants.*.age'                => ['required', 'integer', 'min:1', 'max:120'],
+            'participants.*.company'            => ['required', 'string', 'max:255'],
+            'participants.*.position'           => ['required', 'string', 'max:255'],
+            'participants.*.company_city'       => ['required', 'string', 'max:255'],
+            'participants.*.company_region'     => ['required', 'string', 'max:255'],
+            'participants.*.industry'           => ['required', 'string', 'max:255'],
+            'participants.*.total_workers'      => ['nullable', 'integer', 'min:0'],
+            'participants.*.company_email'      => ['nullable', 'email', 'max:255'],
+            'participants.*.personal_email'     => ['nullable', 'email', 'max:255'],
+            'participants.*.mobile_no'          => ['required', 'string', 'max:50'],
+            'participants.*.company_landline'   => ['nullable', 'string', 'max:50'],
+            'participants.*.mode_of_training'   => ['required', 'string', 'max:100'],
+            'participants.*.batch_no'           => ['nullable', 'string', 'max:50'],
+        ];
+
+        // Every participant needs a picture to submit. On a correction the row
+        // already has one, so a replacement is optional.
+        $rules['participants.*.photo_token'] = $isCorrection
+            ? ['nullable', 'string', 'max:100']
+            : ['required', 'string', 'max:100'];
+
+        if ($isCorrection) {
+            $rules['participants.*.id'] = ['required', 'integer'];
+        }
+
+        $messages = [
+            'participants.max'                           => 'A Directory of Participants cannot exceed ' . self::MAX_PARTICIPANTS . ' participants.',
+            'participants.*.photo_token.required'        => 'Every participant needs an ID picture before you can submit.',
+            'participants.*.certificate_number.required' => 'Certificate Number is required for every participant.',
+            'participants.*.age.integer'                 => 'Age must be a whole number.',
+        ];
+
+        $validator = Validator::make(['participants' => $decoded], $rules, $messages);
+
+        $validator->after(function ($v) use ($decoded, $user) {
+            $seen = [];
+
+            foreach ($decoded as $i => $row) {
+                // A certificate number may repeat across trainings, never within one.
+                $cert = trim((string) ($row['certificate_number'] ?? ''));
+
+                if ($cert !== '') {
+                    $key = mb_strtolower($cert);
+
+                    if (isset($seen[$key])) {
+                        $v->errors()->add(
+                            "participants.{$i}.certificate_number",
+                            'Certificate number "' . $cert . '" appears on both row ' . ($seen[$key] + 1) . ' and row ' . ($i + 1) . '.'
+                        );
+                    } else {
+                        $seen[$key] = $i;
+                    }
+                }
+
+                // A token is only meaningful while its staged file is still there.
+                $token = $row['photo_token'] ?? null;
+
+                if ($token && !$this->stagedPhotoExists($user, $token)) {
+                    $v->errors()->add(
+                        "participants.{$i}.photo_token",
+                        'The ID picture for row ' . ($i + 1) . ' is no longer available. Please upload it again.'
+                    );
+                }
+            }
+        });
+
+        $validator->validate();
+
+        return $decoded;
+    }
+
+    /**
+     * Write the encoded rows and move each staged picture into the report folder.
+     */
+    private function persistParticipants(PostTrainingReport $report, array $participants, string $basePath, User $user): void
+    {
+        foreach ($participants as $index => $row) {
+            $rowNo = $index + 1;
+
+            PtrParticipant::create(
+                $this->participantAttributes($row)
+                + $this->claimStagedPhoto($user, $row['photo_token'], $basePath, $rowNo, $row['photo_name'] ?? null)
+                + [
+                    'post_training_report_id' => $report->id,
+                    'row_no'                  => $rowNo,
+                    'status'                  => 'pending',
+                ]
+            );
+        }
+    }
+
+    /**
+     * Normalise one encoded row into column values. Blank optional fields are
+     * stored as null rather than empty strings so the grid and the database agree.
+     */
+    private function participantAttributes(array $row): array
+    {
+        $numeric    = ['age', 'total_workers'];
+        $attributes = [];
+
+        foreach (PtrParticipant::FIELDS as $field) {
+            $value = isset($row[$field]) ? trim((string) $row[$field]) : '';
+
+            if ($value === '') {
+                $attributes[$field] = null;
+                continue;
+            }
+
+            $attributes[$field] = in_array($field, $numeric, true) ? (int) $value : $value;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Move a staged picture into the report's participants folder.
+     */
+    private function claimStagedPhoto(User $user, string $token, string $basePath, int $rowNo, ?string $originalName): array
+    {
+        $ext  = strtolower(pathinfo($token, PATHINFO_EXTENSION)) ?: 'jpg';
+        $from = $this->stagingPath($user) . '/' . $token;
+        $to   = $basePath . '/participants/participant_' . $rowNo . '_' . time() . '.' . $ext;
+
+        Storage::disk('local')->move($from, $to);
+
+        return [
+            'id_picture_path'     => $to,
+            'id_picture_filename' => $originalName ?: basename($to),
+            'id_picture_size'     => Storage::disk('local')->size($to),
+        ];
+    }
+
+    /** Where this FATPro's not-yet-submitted ID pictures wait. */
+    private function stagingPath(User $user): string
+    {
+        return 'ptr_staging/' . $user->id;
+    }
+
+    /**
+     * A staged token is only valid if it is a bare filename we wrote ourselves
+     * and the file is still on disk.
+     */
+    private function stagedPhotoExists(User $user, string $token): bool
+    {
+        if ($token !== basename($token) || !preg_match('/^[A-Za-z0-9\-]+\.(jpg|jpeg|png)$/i', $token)) {
+            return false;
+        }
+
+        return Storage::disk('local')->exists($this->stagingPath($user) . '/' . $token);
+    }
+
+    /**
+     * Drop staged pictures from abandoned encoding sessions. Runs opportunistically
+     * on upload, so no scheduled task is needed to keep the folder from growing.
+     */
+    private function pruneStagedPhotos(User $user): void
+    {
+        try {
+            $cutoff = Carbon::now()->subDay()->getTimestamp();
+
+            foreach (Storage::disk('local')->files($this->stagingPath($user)) as $path) {
+                if (Storage::disk('local')->lastModified($path) < $cutoff) {
+                    Storage::disk('local')->delete($path);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Staged ID picture prune failed: ' . $e->getMessage());
+        }
     }
 
     /**

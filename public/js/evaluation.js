@@ -1632,6 +1632,21 @@
             json.evaluations.push({ id, status, remarks });
         });
 
+        // Post Training only: the Directory of Participants is judged row by
+        // row under one set of remarks. Absent on every other evaluation page,
+        // so this stays a no-op there.
+        const participantInputs = form.querySelectorAll('input[id^="ptr-participant-status-"]');
+        if (participantInputs.length) {
+            json.participants = [];
+            participantInputs.forEach(input => {
+                json.participants.push({
+                    id: input.id.replace('ptr-participant-status-', ''),
+                    status: input.value,
+                });
+            });
+            json.directory_remarks = document.getElementById('ptr-directory-remarks')?.value ?? '';
+        }
+
         const csrfToken = window.ARMS?.csrfToken || document.querySelector('meta[name="csrf-token"]')?.content;
 
         fetch(url, {

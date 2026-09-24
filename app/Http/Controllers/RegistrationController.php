@@ -12,6 +12,7 @@ use App\Models\ApplicationStatusLog;
 use App\Models\AuthorizedRepresentative;
 use App\Models\DocumentField;
 use App\Models\Instructor;
+use App\Models\InstructorPerson;
 use App\Models\InstructorCredential;
 use App\Models\OrganizationProfile;
 use App\Models\PendingRegistration;
@@ -481,9 +482,19 @@ class RegistrationController extends Controller
                         Storage::disk('local')->move($instData['cv_path'], $cvPermanent);
                     }
 
+                    // First submission, so every instructor is a new person.
+                    $person = InstructorPerson::create([
+                        'user_id'     => $user->id,
+                        'first_name'  => $instData['first_name']  ?? '',
+                        'middle_name' => $instData['middle_name'] ?? null,
+                        'last_name'   => $instData['last_name']   ?? '',
+                        'ins_sex'     => $instData['sex']         ?? null,
+                    ]);
+
                     $instructor = Instructor::create([
                         'user_id'                => $user->id,
                         'application_id'         => $application->id,
+                        'instructor_person_id'   => $person->id,
                         'first_name'             => $instData['first_name']  ?? '',
                         'middle_name'            => $instData['middle_name'] ?? null,
                         'last_name'              => $instData['last_name']   ?? '',

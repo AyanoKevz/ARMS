@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 class NtcReport extends Model
 {
     /**
-     * How long each training runs, in working days, keyed by training type code.
+     * How many days each training runs, keyed by training type code.
      *
-     * This is what the type decides — the length of the course, not the
-     * reporting deadline. The end date follows from the start date and this
-     * number, so a FATPro picks a type and a first day and the last day is
-     * derived rather than typed.
+     * Calendar days, not working days: training may be held on a weekend and
+     * the days need not be consecutive. The number says only how many dates the
+     * NTC must carry — which dates they are is the FATPro's choice, recorded one
+     * row per day in ntc_training_dates. The start date is Day 1, so a type of N
+     * asks the FATPro for N-1 further dates and nothing at all when N is 1.
      */
     public const TRAINING_DURATION_DAYS = [
         'EFA' => 1,
@@ -23,6 +24,15 @@ class NtcReport extends Model
 
     /** Fallback when a training type code is not in the table above. */
     public const TRAINING_DURATION_DAYS_DEFAULT = 1;
+
+    /**
+     * Contact hours in one training day.
+     *
+     * A course is prescribed in hours — EFA 8, OFA 16, SFA 32 — so that is how
+     * the type selector names it. Days remain what the form actually collects,
+     * since hours cannot be put in a calendar.
+     */
+    public const HOURS_PER_TRAINING_DAY = 8;
 
     /**
      * Working days a FATPro gets to file the post training report once the
@@ -85,6 +95,34 @@ class NtcReport extends Model
     public function postTrainingReport()
     {
         return $this->hasOne(PostTrainingReport::class);
+    }
+
+    /**
+     * Every day this training runs on, earliest first.
+     */
+    public function trainingDates()
+    {
+        return $this->hasMany(NtcTrainingDate::class)->orderBy('training_date');
+    }
+
+    /**
+     * The instructors the FATPro declared would conduct this training.
+     *
+     * People rather than their per-application `instructors` rows: those are
+     * replaced on every renewal, which would leave an older training pointing
+     * at a roster entry the FATPro no longer appears to have.
+     */
+    public function instructors()
+    {
+        return $this->belongsToMany(
+            InstructorPerson::class,
+            'ntc_report_instructor',
+            'ntc_report_id',
+            'instructor_person_id'
+        )
+            ->withTimestamps()
+            ->orderBy('last_name')
+            ->orderBy('first_name');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -182,10 +220,35 @@ class NtcReport extends Model
         return Carbon::today()->lessThanOrEqualTo($deadline);
     }
 
+    /**
+     * Has the first training day arrived?
+     *
+     * True on the day itself, not the morning after: once a training is under
+     * way its declared details are a record of what was approved, not a plan
+     * still open to amendment.
+     */
+    public function hasTrainingStarted(): bool
+    {
+        return $this->training_start_date
+            && Carbon::today()->greaterThanOrEqualTo($this->training_start_date->copy()->startOfDay());
+    }
+
+    /**
+     * May a Training Evaluator still correct this submission's details?
+     *
+     * Only once it has been acknowledged — before that the FATPro is still
+     * being asked for changes through the ordinary evaluation — and only while
+     * the training has yet to begin.
+     */
+    public function detailsAreEditable(): bool
+    {
+        return $this->status === 'acknowledged' && !$this->hasTrainingStarted();
+    }
+
     // ── Training duration ─────────────────────────────────────────────────────
 
     /**
-     * How many working days this training runs, from its type.
+     * How many days this training runs, from its type.
      */
     public function trainingDurationDays(): int
     {
@@ -193,7 +256,7 @@ class NtcReport extends Model
     }
 
     /**
-     * Working-day duration for a training type code (EFA / OFA / SFA).
+     * Number of training days for a type code (EFA 1 / OFA 2 / SFA 4).
      */
     public static function durationDaysForCode(?string $code): int
     {
@@ -202,18 +265,174 @@ class NtcReport extends Model
     }
 
     /**
-     * The last training day, derived from the first day and the type.
+     * Replace this report's training days and re-derive its start and end.
      *
-     * A one-day course starting today ends tomorrow, so the duration is added
-     * whole rather than discounted by the start day. Weekends are skipped, so
-     * a four-day course beginning Thursday runs to the following Wednesday.
+     * Takes the dates already grouped by the day of the course they belong to,
+     * because one curriculum day may be delivered over several dates and the
+     * grouping cannot be recovered from the dates alone.
+     *
+     * training_start_date and training_end_date are written from the MIN and
+     * MAX across every group, which is what keeps the deadlines elsewhere (the
+     * report-of-changes window, the post training deadline,
+     * hasTrainingConcluded) reading two plain columns and knowing nothing about
+     * this table.
+     *
+     * Caller is responsible for having validated the groups against the
+     * training type; this trusts what it is given and simply records it.
+     *
+     * @param  array<int, array<int, string|\Carbon\Carbon>>  $datesByDay
      */
-    public static function trainingEndDateFor(Carbon $startDate, ?string $trainingTypeCode): Carbon
+    public function syncTrainingDates(array $datesByDay): void
     {
-        return self::addWorkingDays(
-            $startDate->copy()->startOfDay(),
-            self::durationDaysForCode($trainingTypeCode)
-        );
+        $rows = [];
+        $all  = collect();
+
+        foreach ($datesByDay as $dayNo => $dates) {
+            foreach ((array) $dates as $date) {
+                $parsed = Carbon::parse($date)->startOfDay();
+                $all->push($parsed);
+
+                $rows[] = [
+                    'ntc_report_id' => $this->id,
+                    'training_date' => $parsed->toDateString(),
+                    'day_no'        => (int) $dayNo,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ];
+            }
+        }
+
+        if (!$rows) {
+            return;
+        }
+
+        $this->trainingDates()->delete();
+        NtcTrainingDate::insert($rows);
+
+        $sorted = $all->sort()->values();
+
+        $this->forceFill([
+            'training_start_date' => $sorted->first()->toDateString(),
+            'training_end_date'   => $sorted->last()->toDateString(),
+        ])->save();
+
+        $this->unsetRelation('trainingDates');
+    }
+
+    /**
+     * The training dates grouped by the day of the course they belong to.
+     *
+     * Falls back to the start date as a lone Day 1 for a report written before
+     * the day rows existed, so a caller never has to handle an empty map.
+     *
+     * @return array<int, array<int, string>>
+     */
+    public function trainingDatesByDay(): array
+    {
+        $grouped = [];
+
+        foreach ($this->trainingDates as $row) {
+            $grouped[$row->day_no][] = $row->training_date->toDateString();
+        }
+
+        if (!$grouped && $this->training_start_date) {
+            $grouped[1] = [$this->training_start_date->toDateString()];
+        }
+
+        ksort($grouped);
+
+        foreach ($grouped as $dayNo => $dates) {
+            sort($dates);
+            $grouped[$dayNo] = $dates;
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * The training days as Y-m-d strings, earliest first.
+     *
+     * Falls back to the start date alone for a report written before the day
+     * rows existed, so a caller never has to handle an empty list.
+     *
+     * @return array<int, string>
+     */
+    public function trainingDayList(): array
+    {
+        $dates = $this->trainingDates->pluck('training_date')
+            ->map(fn ($date) => $date->toDateString())
+            ->all();
+
+        if ($dates) {
+            return $dates;
+        }
+
+        return $this->training_start_date
+            ? [$this->training_start_date->toDateString()]
+            : [];
+    }
+
+    /**
+     * The training days as a human would state them.
+     *
+     * A plain "start — end" reads as a continuous block, which it no longer
+     * has to be: days may skip weekends, or skip about entirely. Consecutive
+     * runs still collapse to a range, because spelling out four adjacent dates
+     * is noise; anything with a gap is listed in full so the reader is not
+     * misled about which days the training actually ran.
+     */
+    public function trainingPeriodLabel(): string
+    {
+        return implode(' ', $this->trainingPeriodSegments());
+    }
+
+    /**
+     * The same label as its separate pieces: dates and the separators between
+     * them, in order.
+     *
+     * Backs trainingPeriodLabel(), and exists separately for any caller that
+     * has to lay the dates out itself — a narrow column must break between
+     * dates and never inside one, since "September 05," on one line and
+     * "2026" on the next reads as a different date, and CSS cannot pick that
+     * break point on its own.
+     *
+     * @return array<int, string>
+     */
+    public function trainingPeriodSegments(): array
+    {
+        $days = collect($this->trainingDayList())->map(fn ($date) => Carbon::parse($date));
+
+        if ($days->isEmpty()) {
+            return ['N/A'];
+        }
+
+        if ($days->count() === 1) {
+            return [$days->first()->format('F d, Y')];
+        }
+
+        // Cast: Carbon returns a float here, so a bare === against the int
+        // count would never hold and every training would read as a list.
+        $spansExactly = (int) $days->first()->diffInDays($days->last()) === $days->count() - 1;
+
+        if ($spansExactly) {
+            return [
+                $days->first()->format('F d, Y'),
+                '—',
+                $days->last()->format('F d, Y'),
+            ];
+        }
+
+        $segments = [];
+
+        foreach ($days as $index => $date) {
+            if ($index > 0) {
+                $segments[] = '·';
+            }
+
+            $segments[] = $date->format('M d, Y');
+        }
+
+        return $segments;
     }
 
     // ── Post Training Report ──────────────────────────────────────────────────
@@ -331,25 +550,6 @@ class NtcReport extends Model
         }
 
         return $count;
-    }
-
-    /**
-     * Step a date back by N working days, skipping weekends. The inverse of
-     * addWorkingDays — used where a known end date has to yield its start.
-     */
-    public static function subtractWorkingDays(Carbon $from, int $workingDays): Carbon
-    {
-        $cursor = $from->copy();
-        $counted = 0;
-
-        while ($counted < $workingDays) {
-            $cursor->subDay();
-            if (!$cursor->isWeekend()) {
-                $counted++;
-            }
-        }
-
-        return $cursor;
     }
 
     /**

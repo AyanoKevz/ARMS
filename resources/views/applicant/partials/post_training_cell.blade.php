@@ -67,76 +67,49 @@
             data-action="{{ route('applicant.post_training.store', $ntc->id) }}"
             data-ntc-ref="{{ $ntc->reference_number }}"
             data-training-type="{{ $ntc->trainingType->name ?? 'N/A' }}"
-            data-training-period="{{ ($ntc->training_start_date?->format('F d, Y') ?? 'N/A') . ' — ' . ($ntc->training_end_date?->format('F d, Y') ?? 'N/A') }}"
+            data-training-mode="{{ $ntc->trainingMode->name ?? '' }}"
+            data-training-period="{{ $ntc->trainingPeriodLabel() }}"
+            data-instructor-ids="{{ json_encode($ntc->instructors->pluck('id')) }}"
             data-deadline="{{ $deadline?->format('F d, Y') ?? 'N/A' }}"
             data-overdue="{{ $isOverdue ? '1' : '0' }}">
         <i class="fas fa-cloud-upload-alt me-1"></i> Submit Report
     </button>
 
 @else
-    {{-- Filed: show where it stands, and re-open only what was declined. --}}
-    @php
-        $declined  = $ptr->declinedDocuments();
-        $approved  = $ptr->documents->where('status', 'approved')->count();
-        $totalDocs = $ptr->documents->count();
-    @endphp
+    {{-- Filed: where it stands, and the way back in if anything was declined.
 
-    <div class="mb-1">
-        @if($ptr->isAccepted())
-            <span class="badge-ptr-success">Accepted</span>
-        @elseif($declined->isNotEmpty())
-            <span class="badge-ptr-danger">Requires Re-submission</span>
-        @elseif($ptr->documents->contains('status', 'returned'))
-            <span class="badge-ptr-warning">Awaiting Re-evaluation</span>
-        @else
-            <span class="badge-ptr-info">Under Review</span>
-        @endif
-    </div>
+         Deliberately just that. The per-section outcomes used to be spelled out
+         here as a row of chips and a tally, which restated what the status
+         badge already says and what the dialog shows properly. --}}
+    @php $toCorrect = $ptr->declinedSectionCount(); @endphp
 
-    <div class="ptr-ref-link ptr-text-80">{{ $ptr->reference_number }}</div>
-    <div class="ptr-muted-line">
-        Submitted {{ $ptr->submitted_at?->format('F d, Y') ?? 'N/A' }}
-        @if($ptr->wasSubmittedLate())
-            <span class="ptr-deadline-pill ptr-deadline-over ms-1 ptr-text-65">Late</span>
-        @endif
-    </div>
-    <div class="ptr-muted-line mb-2">{{ $approved }} / {{ $totalDocs }} documents accepted</div>
-
-    {{-- Compact chips: one per attachment, colour-coded by outcome --}}
-    <div class="d-flex flex-wrap gap-1 mb-2">
-        @foreach($ptr->documents->sortBy(fn($d) => $d->documentType->sort_order ?? 0) as $doc)
-            @php
-                $isDeclined = ($doc->status === 'rejected' && !$doc->file_path);
-                $chipClass = match(true) {
-                    $isDeclined                   => 'badge-ptr-danger',
-                    $doc->status === 'approved'   => 'badge-ptr-success',
-                    $doc->status === 'returned'   => 'badge-ptr-warning',
-                    default                       => 'badge-ptr-secondary',
-                };
-            @endphp
-            @if($doc->file_path)
-                <a href="{{ route('applicant.post_training.document.view', $doc->id) }}"
-                   target="_blank"
-                   class="{{ $chipClass }} text-decoration-none ptr-chip"
-                   title="{{ $doc->documentType->name ?? 'Document' }}">
-                    {{ $doc->documentType->code ?? 'DOC' }}
-                </a>
+    <div class="ptr-status-block">
+        <div>
+            @if($ptr->isAccepted())
+                <span class="badge-ptr-success">Accepted</span>
+            @elseif($toCorrect > 0)
+                <span class="badge-ptr-danger">Requires Re-submission</span>
+            @elseif($ptr->documents->contains('status', 'returned'))
+                <span class="badge-ptr-warning">Awaiting Re-evaluation</span>
             @else
-                <span class="{{ $chipClass }} ptr-chip"
-                      title="{{ $doc->documentType->name ?? 'Document' }} — declined, awaiting re-upload">
-                    <i class="fas fa-times"></i> {{ $doc->documentType->code ?? 'DOC' }}
-                </span>
+                <span class="badge-ptr-info">Under Review</span>
             @endif
-        @endforeach
+        </div>
+
+        <div class="ptr-muted-line">
+            Submitted {{ $ptr->submitted_at?->format('F d, Y') ?? 'N/A' }}
+            @if($ptr->wasSubmittedLate())
+                <span class="ptr-deadline-pill ptr-deadline-over ms-1 ptr-text-65">Late</span>
+            @endif
+        </div>
     </div>
 
-    @if($declined->isNotEmpty())
+    @if($toCorrect > 0)
         <button type="button"
                 class="btn btn-danger btn-sm fw-bold w-100 d-inline-flex align-items-center justify-content-center gap-1 ptr-btn-reupload"
                 data-bs-toggle="modal"
                 data-bs-target="#ptrReuploadModal-{{ $ptr->id }}">
-            <i class="fas fa-cloud-upload-alt"></i>
-            Re-upload {{ $declined->count() }} Declined {{ Str::plural('Document', $declined->count()) }}
+            Correct {{ $toCorrect }} Declined {{ Str::plural('Item', $toCorrect) }}
         </button>
     @elseif($ptr->isAccepted())
         <div class="ptr-muted-line">

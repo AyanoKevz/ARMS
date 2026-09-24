@@ -68,7 +68,7 @@ class InstructorCredentialExpiryCheck extends Command
         $expired = $this->activeAccreditedCredentials()
             ->where('status', 'approved')
             ->whereNotNull('validity_date')
-            ->whereDate('validity_date', '<', $today)
+            ->where('validity_date', '<', $today->toDateString())
             ->with(['instructor.user', 'instructor.application.user'])
             ->get();
 
@@ -108,8 +108,8 @@ class InstructorCredentialExpiryCheck extends Command
             ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_3mo_sent_at')
-            ->whereDate('validity_date', '<=', $threeMonthsFromNow)
-            ->whereDate('validity_date', '>=', $today)
+            ->where('validity_date', '<=', $threeMonthsFromNow->toDateString())
+            ->where('validity_date', '>=', $today->toDateString())
             ->with(['instructor.user', 'instructor.application.user'])
             ->get();
 
@@ -134,8 +134,8 @@ class InstructorCredentialExpiryCheck extends Command
             ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_2mo_sent_at')
-            ->whereDate('validity_date', '<=', $twoMonthsFromNow)
-            ->whereDate('validity_date', '>', $oneMonthFromNow)
+            ->where('validity_date', '<=', $twoMonthsFromNow->toDateString())
+            ->where('validity_date', '>', $oneMonthFromNow->toDateString())
             ->with(['instructor.user', 'instructor.application.user'])
             ->get();
 
@@ -160,8 +160,8 @@ class InstructorCredentialExpiryCheck extends Command
             ->where('status', 'approved')
             ->whereNotNull('validity_date')
             ->whereNull('reminder_1mo_sent_at')
-            ->whereDate('validity_date', '<=', $oneMonthFromNow)
-            ->whereDate('validity_date', '>=', $today)
+            ->where('validity_date', '<=', $oneMonthFromNow->toDateString())
+            ->where('validity_date', '>=', $today->toDateString())
             ->with(['instructor.user', 'instructor.application.user'])
             ->get();
 

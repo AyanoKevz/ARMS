@@ -367,7 +367,20 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
             <i class="bi bi-info-circle-fill text-white" style="font-size:.95rem;"></i>
         </div>
         <h5 class="mb-0">NTC Submission Details</h5>
-        <i class="bi bi-chevron-down ms-auto" id="ntcDetailsChevron"></i>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            @if($canEditDetails)
+                {{-- Stops the click reaching the header's collapse toggle. --}}
+                <button type="button"
+                        class="btn btn-outline-primary btn-xs px-2 py-0"
+                        style="font-size:.78rem;"
+                        data-bs-toggle="modal"
+                        data-bs-target="#ntcDetailsEditModal"
+                        onclick="event.stopPropagation();">
+                    <i class="bi bi-pencil-square me-1"></i>Edit
+                </button>
+            @endif
+            <i class="bi bi-chevron-down" id="ntcDetailsChevron"></i>
+        </div>
     </div>
     <div id="ntcDetailsBody" class="collapse show">
         <div class="row mt-2">
@@ -411,16 +424,23 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     <div class="val">{{ $fatproName }}</div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+            {{-- One cell rather than Start and End: the days may be
+                 non-consecutive, and a pair of endpoints would imply a
+                 continuous block the training never ran as. --}}
+            <div class="col-md-6 col-12">
                 <div class="info-pair">
-                    <div class="lbl">Training Start</div>
-                    <div class="val">{{ $ntcReport->training_start_date?->format('M d, Y') ?? '—' }}</div>
+                    <div class="lbl">Training Days ({{ $ntcReport->trainingDurationDays() }})</div>
+                    <div class="val">{{ $ntcReport->trainingPeriodLabel() }}</div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-md-6 col-12">
                 <div class="info-pair">
-                    <div class="lbl">Training End</div>
-                    <div class="val">{{ $ntcReport->training_end_date?->format('M d, Y') ?? '—' }}</div>
+                    <div class="lbl">Instructors Conducting</div>
+                    <div class="val">
+                        {{ $ntcReport->instructors->isEmpty()
+                            ? '—'
+                            : $ntcReport->instructors->map->listingName()->implode('; ') }}
+                    </div>
                 </div>
             </div>
             <div class="col-md-3 col-6">
@@ -689,6 +709,10 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
 </div>
 @endif
 
+@if($canEditDetails)
+    @include('admin.hcd.reports.partials.ntc_details_edit_modal')
+@endif
+
 @endsection
 
 @push('scripts')
@@ -698,4 +722,32 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
     window.ARMS.ntcEvaluateUrlBase = '{{ url("admin/hcd/reports/ntc/documents") }}';
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
+@if($canEditDetails)
+    {{-- The same pickers the FATPro's NTC form uses. --}}
+    <script src="{{ asset('js/ntc-training-picker.js') }}?v={{ filemtime(public_path('js/ntc-training-picker.js')) }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var picker = window.NtcTrainingPicker;
+            if (!picker) return;
+
+            var days = picker.wireTrainingDays('admin_', 'admin_ntc_training_type_id');
+            var crew = picker.wireInstructorPicker('admin_');
+            picker.link(days, crew);
+
+            var form = document.getElementById('ntcDetailsEditForm');
+            if (!form) return;
+
+            form.addEventListener('submit', function (e) {
+                var ok = true;
+                if (days && !days.validate()) ok = false;
+                if (crew && !crew.validate()) ok = false;
+
+                if (!ok || !form.checkValidity()) {
+                    e.preventDefault();
+                    form.reportValidity();
+                }
+            });
+        });
+    </script>
+@endif
 @endpush

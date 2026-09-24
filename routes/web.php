@@ -133,8 +133,15 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // of its own. The index route is kept as a redirect because reminder
         // emails already in inboxes point at it.
         Route::get('/post-training', fn () => redirect()->route('applicant.ntc.index'))->name('post_training.index');
+        // ID pictures upload one at a time while the Directory is being encoded.
+        // Posted together they would have to fit one request's post_max_size, and
+        // a host at PHP's default max_file_uploads would silently drop the rest.
+        Route::post('/post-training/participant-photo', [PostTrainingReportController::class, 'stageParticipantPhoto'])->name('post_training.participant_photo')->middleware('throttle:120,1');
         Route::post('/post-training/{ntcReport}', [PostTrainingReportController::class, 'store'])->name('post_training.store')->middleware('throttle:10,1');
         Route::post('/post-training/{postTrainingReport}/reupload', [PostTrainingReportController::class, 'reuploadBatch'])->name('post_training.reupload_batch')->middleware('throttle:10,1');
+        Route::post('/post-training/{postTrainingReport}/participants', [PostTrainingReportController::class, 'updateParticipants'])->name('post_training.participants.update')->middleware('throttle:10,1');
+        Route::post('/post-training/{postTrainingReport}/instructors', [PostTrainingReportController::class, 'updateInstructors'])->name('post_training.instructors.update')->middleware('throttle:10,1');
+        Route::post('/post-training/{postTrainingReport}/corrections', [PostTrainingReportController::class, 'submitCorrections'])->name('post_training.corrections')->middleware('throttle:10,1');
     });
 
     // 'admin' is the allow-list that the controllers' per-role deny-lists do not
@@ -209,11 +216,13 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');
             Route::post('/reports/ntc/{ntcReport}/finalize-evaluation', [AdminNtcController::class, 'finalizeEvaluation'])->name('reports.ntc.finalize_evaluation');
+            Route::post('/reports/ntc/{ntcReport}/details', [AdminNtcController::class, 'updateDetails'])->name('reports.ntc.details.update')->middleware('throttle:10,1');
 
             // Post Training Reports
             Route::get('/reports/post-training', [AdminPostTrainingReportController::class, 'index'])->name('reports.post_training.index');
             Route::get('/reports/post-training/{postTrainingReport}', [AdminPostTrainingReportController::class, 'show'])->name('reports.post_training.show');
             Route::post('/reports/post-training/documents/{document}/evaluate', [AdminPostTrainingReportController::class, 'evaluateDocument'])->name('reports.post_training.documents.evaluate');
+            Route::post('/reports/post-training/participants/{participant}/evaluate', [AdminPostTrainingReportController::class, 'evaluateParticipant'])->name('reports.post_training.participants.evaluate');
             Route::post('/reports/post-training/{postTrainingReport}/finalize-evaluation', [AdminPostTrainingReportController::class, 'finalizeEvaluation'])->name('reports.post_training.finalize_evaluation');
         });
 
@@ -266,6 +275,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
     Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
     Route::get('/admin/hcd/reports/post-training/documents/{document}/view', [AdminPostTrainingReportController::class, 'serveDocument'])->name('admin.hcd.reports.post_training.document.view');
+    Route::get('/admin/hcd/reports/post-training/participants/{participant}/photo', [AdminPostTrainingReportController::class, 'serveParticipantPhoto'])->name('admin.hcd.reports.post_training.participant.photo');
 
     // Accreditation Division file viewers (Verifier Portal)
     Route::get('/admin/accreditation/documents/{document}/view', [AccreditationApplicationController::class, 'serveDocument'])->name('admin.accreditation.documents.view');
@@ -284,6 +294,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/applicant/documents/{document}/view', [RenewalController::class, 'serveDocument'])->name('applicant.documents.view');
     Route::get('/applicant/user-documents/{userDocument}/view', [RenewalController::class, 'serveUserDocument'])->name('applicant.user_documents.view');
     Route::get('/applicant/post-training/documents/{document}/view', [PostTrainingReportController::class, 'serveDocument'])->name('applicant.post_training.document.view');
+    Route::get('/applicant/post-training/participants/{participant}/photo', [PostTrainingReportController::class, 'serveParticipantPhoto'])->name('applicant.post_training.participant.photo');
 });
 
 // Password Reset Routes

@@ -342,6 +342,28 @@
                 var overdueEl = document.getElementById('ptrModalOverdue');
                 if (overdueEl) overdueEl.hidden = this.getAttribute('data-overdue') !== '1';
 
+                // Rebuild the Directory for this training, with its mode pre-filled.
+                if (window.ptrDirectory) {
+                    window.ptrDirectory.reset(this.getAttribute('data-training-mode'));
+                }
+
+                // Tick the instructors this NTC declared.
+                if (window.ptrInstructors) {
+                    window.ptrInstructors.reset(this.getAttribute('data-instructor-ids'));
+                }
+
+                if (window.ptrWizard) window.ptrWizard.reset();
+
+                // The wizard resets its steps but not the values inside them,
+                // and the remarks box sits outside it entirely.
+                ['ptr_training_video_url', 'ptr_applicant_remarks'].forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) {
+                        el.value = '';
+                        el.classList.remove('is-invalid');
+                    }
+                });
+
                 // A fresh dialog every time — never carry a previous pick over.
                 modalEl.querySelectorAll('.ptr-file-drop-zone').forEach(function (zone) {
                     if (typeof zone.ptrClear === 'function') zone.ptrClear();
@@ -357,49 +379,18 @@
 
         if (form) {
             form.addEventListener('submit', function (e) {
-                var valid = true;
-
-                form.querySelectorAll('.ptr-file-drop-zone').forEach(function (zone) {
-                    var input = zone.querySelector('.ptr-file-input');
-                    if (!input || input.files.length > 0) return;
-
-                    zone.classList.add('is-invalid-zone');
-                    var errorEl = document.getElementById('error_' + input.id);
-                    if (errorEl) errorEl.classList.remove('d-none');
-                    valid = false;
-                });
-
-                if (!valid) {
+                // Every step is checked here, because the footer only ever shows
+                // the last one and an earlier gap would otherwise reach the server.
+                if (window.ptrWizard && !window.ptrWizard.validateAll()) {
                     e.preventDefault();
-                    var firstBad = form.querySelector('.ptr-file-drop-zone.is-invalid-zone');
-                    if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     return;
                 }
 
-                lockSubmit(form.querySelector('button[type="submit"]'));
+                lockSubmit(document.getElementById('ptrStepSubmit'));
             });
         }
 
         // ── Re-upload forms ──────────────────────────────────────
-        document.querySelectorAll('.ptr-reupload-form').forEach(function (reuploadForm) {
-            reuploadForm.addEventListener('submit', function (e) {
-                var valid = true;
-
-                reuploadForm.querySelectorAll('.ptr-compact-drop-zone').forEach(function (zone) {
-                    var input = zone.querySelector('.ptr-file-input');
-                    if (!input || input.files.length > 0) return;
-                    zone.classList.add('is-invalid-zone');
-                    valid = false;
-                });
-
-                if (!valid) {
-                    e.preventDefault();
-                    return;
-                }
-
-                lockSubmit(reuploadForm.querySelector('button[type="submit"]'));
-            });
-        });
     });
 
     function setText(id, value) {
@@ -412,4 +403,621 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
     }
+})();
+
+/**
+ * Directory of Participants — the encoding grid inside the submission modal.
+ *
+ * PHP request limits dictate the shape of this. The whole batch cannot ride in
+ * one POST — at up to 5 MB an ID picture, post_max_size runs out well before a
+ * large directory does — so each picture uploads on its own the moment it is
+ * chosen and the form carries only a token. The rows are serialised into one
+ * JSON field instead of ~19 named inputs each, keeping them clear of
+ * max_input_vars. Both count limits truncate silently when exceeded, and host
+ * defaults are far lower than this stack's, so neither is left to chance.
+ */
+(function () {
+    'use strict';
+
+    var REQUIRED = [
+        'certificate_number', 'last_name', 'first_name', 'sex', 'age',
+        'company', 'position', 'company_city', 'company_region',
+        'industry', 'mobile_no', 'mode_of_training'
+    ];
+
+    var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+    var MAX_ROWS = 500;
+
+    var body, template, payload, emptyMsg, errorMsg, countEl, pluralEl, modalEl;
+    var defaultMode = '';
+
+    function $(id) { return document.getElementById(id); }
+
+    function photoUrl() {
+        return modalEl ? (modalEl.getAttribute('data-photo-url') || '') : '';
+    }
+
+    function csrfToken() {
+        var input = document.querySelector('#ptrSubmitForm input[name="_token"]');
+        if (input) return input.value;
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    function rows() {
+        return body ? Array.prototype.slice.call(body.querySelectorAll('.ptr-dir-row')) : [];
+    }
+
+    function renumber() {
+        var all = rows();
+
+        all.forEach(function (row, i) {
+            var cell = row.querySelector('.ptr-dir-rowno');
+            if (cell) cell.textContent = String(i + 1);
+        });
+
+        if (countEl) countEl.textContent = String(all.length);
+        if (pluralEl) pluralEl.textContent = all.length === 1 ? '' : 's';
+        if (emptyMsg) emptyMsg.classList.toggle('d-none', all.length > 0);
+    }
+
+    function field(row, name) {
+        return row.querySelector('[data-field="' + name + '"]');
+    }
+
+    function valueOf(row, name) {
+        var el = field(row, name);
+        return el ? el.value.trim() : '';
+    }
+
+    // ── Photo upload ──────────────────────────────────────────────────────────
+
+    function uploadPhoto(row, file) {
+        var state = row.querySelector('.ptr-dir-photo-state');
+        var button = row.querySelector('.ptr-dir-photo-btn');
+
+        if (file.size > MAX_PHOTO_BYTES) {
+            setPhotoState(state, 'error', 'Over 5 MB');
+            return;
+        }
+
+        var data = new FormData();
+        data.append('photo', file);
+        data.append('_token', csrfToken());
+
+        setPhotoState(state, 'busy', 'Uploading…');
+        if (button) button.disabled = true;
+
+        fetch(photoUrl(), {
+            method: 'POST',
+            body: data,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(function (res) {
+                return res.json().then(function (json) {
+                    if (!res.ok) throw new Error(firstError(json) || 'Upload failed');
+                    return json;
+                });
+            })
+            .then(function (json) {
+                row.setAttribute('data-photo-token', json.token);
+                row.setAttribute('data-photo-name', json.filename || '');
+                setPhotoState(state, 'ok', json.filename || 'Uploaded');
+            })
+            .catch(function (err) {
+                row.removeAttribute('data-photo-token');
+                setPhotoState(state, 'error', err.message || 'Upload failed');
+            })
+            .then(function () {
+                if (button) button.disabled = false;
+            });
+    }
+
+    function firstError(json) {
+        if (!json) return '';
+        if (json.message && !json.errors) return json.message;
+        if (json.errors) {
+            for (var key in json.errors) {
+                if (Object.prototype.hasOwnProperty.call(json.errors, key)) {
+                    return json.errors[key][0];
+                }
+            }
+        }
+        return '';
+    }
+
+    function setPhotoState(el, kind, text) {
+        if (!el) return;
+        el.className = 'ptr-dir-photo-state is-' + kind;
+        el.textContent = text;
+        el.title = text;
+    }
+
+    // ── Rows ──────────────────────────────────────────────────────────────────
+
+    function addRows(count) {
+        if (!body || !template) return;
+
+        var existing = rows().length;
+        var room = MAX_ROWS - existing;
+
+        if (room <= 0) return;
+        if (count > room) count = room;
+
+        for (var i = 0; i < count; i++) {
+            var fragment = template.content.cloneNode(true);
+            var row = fragment.querySelector('.ptr-dir-row');
+
+            // Both pre-fill from the training, and both stay editable per row.
+            var mode = field(row, 'mode_of_training');
+            if (mode) mode.value = defaultMode;
+
+            var batch = field(row, 'batch_no');
+            var batchAll = $('ptrDirBatchAll');
+            if (batch && batchAll) batch.value = batchAll.value.trim();
+
+            wireRow(row);
+            body.appendChild(fragment);
+        }
+
+        renumber();
+    }
+
+    function wireRow(row) {
+        var remove = row.querySelector('.ptr-dir-remove');
+        if (remove) {
+            remove.addEventListener('click', function () {
+                row.parentNode.removeChild(row);
+                renumber();
+            });
+        }
+
+        var button = row.querySelector('.ptr-dir-photo-btn');
+        var input = row.querySelector('.ptr-dir-photo-input');
+
+        if (button && input) {
+            button.addEventListener('click', function () { input.click(); });
+            input.addEventListener('change', function () {
+                if (input.files && input.files[0]) uploadPhoto(row, input.files[0]);
+            });
+        }
+
+        row.querySelectorAll('.ptr-dir-input').forEach(function (el) {
+            el.addEventListener('input', function () { el.classList.remove('is-invalid-cell'); });
+            el.addEventListener('change', function () { el.classList.remove('is-invalid-cell'); });
+        });
+    }
+
+    // ── Validation + serialisation ────────────────────────────────────────────
+
+    function validateAndSerialize(silent) {
+        if (!payload) return true;
+
+        var all = rows();
+        var problems = 0;
+        var seen = {};
+
+        if (all.length === 0) {
+            if (!silent) showError('Encode at least one participant in the Directory of Participants.');
+            return false;
+        }
+
+        var data = all.map(function (row) {
+            var entry = {};
+
+            row.querySelectorAll('[data-field]').forEach(function (el) {
+                entry[el.getAttribute('data-field')] = el.value.trim();
+            });
+
+            REQUIRED.forEach(function (name) {
+                if (entry[name]) return;
+                if (!silent) {
+                    var el = field(row, name);
+                    if (el) el.classList.add('is-invalid-cell');
+                }
+                problems++;
+            });
+
+            // A certificate number may repeat across trainings, never within one.
+            var cert = (entry.certificate_number || '').toLowerCase();
+            if (cert) {
+                if (seen[cert]) {
+                    if (!silent) {
+                        var dup = field(row, 'certificate_number');
+                        if (dup) dup.classList.add('is-invalid-cell');
+                    }
+                    problems++;
+                } else {
+                    seen[cert] = true;
+                }
+            }
+
+            var token = row.getAttribute('data-photo-token');
+            if (!token) {
+                if (!silent) {
+                    setPhotoState(row.querySelector('.ptr-dir-photo-state'), 'error', 'Required');
+                }
+                problems++;
+            }
+
+            entry.photo_token = token || '';
+            entry.photo_name = row.getAttribute('data-photo-name') || '';
+
+            return entry;
+        });
+
+        if (problems > 0) {
+            if (!silent) {
+                showError('Complete every highlighted field. Each participant also needs an ID picture.');
+                var firstBad = body.querySelector('.is-invalid-cell, .ptr-dir-photo-state.is-error');
+                if (firstBad && firstBad.scrollIntoView) {
+                    firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            return false;
+        }
+
+        hideError();
+        payload.value = JSON.stringify(data);
+        return true;
+    }
+
+    function showError(text) {
+        if (!errorMsg) return;
+        errorMsg.textContent = text;
+        errorMsg.classList.remove('d-none');
+    }
+
+    function hideError() {
+        if (errorMsg) errorMsg.classList.add('d-none');
+    }
+
+    // ── Public surface, used by the submission modal ──────────────────────────
+
+    function reset(mode) {
+        defaultMode = mode || '';
+
+        if (body) body.innerHTML = '';
+        if (payload) payload.value = '';
+
+        var batchAll = $('ptrDirBatchAll');
+        if (batchAll) batchAll.value = '';
+
+        var addCount = $('ptrDirAddCount');
+        if (addCount) addCount.value = '1';
+
+        hideError();
+        addRows(1);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        modalEl = $('ptrSubmitModal');
+        body = $('ptrDirBody');
+        template = $('ptrDirRowTemplate');
+        payload = $('ptrDirPayload');
+        emptyMsg = $('ptrDirEmpty');
+        errorMsg = $('error_ptr_directory');
+        countEl = $('ptrDirCount');
+        pluralEl = $('ptrDirCountPlural');
+
+        if (!body || !template) return;
+
+        var addBtn = $('ptrDirAddRows');
+        if (addBtn) {
+            addBtn.addEventListener('click', function () {
+                var input = $('ptrDirAddCount');
+                var n = parseInt(input ? input.value : '1', 10);
+                if (isNaN(n) || n < 1) n = 1;
+                if (n > 50) n = 50;
+                addRows(n);
+            });
+        }
+
+        var applyBtn = $('ptrDirApplyBatch');
+        if (applyBtn) {
+            applyBtn.addEventListener('click', function () {
+                var batchAll = $('ptrDirBatchAll');
+                var value = batchAll ? batchAll.value.trim() : '';
+
+                rows().forEach(function (row) {
+                    var cell = field(row, 'batch_no');
+                    if (cell) cell.value = value;
+                });
+            });
+        }
+
+        renumber();
+    });
+
+    window.ptrDirectory = {
+        reset: reset,
+        validateAndSerialize: validateAndSerialize
+    };
+})();
+
+/**
+ * Submission wizard — one requirement per step.
+ *
+ * Next validates the step you are leaving, so a problem surfaces where it was
+ * made rather than all at once on submit. The rail is free to click, though:
+ * reviewing an earlier step should never be blocked by a later one.
+ */
+(function () {
+    'use strict';
+
+    var wizard, panels, reqItems, backBtn, nextBtn, submitBtn;
+    var current = 1;
+    var total = 0;
+
+    function panelFor(step) {
+        return wizard ? wizard.querySelector('.ptr-step-panel[data-step="' + step + '"]') : null;
+    }
+
+    function requirementFor(step) {
+        return wizard ? wizard.querySelector('.ptr-req[data-goto="' + step + '"]') : null;
+    }
+
+    function goTo(step) {
+        if (!wizard || step < 1 || step > total) return;
+
+        current = step;
+
+        panels.forEach(function (panel) {
+            var isCurrent = Number(panel.getAttribute('data-step')) === step;
+            panel.classList.toggle('is-active', isCurrent);
+            panel.hidden = !isCurrent;
+        });
+
+        reqItems.forEach(function (item) {
+            var isCurrent = Number(item.getAttribute('data-goto')) === step;
+            item.classList.toggle('is-current', isCurrent);
+            item.setAttribute('aria-current', isCurrent ? 'step' : 'false');
+        });
+
+        if (backBtn) backBtn.hidden = step === 1;
+        if (nextBtn) nextBtn.hidden = step === total;
+        if (submitBtn) submitBtn.hidden = step !== total;
+
+        refreshTicks();
+
+        // A long grid leaves the body scrolled down; the next step should open
+        // at its own beginning.
+        var body = wizard.closest('.modal-body');
+        if (body) body.scrollTop = 0;
+    }
+
+    /** True when the step has what it needs. `silent` checks without complaining. */
+    function validateStep(step, silent) {
+        var panel = panelFor(step);
+        if (!panel) return true;
+
+        var kind = panel.getAttribute('data-kind');
+
+        if (kind === 'directory') {
+            return window.ptrDirectory
+                ? window.ptrDirectory.validateAndSerialize(silent)
+                : true;
+        }
+
+        if (kind === 'roster') {
+            return window.ptrInstructors
+                ? window.ptrInstructors.validate(silent)
+                : true;
+        }
+
+        // The closing Remarks step is optional by design, so it is always
+        // satisfied — it exists to be read, not to be filled in.
+        if (kind === 'remarks') {
+            return true;
+        }
+
+        if (kind === 'link') {
+            var url = panel.querySelector('input[type="url"]');
+            var ok  = !!(url && url.value.trim() !== '' && url.checkValidity());
+
+            if (!silent) {
+                var urlError = panel.querySelector('.ptr-field-error');
+
+                if (url) url.classList.toggle('is-invalid', !ok);
+                if (urlError) urlError.classList.toggle('d-none', ok);
+            }
+
+            return ok;
+        }
+
+        var input = panel.querySelector('.ptr-file-input');
+        var ok = !!(input && input.files && input.files.length > 0);
+
+        if (!silent) {
+            var zone = panel.querySelector('.ptr-file-drop-zone');
+            var error = panel.querySelector('.ptr-field-error');
+
+            if (zone) zone.classList.toggle('is-invalid-zone', !ok);
+            if (error) error.classList.toggle('d-none', ok);
+        }
+
+        return ok;
+    }
+
+    /** Tick every requirement that is already satisfied. */
+    function refreshTicks() {
+        for (var step = 1; step <= total; step++) {
+            var item = requirementFor(step);
+            if (item) item.classList.toggle('is-done', validateStep(step, true));
+        }
+    }
+
+    /**
+     * Check every step and stop on the first that fails, so the FATPro lands on
+     * the problem instead of being told the form is invalid somewhere.
+     */
+    function validateAll() {
+        for (var step = 1; step <= total; step++) {
+            if (validateStep(step, true)) continue;
+
+            goTo(step);
+            validateStep(step, false);
+            return false;
+        }
+
+        // Re-run the Directory unsilenced so its payload is serialised for the post.
+        for (var i = 1; i <= total; i++) {
+            var panel = panelFor(i);
+            if (panel && panel.getAttribute('data-kind') === 'directory') {
+                if (!validateStep(i, false)) {
+                    goTo(i);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function reset() {
+        if (!wizard) return;
+
+        reqItems.forEach(function (item) { item.classList.remove('is-done'); });
+        goTo(1);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        wizard = document.getElementById('ptrWizard');
+        if (!wizard) return;
+
+        panels = Array.prototype.slice.call(wizard.querySelectorAll('.ptr-step-panel'));
+        reqItems = Array.prototype.slice.call(wizard.querySelectorAll('.ptr-req'));
+        total = panels.length;
+
+        backBtn = document.getElementById('ptrStepBack');
+        nextBtn = document.getElementById('ptrStepNext');
+        submitBtn = document.getElementById('ptrStepSubmit');
+
+        if (backBtn) {
+            backBtn.addEventListener('click', function () { goTo(current - 1); });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function () {
+                if (validateStep(current, false)) goTo(current + 1);
+            });
+        }
+
+        reqItems.forEach(function (item) {
+            item.addEventListener('click', function () {
+                goTo(Number(item.getAttribute('data-goto')));
+            });
+        });
+
+        // Picking a file satisfies its step straight away.
+        wizard.querySelectorAll('.ptr-file-input').forEach(function (input) {
+            input.addEventListener('change', refreshTicks);
+        });
+
+        goTo(1);
+    });
+
+    window.ptrWizard = {
+        reset: reset,
+        goTo: goTo,
+        validateAll: validateAll
+    };
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   Instructors who conducted the training (wizard step 2)
+
+   Requirement 2 is no longer a PDF. The submission dialog is one modal
+   retargeted per training, so the whole accredited roster is rendered
+   once and this ticks whichever instructors the chosen NTC declared.
+
+   A declared instructor stays selectable whatever has since happened to
+   their credentials — they taught the course. Anyone else is a late
+   addition and is disabled unless currently eligible, which is the same
+   line resolveReportInstructors() draws server-side.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    var root;
+
+    function options() {
+        return root
+            ? Array.prototype.slice.call(root.querySelectorAll('[data-ptr-instructor-option]'))
+            : [];
+    }
+
+    function checkboxOf(option) {
+        return option.querySelector('input[type="checkbox"]');
+    }
+
+    function errorEl() {
+        return document.getElementById('error_ptr_instructors');
+    }
+
+    window.ptrInstructors = {
+        /**
+         * Point the picker at one training: tick its declared instructors and
+         * lock anyone else who could not be added now.
+         */
+        reset: function (declaredJson) {
+            if (!root) return;
+
+            var declared = [];
+            try {
+                var parsed = JSON.parse(declaredJson || '[]');
+                if (Array.isArray(parsed)) declared = parsed.map(Number);
+            } catch (err) {
+                declared = [];
+            }
+
+            options().forEach(function (option) {
+                var input = checkboxOf(option);
+                if (!input) return;
+
+                var id         = Number(input.value);
+                var wasOnNtc   = declared.indexOf(id) !== -1;
+                var blocked    = Boolean(option.getAttribute('data-reason')) && !wasOnNtc;
+
+                input.disabled = blocked;
+                input.checked  = wasOnNtc;
+                option.classList.toggle('is-ineligible', blocked);
+            });
+
+            var error = errorEl();
+            if (error) error.classList.add('d-none');
+        },
+
+        /** True when at least one instructor is named. */
+        validate: function (silent) {
+            if (!root) return true;
+
+            var chosen = options().some(function (option) {
+                var input = checkboxOf(option);
+                return input && input.checked && !input.disabled;
+            });
+
+            if (!silent) {
+                var error = errorEl();
+                if (error) error.classList.toggle('d-none', chosen);
+            }
+
+            return chosen;
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        root = document.querySelector('[data-ptr-instructors]');
+        if (!root) return;
+
+        // Clear the complaint as soon as the gap is filled, rather than making
+        // the FATPro press Next again to find out it is satisfied.
+        root.addEventListener('change', function () {
+            var error = errorEl();
+            if (error && !error.classList.contains('d-none')) {
+                window.ptrInstructors.validate(false);
+            }
+        });
+    });
 })();

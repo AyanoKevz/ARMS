@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,6 +13,7 @@ class Instructor extends Model
     protected $fillable = [
         'user_id',
         'application_id',
+        'instructor_person_id',
         'first_name',
         'middle_name',
         'last_name',
@@ -48,6 +50,17 @@ class Instructor extends Model
     }
 
     /**
+     * The human this submission is for.
+     *
+     * A renewal files a fresh row for the same person, so this — not the row's
+     * own id — is what identifies who the instructor actually is.
+     */
+    public function person()
+    {
+        return $this->belongsTo(InstructorPerson::class, 'instructor_person_id');
+    }
+
+    /**
      * All credentials attached to this instructor.
      */
     public function credentials()
@@ -79,10 +92,9 @@ class Instructor extends Model
      * The instructor roster attached to a FATPro's CURRENT accreditation.
      *
      * Every application carries its own copy of the roster — submitting a renewal
-     * or reinstatement clones each instructor against the new application_id — so
-     * a FATPro who has renewed has two rows per person. They are not reliably
-     * separated by name either: a middle name filled in on one copy and blank on
-     * the other reads as two different people.
+     * or reinstatement files each instructor afresh against the new application_id
+     * — so a FATPro who has renewed has several rows per person, tied together by
+     * instructor_person_id.
      *
      * Scoping to the application behind the active accreditation shows exactly one
      * entry per instructor, and self-corrects: once a renewal is approved it
@@ -100,7 +112,7 @@ class Instructor extends Model
             ->orderByDesc('id')
             ->value('application_id');
 
-        $query = static::where('user_id', $userId)->with('credentials');
+        $query = static::where('user_id', $userId)->with(['credentials', 'person']);
 
         if ($accreditedApplicationId) {
             $query->where(function ($q) use ($accreditedApplicationId) {
@@ -126,12 +138,139 @@ class Instructor extends Model
 
         return $query->orderBy('id', 'desc')
             ->get()
-            // Safety net for legacy rows that predate application scoping.
-            ->unique(fn ($item) => strtolower(
-                trim($item->first_name) . '|' . trim($item->middle_name) . '|' . trim($item->last_name)
-            ))
+            // One entry per human. Keyed on the person where there is one, and
+            // falling back to the spelling only for rows filed before people
+            // existed — which is the weaker test, since a middle name present on
+            // one copy and blank on another reads as two different instructors.
+            ->unique(fn ($item) => $item->instructor_person_id
+                ? 'person:' . $item->instructor_person_id
+                : 'name:' . strtolower(
+                    trim($item->first_name) . '|' . trim($item->middle_name) . '|' . trim($item->last_name)
+                ))
             ->sortBy('last_name')
             ->values();
+    }
+
+    /**
+     * May this instructor be declared on an NTC for a training ending on $asOf?
+     *
+     * "Active with no expired credentials" means three things at once: the
+     * instructor themselves cleared evaluation, their CV is not blocking, and
+     * every credential they have on file is approved and still valid on the
+     * LAST day of the training — not merely on the day the NTC is filed. A
+     * credential that lapses midway through a four-day course would otherwise
+     * slip through, because InstructorCredentialExpiryCheck only flips a row to
+     * 'expired' once the date has actually passed.
+     *
+     * A credential with no validity_date on file cannot be shown to have
+     * expired, so it passes on its date and is judged on its status alone.
+     *
+     * @param  \Carbon\Carbon|null  $asOf  Last training day; defaults to today.
+     */
+    public function isEligibleToConduct(?Carbon $asOf = null): bool
+    {
+        return $this->ineligibilityReason($asOf) === null;
+    }
+
+    /**
+     * Why this instructor cannot be declared, or null if they can be.
+     *
+     * Returned as prose so the NTC form can show a disabled option with the
+     * reason attached, rather than silently dropping people off the roster and
+     * leaving the FATPro to guess who is missing and why.
+     *
+     * @param  \Carbon\Carbon|null  $asOf  Last training day; defaults to today.
+     */
+    public function ineligibilityReason(?Carbon $asOf = null): ?string
+    {
+        $asOf = ($asOf ?: Carbon::today())->copy()->startOfDay();
+
+        if ($this->status !== 'approved') {
+            return 'Instructor record is ' . ($this->status ?: 'pending') . ', not approved.';
+        }
+
+        if (!$this->cvApproved()) {
+            return 'CV has not been approved.';
+        }
+
+        $credentials = $this->relationLoaded('credentials')
+            ? $this->credentials
+            : $this->credentials()->get();
+
+        foreach ($credentials as $credential) {
+            if ($credential->status !== 'approved') {
+                return strtoupper($credential->type) . ' credential is '
+                    . ($credential->status ?: 'pending') . ', not approved.';
+            }
+
+            if ($credential->validity_date
+                && $credential->validity_date->copy()->startOfDay()->lessThan($asOf)) {
+                return strtoupper($credential->type) . ' credential expires '
+                    . $credential->validity_date->format('M d, Y')
+                    . ', before the last training day.';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The soonest any credential on file stops being valid, or null if none
+     * carries an expiry.
+     *
+     * The NTC form needs this client-side: eligibility is judged against the
+     * LAST training day, but the form does not know that day until the FATPro
+     * has picked it. Emitting the date lets the picker grey someone out the
+     * moment the chosen dates run past their credentials, instead of letting
+     * them submit and be refused by resolveInstructors().
+     */
+    public function earliestCredentialExpiry(): ?Carbon
+    {
+        $credentials = $this->relationLoaded('credentials')
+            ? $this->credentials
+            : $this->credentials()->get();
+
+        return $credentials->pluck('validity_date')->filter()->min();
+    }
+
+    /**
+     * The accredited roster with an eligibility verdict attached to each row.
+     *
+     * Wraps accreditedRosterFor rather than filtering it, so the NTC form can
+     * render the ineligible entries greyed out with their reason instead of
+     * hiding them. Callers that only want the selectable ones filter on
+     * ->isEligibleToConduct().
+     *
+     * @return \Illuminate\Support\Collection<int, static>
+     */
+    public static function rosterWithEligibilityFor(int $userId, ?Carbon $asOf = null)
+    {
+        return static::accreditedRosterFor($userId)->each(function ($instructor) use ($asOf) {
+            $instructor->ineligibility_reason = $instructor->ineligibilityReason($asOf);
+        });
+    }
+
+    /**
+     * The person this submission is for, keyed the way the pickers post it.
+     *
+     * A row filed before people existed has none; such a row cannot be chosen
+     * for a training, which the pickers express by leaving it unselectable.
+     */
+    public function personKey(): ?int
+    {
+        return $this->instructor_person_id;
+    }
+
+    /** "Dela Cruz, Juan Santos" — how the rosters list them. */
+    public function listingName(): string
+    {
+        return trim($this->last_name . ', ' . $this->first_name . ' ' . $this->middle_name);
+    }
+
+    /** "Juan Dela Cruz" — how prose and emails name them. */
+    public function fullName(): string
+    {
+        return trim($this->first_name . ' ' . $this->last_name);
     }
 
     /**

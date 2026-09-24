@@ -12,6 +12,7 @@ use App\Models\UserDocument;
 use App\Models\ApplicationDocument;
 use App\Models\Instructor;
 use App\Models\InstructorCredential;
+use App\Models\InstructorPerson;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -128,9 +129,18 @@ class TestApplicationSeeder extends Seeder
             }
 
             // 6. Create Instructor
+            $person = InstructorPerson::create([
+                'user_id' => $user->id,
+                'first_name' => "John {$i}",
+                'middle_name' => 'Test',
+                'last_name' => 'Doe',
+                'ins_sex' => ($i % 2 === 0 ? 'Female' : 'Male'),
+            ]);
+
             $instructor = Instructor::create([
                 'user_id' => $user->id,
                 'application_id' => $application->id,
+                'instructor_person_id' => $person->id,
                 'first_name' => "John {$i}",
                 'middle_name' => 'Test',
                 'last_name' => 'Doe',
@@ -243,31 +253,70 @@ class TestApplicationSeeder extends Seeder
             ]);
         }
 
-        // 6. Create Approved Instructor
-        $accInstructor = Instructor::create([
-            'user_id' => $accUser->id,
-            'application_id' => $accApplication->id,
-            'first_name' => "Safety",
-            'middle_name' => 'Instructor',
-            'last_name' => 'John',
-            'ins_sex' => 'Male',
-            'service_agreement_path' => "dummy_files/service_agreement_acc.pdf",
-            'cv_path' => "dummy_files/instructor_cv_acc.pdf",
-            'status' => 'approved',
-        ]);
+        // 6-7. Create the accredited roster, with its credentials.
+        //
+        // Three instructors rather than one, so the NTC picker has a real list
+        // to choose from. All of them clear every eligibility gate, and their
+        // credentials outlast any training that can be booked against the
+        // 10-working-day lead time, so none is ever greyed out.
+        $accRoster = [
+            [
+                'first_name' => 'Safety',
+                'middle_name' => 'Instructor',
+                'last_name' => 'John',
+                'ins_sex' => 'Male',
+            ],
+            [
+                'first_name' => 'Maria',
+                'middle_name' => 'Reyes',
+                'last_name' => 'Santos',
+                'ins_sex' => 'Female',
+            ],
+            [
+                'first_name' => 'Ramon',
+                'middle_name' => 'Cruz',
+                'last_name' => 'Bautista',
+                'ins_sex' => 'Male',
+            ],
+        ];
 
-        // 7. Create Approved Instructor Credentials
         $credentialTypes = ['EMS', 'TM1', 'NTTC'];
-        foreach ($credentialTypes as $type) {
-            InstructorCredential::create([
-                'instructor_id' => $accInstructor->id,
-                'type' => $type,
-                'number' => strtoupper(Str::random(8)),
-                'issued_date' => Carbon::now()->subMonths(30),
-                'validity_date' => Carbon::now()->addMonths(6),
-                'pdf_path' => "dummy_files/instructor_{$type}_acc.pdf",
-                'status' => 'approved',
+        foreach ($accRoster as $member) {
+            $slug = strtolower($member['last_name']);
+
+            $accPerson = InstructorPerson::create([
+                'user_id' => $accUser->id,
+                'first_name' => $member['first_name'],
+                'middle_name' => $member['middle_name'],
+                'last_name' => $member['last_name'],
+                'ins_sex' => $member['ins_sex'],
             ]);
+
+            $rosterMember = Instructor::create([
+                'user_id' => $accUser->id,
+                'application_id' => $accApplication->id,
+                'instructor_person_id' => $accPerson->id,
+                'first_name' => $member['first_name'],
+                'middle_name' => $member['middle_name'],
+                'last_name' => $member['last_name'],
+                'ins_sex' => $member['ins_sex'],
+                'service_agreement_path' => "dummy_files/service_agreement_{$slug}.pdf",
+                'cv_path' => "dummy_files/instructor_cv_{$slug}.pdf",
+                'status' => 'approved',
+                'cv_status' => 'approved',
+            ]);
+
+            foreach ($credentialTypes as $type) {
+                InstructorCredential::create([
+                    'instructor_id' => $rosterMember->id,
+                    'type' => $type,
+                    'number' => strtoupper(Str::random(8)),
+                    'issued_date' => Carbon::now()->subMonths(30),
+                    'validity_date' => Carbon::now()->addMonths(24),
+                    'pdf_path' => "dummy_files/instructor_{$type}_{$slug}.pdf",
+                    'status' => 'approved',
+                ]);
+            }
         }
 
         // 8. Create Interview Record
@@ -387,12 +436,25 @@ class TestApplicationSeeder extends Seeder
             $q->where('name', 'Training Evaluator');
         })->value('id');
 
+        // Whoever on this FATPro's roster could actually be declared. Seeded
+        // NTCs carry instructors because the Post Training Report inherits
+        // them — a report with an empty roster is not a realistic fixture.
+        $eligibleInstructorIds = Instructor::accreditedRosterFor($accreditation->user_id)
+            ->filter->isEligibleToConduct($today->copy()->addWeeks(4))
+            ->pluck('id')
+            ->all();
+
         foreach ($plans as $plan) {
-            // Work backwards from the desired end date: find the start date that
-            // yields it once the type's duration is applied.
+            // Work backwards from the desired end date. Training days are
+            // calendar days now, so a fixture simply runs them consecutively up
+            // to the planned last day — real submissions may skip about, which
+            // the day rows below can express either way.
             $duration = \App\Models\NtcReport::durationDaysForCode($plan['type']);
-            $start    = \App\Models\NtcReport::subtractWorkingDays($plan['end'], $duration);
-            $end      = \App\Models\NtcReport::trainingEndDateFor($start, $plan['type']);
+            $days     = collect(range($duration - 1, 0))
+                ->map(fn ($back) => $plan['end']->copy()->subDays($back)->toDateString())
+                ->all();
+            $start    = Carbon::parse($days[0]);
+            $end      = Carbon::parse(end($days));
 
             $ntc = \App\Models\NtcReport::create([
                 'accreditation_id'     => $accreditation->id,
@@ -406,6 +468,14 @@ class TestApplicationSeeder extends Seeder
                 'acknowledged_at'      => $plan['acked'],
                 'acknowledged_by'      => $evaluatorId,
             ]);
+
+            // One date per day of the course. A day may run over several in
+            // real submissions, but a fixture gains nothing from it.
+            $ntc->syncTrainingDates(array_combine(range(1, count($days)), array_map(
+                fn ($date) => [$date],
+                $days
+            )));
+            $ntc->instructors()->sync($eligibleInstructorIds);
 
             // Both NTC forms, already approved — that is what "acknowledged" means.
             foreach (['RTCMAN' => 'DOLE-OSHC-STO-RTCMan Form', 'PROG' => 'DOLE-OSHC-STO-PROG Form'] as $code => $name) {

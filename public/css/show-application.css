@@ -133,21 +133,52 @@
     border-color: #22c55e;
     color: #166534;
 }
-.btn-approve:hover,
+/* Hover is deliberately NOT the active state: when the two matched, merely
+   pointing at Accept looked exactly like having already chosen it. Hover
+   lifts and shadows; active fills. */
+.btn-approve:hover {
+    background: #f0fdf4;
+    border-color: #16a34a;
+    color: #14532d;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25);
+}
 .btn-approve.active {
     background: #dcfce7;
     border-color: #16a34a;
     color: #14532d;
 }
+.btn-approve:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
 .btn-reject {
     border-color: #ef4444;
     color: #991b1b;
 }
-.btn-reject:hover,
+.btn-reject:hover {
+    background: #fef2f2;
+    border-color: #dc2626;
+    color: #7f1d1d;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(220, 38, 38, 0.25);
+}
 .btn-reject.active {
     background: #fee2e2;
     border-color: #dc2626;
     color: #7f1d1d;
+}
+.btn-reject:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* Respect a reader who has asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+    .btn-approve:hover,
+    .btn-reject:hover {
+        transform: none;
+    }
 }
 .btn-eval:disabled,
 .btn-eval[disabled],

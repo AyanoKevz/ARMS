@@ -42,7 +42,7 @@ class AccreditationExpiryCheck extends Command
     private function autoExpire(Carbon $today): void
     {
         $expired = Accreditation::where('status', 'active')
-            ->whereDate('validity_date', '<', $today)
+            ->where('validity_date', '<', $today->toDateString())
             ->with('user')
             ->get();
 
@@ -80,8 +80,8 @@ class AccreditationExpiryCheck extends Command
         // ── 3-month reminders ────────────────────────────────────────────
         $threeMonthCandidates = Accreditation::where('status', 'active')
             ->whereNull('reminder_3mo_sent_at')
-            ->whereDate('validity_date', '<=', $threeMonthsFromNow)
-            ->whereDate('validity_date', '>=', $today)
+            ->where('validity_date', '<=', $threeMonthsFromNow->toDateString())
+            ->where('validity_date', '>=', $today->toDateString())
             ->with('user')
             ->get();
 
@@ -103,8 +103,8 @@ class AccreditationExpiryCheck extends Command
         // ── 2-month reminders ────────────────────────────────────────────
         $twoMonthCandidates = Accreditation::where('status', 'active')
             ->whereNull('reminder_2mo_sent_at')
-            ->whereDate('validity_date', '<=', $twoMonthsFromNow)
-            ->whereDate('validity_date', '>', $oneMonthFromNow)
+            ->where('validity_date', '<=', $twoMonthsFromNow->toDateString())
+            ->where('validity_date', '>', $oneMonthFromNow->toDateString())
             ->with('user')
             ->get();
 
@@ -126,8 +126,8 @@ class AccreditationExpiryCheck extends Command
         // ── 1-month reminders ────────────────────────────────────────────
         $oneMonthCandidates = Accreditation::where('status', 'active')
             ->whereNull('reminder_1mo_sent_at')
-            ->whereDate('validity_date', '<=', $oneMonthFromNow)
-            ->whereDate('validity_date', '>=', $today)
+            ->where('validity_date', '<=', $oneMonthFromNow->toDateString())
+            ->where('validity_date', '>=', $today->toDateString())
             ->with('user')
             ->get();
 

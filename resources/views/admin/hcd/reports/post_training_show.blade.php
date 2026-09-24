@@ -342,6 +342,13 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
             </div>
             @endif
         </div>
+        @if($postTrainingReport->applicant_remarks)
+        <div class="info-pair mt-2">
+            <div class="lbl">FATPro Remarks</div>
+            <div class="val">{{ $postTrainingReport->applicant_remarks }}</div>
+        </div>
+        @endif
+
         @if($postTrainingReport->remarks)
         <div class="info-pair mt-2">
             <div class="lbl">Admin Remarks</div>
@@ -378,6 +385,18 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                 <div class="alert alert-secondary text-center mb-0">No documents found for this post training report.</div>
                 @else
                 @foreach($allDocuments as $doc)
+                @if($doc->documentType?->isEncoded())
+                    @include('admin.hcd.reports.partials.post_training_directory_review', ['doc' => $doc])
+                    @continue
+                @endif
+                @if($doc->documentType?->isRoster())
+                    @include('admin.hcd.reports.partials.post_training_instructors_review', ['doc' => $doc])
+                    @continue
+                @endif
+                @if($doc->documentType?->isLink())
+                    @include('admin.hcd.reports.partials.post_training_video_review', ['doc' => $doc])
+                    @continue
+                @endif
                 @php
                     $docStatus  = $doc->status ?? 'pending';
                     $badgeClass = match($docStatus) {
@@ -598,4 +617,5 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
     window.ARMS.ntcRejectLabel = 'Send Decline Email';
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
+<script src="{{ asset('js/post-training-directory.js') }}?v={{ filemtime(public_path('js/post-training-directory.js')) }}"></script>
 @endpush

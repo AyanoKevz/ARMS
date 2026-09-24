@@ -8,12 +8,48 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // ── Instructor People ──────────────────────────────────────────
+        // One row per actual human on a FATPro's roster, and the only stable
+        // way to refer to one.
+        //
+        // The `instructors` table below is NOT a person: it is one person's
+        // submission against one application, carrying that round's documents
+        // and evaluation verdicts. A renewal re-submits everybody, so the same
+        // human gains a new `instructors` row — and a new id — every cycle.
+        // Anything that has to outlive a renewal (which NTC declared whom,
+        // which instructors conducted a training) points here instead.
+        Schema::create('instructor_people', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // The FATPro this person belongs to
+
+            // Their current name, kept in step with the newest submission. The
+            // per-application copies keep whatever was filed at the time.
+            $table->string('first_name');
+            $table->string('middle_name')->nullable();
+            $table->string('last_name');
+            $table->string('ins_sex')->nullable();
+
+            $table->timestamps();
+
+            $table->index('user_id', 'instructor_people_user_idx');
+        });
+
         // ── Instructors ────────────────────────────────────────────────
+        // One person's submission against one application — their documents
+        // and the evaluator's verdicts on them, for that round only.
         Schema::create('instructors', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('application_id')->nullable()->constrained()->cascadeOnDelete();
             // Belongs to the FATPro applicant (Organization user)
+
+            $table->foreignId('instructor_person_id')
+                ->nullable()
+                ->constrained('instructor_people')
+                ->cascadeOnDelete();
+            // Which human this submission is for. Nullable only so a row can be
+            // built before its person is; every write path sets it.
 
             $table->string('first_name');
             $table->string('middle_name')->nullable();
@@ -70,6 +106,10 @@ return new class extends Migration
 
             // One credential type per instructor
             $table->unique(['instructor_id', 'type']);
+
+            // The nightly expiry sweep asks for approved credentials lapsing
+            // inside a window, and scanned the whole table to answer it.
+            $table->index(['status', 'validity_date'], 'instructor_creds_status_validity_idx');
         });
 
         // ── Add instructors_data staging column to pending_registrations ─
@@ -88,5 +128,6 @@ return new class extends Migration
 
         Schema::dropIfExists('instructor_credentials');
         Schema::dropIfExists('instructors');
+        Schema::dropIfExists('instructor_people');
     }
 };

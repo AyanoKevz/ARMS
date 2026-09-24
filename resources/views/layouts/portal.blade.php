@@ -122,13 +122,23 @@
                                 // notification routes sit behind the 'admin'
                                 // allow-list an applicant cannot pass.
                                 $notificationBase = auth()->user()->adminProfile ? 'admin' : 'applicant';
+
+                                // This layout wraps every authenticated page, so the bell
+                                // is the most-run query in the system. Counting in SQL and
+                                // limiting to the five that are shown keeps it two small
+                                // reads, rather than hydrating every unread row a long-lived
+                                // account has accumulated just to show a number and a list.
+                                $unreadCount  = auth()->user()->unreadNotifications()->count();
+                                $recentUnread = $unreadCount > 0
+                                    ? auth()->user()->unreadNotifications()->latest()->limit(5)->get()
+                                    : collect();
                             @endphp
                             <li class="nav-item dropdown">
                                 <a href="#" class="dropdown-toggle info-number" id="navbarDropdown1" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-bell"></i>
-                                    @if(auth()->user()->unreadNotifications->count() > 0)
+                                    @if($unreadCount > 0)
                                         <span class="badge bg-danger rounded-pill" style="position: absolute; top: 0px; right: 0px; font-size: 0.6rem;">
-                                            {{ auth()->user()->unreadNotifications->count() }}
+                                            {{ $unreadCount }}
                                         </span>
                                     @endif
                                 </a>
@@ -142,7 +152,7 @@
                                             </form>
                                         </div>
                                     </li>
-                                    @forelse(auth()->user()->unreadNotifications->take(5) as $notification)
+                                    @forelse($recentUnread as $notification)
                                         <li class="border-bottom p-2" style="background: transparent;">
                                             <a class="dropdown-item d-flex flex-column text-wrap" href="{{ url($notificationBase . '/notifications/' . $notification->id . '/read') }}" style="white-space: normal; line-height: 1.4; padding: 6px 12px; background: transparent;">
                                                 <span class="text-muted" style="font-size: 0.72rem; display: block; margin-bottom: 3px; font-weight: normal;">{{ $notification->created_at->diffForHumans() }}</span>

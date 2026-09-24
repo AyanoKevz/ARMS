@@ -50,7 +50,7 @@ class PostTrainingReportReminderCheck extends Command
     {
         return NtcReport::query()
             ->where('status', 'acknowledged')
-            ->whereDate('training_end_date', '<', $today)
+            ->where('training_end_date', '<', $today->toDateString())
             ->where(function ($q) {
                 $q->whereDoesntHave('postTrainingReport')
                   ->orWhereHas(

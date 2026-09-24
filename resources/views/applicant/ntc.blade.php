@@ -211,44 +211,16 @@
                         @enderror
                     </div>
 
-                    {{-- Training Dates --}}
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="form-group mb-3">
-                                <label class="fw-semibold" for="training_start_date">
-                                    Training Start Date <span class="text-danger">*</span>
-                                </label>
-                                <input type="date"
-                                       id="training_start_date"
-                                       name="training_start_date"
-                                       class="form-control @error('training_start_date') is-invalid @enderror"
-                                       min="{{ $earliestStartDate }}"
-                                       value="{{ old('training_start_date') }}"
-                                       required>
-                                @error('training_start_date')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="form-group mb-3">
-                                <label class="fw-semibold" for="training_end_date">
-                                    Training End Date
-                                </label>
-                                <input type="date"
-                                       id="training_end_date"
-                                       class="form-control ntc-derived-field"
-                                       readonly
-                                       tabindex="-1"
-                                       aria-describedby="training_end_date_hint"
-                                       value="{{ old('training_end_date') }}">
-                                <div class="form-text" id="training_end_date_hint">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    Set automatically from the training type and start date, skipping weekends.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @include('applicant.partials.ntc_training_days', [
+                        'prefix'       => '',
+                        'minDate'      => $earliestStartDate,
+                        'oldExtraDays' => (array) old('training_dates', []),
+                    ])
+
+                    @include('applicant.partials.ntc_instructor_picker', [
+                        'prefix'                => '',
+                        'selectedInstructorIds' => array_map('intval', (array) old('instructor_ids', [])),
+                    ])
 
                     {{-- File: RTCMan Form --}}
                     <div class="form-group mb-3">
@@ -379,7 +351,8 @@
                                     <th class="ntc-text-slate">Type</th>
                                     <th class="ntc-text-slate">Mode</th>
                                     <th class="ntc-text-slate">Submitted</th>
-                                    <th class="ntc-text-slate">Training Period</th>
+                                    <th class="ntc-text-slate ntc-col-period">Training Period</th>
+                                    <th class="ntc-text-slate ntc-col-instructors">Instructors</th>
                                     <th class="ntc-text-slate">Status</th>
                                     <th class="ntc-col-docs">NTC Documents</th>
                                     <th class="pe-4 ntc-col-ptr">Post Training Report</th>
@@ -417,9 +390,9 @@
                                         @if($ntc->venue)
                                             <div class="text-muted mt-1 ntc-text-75">
                                                 @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
-                                                    <i class="fas fa-video text-primary me-1"></i><a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none">{{ Str::limit($ntc->venue, 35) }}</a>
+                                                    <a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none">{{ Str::limit($ntc->venue, 35) }}</a>
                                                 @else
-                                                    <i class="fas fa-map-marker-alt text-danger me-1"></i>{{ Str::limit($ntc->venue, 35) }}
+                                                    {{ Str::limit($ntc->venue, 35) }}
                                                 @endif
                                             </div>
                                         @endif
@@ -434,12 +407,50 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <div class="ntc-date-cell">
-                                            <span class="fw-semibold text-secondary">Start:</span> {{ $ntc->training_start_date ? $ntc->training_start_date->format('F d, Y') : 'N/A' }}
-                                        </div>
-                                        <div class="mt-1 ntc-date-cell">
-                                            <span class="fw-semibold text-secondary">End:</span> {{ $ntc->training_end_date ? $ntc->training_end_date->format('F d, Y') : 'N/A' }}
-                                        </div>
+                                        {{-- Behind a dialog rather than in the cell: a day of the
+                                             course may run over several dates, so the list has no
+                                             fixed length for a column to hold. --}}
+                                        @php $dayGroups = $ntc->trainingDatesByDay(); @endphp
+                                        @if(empty($dayGroups))
+                                            <span class="text-muted ntc-text-sm">N/A</span>
+                                        @else
+                                            <button type="button"
+                                                    class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 ntc-btn-xs btn-view-training-days"
+                                                    data-ntc-ref="NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}"
+                                                    data-start="{{ $ntc->training_start_date?->format('F d, Y') ?? '—' }}"
+                                                    data-end="{{ $ntc->training_end_date?->format('F d, Y') ?? '—' }}"
+                                                    data-days="{{ json_encode(collect($dayGroups)->map(fn ($dates, $dayNo) => [
+                                                        'day'   => $dayNo,
+                                                        'dates' => array_map(
+                                                            fn ($date) => \Carbon\Carbon::parse($date)->format('F d, Y'),
+                                                            $dates
+                                                        ),
+                                                    ])->values()) }}">
+                                                View
+                                                <span class="badge bg-secondary ms-1">{{ count($dayGroups) }}</span>
+                                            </button>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        {{-- Names live behind a dialog rather than in the cell: a
+                                             training may be conducted by any number of instructors
+                                             and the column cannot grow with them. --}}
+                                        @if($ntc->instructors->isEmpty())
+                                            <span class="text-muted ntc-text-sm">None on record</span>
+                                        @else
+                                            <button type="button"
+                                                    class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 ntc-btn-xs btn-view-instructors"
+                                                    data-ntc-ref="NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}"
+                                                    data-instructors="{{ json_encode($ntc->instructors->map(fn ($person) => [
+                                                        'name'        => $person->listingName(),
+                                                        // Scoped to this NTC's own application, so the dialog
+                                                        // shows the credentials that were current for it.
+                                                        'credentials' => $person->credentialLabelsFor($ntc->accreditation->application_id),
+                                                    ])->values()) }}">
+                                                View
+                                                <span class="badge bg-secondary ms-1">{{ $ntc->instructors->count() }}</span>
+                                            </button>
+                                        @endif
                                     </td>
                                     <td>
                                         @if($ntc->status === 'acknowledged')
@@ -447,19 +458,20 @@
                                             @if($ntc->canSubmitReportChanges())
                                                 <div class="mt-2">
                                                     <button type="button"
-                                                            class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 mt-1 btn-report-changes"
+                                                            class="btn btn-xs btn-outline-primary fw-bold px-2 py-1 mt-1 btn-report-changes ntc-btn-xs"
                                                             data-id="{{ $ntc->id }}"
                                                             data-training-type="{{ $ntc->ntc_training_type_id }}"
                                                             data-training-mode="{{ $ntc->ntc_training_mode_id }}"
                                                             data-venue="{{ $ntc->venue }}"
                                                             data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
                                                             data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
+                                                            data-training-dates="{{ json_encode((object) $ntc->trainingDatesByDay()) }}"
+                                                            data-instructor-ids="{{ json_encode($ntc->instructors->pluck('id')) }}"
                                                             data-rtcman-file-name="{{ $rtcmanDoc ? $rtcmanDoc->original_filename : '' }}"
                                                             data-rtcman-file-url="{{ $rtcmanDoc && $rtcmanDoc->file_path ? route('applicant.ntc.document.view', $rtcmanDoc->id) : '' }}"
                                                             data-prog-file-name="{{ $progDoc ? $progDoc->original_filename : '' }}"
-                                                            data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}"
-                                                            class="ntc-btn-xs">
-                                                        <i class="fas fa-exchange-alt me-1"></i> Report of Changes
+                                                            data-prog-file-url="{{ $progDoc && $progDoc->file_path ? route('applicant.ntc.document.view', $progDoc->id) : '' }}">
+                                                        Report of Changes
                                                     </button>
                                                 </div>
                                             @endif
@@ -479,85 +491,26 @@
                                         @endif
                                     </td>
                                     <td class="pe-4">
+                                        {{-- Behind a dialog: a declined document brings remarks and a
+                                             drop zone with it, which no column can hold. --}}
                                         @php
-                                            $rejectedDocsForBatch = $ntc->documents->filter(fn($d) => $d->status === 'rejected' && !$d->file_path);
+                                            $declinedDocs = $ntc->documents->filter(fn($d) => $d->status === 'rejected' && !$d->file_path);
                                         @endphp
-
-                                        @if($rejectedDocsForBatch->isNotEmpty())
-                                        <form method="POST"
-                                              action="{{ route('applicant.ntc.reupload_batch', $ntc->id) }}"
-                                              enctype="multipart/form-data" class="ntc-reupload-form" novalidate>
-                                            @csrf
-                                        @endif
-
-                                        @foreach($ntc->documents as $doc)
-                                        @php
-                                            $isTrueRejected = ($doc->status === 'rejected' && !$doc->file_path);
-                                            $isReturned = ($doc->status === 'returned');
-                                            
-                                            if ($isTrueRejected) {
-                                                $docBadge = ['badge-premium-danger', 'Rejected'];
-                                            } elseif ($isReturned) {
-                                                $docBadge = ['badge-premium-warning', 'Awaiting Review'];
-                                            } elseif ($doc->status === 'approved') {
-                                                $docBadge = ['badge-premium-success', 'Approved'];
-                                            } else {
-                                                $docBadge = ['badge-premium-secondary', 'Under Review'];
-                                            }
-                                        @endphp
-                                        <div class="ntc-doc-item">
-                                            <div class="d-flex align-items-center justify-content-between gap-2 mb-1 flex-wrap">
-                                                @if($doc->file_path)
-                                                <a href="{{ route('applicant.ntc.document.view', $doc->id) }}"
-                                                   target="_blank"
-                                                   class="btn btn-xs ntc-doc-btn fw-bold px-2 py-1 d-inline-flex align-items-center gap-1 ntc-btn-xs">
-                                                    <i class="far fa-file-pdf text-dark"></i>
-                                                    {{ $doc->documentType->code ?? 'DOC' }}
-                                                </a>
+                                        @if($ntc->documents->isEmpty())
+                                            <span class="text-muted ntc-text-sm">None</span>
+                                        @else
+                                            <button type="button"
+                                                    class="btn btn-xs fw-bold px-2 py-1 ntc-btn-xs {{ $declinedDocs->isNotEmpty() ? 'btn-outline-danger' : 'btn-outline-primary' }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#ntcDocsModal-{{ $ntc->id }}">
+                                                @if($declinedDocs->isNotEmpty())
+                                                    Re-upload
+                                                    <span class="badge bg-danger ms-1">{{ $declinedDocs->count() }}</span>
                                                 @else
-                                                <span class="text-danger fw-semibold ntc-text-75">
-                                                    <i class="fas fa-trash-alt me-1"></i>File removed ({{ $doc->documentType->code ?? 'DOC' }})
-                                                </span>
+                                                    View
+                                                    <span class="badge bg-secondary ms-1">{{ $ntc->documents->count() }}</span>
                                                 @endif
-                                                <span class="badge {{ $docBadge[0] }} ntc-badge-doc">{{ $docBadge[1] }}</span>
-                                            </div>
-                                            @if($isTrueRejected || $isReturned)
-                                                @if($doc->remarks)
-                                                <div class="mt-2 ntc-remarks-box">
-                                                    <i class="fas fa-comment me-1"></i><strong>Remarks:</strong> {{ $doc->remarks }}
-                                                </div>
-                                                @endif
-                                                @if($isTrueRejected)
-                                                <div class="ntc-compact-drop-zone mt-2"
-                                                     id="dropZoneReject-{{ $doc->id }}"
-                                                     data-input="file-reject-{{ $doc->id }}">
-                                                    <div class="file-info text-secondary">
-                                                        <i class="fas fa-cloud-upload-alt text-muted fs-6"></i>
-                                                        <span>Click or drag file to re-upload...</span>
-                                                    </div>
-                                                    <button type="button" class="btn-clear d-none no-trigger">Clear</button>
-                                                    <input type="file"
-                                                           id="file-reject-{{ $doc->id }}"
-                                                           name="files[{{ $doc->id }}]"
-                                                           class="d-none ntc-file-input"
-                                                           accept=".pdf,.doc,.docx"
-                                                           >
-                                                </div>
-                                                @elseif($isReturned)
-                                                <div class="mt-2 text-warning d-flex align-items-center gap-1 fw-semibold ntc-awaiting-note">
-                                                    <i class="fas fa-hourglass-half spinner-border-sm"></i> Awaiting admin re-evaluation
-                                                </div>
-                                                @endif
-                                            @endif
-                                        </div>
-                                        @endforeach
-
-                                        @if($rejectedDocsForBatch->isNotEmpty())
-                                            <button type="submit"
-                                                    class="btn btn-danger btn-sm fw-bold w-100 mt-2 d-inline-flex align-items-center justify-content-center gap-1 ntc-btn-reupload">
-                                                <i class="fas fa-cloud-upload-alt"></i> Submit Re-uploaded Documents
                                             </button>
-                                        </form>
                                         @endif
                                     </td>
 
@@ -579,6 +532,15 @@
 </div>
 {{-- Post Training Report modals (submission + declined re-uploads) --}}
 @include('applicant.partials.post_training_section')
+
+@include('applicant.partials.ntc_instructors_modal')
+
+@include('applicant.partials.ntc_training_days_modal')
+
+{{-- One per submission; they carry forms, so they cannot live in a cell. --}}
+@foreach($ntcReports as $ntc)
+    @include('applicant.partials.ntc_documents_modal', ['ntc' => $ntc])
+@endforeach
 
 @endif
 
@@ -652,39 +614,16 @@
                                required>
                     </div>
 
-                    {{-- Training Dates --}}
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="form-group mb-3">
-                                <label class="fw-semibold" for="modal_training_start_date">
-                                    Training Start Date <span class="text-danger">*</span>
-                                </label>
-                                <input type="date"
-                                       id="modal_training_start_date"
-                                       name="training_start_date"
-                                       class="form-control"
-                                       min="{{ $earliestStartDate }}"
-                                       required>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="form-group mb-3">
-                                <label class="fw-semibold" for="modal_training_end_date">
-                                    Training End Date
-                                </label>
-                                <input type="date"
-                                       id="modal_training_end_date"
-                                       class="form-control ntc-derived-field"
-                                       readonly
-                                       tabindex="-1"
-                                       aria-describedby="modal_training_end_date_hint">
-                                <div class="form-text" id="modal_training_end_date_hint">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    Set automatically from the training type and start date.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @include('applicant.partials.ntc_training_days', [
+                        'prefix'       => 'modal_',
+                        'minDate'      => $earliestStartDate,
+                        'oldExtraDays' => [],
+                    ])
+
+                    @include('applicant.partials.ntc_instructor_picker', [
+                        'prefix'                => 'modal_',
+                        'selectedInstructorIds' => [],
+                    ])
 
                     {{-- File: RTCMan Form --}}
                     <div class="form-group mb-3">
@@ -787,7 +726,9 @@
 
 @push('scripts')
 {{-- NTC form: drop zones, derived end date, Report of Changes modal --}}
+<script src="{{ asset('js/ntc-training-picker.js') }}?v={{ filemtime(public_path('js/ntc-training-picker.js')) }}"></script>
 <script src="{{ asset('js/ntc.js') }}?v={{ filemtime(public_path('js/ntc.js')) }}"></script>
 {{-- Post Training Report: drop zones, submit modal and re-upload forms --}}
 <script src="{{ asset('js/post-training.js') }}?v={{ filemtime(public_path('js/post-training.js')) }}"></script>
+<script src="{{ asset('js/post-training-corrections.js') }}?v={{ filemtime(public_path('js/post-training-corrections.js')) }}"></script>
 @endpush

@@ -74,8 +74,11 @@
                 <p><strong>Venue:</strong> {{ $ntcReport->venue }}</p>
             @endif
         @endif
-        <p><strong>Training Start Date:</strong> {{ $ntcReport->training_start_date ? $ntcReport->training_start_date->format('F d, Y') : 'N/A' }}</p>
-        <p><strong>Training End Date:</strong> {{ $ntcReport->training_end_date ? $ntcReport->training_end_date->format('F d, Y') : 'N/A' }}</p>
+        <p><strong>Training Days:</strong> {{ $ntcReport->trainingPeriodLabel() }}</p>
+        <p><strong>Instructors Conducting:</strong>
+            {{ $ntcReport->instructors->isEmpty()
+                ? 'None listed'
+                : $ntcReport->instructors->map->fullName()->implode(', ') }}</p>
         @if(!isset($isReupload) || !$isReupload)
             <p><strong>Submitted At:</strong> {{ $ntcReport->submitted_at ? $ntcReport->submitted_at->format('F d, Y h:i A') : 'N/A' }}</p>
         @endif

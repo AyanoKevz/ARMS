@@ -1709,6 +1709,33 @@ test('applicant can submit report of changes and evaluation status resets to pen
     $trainingType = \App\Models\NtcTrainingType::first();
     $trainingMode = \App\Models\NtcTrainingMode::first();
 
+    $instructorPerson = \App\Models\InstructorPerson::create([
+        'user_id' => $applicant->id,
+        'first_name' => 'Rosa',
+        'last_name' => 'Cruz',
+    ]);
+
+    $instructor = \App\Models\Instructor::create([
+        'user_id' => $applicant->id,
+        'application_id' => $application->id,
+        'instructor_person_id' => $instructorPerson->id,
+        'first_name' => 'Rosa',
+        'last_name' => 'Cruz',
+        'cv_path' => 'dummy_files/cv.pdf',
+        'cv_status' => 'approved',
+        'status' => 'approved',
+    ]);
+
+    foreach (['EMS', 'TM1', 'NTTC'] as $credentialType) {
+        \App\Models\InstructorCredential::create([
+            'instructor_id' => $instructor->id,
+            'type' => $credentialType,
+            'number' => $credentialType . '-CHANGES-01',
+            'validity_date' => now()->addYear()->format('Y-m-d'),
+            'status' => 'approved',
+        ]);
+    }
+
     $ntcReport = \App\Models\NtcReport::create([
         'accreditation_id' => $acc->id,
         'ntc_training_type_id' => $trainingType->id,
@@ -1717,6 +1744,8 @@ test('applicant can submit report of changes and evaluation status resets to pen
         'training_end_date' => now()->addDays(18),
         'status' => 'acknowledged',
     ]);
+
+    $ntcReport->instructors()->sync([$instructorPerson->id]);
 
     $docType1 = \App\Models\NtcDocumentType::where('code', 'RTCMan')->first() ?? \App\Models\NtcDocumentType::first();
     $docType2 = \App\Models\NtcDocumentType::where('code', 'PROG')->first() ?? \App\Models\NtcDocumentType::first();
@@ -1758,8 +1787,10 @@ test('applicant can submit report of changes and evaluation status resets to pen
             'ntc_training_type_id' => $trainingType->id,
             'ntc_training_mode_id' => $trainingMode->id,
             'venue' => 'Updated Venue / Zoom Link https://zoom.us/j/999888777',
-            'training_start_date' => now()->addDays(20)->format('Y-m-d'),
-            'training_end_date' => now()->addDays(23)->format('Y-m-d'),
+            // EFA runs for a single day, so one date is the whole training.
+            // The start and end dates are derived from it, not submitted.
+            'training_dates' => [1 => [now()->addDays(20)->format('Y-m-d')]],
+            'instructor_ids' => [$instructorPerson->id],
             'file_rtcman' => $newFileRtcman,
             'file_prog' => $newFileProg,
         ]);

@@ -156,20 +156,20 @@ class ApplicationController extends Controller
                 // ── Monthly Tables & Chart ──────────────────────────────────
                 $monthlyNew = Application::where('application_type', 'new')
                     ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('CAST(EXTRACT(MONTH FROM created_at) AS INT) as month, COUNT(*) as total')
+                    ->selectRaw('EXTRACT(MONTH FROM created_at) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
                 $monthlyRenewal = Application::where('application_type', 'renewal')
                     ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('CAST(EXTRACT(MONTH FROM created_at) AS INT) as month, COUNT(*) as total')
+                    ->selectRaw('EXTRACT(MONTH FROM created_at) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
                 $monthlyAccredited = \App\Models\Accreditation::whereYear('date_of_accreditation', $selectedYear)
-                    ->selectRaw('CAST(EXTRACT(MONTH FROM date_of_accreditation) AS INT) as month, COUNT(*) as total')
+                    ->selectRaw('EXTRACT(MONTH FROM date_of_accreditation) as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
@@ -196,7 +196,7 @@ class ApplicationController extends Controller
                     ->pluck('total', 'name');
 
                 // ── Available years ─────────────────────────────────────────
-                $availableYears = Application::selectRaw('CAST(EXTRACT(YEAR FROM created_at) AS INT) as yr')
+                $availableYears = Application::selectRaw('EXTRACT(YEAR FROM created_at) as yr')
                     ->groupBy('yr')
                     ->orderByDesc('yr')
                     ->pluck('yr');

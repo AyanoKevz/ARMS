@@ -10,6 +10,7 @@ use App\Models\ApplicationStatus;
 use App\Models\ApplicationStatusLog;
 use App\Models\DocumentField;
 use App\Models\Instructor;
+use App\Models\InstructorPerson;
 use App\Models\InstructorCredential;
 use App\Models\UserDocument;
 use App\Services\CacheService;
@@ -512,9 +513,30 @@ class RenewalController extends Controller
                         $cvFile->storeAs($baseCredPath, "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
                     }
 
+                    // A renewal re-files everybody, but it must not re-invent
+                    // them: carrying the person over is what keeps past NTCs
+                    // and Post Training Reports pointing at the same human.
+                    // Their name is refreshed here in case it was corrected.
+                    $person = $existingInst?->person;
+
+                    $personAttributes = [
+                        'user_id'     => $user->id,
+                        'first_name'  => $instData['first_name']  ?? '',
+                        'middle_name' => $instData['middle_name'] ?? null,
+                        'last_name'   => $instData['last_name']   ?? '',
+                        'ins_sex'     => $instData['sex']         ?? null,
+                    ];
+
+                    if ($person) {
+                        $person->update($personAttributes);
+                    } else {
+                        $person = InstructorPerson::create($personAttributes);
+                    }
+
                     $instructor = Instructor::create([
                         'user_id'                => $user->id,
                         'application_id'         => $application->id,
+                        'instructor_person_id'   => $person->id,
                         'first_name'             => $instData['first_name'] ?? '',
                         'middle_name'            => $instData['middle_name'] ?? null,
                         'last_name'              => $instData['last_name'] ?? '',

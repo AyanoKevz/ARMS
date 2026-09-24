@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\RegistrationController;
 use App\Models\Application;
 use App\Models\Instructor;
+use App\Models\InstructorPerson;
 use App\Models\InstructorCredential;
 use App\Support\ApplicantStoragePath;
 use Illuminate\Http\Request;
@@ -90,9 +91,19 @@ class InstructorController extends Controller
             $cvPath = $request->file('cv')
                 ->storeAs($baseCredPath, "cv_{$instFirst}_{$instLast}_{$timestamp}.pdf", 'local');
 
+            // Added from the portal, so this is someone new to the roster.
+            $person = InstructorPerson::create([
+                'user_id'     => $userId,
+                'first_name'  => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name'   => $validated['last_name'],
+                'ins_sex'     => $validated['sex'] ?? null,
+            ]);
+
             $instructor = Instructor::create([
                 'user_id'                => $userId,
                 'application_id'         => $application->id,
+                'instructor_person_id'   => $person->id,
                 'first_name'             => $validated['first_name'],
                 'middle_name'            => $validated['middle_name'] ?? null,
                 'last_name'              => $validated['last_name'],

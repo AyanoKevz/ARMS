@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Mail\AdminNtcSubmittedEmail;
 use App\Models\Accreditation;
 use App\Models\Application;
+use App\Models\Instructor;
 use App\Models\NtcDocument;
 use App\Models\NtcDocumentType;
 use App\Models\NtcReport;
 use App\Models\NtcTrainingMode;
 use App\Models\NtcTrainingType;
 use App\Models\PtrDocumentType;
+use App\Models\User;
 use App\Support\ApplicantStoragePath;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,21 +22,161 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class NtcController extends Controller
 {
     /**
-     * The last training day for a given type and first day.
+     * The training dates for a submission, grouped by the day they belong to.
      *
-     * The training type fixes the duration (EFA 1, OFA 2, SFA 4 working days),
-     * so the end date is never taken from the request — the form renders it
-     * read-only and it is recomputed server-side on every write.
+     * The training type fixes how MANY days a course runs (EFA 1, OFA 2, SFA 4)
+     * but not which dates: those are calendar days the FATPro picks, so
+     * weekends count and they need not be consecutive. A single day of the
+     * course may also be delivered over more than one date, which is why the
+     * dates arrive grouped — the grouping cannot be recovered afterwards.
+     *
+     * Every date arrives under training_dates[dayNo][]. The start and end dates
+     * are outputs of this set, so the form posts neither — there is nothing to
+     * cross-check, only a set to validate.
+     *
+     * Everything is re-checked here rather than trusted from the form, which
+     * can be bypassed.
+     *
+     * @return array<int, array<int, string>>  dayNo => Y-m-d list, ascending.
+     *
+     * @throws \Illuminate\Validation\ValidationException
      */
-    private function derivedTrainingEndDate($trainingTypeId, string $startDate): Carbon
+    private function resolveTrainingDays(array $validated): array
     {
-        $code = NtcTrainingType::whereKey($trainingTypeId)->value('code');
+        $code     = NtcTrainingType::whereKey($validated['ntc_training_type_id'])->value('code');
+        $required = NtcReport::durationDaysForCode($code);
+        $earliest = NtcReport::earliestAllowedStartDate()->startOfDay();
 
-        return NtcReport::trainingEndDateFor(Carbon::parse($startDate), $code);
+        $byDay = [];
+
+        foreach ($validated['training_dates'] ?? [] as $dayNo => $dates) {
+            $dayNo = (int) $dayNo;
+
+            if ($dayNo < 1 || $dayNo > $required) {
+                throw ValidationException::withMessages([
+                    'training_dates' => 'A date was filed against Day ' . $dayNo
+                        . ', which this training does not have.',
+                ]);
+            }
+
+            foreach ((array) $dates as $date) {
+                if (filled($date)) {
+                    $byDay[$dayNo][] = Carbon::parse($date)->startOfDay();
+                }
+            }
+        }
+
+        // Every day of the course has to be accounted for. A day with no date
+        // is the common case — the FATPro simply has not filled it in yet.
+        for ($dayNo = 1; $dayNo <= $required; $dayNo++) {
+            if (empty($byDay[$dayNo])) {
+                throw ValidationException::withMessages([
+                    'training_dates' => 'Day ' . $dayNo . ' has no date yet. This training'
+                        . ' runs for ' . $required . ' ' . Str::plural('day', $required)
+                        . ', and each one needs at least one date.',
+                ]);
+            }
+        }
+
+        ksort($byDay);
+
+        $flat = collect();
+
+        foreach ($byDay as $dayNo => $dates) {
+            usort($dates, fn (Carbon $a, Carbon $b) => $a <=> $b);
+            $byDay[$dayNo] = $dates;
+            $flat = $flat->merge($dates);
+        }
+
+        $distinct = $flat->unique(fn (Carbon $date) => $date->toDateString());
+
+        if ($distinct->count() !== $flat->count()) {
+            throw ValidationException::withMessages([
+                'training_dates' => 'Each training date must be a different day.',
+            ]);
+        }
+
+        // The lead time applies to every date, not just the first — a course
+        // cannot start inside the window by putting a legal date first.
+        if ($flat->contains(fn (Carbon $date) => $date->lessThan($earliest))) {
+            throw ValidationException::withMessages([
+                'training_dates' => 'Every training date must be on or after '
+                    . $earliest->format('F d, Y') . ' (10 working days from today).',
+            ]);
+        }
+
+        // The days run in order: a course cannot reach Day 3 before Day 2 has
+        // been delivered, however the dates within each day are spread.
+        $previousEnd = null;
+
+        foreach ($byDay as $dayNo => $dates) {
+            if ($previousEnd && $dates[0]->lessThan($previousEnd)) {
+                throw ValidationException::withMessages([
+                    'training_dates' => 'Day ' . $dayNo . ' cannot begin before Day '
+                        . ($dayNo - 1) . ' has finished.',
+                ]);
+            }
+
+            $previousEnd = end($dates);
+        }
+
+        return array_map(
+            fn (array $dates) => array_map(fn (Carbon $date) => $date->toDateString(), $dates),
+            $byDay
+        );
+    }
+
+    /**
+     * The instructors declared to conduct a training, checked against the
+     * FATPro's own roster.
+     *
+     * Takes and returns PERSON ids, because the record outlives the renewal
+     * that would replace the underlying `instructors` row. Eligibility is still
+     * judged on that row, which is where the documents and verdicts live.
+     *
+     * Two things are re-verified here because the form cannot be trusted to:
+     * that each instructor really belongs to this FATPro — otherwise a posted
+     * id could name someone else's staff — and that each is still eligible on
+     * the LAST training day, not merely today.
+     *
+     * @param  array<int, mixed>  $personIds
+     * @return array<int, int>
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    private function resolveInstructors(array $personIds, User $user, Carbon $lastTrainingDay): array
+    {
+        $roster = Instructor::accreditedRosterFor($user->id)
+            ->filter(fn ($instructor) => $instructor->instructor_person_id)
+            ->keyBy('instructor_person_id');
+        $chosen = [];
+
+        foreach (array_unique($personIds) as $id) {
+            $instructor = $roster->get((int) $id);
+
+            if (!$instructor) {
+                throw ValidationException::withMessages([
+                    'instructor_ids' => 'One of the selected instructors is not on your accredited roster.',
+                ]);
+            }
+
+            if ($reason = $instructor->ineligibilityReason($lastTrainingDay)) {
+                throw ValidationException::withMessages([
+                    'instructor_ids' => $instructor->fullName()
+                        . ' cannot be declared on this training: ' . $reason,
+                ]);
+            }
+
+            $chosen[] = (int) $instructor->instructor_person_id;
+        }
+
+        return $chosen;
     }
 
     /**
@@ -87,6 +229,17 @@ class NtcController extends Controller
                 'trainingMode',
                 'documents.documentType',
                 'postTrainingReport.documents.documentType',
+                // The corrections dialog reads all three to work out what is
+                // still outstanding on a report that was sent back.
+                'postTrainingReport.participants',
+                'postTrainingReport.instructors',
+                // Both feed the Report of Changes dialog, which reopens the
+                // submission with its days and instructors already filled in.
+                'trainingDates',
+                // The person's submissions come along for the Instructors
+                // dialog, which reads credentials off the relevant one.
+                'instructors.records.credentials',
+                'accreditation',
             ])
             ->latest()
             ->get();
@@ -120,6 +273,11 @@ class NtcController extends Controller
         // Earliest allowed training start date (10 working days from today)
         $earliestStartDate = NtcReport::earliestAllowedStartDate()->format('Y-m-d');
 
+        // The FATPro's own instructors, each tagged with why it may not be
+        // picked. Ineligible entries are rendered disabled rather than hidden,
+        // so a missing name is explained instead of merely absent.
+        $instructorRoster = Instructor::rosterWithEligibilityFor($user->id);
+
         return view('applicant.ntc', compact(
             'accreditation',
             'ntcReports',
@@ -127,6 +285,7 @@ class NtcController extends Controller
             'trainingModes',
             'documentTypes',
             'earliestStartDate',
+            'instructorRoster',
             'ptrPending',
             'ptrUpcoming',
             'ptrSubmitted',
@@ -188,28 +347,45 @@ class NtcController extends Controller
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
             'venue'                => ['required', 'string', 'max:500'],
-            'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
+            // Every training date, under the day of the course it belongs to,
+            // since one day may be delivered over several dates. The start and
+            // end dates are outputs of this, not inputs, so the form posts
+            // neither and both are derived below.
+            'training_dates'     => ['required', 'array'],
+            'training_dates.*'   => ['array'],
+            'training_dates.*.*' => ['required', 'date'],
+            'instructor_ids'              => ['required', 'array', 'min:1'],
+            'instructor_ids.*'            => ['integer', 'exists:instructor_people,id'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
             'venue.required' => 'The venue or Zoom link is required.',
-            'training_start_date.after_or_equal' =>
-                "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
+            'training_dates.required' => 'Please choose the training dates.',
+            'training_dates.*.*.required' => 'Please fill in every training date, or remove the blank one.',
+            'instructor_ids.required' => 'Select at least one instructor to conduct this training.',
+            'instructor_ids.min'      => 'Select at least one instructor to conduct this training.',
             'file_rtcman.required' => 'The DOLE-OSHC-STO-RTCMan Form is required.',
             'file_prog.required'   => 'The DOLE-OSHC-STO-PROG Form is required.',
             'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
             'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
         ]);
 
-        // The last training day follows from the type and the first day; the
-        // form shows it read-only, so it is recomputed here rather than trusted.
-        $validated['training_end_date'] = $this->derivedTrainingEndDate(
-            $validated['ntc_training_type_id'],
-            $validated['training_start_date']
-        )->toDateString();
+        // Training days are picked, not derived. Start and end are simply the
+        // extremes of the chosen set, so the two columns every deadline reads
+        // stay meaningful even though the days in between may skip about.
+        $trainingDays = $this->resolveTrainingDays($validated);
+        $everyDate    = collect($trainingDays)->flatten()->sort()->values();
+        $validated['training_start_date'] = $everyDate->first();
+        $validated['training_end_date']   = $everyDate->last();
+
+        $instructorIds = $this->resolveInstructors(
+            $validated['instructor_ids'],
+            $user,
+            Carbon::parse($validated['training_end_date'])
+        );
 
         try {
-            DB::transaction(function () use ($validated, $request, $accreditation, $user) {
+            DB::transaction(function () use ($validated, $request, $accreditation, $user, $trainingDays, $instructorIds) {
                 // Create the NTC report
                 $ntcReport = NtcReport::create([
                     'accreditation_id'     => $accreditation->id,
@@ -221,6 +397,9 @@ class NtcController extends Controller
                     'status'               => 'submitted',
                     'submitted_at'         => Carbon::now(),
                 ]);
+
+                $ntcReport->syncTrainingDates($trainingDays);
+                $ntcReport->instructors()->sync($instructorIds);
 
                 // Store file uploads
                 $fileFields = [
@@ -267,6 +446,8 @@ class NtcController extends Controller
                             'accreditation.user.individualProfile',
                             'trainingType',
                             'trainingMode',
+                            'trainingDates',
+                            'instructors',
                             'documents.documentType',
                         ]);
 
@@ -555,27 +736,43 @@ class NtcController extends Controller
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
             'venue'                => ['required', 'string', 'max:500'],
-            'training_start_date'  => ['required', 'date', 'after_or_equal:' . $earliestDate],
+            // Every training date, under the day of the course it belongs to,
+            // since one day may be delivered over several dates. The start and
+            // end dates are outputs of this, not inputs, so the form posts
+            // neither and both are derived below.
+            'training_dates'     => ['required', 'array'],
+            'training_dates.*'   => ['array'],
+            'training_dates.*.*' => ['required', 'date'],
+            'instructor_ids'              => ['required', 'array', 'min:1'],
+            'instructor_ids.*'            => ['integer', 'exists:instructor_people,id'],
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
             'venue.required' => 'The venue or Zoom link is required.',
-            'training_start_date.after_or_equal' =>
-                "The training start date must be at least 10 working days from today (on or after {$earliestDate}).",
+            'training_dates.required' => 'Please choose the training dates.',
+            'training_dates.*.*.required' => 'Please fill in every training date, or remove the blank one.',
+            'instructor_ids.required' => 'Select at least one instructor to conduct this training.',
+            'instructor_ids.min'      => 'Select at least one instructor to conduct this training.',
             'file_rtcman.required' => 'The DOLE-OSHC-STO-RTCMan Form is required.',
             'file_prog.required'   => 'The DOLE-OSHC-STO-PROG Form is required.',
             'file_rtcman.max'      => 'The RTCMan Form must not exceed 100 MB.',
             'file_prog.max'        => 'The PROG Form must not exceed 100 MB.',
         ]);
-        // A Report of Changes can move the type or the first day, so the last
-        // training day is re-derived here too rather than carried over.
-        $validated['training_end_date'] = $this->derivedTrainingEndDate(
-            $validated['ntc_training_type_id'],
-            $validated['training_start_date']
-        )->toDateString();
+        // A Report of Changes can move the type, the days or the instructors,
+        // so the whole set is re-resolved here rather than carried over.
+        $trainingDays = $this->resolveTrainingDays($validated);
+        $everyDate    = collect($trainingDays)->flatten()->sort()->values();
+        $validated['training_start_date'] = $everyDate->first();
+        $validated['training_end_date']   = $everyDate->last();
+
+        $instructorIds = $this->resolveInstructors(
+            $validated['instructor_ids'],
+            $user,
+            Carbon::parse($validated['training_end_date'])
+        );
 
         try {
-            DB::transaction(function () use ($validated, $request, $ntcReport, $user) {
+            DB::transaction(function () use ($validated, $request, $ntcReport, $user, $trainingDays, $instructorIds) {
                 // Update NTC Report details
                 $ntcReport->update([
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
@@ -588,6 +785,9 @@ class NtcController extends Controller
                     'acknowledged_at'      => null,
                     'acknowledged_by'      => null,
                 ]);
+
+                $ntcReport->syncTrainingDates($trainingDays);
+                $ntcReport->instructors()->sync($instructorIds);
 
                 $fileFields = [
                     'file_rtcman' => 'RTCMAN',
@@ -666,6 +866,8 @@ class NtcController extends Controller
                             'accreditation.user.individualProfile',
                             'trainingType',
                             'trainingMode',
+                            'trainingDates',
+                            'instructors',
                             'documents.documentType',
                         ]);
 

@@ -123,41 +123,16 @@ return new class extends Migration
             $table->index('expires_at', 'idx_pending_reg_expires_at');
         });
 
-        // ── application_payments (if created) ─────────────────────────────────
-        if (Schema::hasTable('application_payments')) {
-            Schema::table('application_payments', function (Blueprint $table) {
-                $table->index('application_id', 'idx_app_payments_application_id');
-                $table->index(['application_id', 'proof_of_payment_status'], 'idx_payments_app_status');
-            });
-        }
-
-        // ── pct_entries (if created) ──────────────────────────────────────────
-        if (Schema::hasTable('pct_entries')) {
-            Schema::table('pct_entries', function (Blueprint $table) {
-                $table->index('application_id', 'idx_pct_entries_application_id');
-                $table->index(['application_id', 'step_number', 'is_active'], 'idx_pct_app_step_active');
-                $table->index(['is_active', 'step_number', 'paused_at'], 'idx_pct_active_step_paused');
-            });
-        }
-
-        // ── NTC Reports & Documents (if created) ──────────────────────────────
-        if (Schema::hasTable('ntc_reports')) {
-            Schema::table('ntc_reports', function (Blueprint $table) {
-                $table->index('accreditation_id', 'idx_ntc_reports_accreditation_id');
-                $table->index('ntc_training_type_id', 'idx_ntc_reports_type_id');
-                $table->index('ntc_training_mode_id', 'idx_ntc_reports_mode_id');
-                $table->index('acknowledged_by', 'idx_ntc_reports_acknowledged_by');
-            });
-        }
-
-        if (Schema::hasTable('ntc_documents')) {
-            Schema::table('ntc_documents', function (Blueprint $table) {
-                $table->index('ntc_document_type_id', 'idx_ntc_docs_document_type_id');
-                if (Schema::hasColumn('ntc_documents', 'evaluated_by')) {
-                    $table->index('evaluated_by', 'idx_ntc_docs_evaluated_by');
-                }
-            });
-        }
+        // ── Tables created after this migration ───────────────────────────────
+        // Nothing for application_payments, pct_entries, ntc_reports or
+        // ntc_documents lives here. They are created by later migrations, so on
+        // a fresh migrate a Schema::hasTable() guard is false and the indexes
+        // were silently skipped — the migration still reported success. Their
+        // indexes are declared inline in their own create migrations instead.
+        //
+        // MySQL indexes every foreign key automatically, so the plain foreign
+        // key columns on those tables were never the gap; only the composite
+        // indexes were, and those have been moved.
 
         // ── practitioner_* tables ─────────────────────────────────────────────
         // Not indexed here. They are created by a later migration, so the
@@ -263,37 +238,5 @@ return new class extends Migration
             $table->dropIndex('idx_pending_reg_expires_at');
         });
 
-        if (Schema::hasTable('application_payments')) {
-            Schema::table('application_payments', function (Blueprint $table) {
-                $table->dropIndex('idx_app_payments_application_id');
-                $table->dropIndex('idx_payments_app_status');
-            });
-        }
-
-        if (Schema::hasTable('pct_entries')) {
-            Schema::table('pct_entries', function (Blueprint $table) {
-                $table->dropIndex('idx_pct_entries_application_id');
-                $table->dropIndex('idx_pct_app_step_active');
-                $table->dropIndex('idx_pct_active_step_paused');
-            });
-        }
-
-        if (Schema::hasTable('ntc_reports')) {
-            Schema::table('ntc_reports', function (Blueprint $table) {
-                $table->dropIndex('idx_ntc_reports_accreditation_id');
-                $table->dropIndex('idx_ntc_reports_type_id');
-                $table->dropIndex('idx_ntc_reports_mode_id');
-                $table->dropIndex('idx_ntc_reports_acknowledged_by');
-            });
-        }
-
-        if (Schema::hasTable('ntc_documents')) {
-            Schema::table('ntc_documents', function (Blueprint $table) {
-                $table->dropIndex('idx_ntc_docs_document_type_id');
-                if (Schema::hasColumn('ntc_documents', 'evaluated_by')) {
-                    $table->dropIndex('idx_ntc_docs_evaluated_by');
-                }
-            });
-        }
     }
 };

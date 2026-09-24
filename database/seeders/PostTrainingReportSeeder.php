@@ -10,19 +10,24 @@ class PostTrainingReportSeeder extends Seeder
     public function run(): void
     {
         // ── Post Training Report Document Types ───────────────────────────────
-        // All six are required on every submission; only the Directory of
-        // Participants is filed as a spreadsheet, the rest are scanned PDFs.
+        // All seven are required on every submission, in four flavours:
+        //   encoded — the Directory of Participants, keyed in row by row
+        //   roster  — the instructors, carried over from the NTC and amendable
+        //   file    — four scanned PDFs
+        //   link    — the training video, which is far too large to upload
         $documentTypes = [
             [
                 'name'                => 'Directory of Participants',
                 'code'                => 'DIRECTORY',
-                'accepted_extensions' => 'xlsx,xls',
+                'entry_type'          => 'encoded',
+                'accepted_extensions' => null,
                 'sort_order'          => 1,
             ],
             [
                 'name'                => 'List of Instructors Who Conducted the Training',
                 'code'                => 'INSTRUCTORS',
-                'accepted_extensions' => 'pdf',
+                'entry_type'          => 'roster',
+                'accepted_extensions' => null,
                 'sort_order'          => 2,
             ],
             [
@@ -48,6 +53,13 @@ class PostTrainingReportSeeder extends Seeder
                 'code'                => 'EVALUATION',
                 'accepted_extensions' => 'pdf',
                 'sort_order'          => 6,
+            ],
+            [
+                'name'                => 'Link to the Training Video',
+                'code'                => 'VIDEO',
+                'entry_type'          => 'link',
+                'accepted_extensions' => null,
+                'sort_order'          => 7,
             ],
         ];
 

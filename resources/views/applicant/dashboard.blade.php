@@ -74,12 +74,16 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
                 fn ($q) => $q->where('user_id', auth()->id())
             )
             ->where('status', 'acknowledged')
-            ->whereDate('training_end_date', '<=', \Carbon\Carbon::today())
+            // Plain comparison, not whereDate: the column is a DATE, and
+            // wrapping it in date() would rule out the index below.
+            ->where('training_end_date', '<=', \Carbon\Carbon::today()->toDateString())
             ->where(function ($q) {
                 $q->whereDoesntHave('postTrainingReport')
                   ->orWhereHas('postTrainingReport', fn ($q2) => $q2->where('status', '!=', 'accepted'));
             })
-            ->with('trainingType')
+            // isPostTrainingReportOverdue() reads the report off each NTC, so
+            // without this the banner fires one query per outstanding training.
+            ->with(['trainingType', 'postTrainingReport'])
             ->orderBy('training_end_date')
             ->get();
     @endphp
