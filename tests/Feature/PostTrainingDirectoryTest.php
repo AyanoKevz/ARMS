@@ -19,6 +19,7 @@ use App\Models\PtrDocumentType;
 use App\Models\PtrParticipant;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\ApplicantStoragePath;
 use App\Support\PhLocations;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -1512,7 +1513,11 @@ test('a document staged into a draft satisfies its requirement on submit', funct
 
     // Submitting retires the draft and the staged copy with it.
     expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
-    expect(Storage::disk('local')->exists('ptr_staging/' . $applicant->id . '/' . $staged['token']))->toBeFalse();
+    $stagingPath = ApplicantStoragePath::ptrStaging(
+        Accreditation::where('user_id', $applicant->id)->latest()->first()?->accreditationType?->name,
+        $applicant->id
+    );
+    expect(Storage::disk('local')->exists($stagingPath . '/' . $staged['token']))->toBeFalse();
 });
 
 test('a requirement with neither a picked nor a staged file is still refused', function () {

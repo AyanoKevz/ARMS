@@ -1306,7 +1306,15 @@ class PostTrainingReportController extends Controller
     /** Where this FATPro's not-yet-submitted ID pictures wait. */
     private function stagingPath(User $user): string
     {
-        return 'ptr_staging/' . $user->id;
+        $accreditation = Accreditation::where('user_id', $user->id)
+            ->with('accreditationType')
+            ->latest()
+            ->first();
+
+        return ApplicantStoragePath::ptrStaging(
+            $accreditation?->accreditationType?->name,
+            $user->id
+        );
     }
 
     /**
