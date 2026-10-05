@@ -73,6 +73,7 @@
         <section class="ptr-step-panel{{ $index === 0 ? ' is-active' : '' }}"
                  data-step="{{ $index + 1 }}"
                  data-kind="{{ $docType->stepKind() }}"
+                 data-doc-type-id="{{ $docType->id }}"
                  data-input="{{ $docType->isFile() ? $docType->inputName() : '' }}"
                  data-name="{{ $docType->name }}"
                  {{ $index === 0 ? '' : 'hidden' }}>

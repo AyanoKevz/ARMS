@@ -17,7 +17,8 @@
 
 {{-- ══ Submission wizard (one modal, retargeted per training) ══ --}}
 <div class="modal fade" id="ptrSubmitModal" tabindex="-1" aria-labelledby="ptrSubmitModalLabel" aria-hidden="true"
-     data-photo-url="{{ route('applicant.post_training.participant_photo') }}">
+     data-photo-url="{{ route('applicant.post_training.participant_photo') }}"
+     data-stage-document-url="{{ route('applicant.post_training.stage_document') }}">
     <div class="modal-dialog modal-xl portal-scroll-modal">
         <div class="modal-content ptr-modal-content">
 
@@ -25,6 +26,14 @@
                 <h5 class="modal-title fw-bold ptr-heading-navy" id="ptrSubmitModalLabel">
                     Submit Post Training Report
                 </h5>
+
+                {{-- Beside the title rather than in the footer: the footer
+                     scrolls out of reach on a long step, and a save nobody
+                     can see is a save nobody trusts. --}}
+                <span class="ptr-save-status" id="ptrSaveStatus" role="status" aria-live="polite">
+                    <i class="ptr-save-dot" aria-hidden="true"></i>
+                    <span class="ptr-save-text">Your progress is saved as you go</span>
+                </span>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
@@ -66,6 +75,7 @@
 
                 <div class="modal-footer bg-light ptr-wizard-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+
 
                     <div class="ptr-wizard-nav">
                         <button type="button" class="btn btn-outline-secondary px-4" id="ptrStepBack" hidden>

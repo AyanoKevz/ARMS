@@ -18,6 +18,17 @@
 
     var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
+    var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // The same shapes the encoding grid applies, so a field corrected here is
+    // held to what it would have had to be on a first filing.
+    var FORMATS = {
+        mobile_no:        function (v) { return !window.PhFields || window.PhFields.isMobile(v); },
+        company_landline: function (v) { return !window.PhFields || window.PhFields.isLandline(v); },
+        company_email:    function (v) { return EMAIL.test(v); },
+        personal_email:   function (v) { return EMAIL.test(v); }
+    };
+
     function csrfToken() {
         var meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
@@ -78,6 +89,10 @@
             });
     }
 
+    // Which complaint serialiseParticipants earned, so submit can say something
+    // more useful than "complete every field" when a value is merely misshapen.
+    var lastWasMalformed = false;
+
     /**
      * Fold the cards back into the payload the server reads.
      *
@@ -93,18 +108,32 @@
 
         var cards = Array.prototype.slice.call(wrap.querySelectorAll('[data-participant-id]'));
         var problems = 0;
+        var malformed = 0;
 
         var rows = cards.map(function (card) {
             var row = { id: Number(card.getAttribute('data-participant-id')) };
 
             card.querySelectorAll('[data-field]').forEach(function (el) {
-                var value = (el.value || '').trim();
-                row[el.getAttribute('data-field')] = value;
+                var name = el.getAttribute('data-field');
+
+                // The address pickers are filled from a fetched asset, so what
+                // was chosen lives on data-value until it arrives.
+                var value = el.hasAttribute('data-ph-region') || el.hasAttribute('data-ph-city')
+                    ? (el.getAttribute('data-value') || '').trim()
+                    : (el.value || '').trim();
+
+                row[name] = value;
 
                 var required = el.hasAttribute('data-required');
-                el.classList.toggle('is-invalid', required && !value);
+                var check    = FORMATS[name];
+                var bad      = (required && !value) || (value !== '' && check && !check(value));
 
-                if (required && !value) problems++;
+                el.classList.toggle('is-invalid', bad);
+
+                if (bad) {
+                    problems++;
+                    if (value !== '') malformed++;
+                }
             });
 
             row.photo_token = card.getAttribute('data-photo-token') || '';
@@ -114,6 +143,7 @@
         });
 
         payload.value = JSON.stringify(rows);
+        lastWasMalformed = malformed > 0;
 
         return problems === 0;
     }
@@ -153,6 +183,19 @@
         document.querySelectorAll('.ptr-corrections-form').forEach(function (form) {
             var photoUrl = form.getAttribute('data-photo-url') || '';
 
+            // Address pickers and contact formats, exactly as the grid wires them.
+            if (window.PhFields) {
+                form.querySelectorAll('[data-participant-id]').forEach(function (card) {
+                    window.PhFields.wireAddress(
+                        card.querySelector('[data-ph-region]'),
+                        card.querySelector('[data-ph-city]')
+                    );
+
+                    window.PhFields.wireContact(card.querySelector('[data-ph-mobile]'), 'mobile');
+                    window.PhFields.wireContact(card.querySelector('[data-ph-landline]'), 'landline');
+                });
+            }
+
             // Replacement pictures.
             form.querySelectorAll('[data-correction-photo-btn]').forEach(function (button) {
                 var card  = button.closest('[data-participant-id]');
@@ -171,7 +214,9 @@
                 if (!filesChosen(form)) {
                     message = 'Choose a replacement file for every declined document.';
                 } else if (!serialiseParticipants(form)) {
-                    message = 'Complete every highlighted participant field.';
+                    message = lastWasMalformed
+                        ? 'Check the highlighted participant fields. Mobile numbers look like 09171234567, landlines are ten digits including the area code, and e-mail addresses must be complete.'
+                        : 'Complete every highlighted participant field.';
                 } else if (!instructorsChosen(form)) {
                     message = 'Name at least one instructor who conducted this training.';
                 }

@@ -46,7 +46,9 @@ class NtcController extends Controller
             'trainingMode',
             'documents.documentType',
         ])
-            ->where('status', '!=', 'report_changes')
+            // Both have a list of their own. Leaving them here would mean an
+            // evaluator scrolling past trainings nobody is waiting on.
+            ->whereNotIn('status', ['report_changes', 'cancelled'])
             ->latest()
             ->get();
 
@@ -71,6 +73,33 @@ class NtcController extends Controller
             ->get();
 
         return view('admin.hcd.reports.report_changes', compact('ntcReports'));
+    }
+
+    /**
+     * List every training a FATPro has called off.
+     *
+     * A cancellation is never evaluated and nothing is deleted by one, so this
+     * is a record rather than a queue: the row stays, its documents stay, and
+     * View opens the same detail page as any other submission.
+     */
+    public function cancelledIndex()
+    {
+        $this->requireTrainingEvaluatorAccess();
+
+        $ntcReports = NtcReport::with([
+            'accreditation.user.organizationProfile',
+            'accreditation.user.individualProfile',
+            'trainingType',
+            'trainingMode',
+            'cancelledByUser',
+        ])
+            ->where('status', 'cancelled')
+            // Most recently called off first: that is what an evaluator who
+            // just got the e-mail has come here to find.
+            ->orderByDesc('cancelled_at')
+            ->get();
+
+        return view('admin.hcd.reports.cancelled', compact('ntcReports'));
     }
 
     /**
@@ -134,6 +163,15 @@ class NtcController extends Controller
     public function evaluateDocument(Request $request, NtcDocument $document)
     {
         $this->requireTrainingEvaluatorAccess();
+
+        // The FATPro withdrew this training. Approving its last document would
+        // otherwise acknowledge a training nobody intends to hold.
+        if ($document->ntcReport?->isCancelled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This training has been cancelled by the FATPro and is no longer under evaluation.',
+            ], 422);
+        }
         $validated = $request->validate([
             'status'  => ['required', 'in:approved,rejected,pending'],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -444,6 +482,15 @@ class NtcController extends Controller
     public function finalizeEvaluation(Request $request, NtcReport $ntcReport)
     {
         $this->requireTrainingEvaluatorAccess();
+
+        // Cancelled is terminal. Without this the all-approved branch below
+        // would write 'acknowledged' straight back over it.
+        if ($ntcReport->isCancelled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This training has been cancelled by the FATPro and can no longer be evaluated.',
+            ], 422);
+        }
         $validated = $request->validate([
             'evaluations' => ['required', 'array'],
             'evaluations.*.id' => ['required', 'exists:ntc_documents,id'],

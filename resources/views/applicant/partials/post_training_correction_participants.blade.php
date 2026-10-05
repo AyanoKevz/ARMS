@@ -68,31 +68,51 @@
             </label>
 
             @php
+                // Same fields, same order and same formats as the encoding grid
+                // — a correction that would not have passed on a first filing
+                // should not pass here either. 'kind' picks the control:
+                // region/city are PSGC pickers, mobile/landline carry the
+                // registration form's shapes, the rest are plain inputs.
                 $moreFields = [
                     'company'          => ['Company', true, 'text'],
                     'position'         => ['Position', true, 'text'],
-                    'company_city'     => ['Company City / Municipality', true, 'text'],
-                    'company_region'   => ['Company Region', true, 'text'],
+                    'company_region'   => ['Company Address (Region)', true, 'region'],
+                    'company_city'     => ['Company Address (City / Municipality)', true, 'city'],
                     'industry'         => ['Industry', true, 'text'],
                     'total_workers'    => ['Total No. of Workers', false, 'number'],
                     'company_email'    => ['Company Email', false, 'email'],
                     'personal_email'   => ['Personal Email', false, 'email'],
-                    'mobile_no'        => ['Mobile No.', true, 'text'],
-                    'company_landline' => ['Company Landline', false, 'text'],
+                    'mobile_no'        => ['Mobile No.', true, 'mobile'],
+                    'company_landline' => ['Company Landline', false, 'landline'],
                     'mode_of_training' => ['Mode of Training', true, 'text'],
                     'batch_no'         => ['Batch No.', false, 'text'],
                 ];
             @endphp
 
-            @foreach($moreFields as $field => [$label, $required, $type])
+            @foreach($moreFields as $field => [$label, $required, $kind])
             <label class="ptr-correction-field">
                 <span>{{ $label }} @if($required)<b class="text-danger">*</b>@endif</span>
-                <input type="{{ $type }}"
-                       @if($type === 'number') min="0" @endif
-                       class="form-control form-control-sm"
-                       data-field="{{ $field }}"
-                       value="{{ $participant->{$field} }}"
-                       @if($required) data-required @endif>
+
+                @if($kind === 'region' || $kind === 'city')
+                    {{-- Options come from ph-fields.js; data-value is what it
+                         restores once the register has been fetched. --}}
+                    <select class="form-control form-control-sm"
+                            data-field="{{ $field }}"
+                            data-ph-{{ $kind }}
+                            data-value="{{ $participant->{$field} }}"
+                            @if($kind === 'city') disabled @endif
+                            @if($required) data-required @endif></select>
+                @else
+                    <input type="{{ in_array($kind, ['number', 'email'], true) ? $kind : 'text' }}"
+                           @class(['form-control', 'form-control-sm'])
+                           @if($kind === 'number') min="0" @endif
+                           @if($kind === 'mobile') data-ph-mobile inputmode="tel" maxlength="13" placeholder="09171234567" @endif
+                           @if($kind === 'landline') data-ph-landline inputmode="numeric" maxlength="10" placeholder="0281234567" @endif
+                           @if($kind === 'email') maxlength="255" @endif
+                           data-field="{{ $field }}"
+                           value="{{ $participant->{$field} }}"
+                           @if($required) data-required @endif>
+                @endif
             </label>
             @endforeach
         </div>

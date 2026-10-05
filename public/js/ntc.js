@@ -670,4 +670,76 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    /* ─── Notice of Cancellation ──────────────────────────────────────────
+       One dialog for the whole table, retargeted by whichever button opened
+       it. Cancelling is terminal and nobody reviews it afterwards, so the
+       submit stays disabled until a reason has actually been written. */
+
+    const cancelModalEl  = document.getElementById('ntcCancelModal');
+    const cancelForm     = document.getElementById('ntcCancelForm');
+    const cancelReason   = document.getElementById('ntcCancelReason');
+    const cancelSubmit   = document.getElementById('ntcCancelSubmit');
+    const cancelCount    = document.getElementById('ntcCancelCount');
+    const cancelError    = document.getElementById('ntcCancelError');
+    const cancelModal    = cancelModalEl && window.bootstrap
+        ? new bootstrap.Modal(cancelModalEl)
+        : null;
+
+    const MIN_REASON = 10;
+
+    function cancelReasonOk() {
+        return cancelReason && cancelReason.value.trim().length >= MIN_REASON;
+    }
+
+    function refreshCancelState() {
+        if (cancelSubmit) cancelSubmit.disabled = !cancelReasonOk();
+        if (cancelCount && cancelReason) cancelCount.textContent = String(cancelReason.value.length);
+        if (cancelError && cancelReasonOk()) cancelError.classList.add('d-none');
+    }
+
+    if (cancelReason) {
+        cancelReason.addEventListener('input', refreshCancelState);
+    }
+
+    document.querySelectorAll('.btn-cancel-ntc').forEach(button => {
+        button.addEventListener('click', function () {
+            if (!cancelModal || !cancelForm) return;
+
+            cancelForm.setAttribute('action', this.getAttribute('data-url') || '');
+
+            const ref    = document.getElementById('ntcCancelRef');
+            const type   = document.getElementById('ntcCancelType');
+            const period = document.getElementById('ntcCancelPeriod');
+
+            // textContent throughout: the venue and period are the FATPro's
+            // own text and are not to be parsed as markup.
+            if (ref)    ref.textContent    = this.getAttribute('data-ref') || 'this training';
+            if (type)   type.textContent   = this.getAttribute('data-type') || '—';
+            if (period) period.textContent = this.getAttribute('data-period') || '—';
+
+            // Last training's reason must not carry over into this one.
+            if (cancelReason) cancelReason.value = '';
+            if (cancelError) cancelError.classList.add('d-none');
+            refreshCancelState();
+
+            cancelModal.show();
+        });
+    });
+
+    if (cancelForm) {
+        cancelForm.addEventListener('submit', function (e) {
+            if (!cancelReasonOk()) {
+                e.preventDefault();
+                if (cancelError) cancelError.classList.remove('d-none');
+                if (cancelReason) cancelReason.focus();
+                return;
+            }
+
+            if (cancelSubmit) {
+                cancelSubmit.disabled = true;
+                cancelSubmit.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Cancelling...';
+            }
+        });
+    }
+
 });

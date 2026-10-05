@@ -26,76 +26,6 @@ beforeEach(function () {
     Mail::fake();
 });
 
-/**
- * An accredited FATPro with one instructor who clears every eligibility gate.
- *
- * @return array{0: User, 1: Instructor, 2: Application}
- */
-function ntcFixture(string $suffix = '01', array $instructorOverrides = []): array
-{
-    $applicant = User::forceCreate([
-        'email'        => "ntc_days_{$suffix}@example.com",
-        'password'     => bcrypt('password'),
-        'role_id'      => Role::firstOrCreate(['name' => 'Applicant'])->id,
-        'profile_type' => 'Organization',
-    ]);
-
-    $typeId = \App\Models\AccreditationType::firstOrCreate(
-        ['name' => 'First Aid Training Providers']
-    )->id;
-
-    $application = Application::create([
-        'user_id'               => $applicant->id,
-        'accreditation_type_id' => $typeId,
-        'application_type'      => 'new',
-        'tracking_number'       => "ARMS-DAYS-{$suffix}",
-    ]);
-
-    ApplicationStatusLog::create([
-        'application_id' => $application->id,
-        'status_id'      => ApplicationStatus::firstOrCreate(['name' => 'Approved'])->id,
-    ]);
-
-    Accreditation::create([
-        'user_id'               => $applicant->id,
-        'application_id'        => $application->id,
-        'accreditation_type_id' => $typeId,
-        'accreditation_number'  => "FATPRO-DAYS-{$suffix}",
-        'date_of_accreditation' => now()->subMonths(2)->format('Y-m-d'),
-        'validity_date'         => now()->addYears(2)->format('Y-m-d'),
-        'status'                => 'active',
-    ]);
-
-    $person = InstructorPerson::create([
-        'user_id'    => $applicant->id,
-        'first_name' => 'Rosa',
-        'last_name'  => "Trainer{$suffix}",
-    ]);
-
-    $instructor = Instructor::create(array_merge([
-        'user_id'              => $applicant->id,
-        'application_id'       => $application->id,
-        'instructor_person_id' => $person->id,
-        'first_name'           => 'Rosa',
-        'last_name'            => "Trainer{$suffix}",
-        'cv_path'              => 'dummy_files/cv.pdf',
-        'cv_status'            => 'approved',
-        'status'               => 'approved',
-    ], $instructorOverrides));
-
-    foreach (['EMS', 'TM1', 'NTTC'] as $type) {
-        InstructorCredential::create([
-            'instructor_id' => $instructor->id,
-            'type'          => $type,
-            'number'        => "{$type}-{$suffix}",
-            'validity_date' => now()->addYear()->format('Y-m-d'),
-            'status'        => 'approved',
-        ]);
-    }
-
-    return [$applicant, $instructor, $application];
-}
-
 /** How many NTCs this FATPro has on file. The seeder creates others. */
 function ntcCountFor(User $applicant): int
 {
@@ -617,28 +547,6 @@ test('the training period opens in a dialog, day by day', function () {
    The FATPro's Report of Changes closes three working days before
    the training; this is what an evaluator has after that.
    ══════════════════════════════════════════════════════════════ */
-
-/** A Training Evaluator who can act on the admin NTC page. */
-function ntcEvaluator(string $suffix): User
-{
-    $evaluator = User::forceCreate([
-        'email'        => "ntc_evaluator_{$suffix}@example.com",
-        'password'     => bcrypt('password'),
-        'role_id'      => Role::firstOrCreate(['name' => 'Admin'])->id,
-        'profile_type' => 'Individual',
-    ]);
-
-    AdminProfile::create([
-        'user_id'       => $evaluator->id,
-        'division_id'   => Division::firstOrCreate(['name' => 'HCD'])->id,
-        'first_name'    => 'Tess',
-        'last_name'     => 'Evaluator',
-        'position'      => 'LSO III',
-        'admin_role_id' => AdminRole::firstOrCreate(['name' => 'Training Evaluator'])->id,
-    ]);
-
-    return $evaluator;
-}
 
 /** An acknowledged NTC whose training is still ahead of us. */
 function acknowledgedNtcFor(User $applicant, Instructor $instructor, array $days): NtcReport

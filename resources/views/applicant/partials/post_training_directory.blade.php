@@ -63,8 +63,8 @@
                 <th class="ptr-dir-w-age">Age</th>
                 <th class="ptr-dir-w-wide">Company</th>
                 <th class="ptr-dir-w-wide">Position</th>
-                <th class="ptr-dir-w-wide">Company Address (City / Municipality)</th>
-                <th class="ptr-dir-w-wide">Company Address (Region)</th>
+                <th class="ptr-dir-w-address">Company Address (Region)</th>
+                <th class="ptr-dir-w-address">Company Address (City / Municipality)</th>
                 <th class="ptr-dir-w-wide">Industry</th>
                 <th class="ptr-dir-w-num">Total No. of Workers</th>
                 <th class="ptr-dir-w-wide">Company Email</th>
@@ -114,14 +114,24 @@
         <td><input type="number" class="ptr-dir-input" data-field="age" min="1" max="120" required></td>
         <td><input type="text" class="ptr-dir-input" data-field="company" required></td>
         <td><input type="text" class="ptr-dir-input" data-field="position" required></td>
-        <td><input type="text" class="ptr-dir-input" data-field="company_city" required></td>
-        <td><input type="text" class="ptr-dir-input" data-field="company_region" required></td>
+        {{-- Left empty on purpose. Inlining 1,634 cities into a row template
+             that is cloned up to 500 times would bloat the page for nothing;
+             ph-fields.js fills these from a cached 20 KB asset instead, and
+             the city list follows whichever region is picked. --}}
+        <td><select class="ptr-dir-input" data-field="company_region" data-ph-region required></select></td>
+        <td><select class="ptr-dir-input" data-field="company_city" data-ph-city required disabled></select></td>
         <td><input type="text" class="ptr-dir-input" data-field="industry" required></td>
         <td><input type="number" class="ptr-dir-input" data-field="total_workers" min="0"></td>
-        <td><input type="email" class="ptr-dir-input" data-field="company_email"></td>
-        <td><input type="email" class="ptr-dir-input" data-field="personal_email"></td>
-        <td><input type="text" class="ptr-dir-input" data-field="mobile_no" required></td>
-        <td><input type="text" class="ptr-dir-input" data-field="company_landline"></td>
+        <td><input type="email" class="ptr-dir-input" data-field="company_email"
+                   placeholder="name@company.com" maxlength="255"></td>
+        <td><input type="email" class="ptr-dir-input" data-field="personal_email"
+                   placeholder="name@email.com" maxlength="255"></td>
+        {{-- The two shapes RegistrationController already enforces: a PH mobile
+             number, and a ten-digit landline with its area code. --}}
+        <td><input type="text" class="ptr-dir-input" data-field="mobile_no" data-ph-mobile
+                   inputmode="tel" maxlength="13" placeholder="09171234567" required></td>
+        <td><input type="text" class="ptr-dir-input" data-field="company_landline" data-ph-landline
+                   inputmode="numeric" maxlength="10" placeholder="0281234567"></td>
         <td>
             <div class="ptr-dir-photo">
                 <input type="file" class="d-none ptr-dir-photo-input" accept=".jpg,.jpeg,.png">

@@ -13,14 +13,17 @@ use App\Models\InstructorPerson;
 use App\Models\NtcReport;
 use App\Models\NtcTrainingMode;
 use App\Models\NtcTrainingType;
+use App\Models\PostTrainingDraft;
 use App\Models\PostTrainingReport;
 use App\Models\PtrDocumentType;
 use App\Models\PtrParticipant;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\PhLocations;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -213,7 +216,7 @@ test('a report submits with encoded participants and no Directory file', functio
         'company_email'      => 'hr@acme.test',
         'personal_email'     => 'juan@example.test',
         'mobile_no'          => '09171234567',
-        'company_landline'   => '02-1234-5678',
+        'company_landline'   => '0281234567',
         'mode_of_training'   => 'Face to Face',
         'batch_no'           => '2026-01',
         'photo_token'        => $token,
@@ -548,8 +551,8 @@ test('a staged picture belonging to another FATPro cannot be claimed', function 
             'age'                => '30',
             'company'            => 'X',
             'position'           => 'X',
-            'company_city'       => 'X',
-            'company_region'     => 'X',
+            'company_city'       => 'Taguig City',
+            'company_region'     => 'NCR',
             'industry'           => 'X',
             'mobile_no'          => '09000000000',
             'mode_of_training'   => 'Face to Face',
@@ -573,8 +576,8 @@ test('a path traversal token is rejected outright', function () {
             'age'                => '30',
             'company'            => 'X',
             'position'           => 'X',
-            'company_city'       => 'X',
-            'company_region'     => 'X',
+            'company_city'       => 'Taguig City',
+            'company_region'     => 'NCR',
             'industry'           => 'X',
             'mobile_no'          => '09000000000',
             'mode_of_training'   => 'Face to Face',
@@ -1207,6 +1210,17 @@ test('the portal offers one dialog carrying every declined section', function ()
     expect($html)->toContain('Illegible.');
     expect($html)->toContain('Wrong company.');
     expect($html)->toContain('Wrong person.');
+
+    // A correction is held to the same formats as a first filing: the address
+    // is picked, not typed, and the two numbers carry their shapes. The region
+    // leads here too, and each picker is pointed at what was already stored.
+    expect(strpos($html, 'data-field="company_region" data-ph-region'))
+        ->toBeLessThan(strpos($html, 'data-field="company_city" data-ph-city'));
+
+    expect($html)->toContain('data-value="' . $participant->company_region . '"');
+    expect($html)->toContain('data-value="' . $participant->company_city . '"');
+    expect($html)->toContain('data-ph-mobile');
+    expect($html)->toContain('data-ph-landline');
 });
 
 test('a submission needs a valid link to the training video', function () {
@@ -1384,4 +1398,412 @@ test('a corrected video link still has to be a usable URL', function () {
     )->assertSessionHasErrors('training_video_url');
 
     expect($report->fresh()->videoDocument()->status)->toBe('rejected');
+});
+
+/* ══════════════════════════════════════════════════════════════
+   Drafts — an unfinished report survives between sittings
+   ══════════════════════════════════════════════════════════════ */
+
+test('an unfinished report is kept and handed back on the next visit', function () {
+    [$applicant, $ntc] = ptrFixture('70');
+
+    $this->actingAs($applicant)->postJson(
+        route('applicant.post_training.draft.save', $ntc->id),
+        ['payload' => [
+            'training_video_url' => 'https://drive.google.com/file/d/half-done',
+            'applicant_remarks'  => 'Still encoding the directory.',
+            'instructor_ids'     => $ntc->instructors->pluck('id')->all(),
+            'participants'       => [['certificate_number' => 'CERT-70', 'last_name' => 'Reyes']],
+            'step'               => 3,
+        ]]
+    )->assertOk()->assertJson(['ok' => true]);
+
+    $draft = PostTrainingDraft::where('ntc_report_id', $ntc->id)->first();
+
+    expect($draft)->not->toBeNull();
+    expect($draft->user_id)->toBe($applicant->id);
+    expect($draft->payload['training_video_url'])->toBe('https://drive.google.com/file/d/half-done');
+    expect($draft->payload['step'])->toBe(3);
+
+    // No report has been filed — a draft is not a submission.
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+
+    // And the portal hands it straight back to the dialog.
+    $html = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('data-draft=');
+    expect($html)->toContain('half-done');
+    expect($html)->toContain('ptrSaveStatus');
+});
+
+test('saving a draft again replaces it rather than piling up', function () {
+    [$applicant, $ntc] = ptrFixture('71');
+
+    foreach (['first pass', 'second pass'] as $note) {
+        $this->actingAs($applicant)->postJson(
+            route('applicant.post_training.draft.save', $ntc->id),
+            ['payload' => ['applicant_remarks' => $note]]
+        )->assertOk();
+    }
+
+    expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->count())->toBe(1);
+    expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->first()->payload['applicant_remarks'])
+        ->toBe('second pass');
+});
+
+test('a draft belongs to its FATPro and nobody else', function () {
+    [, $ntc]     = ptrFixture('72');
+    [$outsider]  = ptrFixture('73');
+
+    $this->actingAs($outsider)->postJson(
+        route('applicant.post_training.draft.save', $ntc->id),
+        ['payload' => ['applicant_remarks' => 'not mine']]
+    )->assertForbidden();
+
+    expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('a document staged into a draft satisfies its requirement on submit', function () {
+    [$applicant, $ntc] = ptrFixture('74');
+
+    $program = PtrDocumentType::where('code', 'PROGRAM')->first();
+
+    // Stage the PDF on its own, the way picking a file does.
+    $staged = $this->actingAs($applicant)->post(
+        route('applicant.post_training.stage_document'),
+        [
+            'document'             => UploadedFile::fake()->create('program.pdf', 90, 'application/pdf'),
+            'ptr_document_type_id' => $program->id,
+        ]
+    )->assertOk()->json();
+
+    expect($staged['ok'])->toBeTrue();
+    expect($staged['token'])->toEndWith('.pdf');
+
+    $this->actingAs($applicant)->postJson(
+        route('applicant.post_training.draft.save', $ntc->id),
+        ['payload' => ['documents' => [
+            (string) $program->id => ['token' => $staged['token'], 'name' => 'program.pdf'],
+        ]]]
+    )->assertOk();
+
+    // Submit WITHOUT re-picking that file — the draft already holds it.
+    $photoToken = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    $fields = ptrSubmissionFields($ntc);
+    unset($fields[$program->inputName()]);
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge($fields, ['participants' => ptrOneParticipant('CERT-74', $photoToken)])
+    )->assertSessionHas('success');
+
+    $report = PostTrainingReport::where('ntc_report_id', $ntc->id)->first();
+    $doc    = $report->documents->firstWhere('ptr_document_type_id', $program->id);
+
+    expect($doc->file_path)->not->toBeNull();
+    expect($doc->original_filename)->toBe('program.pdf');
+
+    // Submitting retires the draft and the staged copy with it.
+    expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+    expect(Storage::disk('local')->exists('ptr_staging/' . $applicant->id . '/' . $staged['token']))->toBeFalse();
+});
+
+test('a requirement with neither a picked nor a staged file is still refused', function () {
+    [$applicant, $ntc] = ptrFixture('75');
+
+    $program = PtrDocumentType::where('code', 'PROGRAM')->first();
+
+    $photoToken = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    $fields = ptrSubmissionFields($ntc);
+    unset($fields[$program->inputName()]);
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge($fields, ['participants' => ptrOneParticipant('CERT-75', $photoToken)])
+    )->assertSessionHasErrors($program->inputName());
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('a draft can be thrown away on request', function () {
+    [$applicant, $ntc] = ptrFixture('76');
+
+    $this->actingAs($applicant)->postJson(
+        route('applicant.post_training.draft.save', $ntc->id),
+        ['payload' => ['applicant_remarks' => 'changed my mind']]
+    )->assertOk();
+
+    $this->actingAs($applicant)
+        ->deleteJson(route('applicant.post_training.draft.discard', $ntc->id))
+        ->assertOk();
+
+    expect(PostTrainingDraft::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('two trainings keep entirely separate drafts', function () {
+    [$applicant, $firstNtc] = ptrFixture('77');
+
+    // A second acknowledged training for the same FATPro.
+    $secondNtc = NtcReport::create([
+        'accreditation_id'     => $firstNtc->accreditation_id,
+        'ntc_training_type_id' => $firstNtc->ntc_training_type_id,
+        'ntc_training_mode_id' => $firstNtc->ntc_training_mode_id,
+        'training_start_date'  => now()->subDays(6)->format('Y-m-d'),
+        'training_end_date'    => now()->subDays(5)->format('Y-m-d'),
+        'status'               => 'acknowledged',
+        'acknowledged_at'      => now()->subDays(15),
+    ]);
+
+    $prepost = PtrDocumentType::where('code', 'PREPOST')->first();
+
+    // Only the first training has a staged document.
+    $this->actingAs($applicant)->postJson(
+        route('applicant.post_training.draft.save', $firstNtc->id),
+        ['payload' => [
+            'applicant_remarks' => 'belongs to the first',
+            'documents'         => [(string) $prepost->id => ['token' => 'first.pdf', 'name' => 'first.pdf']],
+        ]]
+    )->assertOk();
+
+    $this->actingAs($applicant)->postJson(
+        route('applicant.post_training.draft.save', $secondNtc->id),
+        ['payload' => ['applicant_remarks' => 'belongs to the second']]
+    )->assertOk();
+
+    $first  = PostTrainingDraft::where('ntc_report_id', $firstNtc->id)->first();
+    $second = PostTrainingDraft::where('ntc_report_id', $secondNtc->id)->first();
+
+    expect($first->payload['applicant_remarks'])->toBe('belongs to the first');
+    expect($second->payload['applicant_remarks'])->toBe('belongs to the second');
+
+    // The second training must not inherit the first's staged document — that
+    // is what made a step look satisfied on a training nobody had touched.
+    expect($first->payload['documents'])->toHaveKey((string) $prepost->id);
+    expect($second->payload)->not->toHaveKey('documents');
+    expect($second->stagedTokens())->toBe([]);
+
+    // And each trigger carries only its own draft to the dialog.
+    $html = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->getContent();
+
+    expect(substr_count($html, 'belongs to the first'))->toBe(1);
+    expect(substr_count($html, 'belongs to the second'))->toBe(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Participant field formats
+|--------------------------------------------------------------------------
+|
+| Region and City are picked from the PSGC register rather than typed, and the
+| two contact numbers follow the shapes the landing page's registration form
+| already enforces. These guard the server side of all four: a dropdown can
+| only constrain the browser, and the directory arrives as one JSON field a
+| crafted post is free to write by hand.
+|
+*/
+
+/** One encoded row, valid apart from whatever the caller overrides. */
+function ptrRow(string $photoToken, array $overrides = []): string
+{
+    return json_encode([array_merge([
+        'certificate_number' => 'CERT-FMT',
+        'photo_token'        => $photoToken,
+        'last_name'          => 'Santos',
+        'first_name'         => 'Mina',
+        'sex'                => 'Female',
+        'age'                => 29,
+        'company'            => 'Acme',
+        'position'           => 'Safety Officer',
+        'company_region'     => 'NCR',
+        'company_city'       => 'Quezon City',
+        'industry'           => 'Manufacturing',
+        'mobile_no'          => '09171234567',
+        'mode_of_training'   => 'Face to Face',
+    ], $overrides)]);
+}
+
+test('a company region has to be one the PSGC register actually lists', function () {
+    [$applicant, $ntc] = ptrFixture('80');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    // Region IV was split into CALABARZON and MIMAROPA in 2002. It is not a
+    // region any more, and typing it by hand must not bring it back.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'company_region' => 'Region IV',
+            'company_city'   => 'Calamba City',
+        ])])
+    )->assertSessionHasErrors('participants.0.company_region');
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('a city has to belong to the region it is filed under', function () {
+    [$applicant, $ntc] = ptrFixture('81');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    // Both halves are real; together they are not. The dropdowns cannot offer
+    // this pairing, but the directory posts as JSON and nothing stops a
+    // hand-built request from sending it.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'company_region' => 'NCR',
+            'company_city'   => 'Cebu City',
+        ])])
+    )->assertSessionHasErrors('participants.0.company_city');
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+
+    // Filed under its own region it goes straight through.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'company_region' => 'Region VII',
+            'company_city'   => 'Cebu City',
+        ])])
+    )->assertSessionHasNoErrors();
+
+    expect(PtrParticipant::first()->company_region)->toBe('Region VII');
+});
+
+test('a mobile number is held to the registration form shape', function () {
+    [$applicant, $ntc] = ptrFixture('82');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    foreach (['0917 123 4567', '9171234567', '091712345', '+19171234567', 'not a number'] as $bad) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['mobile_no' => $bad])])
+        )->assertSessionHasErrors('participants.0.mobile_no');
+    }
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+
+    // The international form the registration form accepts is accepted here too.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['mobile_no' => '+639171234567'])])
+    )->assertSessionHasNoErrors();
+
+    expect(PtrParticipant::first()->mobile_no)->toBe('+639171234567');
+});
+
+test('a company landline is optional but must be ten digits when given', function () {
+    [$applicant, $ntc] = ptrFixture('83');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    foreach (['02-1234-5678', '8123456', '028123456789'] as $bad) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['company_landline' => $bad])])
+        )->assertSessionHasErrors('participants.0.company_landline');
+    }
+
+    // Left out entirely it is no obstacle at all.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['company_landline' => ''])])
+    )->assertSessionHasNoErrors();
+
+    expect(PtrParticipant::first()->company_landline)->toBeNull();
+});
+
+test('both e-mail columns have to be real addresses', function () {
+    [$applicant, $ntc] = ptrFixture('84');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    foreach (['company_email', 'personal_email'] as $field) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [$field => 'acme.test'])])
+        )->assertSessionHasErrors("participants.0.{$field}");
+    }
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('the grid asks for the region before the city, and picks both from a list', function () {
+    [$applicant, $ntc] = ptrFixture('85');
+
+    $html = $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->getContent();
+
+    // Region leads, in the header and in the row template alike.
+    expect(strpos($html, 'Company Address (Region)'))
+        ->toBeLessThan(strpos($html, 'Company Address (City / Municipality)'));
+
+    expect(strpos($html, 'data-field="company_region"'))
+        ->toBeLessThan(strpos($html, 'data-field="company_city"'));
+
+    // Both are dropdowns, and the city waits on a region before offering anything.
+    expect($html)->toContain('<select class="ptr-dir-input" data-field="company_region" data-ph-region required>');
+    expect($html)->toContain('<select class="ptr-dir-input" data-field="company_city" data-ph-city required disabled>');
+
+    // The contact columns carry the registration form's shapes.
+    expect($html)->toContain('data-ph-mobile');
+    expect($html)->toContain('data-ph-landline');
+
+    // The 1,634 municipalities are fetched, not inlined into every row template.
+    expect($html)->not->toContain('Cebu City');
+});
+
+test('the PSGC register covers every region and keeps its cities apart', function () {
+    $codes = PhLocations::regionCodes();
+
+    expect($codes)->toHaveCount(17);
+    expect($codes[0])->toBe('NCR');
+
+    $total = 0;
+
+    foreach ($codes as $code) {
+        $cities = PhLocations::citiesIn($code);
+
+        expect($cities)->not->toBeEmpty();
+        $total += count($cities);
+    }
+
+    expect($total)->toBe(1634);
+
+    expect(PhLocations::isCityIn('Cebu City', 'Region VII'))->toBeTrue();
+    expect(PhLocations::isCityIn('Cebu City', 'NCR'))->toBeFalse();
+    expect(PhLocations::isRegion('Region IV'))->toBeFalse();
+    expect(PhLocations::isRegion('Region IV-A'))->toBeTrue();
 });

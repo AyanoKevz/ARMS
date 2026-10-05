@@ -322,6 +322,49 @@
     margin-bottom: 0;
 }
 
+/* ── Notice of Cancellation dialog ───────────────────────────── */
+
+/* What is about to be withdrawn, restated in the dialog: the button
+   was clicked in a row of nine columns and it is worth being sure. */
+.ntc-cancel-summary {
+    background: #f7f9fd;
+    border: 1px solid #e2e9f3;
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.ntc-cancel-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 0.82rem;
+    padding: 3px 0;
+}
+
+.ntc-cancel-summary-row span {
+    color: #64748b;
+}
+
+.ntc-cancel-summary-row strong {
+    color: #22303f;
+    text-align: right;
+}
+
+/* Room to actually explain. This is the evaluators' only account of why a
+   training was called off, and a two-line box invites a two-word answer. */
+.ntc-cancel-reason {
+    min-height: 120px;
+    resize: vertical;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+/* The one irreversible button on the page; it should not look ordinary. */
+#ntcCancelSubmit:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 /* ══════════════════════════════════════════════════════════════
    Training day selection
 

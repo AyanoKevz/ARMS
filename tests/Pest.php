@@ -41,7 +41,6 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
-{
-    // ..
-}
+// Fixtures shared by more than one feature test. Pest loads this file once
+// for the whole suite, so the helpers inside are available everywhere.
+require_once __DIR__ . "/Helpers/ntc.php";

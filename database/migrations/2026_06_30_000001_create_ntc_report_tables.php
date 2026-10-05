@@ -70,7 +70,9 @@ return new class extends Migration
             // NTC Training End Date
 
             $table->string('status', 50)->default('draft');
-            // Lifecycle: draft → submitted → acknowledged
+            // Lifecycle: draft → submitted → acknowledged, or → cancelled,
+            // which a FATPro may do themselves up to three working days before
+            // the training begins. Cancelled is terminal and owes no report.
 
             $table->timestamp('submitted_at')->nullable();
             // When the FATPro formally submitted this NTC
@@ -86,6 +88,19 @@ return new class extends Migration
 
             $table->text('remarks')->nullable();
             // Admin remarks / notes
+
+            $table->timestamp('cancelled_at')->nullable();
+            // When the FATPro filed the Notice of Cancellation
+
+            $table->foreignId('cancelled_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
+            // The FATPro who cancelled it
+
+            $table->text('cancellation_reason')->nullable();
+            // Why. The evaluators are only notified, never asked to approve,
+            // so this is the whole of what they are told.
 
             $table->timestamps();
 

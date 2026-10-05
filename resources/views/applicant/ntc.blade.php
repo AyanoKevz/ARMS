@@ -453,7 +453,16 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if($ntc->status === 'acknowledged')
+                                        @if($ntc->status === 'cancelled')
+                                            {{-- Terminal. No documents to re-upload, no report owed,
+                                                 nothing further for the FATPro to do here. --}}
+                                            <span class="badge badge-premium-danger">Cancelled</span>
+                                            @if($ntc->cancelled_at)
+                                                <div class="text-muted mt-1 ntc-text-70">
+                                                    on {{ $ntc->cancelled_at->format('F d, Y') }}
+                                                </div>
+                                            @endif
+                                        @elseif($ntc->status === 'acknowledged')
                                             <span class="badge badge-premium-success">Acknowledged</span>
                                             @if($ntc->canSubmitReportChanges())
                                                 <div class="mt-2">
@@ -475,17 +484,20 @@
                                                     </button>
                                                 </div>
                                             @endif
-                                            @if($ntc->reportChangesDeadlineDate())
+                                            @include('applicant.partials.ntc_cancel_button', ['ntc' => $ntc])
+                                            @if($ntc->changeWindowDeadlineDate())
                                                 <div class="text-muted mt-1 ntc-text-70">
-                                                    Changes until: {{ $ntc->reportChangesDeadlineDate()->format('F d, Y') }}
+                                                    Changes until: {{ $ntc->changeWindowDeadlineDate()->format('F d, Y') }}
                                                 </div>
                                             @endif
                                         @elseif($ntc->status === 'report_changes')
                                             <span class="badge bg-info text-white ntc-badge-info">Report of Changes</span>
+                                            @include('applicant.partials.ntc_cancel_button', ['ntc' => $ntc])
                                         @elseif($hasRejected)
                                             <span class="badge badge-premium-danger">Requires Re-submission</span>
                                         @elseif($ntc->status === 'submitted')
                                             <span class="badge badge-premium-warning">Submitted</span>
+                                            @include('applicant.partials.ntc_cancel_button', ['ntc' => $ntc])
                                         @else
                                             <span class="badge badge-premium-secondary">{{ ucfirst($ntc->status) }}</span>
                                         @endif
@@ -536,6 +548,8 @@
 @include('applicant.partials.ntc_instructors_modal')
 
 @include('applicant.partials.ntc_training_days_modal')
+
+@include('applicant.partials.ntc_cancel_modal')
 
 {{-- One per submission; they carry forms, so they cannot live in a cell. --}}
 @foreach($ntcReports as $ntc)
@@ -729,6 +743,8 @@
 <script src="{{ asset('js/ntc-training-picker.js') }}?v={{ filemtime(public_path('js/ntc-training-picker.js')) }}"></script>
 <script src="{{ asset('js/ntc.js') }}?v={{ filemtime(public_path('js/ntc.js')) }}"></script>
 {{-- Post Training Report: drop zones, submit modal and re-upload forms --}}
+<script src="{{ asset('js/ph-fields.js') }}?v={{ filemtime(public_path('js/ph-fields.js')) }}"></script>
 <script src="{{ asset('js/post-training.js') }}?v={{ filemtime(public_path('js/post-training.js')) }}"></script>
+<script src="{{ asset('js/post-training-draft.js') }}?v={{ filemtime(public_path('js/post-training-draft.js')) }}"></script>
 <script src="{{ asset('js/post-training-corrections.js') }}?v={{ filemtime(public_path('js/post-training-corrections.js')) }}"></script>
 @endpush

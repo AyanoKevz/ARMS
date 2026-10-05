@@ -127,6 +127,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::post('/ntc/documents/{document}/reupload', [NtcController::class, 'reuploadDocument'])->name('ntc.document.reupload')->middleware('throttle:10,1');
         Route::post('/ntc/{ntcReport}/reupload', [NtcController::class, 'reuploadBatch'])->name('ntc.reupload_batch')->middleware('throttle:10,1');
         Route::post('/ntc/{ntcReport}/report-of-changes', [NtcController::class, 'submitReportChanges'])->name('ntc.report_changes')->middleware('throttle:10,1');
+        Route::post('/ntc/{ntcReport}/cancel', [NtcController::class, 'cancel'])->name('ntc.cancel')->middleware('throttle:10,1');
 
         // Post Training Report. Filed from the NTC page — the obligation belongs
         // to a Notice to Conduct, so it is shown against it rather than on a page
@@ -136,12 +137,20 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // ID pictures upload one at a time while the Directory is being encoded.
         // Posted together they would have to fit one request's post_max_size, and
         // a host at PHP's default max_file_uploads would silently drop the rest.
+        // Static paths first: /post-training/{ntcReport} would otherwise
+        // match these and fail to resolve the model.
+        Route::post('/post-training/stage-document', [PostTrainingReportController::class, 'stageDocument'])->name('post_training.stage_document')->middleware('throttle:60,1');
         Route::post('/post-training/participant-photo', [PostTrainingReportController::class, 'stageParticipantPhoto'])->name('post_training.participant_photo')->middleware('throttle:120,1');
         Route::post('/post-training/{ntcReport}', [PostTrainingReportController::class, 'store'])->name('post_training.store')->middleware('throttle:10,1');
         Route::post('/post-training/{postTrainingReport}/reupload', [PostTrainingReportController::class, 'reuploadBatch'])->name('post_training.reupload_batch')->middleware('throttle:10,1');
         Route::post('/post-training/{postTrainingReport}/participants', [PostTrainingReportController::class, 'updateParticipants'])->name('post_training.participants.update')->middleware('throttle:10,1');
         Route::post('/post-training/{postTrainingReport}/instructors', [PostTrainingReportController::class, 'updateInstructors'])->name('post_training.instructors.update')->middleware('throttle:10,1');
         Route::post('/post-training/{postTrainingReport}/corrections', [PostTrainingReportController::class, 'submitCorrections'])->name('post_training.corrections')->middleware('throttle:10,1');
+
+        // Drafts: an unfinished report is kept between sittings. Saving is
+        // frequent and cheap, so the throttle is far looser than a submit.
+        Route::post('/post-training/{ntcReport}/draft', [PostTrainingReportController::class, 'saveDraft'])->name('post_training.draft.save')->middleware('throttle:120,1');
+        Route::delete('/post-training/{ntcReport}/draft', [PostTrainingReportController::class, 'discardDraft'])->name('post_training.draft.discard')->middleware('throttle:30,1');
     });
 
     // 'admin' is the allow-list that the controllers' per-role deny-lists do not
@@ -212,6 +221,7 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 
             // Reports
             Route::get('/reports/ntc', [AdminNtcController::class, 'index'])->name('reports.ntc.index');
+            Route::get('/reports/cancelled', [AdminNtcController::class, 'cancelledIndex'])->name('reports.cancelled.index');
             Route::get('/reports/report-changes', [AdminNtcController::class, 'reportChangesIndex'])->name('reports.report_changes.index');
             Route::get('/reports/ntc/{ntcReport}', [AdminNtcController::class, 'show'])->name('reports.ntc.show');
             Route::post('/reports/ntc/documents/{document}/evaluate', [AdminNtcController::class, 'evaluateDocument'])->name('reports.ntc.documents.evaluate');

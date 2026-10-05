@@ -8,12 +8,14 @@ use App\Models\Accreditation;
 use App\Models\Application;
 use App\Models\Instructor;
 use App\Models\NtcReport;
+use App\Models\PostTrainingDraft;
 use App\Models\PostTrainingReport;
 use App\Models\PtrDocument;
 use App\Models\PtrDocumentType;
 use App\Models\PtrParticipant;
 use App\Models\User;
 use App\Support\ApplicantStoragePath;
+use App\Support\PhLocations;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +25,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PostTrainingReportController extends Controller
@@ -32,6 +35,14 @@ class PostTrainingReportController extends Controller
 
     /** Upper bound on one encoded Directory of Participants. */
     private const MAX_PARTICIPANTS = 500;
+
+    /**
+     * How long an unreferenced staged file is kept.
+     *
+     * Anything a live draft still points at is exempt, so this only governs
+     * leftovers — a picture staged and then abandoned without saving.
+     */
+    private const STAGING_RETENTION_DAYS = 14;
 
     /**
      * The same gate the NTC portal uses: a revoked accreditation or an ongoing
@@ -98,6 +109,9 @@ class PostTrainingReportController extends Controller
         $documentTypes = PtrDocumentType::orderBy('sort_order')->get();
         [$rules, $messages] = $this->uploadRules($documentTypes);
 
+        // What a draft staged earlier, keyed by document type.
+        $staged = $this->stagedDocumentsFor($ntcReport, $user);
+
         // A recording of the training is required, but as a link: a full
         // session runs to gigabytes and no upload here would carry it.
         $rules['training_video_url'] = ['required', 'url', 'max:500'];
@@ -108,6 +122,17 @@ class PostTrainingReportController extends Controller
 
         $validated = $request->validate($rules, $messages);
 
+        // Every attachment must come from somewhere — this sitting or a draft.
+        foreach ($documentTypes->filter->isFile() as $docType) {
+            if ($request->file($docType->inputName()) || isset($staged[$docType->id])) {
+                continue;
+            }
+
+            throw ValidationException::withMessages([
+                $docType->inputName() => "The {$docType->name} is required.",
+            ]);
+        }
+
         // The Directory arrives as one JSON field rather than N*19 form inputs,
         // so the row count never has to fit under max_input_vars.
         $participants = $this->validateParticipants($request, $user);
@@ -117,7 +142,7 @@ class PostTrainingReportController extends Controller
         $instructorIds = $this->resolveReportInstructors($request, $ntcReport, $user);
 
         try {
-            DB::transaction(function () use ($request, $ntcReport, $user, $documentTypes, $participants, $instructorIds, $validated) {
+            DB::transaction(function () use ($request, $ntcReport, $user, $documentTypes, $participants, $instructorIds, $validated, $staged) {
                 $accreditation = $ntcReport->accreditation()->with('accreditationType')->first();
 
                 $report = PostTrainingReport::create([
@@ -156,25 +181,42 @@ class PostTrainingReportController extends Controller
                     }
 
                     $file = $request->file($docType->inputName());
-                    if (!$file) {
+
+                    // A file picked now wins over whatever the draft staged;
+                    // the FATPro replacing it in this sitting is the later
+                    // decision.
+                    if ($file) {
+                        $attributes = [
+                            'file_path'         => $this->storeUpload($file, $basePath, $docType->code),
+                            'original_filename' => $file->getClientOriginalName(),
+                            'mime_type'         => $file->getMimeType(),
+                            'file_size'         => $file->getSize(),
+                        ];
+                    } elseif (isset($staged[$docType->id])) {
+                        $entry  = $staged[$docType->id];
+                        $claim  = $this->claimStagedDocument($user, $entry['token'], $basePath, $docType->code);
+
+                        $attributes = $claim + [
+                            'original_filename' => $entry['name'] ?? basename($claim['file_path']),
+                            'mime_type'         => 'application/pdf',
+                        ];
+                    } else {
                         continue;
                     }
 
-                    $path = $this->storeUpload($file, $basePath, $docType->code);
-
-                    PtrDocument::create([
+                    PtrDocument::create($attributes + [
                         'post_training_report_id' => $report->id,
                         'ptr_document_type_id'    => $docType->id,
-                        'file_path'               => $path,
-                        'original_filename'       => $file->getClientOriginalName(),
-                        'mime_type'               => $file->getMimeType(),
-                        'file_size'               => $file->getSize(),
                         'uploaded_at'             => Carbon::now(),
                         'status'                  => 'pending',
                     ]);
                 }
 
                 $this->persistParticipants($report, $participants, $basePath, $user);
+
+                // The work in progress is now a submission; anything it still
+                // had staged has either been claimed above or is surplus.
+                $this->clearDraft($ntcReport, $user);
 
                 $this->notifyEvaluators($report, $user);
             });
@@ -189,6 +231,190 @@ class PostTrainingReportController extends Controller
         }
     }
 
+
+    /* ── Drafts ─────────────────────────────────────────────────────────────
+     *
+     * A report asks for seven things at once, which is more than one sitting's
+     * work. Everything typed or chosen is kept in post_training_drafts so the
+     * dialog can be closed and reopened; files are staged on pick, because a
+     * JSON payload cannot hold a PDF.
+     */
+
+    /**
+     * Record the current state of an unfinished submission.
+     *
+     * Deliberately forgiving: a draft is not a submission, so nothing here is
+     * required and nothing is rejected for being incomplete. The only checks
+     * are the ones that protect the record itself — that the NTC belongs to
+     * this FATPro and has not already been reported on.
+     */
+    public function saveDraft(Request $request, NtcReport $ntcReport)
+    {
+        $user = Auth::user();
+
+        if ($ntcReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($ntcReport->postTrainingReport) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'This training has already been reported on.',
+            ], 409);
+        }
+
+        $validated = $request->validate([
+            'payload'                     => ['required', 'array'],
+            'payload.participants'        => ['nullable', 'array', 'max:' . self::MAX_PARTICIPANTS],
+            'payload.instructor_ids'      => ['nullable', 'array'],
+            'payload.training_video_url'  => ['nullable', 'string', 'max:500'],
+            'payload.applicant_remarks'   => ['nullable', 'string', 'max:1000'],
+            'payload.documents'           => ['nullable', 'array'],
+            'payload.step'                => ['nullable', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $draft = PostTrainingDraft::updateOrCreate(
+            ['ntc_report_id' => $ntcReport->id],
+            [
+                'user_id'  => $user->id,
+                'payload'  => $validated['payload'],
+                'saved_at' => Carbon::now(),
+            ]
+        );
+
+        return response()->json([
+            'ok'       => true,
+            'saved_at' => $draft->saved_at->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Throw away an unfinished submission at the FATPro's request.
+     */
+    public function discardDraft(NtcReport $ntcReport)
+    {
+        $user = Auth::user();
+
+        if ($ntcReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $this->clearDraft($ntcReport, $user);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Stage one attachment ahead of submission.
+     *
+     * Uploaded the moment it is picked rather than with the form, for two
+     * reasons: a draft has to survive the dialog being closed, and four 25 MB
+     * PDFs in one request is a fight with post_max_size that there is no need
+     * to pick.
+     */
+    public function stageDocument(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($reason = $this->accessDenialReason($user, 'submit')) {
+            return response()->json(['ok' => false, 'message' => $reason], 403);
+        }
+
+        $validated = $request->validate([
+            'document'            => ['required', 'file', 'mimes:pdf', 'max:' . self::MAX_FILE_KB],
+            'ptr_document_type_id' => ['required', 'exists:ptr_document_types,id'],
+        ], [
+            'document.mimes' => 'The document must be a PDF file.',
+            'document.max'   => 'The document must not exceed 25 MB.',
+        ]);
+
+        $file  = $validated['document'];
+        $token = Str::uuid() . '.pdf';
+
+        $file->storeAs($this->stagingPath($user), $token, 'local');
+
+        return response()->json([
+            'ok'    => true,
+            'token' => $token,
+            'name'  => $file->getClientOriginalName(),
+            'size'  => $file->getSize(),
+        ]);
+    }
+
+    /**
+     * The attachments a draft staged, keyed by document type id.
+     *
+     * Only entries whose file is actually still on disk are returned, so a
+     * token left behind by a prune or a failed upload cannot make store()
+     * believe a requirement is satisfied.
+     *
+     * @return array<int, array{token: string, name: ?string}>
+     */
+    private function stagedDocumentsFor(NtcReport $ntcReport, User $user): array
+    {
+        $draft = PostTrainingDraft::where('ntc_report_id', $ntcReport->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$draft) {
+            return [];
+        }
+
+        $staged = [];
+
+        foreach ($draft->payload['documents'] ?? [] as $typeId => $entry) {
+            $token = $entry['token'] ?? null;
+
+            if (!$token || !Storage::disk('local')->exists($this->stagingPath($user) . '/' . $token)) {
+                continue;
+            }
+
+            $staged[(int) $typeId] = [
+                'token' => $token,
+                'name'  => $entry['name'] ?? null,
+            ];
+        }
+
+        return $staged;
+    }
+
+    /**
+     * Move a staged attachment into the report's own folder.
+     */
+    private function claimStagedDocument(User $user, string $token, string $basePath, string $docCode): array
+    {
+        $from = $this->stagingPath($user) . '/' . $token;
+        $to   = $basePath . '/' . strtolower($docCode) . '_' . time() . '.pdf';
+
+        Storage::disk('local')->move($from, $to);
+
+        return [
+            'file_path' => $to,
+            'file_size' => Storage::disk('local')->size($to),
+        ];
+    }
+
+    /**
+     * Drop a draft and the staged files only it was holding.
+     */
+    private function clearDraft(NtcReport $ntcReport, User $user): void
+    {
+        $draft = PostTrainingDraft::where('ntc_report_id', $ntcReport->id)->first();
+
+        if (!$draft) {
+            return;
+        }
+
+        foreach ($draft->stagedTokens() as $token) {
+            try {
+                Storage::disk('local')->delete($this->stagingPath($user) . '/' . $token);
+            } catch (\Exception $e) {
+                Log::warning('Draft staged file cleanup failed: ' . $e->getMessage());
+            }
+        }
+
+        $draft->delete();
+    }
     /**
      * Serve a post training document file (private storage).
      */
@@ -356,8 +582,11 @@ class PostTrainingReportController extends Controller
             $field = $docType->inputName();
             $extensions = $docType->acceptedExtensions();
 
+            // A file picked in this sitting OR one staged into a draft
+            // earlier satisfies the requirement, so neither is 'required' on
+            // its own — store() checks that one of the two is present.
             $rules[$field] = [
-                'required',
+                'nullable',
                 'file',
                 'mimes:' . implode(',', $extensions),
                 'max:' . self::MAX_FILE_KB,
@@ -807,7 +1036,7 @@ class PostTrainingReportController extends Controller
             'photo.max'      => 'Each ID picture must not exceed 5 MB.',
         ]);
 
-        $this->pruneStagedPhotos($user);
+        $this->pruneStagedFiles($user);
 
         $file = $request->file('photo');
         $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
@@ -920,14 +1149,19 @@ class PostTrainingReportController extends Controller
             'participants.*.age'                => ['required', 'integer', 'min:1', 'max:120'],
             'participants.*.company'            => ['required', 'string', 'max:255'],
             'participants.*.position'           => ['required', 'string', 'max:255'],
+            // Region is picked from the PSGC register, not typed. The city is
+            // checked against that region's own list in the after() pass below,
+            // which needs both values and so cannot be expressed as a rule.
+            'participants.*.company_region'     => ['required', 'string', Rule::in(PhLocations::regionCodes())],
             'participants.*.company_city'       => ['required', 'string', 'max:255'],
-            'participants.*.company_region'     => ['required', 'string', 'max:255'],
             'participants.*.industry'           => ['required', 'string', 'max:255'],
             'participants.*.total_workers'      => ['nullable', 'integer', 'min:0'],
             'participants.*.company_email'      => ['nullable', 'email', 'max:255'],
             'participants.*.personal_email'     => ['nullable', 'email', 'max:255'],
-            'participants.*.mobile_no'          => ['required', 'string', 'max:50'],
-            'participants.*.company_landline'   => ['nullable', 'string', 'max:50'],
+            // The shapes RegistrationController applies to the same two kinds
+            // of number, so one form cannot accept what the other refuses.
+            'participants.*.mobile_no'          => ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
+            'participants.*.company_landline'   => ['nullable', 'string', 'regex:/^\d{10}$/'],
             'participants.*.mode_of_training'   => ['required', 'string', 'max:100'],
             'participants.*.batch_no'           => ['nullable', 'string', 'max:50'],
         ];
@@ -947,6 +1181,12 @@ class PostTrainingReportController extends Controller
             'participants.*.photo_token.required'        => 'Every participant needs an ID picture before you can submit.',
             'participants.*.certificate_number.required' => 'Certificate Number is required for every participant.',
             'participants.*.age.integer'                 => 'Age must be a whole number.',
+            'participants.*.company_region.in'           => 'Choose the company region from the list.',
+            'participants.*.mobile_no.regex'             => 'Mobile numbers must be valid PH mobile numbers (e.g. 09171234567 or +639171234567).',
+            'participants.*.mobile_no.max'               => 'Mobile numbers must be valid PH mobile numbers (e.g. 09171234567 or +639171234567).',
+            'participants.*.company_landline.regex'      => 'A company landline must be a 10-digit number including the area code (e.g. 0281234567).',
+            'participants.*.company_email.email'         => 'Company e-mail addresses must be valid e-mail addresses.',
+            'participants.*.personal_email.email'        => 'Personal e-mail addresses must be valid e-mail addresses.',
         ];
 
         $validator = Validator::make(['participants' => $decoded], $rules, $messages);
@@ -969,6 +1209,20 @@ class PostTrainingReportController extends Controller
                     } else {
                         $seen[$key] = $i;
                     }
+                }
+
+                // A city is only meaningful inside a region. Checking the pair
+                // rather than the name alone is what stops Cebu City arriving
+                // filed under NCR — the dropdown cannot offer that, but a
+                // hand-built post can still send it.
+                $region = trim((string) ($row['company_region'] ?? ''));
+                $city   = trim((string) ($row['company_city'] ?? ''));
+
+                if ($city !== '' && PhLocations::isRegion($region) && !PhLocations::isCityIn($city, $region)) {
+                    $v->errors()->add(
+                        "participants.{$i}.company_city",
+                        'Row ' . ($i + 1) . ': "' . $city . '" is not a city or municipality of ' . $region . '.'
+                    );
                 }
 
                 // A token is only meaningful while its staged file is still there.
@@ -1072,18 +1326,31 @@ class PostTrainingReportController extends Controller
      * Drop staged pictures from abandoned encoding sessions. Runs opportunistically
      * on upload, so no scheduled task is needed to keep the folder from growing.
      */
-    private function pruneStagedPhotos(User $user): void
+    private function pruneStagedFiles(User $user): void
     {
         try {
-            $cutoff = Carbon::now()->subDay()->getTimestamp();
+            // A day was fine when staging only had to survive one sitting.
+            // A draft is meant to be picked up next week, so anything a live
+            // draft still references is kept however old it is, and the rest
+            // is given a fortnight before it counts as abandoned.
+            $cutoff = Carbon::now()->subDays(self::STAGING_RETENTION_DAYS)->getTimestamp();
+
+            $spokenFor = PostTrainingDraft::where('user_id', $user->id)
+                ->get()
+                ->flatMap->stagedTokens()
+                ->flip();
 
             foreach (Storage::disk('local')->files($this->stagingPath($user)) as $path) {
+                if ($spokenFor->has(basename($path))) {
+                    continue;
+                }
+
                 if (Storage::disk('local')->lastModified($path) < $cutoff) {
                     Storage::disk('local')->delete($path);
                 }
             }
         } catch (\Exception $e) {
-            Log::warning('Staged ID picture prune failed: ' . $e->getMessage());
+            Log::warning('Staged file prune failed: ' . $e->getMessage());
         }
     }
 

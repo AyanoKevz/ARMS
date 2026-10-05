@@ -131,6 +131,11 @@ $approvedDocs  = $allDocuments->where('status', 'approved')->count();
 
 $ntcStatus = $ntcReport->status;
 $isAcknowledged = $ntcStatus === 'acknowledged';
+$isCancelled    = $ntcReport->isCancelled();
+
+// Evaluation is over either way: acknowledged means it passed, cancelled
+// means the FATPro withdrew it. Neither leaves a verdict to cast.
+$evaluationClosed = $isAcknowledged || $isCancelled;
 @endphp
 
 {{-- Flash messages --}}
@@ -168,7 +173,11 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
         <h4 class="m-0 fw-bold" style="color:#1e40af;">{{ $ntcReport->reference_number }}</h4>
     </div>
     <div class="d-flex flex-column align-items-end gap-1">
-        @if($isAcknowledged)
+        @if($isCancelled)
+        <span class="badge fs-6 px-3 py-2 bg-dark">
+            <i class="bi bi-slash-circle-fill me-1"></i> Cancelled
+        </span>
+        @elseif($isAcknowledged)
         <span class="badge fs-6 px-3 py-2 bg-success">
             <i class="bi bi-check-circle-fill me-1"></i> Acknowledged
         </span>
@@ -556,7 +565,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     @endif
 
                     {{-- Evaluate buttons (only when not acknowledged and file exists) --}}
-                    @if(!$isAcknowledged && $doc->file_path)
+                    @if(!$evaluationClosed && $doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <button type="button"
                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -571,14 +580,14 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                             <i class="bi bi-x-circle-fill"></i> Reject
                         </button>
                     </div>
-                    @elseif(!$isAcknowledged && !$doc->file_path)
+                    @elseif(!$evaluationClosed && !$doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <span class="badge bg-secondary" style="font-size:.75rem;">Awaiting re-upload from FATPro</span>
                     </div>
                     @endif
 
                     {{-- Rejection panel --}}
-                    @if(!$isAcknowledged)
+                    @if(!$evaluationClosed)
                     <div class="reject-panel w-100" id="ntc-reject-panel-{{ $doc->id }}" style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
                         <label class="reject-remarks-label">
                             <i class="bi bi-pencil-square me-1"></i>Rejection Remarks <span class="text-muted">(optional)</span>
@@ -599,7 +608,7 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
         </form>
 </div>
 
-@if(!$isAcknowledged)
+@if(!$evaluationClosed)
 <div class="mt-4 mb-4 text-center">
     <div class="ntc-eval-saving-indicator mb-2 text-center" style="display: none;">
         <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
@@ -683,6 +692,39 @@ $isAcknowledged = $ntcStatus === 'acknowledged';
                     <i class="bi bi-send-fill me-2"></i>Confirm & Send Email
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ── Cancelled Notice ── --}}
+@if($isCancelled)
+<div class="ai-card mb-4" style="background:linear-gradient(135deg,#f8fafc,#e9edf3);border:1px solid #cbd5e1;">
+    <div class="d-flex align-items-start gap-3 p-1">
+        <div style="width:44px;height:44px;background:#334155;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="bi bi-slash-circle text-white fs-5"></i>
+        </div>
+        <div>
+            <h6 class="mb-1 fw-bold" style="color:#1e293b;">Training Cancelled by the FATPro</h6>
+            <small style="color:#475569;">
+                Filed on {{ $ntcReport->cancelled_at?->format('M d, Y h:i A') ?? '—' }}
+                @if($ntcReport->cancelledByUser)
+                    by {{ $ntcReport->cancelledByUser->name }}
+                @endif.
+                A Notice of Cancellation takes effect when it is filed &mdash; there is nothing
+                to acknowledge or evaluate, and no Post Training Report is owed.
+            </small>
+
+            {{-- The reason is the whole of what the FATPro told us; nobody
+                 follows it up, so it is shown in full rather than clipped. --}}
+            @if($ntcReport->cancellation_reason)
+            <div class="mt-2 p-2" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;">
+                <div class="lbl" style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.4px;">
+                    Reason Given
+                </div>
+                <div style="color:#1e293b;font-size:.86rem;white-space:pre-line;">{{ $ntcReport->cancellation_reason }}</div>
+            </div>
+            @endif
         </div>
     </div>
 </div>

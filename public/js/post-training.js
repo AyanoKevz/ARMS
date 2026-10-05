@@ -72,7 +72,11 @@
             } else {
                 if (stateEmpty) stateEmpty.classList.remove('d-none');
                 if (stateSelected) stateSelected.classList.add('d-none');
-                zone.classList.remove('has-file');
+
+                // is-staged too: the dialog is reused for every training, so a
+                // zone left green by one draft would claim the next training
+                // already had a file it has never been given.
+                zone.classList.remove('has-file', 'is-staged');
             }
         }
 
@@ -127,6 +131,23 @@
         }
 
         zone.ptrClear = clear;
+
+        /**
+         * Show a file that a draft already uploaded.
+         *
+         * There is no File object to render — the file is on the server,
+         * not in this input — so the zone is told what it is holding
+         * rather than being asked to work it out.
+         */
+        zone.ptrMarkStaged = function (name) {
+            if (stateEmpty) stateEmpty.classList.add('d-none');
+            if (stateSelected) stateSelected.classList.remove('d-none');
+            if (selectedInfo) selectedInfo.textContent = (name || 'Uploaded') + ' — saved with your draft';
+            zone.classList.add('has-file', 'is-staged');
+            zone.classList.remove('is-invalid-zone');
+            if (errorEl) errorEl.classList.add('d-none');
+        };
+
         render(null);
     }
 
@@ -373,6 +394,10 @@
                     el.classList.add('d-none');
                 });
 
+                // LAST, deliberately. Everything above empties the dialog for a
+                // fresh training; restoring before that would simply be wiped.
+                if (window.ptrDraft) window.ptrDraft.open(this);
+
                 modal.show();
             });
         });
@@ -385,6 +410,10 @@
                     e.preventDefault();
                     return;
                 }
+
+                // The draft has done its job; nothing should be saved from
+                // under a form that is on its way to the server.
+                if (window.ptrDraft) window.ptrDraft.stop();
 
                 lockSubmit(document.getElementById('ptrStepSubmit'));
             });
@@ -421,8 +450,19 @@
 
     var REQUIRED = [
         'certificate_number', 'last_name', 'first_name', 'sex', 'age',
-        'company', 'position', 'company_city', 'company_region',
+        'company', 'position', 'company_region', 'company_city',
         'industry', 'mobile_no', 'mode_of_training'
+    ];
+
+    var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Mobile and landline follow the landing page's registration form exactly,
+    // so a number accepted in one place is accepted in the other.
+    var FORMATS = [
+        { name: 'mobile_no',        test: function (v) { return !window.PhFields || window.PhFields.isMobile(v); } },
+        { name: 'company_landline', test: function (v) { return !window.PhFields || window.PhFields.isLandline(v); } },
+        { name: 'company_email',    test: function (v) { return EMAIL.test(v); } },
+        { name: 'personal_email',   test: function (v) { return EMAIL.test(v); } }
     ];
 
     var MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -465,10 +505,27 @@
         return row.querySelector('[data-field="' + name + '"]');
     }
 
-    function valueOf(row, name) {
-        var el = field(row, name);
-        return el ? el.value.trim() : '';
+    /**
+     * What a cell holds.
+     *
+     * The two address pickers are filled from a fetched asset, so until it
+     * arrives their `value` is empty however often it has been set. What was
+     * chosen is parked on data-value by ph-fields.js, which survives the wait.
+     */
+    function cellValue(el) {
+        if (!el) return '';
+
+        if (el.hasAttribute('data-ph-region') || el.hasAttribute('data-ph-city')) {
+            return (el.getAttribute('data-value') || '').trim();
+        }
+
+        return el.value.trim();
     }
+
+    function valueOf(row, name) {
+        return cellValue(field(row, name));
+    }
+
 
     // ── Photo upload ──────────────────────────────────────────────────────────
 
@@ -587,6 +644,12 @@
             el.addEventListener('input', function () { el.classList.remove('is-invalid-cell'); });
             el.addEventListener('change', function () { el.classList.remove('is-invalid-cell'); });
         });
+
+        if (window.PhFields) {
+            window.PhFields.wireAddress(field(row, 'company_region'), field(row, 'company_city'));
+            window.PhFields.wireContact(field(row, 'mobile_no'), 'mobile', 'is-invalid-cell');
+            window.PhFields.wireContact(field(row, 'company_landline'), 'landline', 'is-invalid-cell');
+        }
     }
 
     // ── Validation + serialisation ────────────────────────────────────────────
@@ -596,6 +659,7 @@
 
         var all = rows();
         var problems = 0;
+        var malformed = 0;
         var seen = {};
 
         if (all.length === 0) {
@@ -607,7 +671,7 @@
             var entry = {};
 
             row.querySelectorAll('[data-field]').forEach(function (el) {
-                entry[el.getAttribute('data-field')] = el.value.trim();
+                entry[el.getAttribute('data-field')] = cellValue(el);
             });
 
             REQUIRED.forEach(function (name) {
@@ -617,6 +681,21 @@
                     if (el) el.classList.add('is-invalid-cell');
                 }
                 problems++;
+            });
+
+            // Shape, not just presence. A blank optional field is fine; one
+            // that could never be an address or a number is not, and the
+            // server rejects the whole directory over a single bad cell.
+            FORMATS.forEach(function (check) {
+                var value = entry[check.name] || '';
+
+                if (value === '' || check.test(value)) return;
+                if (!silent) {
+                    var el = field(row, check.name);
+                    if (el) el.classList.add('is-invalid-cell');
+                }
+                problems++;
+                malformed++;
             });
 
             // A certificate number may repeat across trainings, never within one.
@@ -649,7 +728,9 @@
 
         if (problems > 0) {
             if (!silent) {
-                showError('Complete every highlighted field. Each participant also needs an ID picture.');
+                showError(malformed > 0
+                    ? 'Check the highlighted cells. Mobile numbers look like 09171234567 or +639171234567, landlines are ten digits including the area code, and e-mail addresses must be complete.'
+                    : 'Complete every highlighted field. Each participant also needs an ID picture.');
                 var firstBad = body.querySelector('.is-invalid-cell, .ptr-dir-photo-state.is-error');
                 if (firstBad && firstBad.scrollIntoView) {
                     firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -679,6 +760,9 @@
         defaultMode = mode || '';
 
         if (body) body.innerHTML = '';
+
+        // The rows just discarded had pickers registered against them.
+        if (window.PhFields) window.PhFields.prune();
         if (payload) payload.value = '';
 
         var batchAll = $('ptrDirBatchAll');
@@ -730,9 +814,78 @@
         renumber();
     });
 
+    /**
+     * The grid as it stands, for the draft.
+     *
+     * Unlike validateAndSerialize this never complains: a draft is saved
+     * mid-edit, so half-filled rows are the normal case and flagging them
+     * while someone is still typing would be noise.
+     */
+    function rowsForDraft() {
+        if (!body) return [];
+
+        return rows().map(function (row) {
+            var entry = {};
+
+            row.querySelectorAll('[data-field]').forEach(function (el) {
+                entry[el.getAttribute('data-field')] = cellValue(el);
+            });
+
+            entry.photo_token = row.getAttribute('data-photo-token') || '';
+            entry.photo_name  = row.getAttribute('data-photo-name') || '';
+
+            return entry;
+        });
+    }
+
+    /**
+     * Put a draft's rows back into the grid, pictures and all.
+     */
+    function loadRows(entries) {
+        if (!body || !Array.isArray(entries) || entries.length === 0) return;
+
+        body.innerHTML = '';
+        if (window.PhFields) window.PhFields.prune();
+
+        addRows(entries.length);
+
+        rows().forEach(function (row, index) {
+            var entry = entries[index] || {};
+
+            row.querySelectorAll('[data-field]').forEach(function (el) {
+                var name = el.getAttribute('data-field');
+
+                // The pickers are handled together below: a city means nothing
+                // until its region has chosen the list it comes from.
+                if (el.hasAttribute('data-ph-region') || el.hasAttribute('data-ph-city')) return;
+
+                if (entry[name] !== undefined) el.value = entry[name];
+            });
+
+            if (window.PhFields) {
+                window.PhFields.setAddress(
+                    field(row, 'company_region'),
+                    field(row, 'company_city'),
+                    entry.company_region,
+                    entry.company_city
+                );
+            }
+
+            if (entry.photo_token) {
+                row.setAttribute('data-photo-token', entry.photo_token);
+                row.setAttribute('data-photo-name', entry.photo_name || '');
+                setPhotoState(row.querySelector('.ptr-dir-photo-state'), 'ok', entry.photo_name || 'Uploaded');
+            }
+        });
+
+        renumber();
+    }
+
     window.ptrDirectory = {
         reset: reset,
-        validateAndSerialize: validateAndSerialize
+        validateAndSerialize: validateAndSerialize,
+        rowsForDraft: rowsForDraft,
+        loadRows: loadRows
     };
 })();
 
@@ -826,8 +979,14 @@
             return ok;
         }
 
-        var input = panel.querySelector('.ptr-file-input');
-        var ok = !!(input && input.files && input.files.length > 0);
+        // A file picked in this sitting, or one a draft already put on the
+        // server. Without the second test, reopening a draft would block
+        // Next on a requirement that is in fact satisfied.
+        var input  = panel.querySelector('.ptr-file-input');
+        var typeId = panel.getAttribute('data-doc-type-id');
+        var picked = !!(input && input.files && input.files.length > 0);
+        var staged = !!(window.ptrDraft && typeId && window.ptrDraft.hasStaged(typeId));
+        var ok     = picked || staged;
 
         if (!silent) {
             var zone = panel.querySelector('.ptr-file-drop-zone');
@@ -921,7 +1080,13 @@
     window.ptrWizard = {
         reset: reset,
         goTo: goTo,
-        validateAll: validateAll
+        validateAll: validateAll,
+        // Drafts record which step the FATPro reached so reopening the
+        // dialog puts them back there rather than at step one.
+        currentStep: function () { return current; },
+        // Restoring a draft changes what is satisfied, and the ticks were
+        // drawn before any of it was known.
+        refreshTicks: refreshTicks
     };
 })();
 

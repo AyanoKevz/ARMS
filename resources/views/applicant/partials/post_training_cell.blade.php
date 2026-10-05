@@ -17,7 +17,14 @@
     $daysLeft   = $ntc->postTrainingDaysRemaining();
 @endphp
 
-@if($ntc->status !== 'acknowledged')
+@if($ntc->isCancelled())
+    {{-- Withdrawn before it was held. Saying "available once acknowledged"
+         here would promise something that is never coming. --}}
+    <span class="ptr-muted-line d-block">
+        <i class="fas fa-ban text-muted me-1"></i> Not required &mdash; training cancelled
+    </span>
+
+@elseif($ntc->status !== 'acknowledged')
     {{-- Nothing is owed until the NTC itself is acknowledged. --}}
     <span class="ptr-muted-line d-block">
         <i class="fas fa-minus text-muted me-1"></i> Available once the NTC is acknowledged
@@ -71,7 +78,12 @@
             data-training-period="{{ $ntc->trainingPeriodLabel() }}"
             data-instructor-ids="{{ json_encode($ntc->instructors->pluck('id')) }}"
             data-deadline="{{ $deadline?->format('F d, Y') ?? 'N/A' }}"
-            data-overdue="{{ $isOverdue ? '1' : '0' }}">
+            data-overdue="{{ $isOverdue ? '1' : '0' }}"
+            data-draft-url="{{ route('applicant.post_training.draft.save', $ntc->id) }}"
+            data-draft-discard-url="{{ route('applicant.post_training.draft.discard', $ntc->id) }}"
+            {{-- Everything the FATPro had typed last time, or {} for a fresh start. --}}
+            data-draft="{{ json_encode((object) ($ntc->postTrainingDraft?->payload ?? [])) }}"
+            data-draft-saved-at="{{ $ntc->postTrainingDraft?->saved_at?->toIso8601String() }}">
         <i class="fas fa-cloud-upload-alt me-1"></i> Submit Report
     </button>
 

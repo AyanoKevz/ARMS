@@ -96,8 +96,8 @@
                     <th>Age</th>
                     <th>Company</th>
                     <th>Position</th>
-                    <th>City / Municipality</th>
                     <th>Region</th>
+                    <th>City / Municipality</th>
                     <th>Industry</th>
                     <th>Total Workers</th>
                     <th>Company Email</th>
@@ -135,8 +135,8 @@
                     <td>{{ $participant->age }}</td>
                     <td>{{ $participant->company }}</td>
                     <td>{{ $participant->position }}</td>
-                    <td>{{ $participant->company_city }}</td>
                     <td>{{ $participant->company_region }}</td>
+                    <td>{{ $participant->company_city }}</td>
                     <td>{{ $participant->industry }}</td>
                     <td>{{ $participant->total_workers !== null ? number_format($participant->total_workers) : '—' }}</td>
                     <td>{{ $participant->company_email ?: '—' }}</td>

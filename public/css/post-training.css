@@ -805,6 +805,13 @@
     background: #fff6f6;
 }
 
+/* The City picker until a Region has told it what to offer. */
+.ptr-dir-input:disabled {
+    background: #f4f6fa;
+    color: #93a1b5;
+    cursor: not-allowed;
+}
+
 .ptr-dir-col-no { width: 44px; min-width: 44px; }
 .ptr-dir-w-cert { width: 150px; min-width: 150px; }
 .ptr-dir-w-name { width: 150px; min-width: 150px; }
@@ -812,6 +819,9 @@
 .ptr-dir-w-sex { width: 100px; min-width: 100px; }
 .ptr-dir-w-age { width: 70px; min-width: 70px; }
 .ptr-dir-w-wide { width: 175px; min-width: 175px; }
+/* Wider than the rest: "Region IV-A (CALABARZON)" and "Santa Cruz,
+   Occidental Mindoro" are the lengths these two have to show. */
+.ptr-dir-w-address { width: 215px; min-width: 215px; }
 .ptr-dir-w-num { width: 110px; min-width: 110px; }
 .ptr-dir-w-phone { width: 130px; min-width: 130px; }
 .ptr-dir-w-photo { width: 165px; min-width: 165px; }
@@ -1457,4 +1467,68 @@
     margin: 0.5rem 0 0;
     color: #64748b;
     font-size: 0.78rem;
+}
+
+/* ── Draft save status ────────────────────────────────────────
+   Sits in the dialog footer beside Submit. A draft that saves
+   silently is a draft nobody trusts, so each state says plainly
+   what has happened to the work.
+   ───────────────────────────────────────────────────────────── */
+
+.ptr-save-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: 0.85rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The close button keeps the far edge; the status sits with the title. */
+.ptr-modal-content .modal-header .btn-close {
+    margin-left: auto;
+}
+
+.ptr-save-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex: 0 0 auto;
+}
+
+.ptr-save-status[data-state="saving"] { color: #1d4ed8; }
+.ptr-save-status[data-state="saving"] .ptr-save-dot {
+    background: #1d4ed8;
+    animation: ptr-save-pulse 1s ease-in-out infinite;
+}
+
+.ptr-save-status[data-state="saved"] { color: #047857; }
+.ptr-save-status[data-state="saved"] .ptr-save-dot { background: #047857; }
+
+.ptr-save-status[data-state="pending"] { color: #b45309; }
+.ptr-save-status[data-state="pending"] .ptr-save-dot { background: #f59e0b; }
+
+.ptr-save-status[data-state="error"] { color: #be123c; }
+.ptr-save-status[data-state="error"] .ptr-save-dot { background: #e11d48; }
+
+@keyframes ptr-save-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ptr-save-status[data-state="saving"] .ptr-save-dot { animation: none; }
+}
+
+/* A drop zone whose file is already on the server, not in the input. */
+.ptr-file-drop-zone.is-staged {
+    border-style: solid;
+    border-color: #a7f3d0;
+    background: #f0fdf4;
 }

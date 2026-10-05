@@ -40,6 +40,25 @@ class NtcReport extends Model
      */
     public const POST_TRAINING_DEADLINE_DAYS = 5;
 
+    /**
+     * Working days before the first training day that a submission stays open
+     * to amendment — by a Report of Changes, or by being called off entirely.
+     *
+     * Both windows close together on purpose: past this point the evaluators
+     * have committed to the training as filed, and a change of any kind is a
+     * conversation rather than a form.
+     */
+    public const CHANGE_WINDOW_WORKING_DAYS = 3;
+
+    /**
+     * Statuses a Notice of Cancellation may be filed against.
+     *
+     * A training is live from the moment it is filed, whether or not an
+     * evaluator has got to it yet, so all three can still be called off. What
+     * is already cancelled, rejected or never submitted cannot.
+     */
+    public const CANCELLABLE_STATUSES = ['submitted', 'acknowledged', 'report_changes'];
+
     protected $fillable = [
         'accreditation_id',
         'ntc_training_type_id',
@@ -52,6 +71,9 @@ class NtcReport extends Model
         'acknowledged_at',
         'acknowledged_by',
         'remarks',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
         'ptr_reminder_sent_at',
         'ptr_overdue_notified_at',
     ];
@@ -61,6 +83,7 @@ class NtcReport extends Model
         'training_end_date'       => 'date',
         'submitted_at'            => 'datetime',
         'acknowledged_at'         => 'datetime',
+        'cancelled_at'            => 'datetime',
         'ptr_reminder_sent_at'    => 'datetime',
         'ptr_overdue_notified_at' => 'datetime',
     ];
@@ -92,9 +115,26 @@ class NtcReport extends Model
         return $this->belongsTo(User::class, 'acknowledged_by');
     }
 
+    public function cancelledByUser()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
     public function postTrainingReport()
     {
         return $this->hasOne(PostTrainingReport::class);
+    }
+
+    /**
+     * Work in progress on the post training report, if any.
+     *
+     * Separate from postTrainingReport because a draft is not a submission:
+     * it has not been filed, the evaluator cannot see it, and it disappears
+     * the moment the real report is created.
+     */
+    public function postTrainingDraft()
+    {
+        return $this->hasOne(PostTrainingDraft::class);
     }
 
     /**
@@ -182,25 +222,30 @@ class NtcReport extends Model
     }
 
     /**
-     * Get the deadline date for submitting a Report of Changes.
+     * The last day this submission stays open to amendment.
+     *
+     * Three working days before the first training day. Weekends do not count
+     * towards them — the training itself may fall on one, but the evaluators
+     * who have to act on a change are not in on a Saturday.
+     *
+     * Both the Report of Changes and the Notice of Cancellation close on this
+     * date; reportChangesDeadlineDate() is kept as the name the views already
+     * call it by.
      */
-    public function reportChangesDeadlineDate(): ?Carbon
+    public function changeWindowDeadlineDate(): ?Carbon
     {
         if (!$this->training_start_date) {
             return null;
         }
 
-        $startDate = $this->training_start_date->copy()->startOfDay();
+        $cursor  = $this->training_start_date->copy()->startOfDay()->subDay();
+        $counted = 0;
 
-        // Count working days backwards from training_start_date
-        $cursor = $startDate->copy()->subDay();
-        $workingDaysCounted = 0;
-
-        while ($workingDaysCounted < 3) {
+        while ($counted < self::CHANGE_WINDOW_WORKING_DAYS) {
             if (!$cursor->isWeekend()) {
-                $workingDaysCounted++;
+                $counted++;
             }
-            if ($workingDaysCounted < 3) {
+            if ($counted < self::CHANGE_WINDOW_WORKING_DAYS) {
                 $cursor->subDay();
             }
         }
@@ -208,16 +253,44 @@ class NtcReport extends Model
         return $cursor;
     }
 
+    /** @deprecated Use changeWindowDeadlineDate(); kept for the views that name it. */
+    public function reportChangesDeadlineDate(): ?Carbon
+    {
+        return $this->changeWindowDeadlineDate();
+    }
+
+    /** Is the amendment window still open? */
+    public function withinChangeWindow(): bool
+    {
+        $deadline = $this->changeWindowDeadlineDate();
+
+        return $deadline !== null && Carbon::today()->lessThanOrEqualTo($deadline);
+    }
+
     /**
      * Check if the report of changes can be submitted (at least 3 working days before training_start_date).
      */
     public function canSubmitReportChanges(): bool
     {
-        $deadline = $this->reportChangesDeadlineDate();
-        if (!$deadline) {
-            return false;
-        }
-        return Carbon::today()->lessThanOrEqualTo($deadline);
+        return $this->withinChangeWindow();
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
+    /**
+     * May the FATPro still call this training off?
+     *
+     * Same window as a Report of Changes, and for the same reason: once the
+     * evaluators are three working days out they are committed to it. A
+     * cancellation needs no acknowledgement, so this is the only gate there is.
+     */
+    public function canCancel(): bool
+    {
+        return in_array($this->status, self::CANCELLABLE_STATUSES, true)
+            && $this->withinChangeWindow();
     }
 
     /**

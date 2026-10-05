@@ -68,10 +68,11 @@
     $archivedActive = request()->routeIs('admin.hcd.applications.archived') || ($routeShow && $isArchivedApp);
 
     // 12. Reports
-    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status !== 'report_changes');
+    $ntcReportActive = request()->routeIs('admin.hcd.reports.ntc.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && !in_array($ntcReport->status, ['report_changes', 'cancelled'], true));
     $reportChangesActive = request()->routeIs('admin.hcd.reports.report_changes.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status === 'report_changes');
+    $cancelledActive = request()->routeIs('admin.hcd.reports.cancelled.index') || (request()->routeIs('admin.hcd.reports.ntc.show') && isset($ntcReport) && $ntcReport->status === 'cancelled');
     $postTrainingActive = request()->routeIs('admin.hcd.reports.post_training.*');
-    $reportsParentActive = $ntcReportActive || $reportChangesActive || $postTrainingActive;
+    $reportsParentActive = $ntcReportActive || $reportChangesActive || $cancelledActive || $postTrainingActive;
 @endphp
 
 <!-- HCD Admin Sidebar -->
@@ -109,6 +110,7 @@
     <ul class="nav child_menu" style="{{ $reportsParentActive ? 'display: block;' : '' }}">
         <li class="{{ $ntcReportActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.ntc.index') }}"><i class="fas fa-clipboard-list"></i> Notice to Conduct</a></li>
         <li class="{{ $reportChangesActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.report_changes.index') }}"><i class="fas fa-exchange-alt"></i> Report of Changes</a></li>
+        <li class="{{ $cancelledActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.cancelled.index') }}"><i class="fas fa-ban"></i> Cancelled Training</a></li>
         <li class="{{ $postTrainingActive ? 'current-page' : '' }}"><a href="{{ route('admin.hcd.reports.post_training.index') }}"><i class="fas fa-flag-checkered"></i> Post Training Report</a></li>
     </ul>
 </li>

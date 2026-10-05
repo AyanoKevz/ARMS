@@ -1,6 +1,18 @@
+{{--
+    Cancelled trainings.
+
+    A record, not a queue. Nothing here is awaiting an evaluator: a Notice of
+    Cancellation takes effect when it is filed, so these rows exist so that a
+    training the team was expecting can still be looked up afterwards — with
+    the reason the FATPro gave, and every document it was filed with intact.
+
+    Same DataTables treatment as the other report lists, so the search, the
+    page size and the CSV/Excel/PDF exports all behave the way the evaluators
+    already expect them to.
+--}}
 @extends('layouts.admin')
 
-@section('title', 'Notice to Conduct — Reports')
+@section('title', 'Cancelled Training — Reports')
 
 @push('styles')
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
@@ -13,7 +25,7 @@
 <div class="">
     <div class="page-title">
         <div class="title_left">
-            <h3><i class="fas fa-clipboard-list me-2" style="color: var(--portal-gold);"></i> Notice to Conduct Reports</h3>
+            <h3><i class="fas fa-ban me-2" style="color: var(--portal-gold);"></i> Cancelled Training</h3>
         </div>
     </div>
 
@@ -21,9 +33,9 @@
 
     <div class="row">
         <div class="col-md-12 col-sm-12">
-            <div class="x_panel" style="border-top: 3px solid #0b3d91;">
+            <div class="x_panel" style="border-top: 3px solid #334155;">
                 <div class="x_title">
-                    <h2><i class="fas fa-list-alt me-2" style="color: #0b3d91;"></i> All NTC Submissions</h2>
+                    <h2><i class="fas fa-list-alt me-2" style="color: #334155;"></i> Trainings Called Off by FATPros</h2>
                     <ul class="nav navbar-right panel_toolbox">
                         <li><a class="collapse-link"><i class="fas fa-chevron-up"></i></a></li>
                     </ul>
@@ -31,8 +43,14 @@
                 </div>
 
                 <div class="x_content">
+                    <p class="text-muted" style="font-size:0.85rem;">
+                        These trainings were withdrawn by the FATPro before they were held.
+                        Nothing is required of you &mdash; a cancellation is not reviewed or
+                        acknowledged. The records are kept in full and remain viewable.
+                    </p>
+
                     <div class="table-responsive">
-                        <table id="ntc_admin_table"
+                        <table id="cancelled_admin_table"
                                class="table table-striped table-bordered jambo_table bulk_action table-compact dynamic-table"
                                style="width:100%">
                             <thead>
@@ -43,8 +61,8 @@
                                     <th class="column-title">Type</th>
                                     <th class="column-title">Mode</th>
                                     <th class="column-title text-center">Training Period</th>
-                                    <th class="column-title text-center">Status</th>
-                                    <th class="column-title text-center">Submitted</th>
+                                    <th class="column-title">Reason</th>
+                                    <th class="column-title text-center">Cancelled On</th>
                                     <th class="column-title no-link last text-center no-sort">Action</th>
                                 </tr>
                             </thead>
@@ -52,12 +70,13 @@
                             <tbody>
                                 @foreach($ntcReports as $ntc)
                                     @php
-                                        $user = $ntc->accreditation->user ?? null;
-                                        $accNo = $ntc->accreditation->accreditation_number ?? '—';
+                                        $user       = $ntc->accreditation->user ?? null;
+                                        $accNo      = $ntc->accreditation->accreditation_number ?? '—';
                                         $fatproName = $user?->name ?? '—';
+                                        $reason     = $ntc->cancellation_reason ?? '';
                                     @endphp
                                     <tr class="even pointer">
-                                        <td><strong style="color: #0b3d91;">NTC-{{ str_pad($ntc->id, 6, '0', STR_PAD_LEFT) }}</strong></td>
+                                        <td><strong style="color: #0b3d91;">{{ $ntc->reference_number }}</strong></td>
                                         <td>{{ $fatproName }}</td>
                                         <td>{{ $accNo }}</td>
                                         <td>
@@ -75,27 +94,19 @@
                                             <div style="font-size:0.75rem; color:#999;">to</div>
                                             <div>{{ $ntc->training_end_date ? $ntc->training_end_date->format('M d, Y') : 'N/A' }}</div>
                                         </td>
-                                        <td class="text-center">
-                                            @if($ntc->status === 'cancelled')
-                                                {{-- First, and before the document checks: a cancelled
-                                                     training's documents are beside the point. --}}
-                                                <span class="badge bg-dark" style="font-size:0.75rem;">Cancelled</span>
-                                            @elseif($ntc->status === 'acknowledged')
-                                                <span class="badge bg-success" style="font-size:0.75rem;">Acknowledged</span>
-                                            @elseif($ntc->status === 'report_changes')
-                                                <span class="badge bg-info text-white" style="font-size:0.75rem;">Report of Changes</span>
-                                            @elseif($ntc->documents->contains('status', 'rejected'))
-                                                <span class="badge bg-danger" style="font-size:0.75rem;">Documents Rejected</span>
-                                            @elseif($ntc->documents->contains('status', 'returned'))
-                                                <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Under Review (Re-uploaded)</span>
-                                            @elseif($ntc->status === 'submitted')
-                                                <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Submitted</span>
-                                            @else
-                                                <span class="badge bg-secondary" style="font-size:0.75rem;">{{ ucfirst($ntc->status) }}</span>
-                                            @endif
+                                        {{-- Clipped in the cell but complete in the tooltip, and in
+                                             full on the detail page. A long reason would otherwise
+                                             set the height of every row in the table. --}}
+                                        <td style="font-size:0.82rem; max-width: 260px;" title="{{ $reason }}">
+                                            {{ $reason !== '' ? Str::limit($reason, 90) : '—' }}
                                         </td>
-                                        <td class="text-center" style="font-size:0.82rem;">
-                                            {{ $ntc->submitted_at ? $ntc->submitted_at->format('M d, Y') : '—' }}
+                                        <td class="text-center" style="font-size:0.82rem; white-space: nowrap;">
+                                            <div>{{ $ntc->cancelled_at ? $ntc->cancelled_at->format('M d, Y') : '—' }}</div>
+                                            @if($ntc->cancelledByUser)
+                                                <div style="font-size:0.72rem; color:#999;">
+                                                    by {{ $ntc->cancelledByUser->name }}
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
                                             <a href="{{ route('admin.hcd.reports.ntc.show', $ntc->id) }}"

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Applicant;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AdminNtcSubmittedEmail;
+use App\Mail\NtcCancelledEmail;
 use App\Models\Accreditation;
 use App\Models\Application;
 use App\Models\Instructor;
@@ -229,6 +230,8 @@ class NtcController extends Controller
                 'trainingMode',
                 'documents.documentType',
                 'postTrainingReport.documents.documentType',
+                // Lets the Submit dialog reopen where the FATPro left off.
+                'postTrainingDraft',
                 // The corrections dialog reads all three to work out what is
                 // still outstanding on a report that was sent back.
                 'postTrainingReport.participants',
@@ -903,5 +906,125 @@ class NtcController extends Controller
                 ->withErrors(['error' => 'An error occurred while submitting your Report of Changes. Please try again.']);
         }
     }
-}
 
+    /**
+     * File a Notice of Cancellation against a training.
+     *
+     * Unlike every other submission on this page, nothing happens next: no
+     * evaluator acknowledges it, no document is reviewed, and the status it
+     * writes is terminal. The FATPro is calling the training off, and the only
+     * obligation is to tell the Training Evaluators who were expecting it.
+     *
+     * The window is the Report of Changes window — three working days before
+     * the first training day — because the two decisions are the same size.
+     * Past it the evaluators have committed, and a cancellation becomes a
+     * conversation rather than a form.
+     */
+    public function cancel(Request $request, NtcReport $ntcReport)
+    {
+        $user = Auth::user();
+
+        if ($ntcReport->accreditation->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($ntcReport->isCancelled()) {
+            return back()->withErrors(['error' => 'This training has already been cancelled.']);
+        }
+
+        if (!in_array($ntcReport->status, NtcReport::CANCELLABLE_STATUSES, true)) {
+            return back()->withErrors([
+                'error' => 'Only a submitted or acknowledged Notice to Conduct can be cancelled.',
+            ]);
+        }
+
+        if (!$ntcReport->canCancel()) {
+            return back()->withErrors([
+                'error' => 'The deadline to cancel this training has passed. It closes three working days before the first training day — please contact DOLE-OSHC directly.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            // Required, because this is the whole of what the evaluators are
+            // told: nobody will be asking a follow-up question.
+            'cancellation_reason' => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'cancellation_reason.required' => 'Please give a reason for cancelling this training.',
+            'cancellation_reason.min'      => 'Please describe the reason in a little more detail.',
+        ]);
+
+        try {
+            DB::transaction(function () use ($ntcReport, $user, $validated) {
+                $ntcReport->update([
+                    'status'              => 'cancelled',
+                    'cancelled_at'        => now(),
+                    'cancelled_by'        => $user->id,
+                    'cancellation_reason' => $validated['cancellation_reason'],
+                ]);
+
+                // A cancelled training owes no report, so any half-finished one
+                // is now work nobody will ever file. Its staged uploads are
+                // left to the ordinary retention sweep.
+                $ntcReport->postTrainingDraft()?->delete();
+
+                $this->notifyEvaluatorsOfCancellation($ntcReport, $user);
+            });
+
+            return redirect()->route('applicant.ntc.index')
+                ->with('success', 'Training ' . $ntcReport->reference_number . ' has been cancelled. The DOLE-OSHC Training Evaluators have been notified.');
+        } catch (\Exception $e) {
+            Log::error('NTC cancellation failed: ' . $e->getMessage());
+
+            return back()->withErrors([
+                'error' => 'An error occurred while cancelling this training. Please try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Tell the Training Evaluators the training is off.
+     *
+     * Wrapped so a mail failure cannot undo the cancellation itself: the
+     * FATPro has withdrawn the training either way, and a status that
+     * depended on SMTP being up would be worse than a missed e-mail.
+     */
+    private function notifyEvaluatorsOfCancellation(NtcReport $ntcReport, User $user): void
+    {
+        try {
+            $evaluators = User::whereHas('adminProfile.adminRole', function ($q) {
+                $q->where('name', 'Training Evaluator');
+            })->get();
+
+            if ($evaluators->isEmpty()) {
+                return;
+            }
+
+            $ntcReport->loadMissing([
+                'accreditation.user.organizationProfile',
+                'accreditation.user.individualProfile',
+                'trainingType',
+                'trainingMode',
+                'trainingDates',
+            ]);
+
+            Mail::to($evaluators->pluck('email'))
+                ->send(new NtcCancelledEmail($ntcReport, $user->name));
+
+            foreach ($evaluators as $evaluator) {
+                $evaluator->notifications()->create([
+                    'id'      => (string) Str::uuid(),
+                    'type'    => 'App\Notifications\NtcCancelledNotification',
+                    'data'    => [
+                        'ntc_report_id'    => $ntcReport->id,
+                        'reference_number' => $ntcReport->reference_number,
+                        'message'          => $ntcReport->reference_number . ' has been cancelled by ' . $user->name . '. No evaluation is needed.',
+                        'link'             => "/admin/hcd/reports/ntc/{$ntcReport->id}",
+                    ],
+                    'read_at' => null,
+                ]);
+            }
+        } catch (\Exception $mailEx) {
+            Log::warning('NTC cancellation notification failed: ' . $mailEx->getMessage());
+        }
+    }
+}
