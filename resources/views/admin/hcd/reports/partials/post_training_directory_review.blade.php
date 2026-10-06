@@ -103,7 +103,7 @@
 
     <div class="table-responsive">
         <table id="ptr_directory_table"
-               class="table table-striped table-bordered jambo_table table-compact dynamic-table ptr-dir-review-table"
+               class="table table-striped table-bordered jambo_table table-compact ptr-dir-review-table"
                data-order="[]"
                style="width:100%">
             <thead>
