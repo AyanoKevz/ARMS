@@ -904,48 +904,15 @@
 
 /* ── Admin: participant review table ──────────────────────────── */
 
-.ptr-dir-review-scroll {
-    max-height: 460px;
-    overflow: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background: #fff;
-}
-
-.ptr-dir-review-table {
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.78rem;
-    width: max-content;
-    min-width: 100%;
-}
-
-.ptr-dir-review-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    background: #2a3f54;
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    padding: 8px;
-    text-align: left;
-    white-space: nowrap;
-    border-right: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.ptr-dir-review-table tbody td {
-    padding: 6px 8px;
-    border-bottom: 1px solid #eef2f7;
-    border-right: 1px solid #f1f5f9;
-    background: #fff;
+/* The table itself takes the shared data-table look (table-component.css);
+   these rules only keep the cells on one line and tint judged rows. */
+.ptr-dir-review-table th,
+.ptr-dir-review-table td {
     white-space: nowrap;
 }
 
-.ptr-dir-review-table tbody tr.is-approved td { background: #f4fbf7; }
-.ptr-dir-review-table tbody tr.is-rejected td { background: #fff6f6; }
+.ptr-dir-review-table tbody tr.is-approved > td { background: #f4fbf7 !important; box-shadow: none !important; }
+.ptr-dir-review-table tbody tr.is-rejected > td { background: #fff6f6 !important; box-shadow: none !important; }
 
 .ptr-dir-review-photo {
     width: 38px;
@@ -970,7 +937,31 @@
     padding: 3px 9px;
     color: #64748b;
     line-height: 1.2;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
+
+.ptr-dir-verdict button.ptr-dir-verdict-approve:hover {
+    background: #eaf7f0;
+    border-color: #1f8a53;
+    color: #1f8a53;
+    box-shadow: 0 1px 3px rgba(31, 138, 83, 0.2);
+}
+
+.ptr-dir-verdict button.ptr-dir-verdict-reject:hover {
+    background: #fdecee;
+    border-color: #dc3545;
+    color: #dc3545;
+    box-shadow: 0 1px 3px rgba(220, 53, 69, 0.2);
+}
+
+.ptr-dir-verdict button:focus-visible {
+    outline: 2px solid #2a3f54;
+    outline-offset: 1px;
+}
+
+.ptr-dir-verdict button.is-active-approve:hover { background: #197346; border-color: #197346; color: #fff; }
+.ptr-dir-verdict button.is-active-reject:hover  { background: #bb2d3b; border-color: #bb2d3b; color: #fff; }
 
 .ptr-dir-verdict button.is-active-approve {
     background: #1f8a53;

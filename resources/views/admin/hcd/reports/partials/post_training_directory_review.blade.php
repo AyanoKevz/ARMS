@@ -46,7 +46,7 @@
 
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 w-100 mb-2">
         <div class="ntc-doc-name">
-            <i class="bi bi-table text-primary me-1"></i>
+            <i class="bi bi-table text-dark me-1"></i>
             {{ $doc->documentType->name ?? 'Directory of Participants' }}
             <div class="ntc-doc-meta">
                 Encoded in the portal
@@ -84,29 +84,49 @@
         @endif
     </div>
 
-    <div class="ptr-dir-review-scroll">
-        <table class="ptr-dir-review-table">
+    {{-- Verdict inputs live outside the table: DataTables detaches rows that are
+         paged or filtered out, and the form and the section tally must still
+         see every participant. --}}
+    @if(!$isAccepted)
+    <div class="d-none">
+        @foreach($participants as $participant)
+        <input type="hidden"
+               name="participants[{{ $participant->id }}][id]"
+               value="{{ $participant->id }}">
+        <input type="hidden"
+               name="participants[{{ $participant->id }}][status]"
+               id="ptr-participant-status-{{ $participant->id }}"
+               value="{{ $participant->status ?? 'pending' }}">
+        @endforeach
+    </div>
+    @endif
+
+    <div class="table-responsive">
+        <table id="ptr_directory_table"
+               class="table table-striped table-bordered jambo_table table-compact dynamic-table ptr-dir-review-table"
+               data-order="[]"
+               style="width:100%">
             <thead>
-                <tr>
-                    <th>#</th>
-                    <th>ID Picture</th>
-                    <th>Certificate Number</th>
-                    <th>Participant</th>
-                    <th>Sex</th>
-                    <th>Age</th>
-                    <th>Company</th>
-                    <th>Position</th>
-                    <th>Region</th>
-                    <th>City / Municipality</th>
-                    <th>Industry</th>
-                    <th>Total Workers</th>
-                    <th>Company Email</th>
-                    <th>Personal Email</th>
-                    <th>Mobile No.</th>
-                    <th>Company Landline</th>
-                    <th>Mode of Training</th>
-                    <th>Batch No.</th>
-                    @if(!$isAccepted)<th>Verdict</th>@endif
+                <tr class="headings">
+                    <th class="column-title">#</th>
+                    <th class="column-title no-sort no-export">ID Picture</th>
+                    <th class="column-title">Certificate Number</th>
+                    <th class="column-title">Participant</th>
+                    <th class="column-title">Sex</th>
+                    <th class="column-title">Age</th>
+                    <th class="column-title">Company</th>
+                    <th class="column-title">Position</th>
+                    <th class="column-title">Region</th>
+                    <th class="column-title">City / Municipality</th>
+                    <th class="column-title">Industry</th>
+                    <th class="column-title">Total Workers</th>
+                    <th class="column-title">Company Email</th>
+                    <th class="column-title">Personal Email</th>
+                    <th class="column-title">Mobile No.</th>
+                    <th class="column-title">Company Landline</th>
+                    <th class="column-title">Mode of Training</th>
+                    <th class="column-title">Batch No.</th>
+                    @if(!$isAccepted)<th class="column-title no-sort no-export">Verdict</th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -147,14 +167,6 @@
                     <td>{{ $participant->batch_no ?: '—' }}</td>
                     @if(!$isAccepted)
                     <td>
-                        <input type="hidden"
-                               name="participants[{{ $participant->id }}][id]"
-                               value="{{ $participant->id }}">
-                        <input type="hidden"
-                               name="participants[{{ $participant->id }}][status]"
-                               id="ptr-participant-status-{{ $participant->id }}"
-                               value="{{ $pStatus }}">
-
                         <span class="ptr-dir-verdict" data-participant="{{ $participant->id }}">
                             <button type="button"
                                     class="ptr-dir-verdict-approve {{ $pStatus === 'approved' ? 'is-active-approve' : '' }}"

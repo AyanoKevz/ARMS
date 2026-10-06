@@ -161,13 +161,16 @@
 
         evaluateBase = root.getAttribute('data-evaluate-base') || '';
 
-        document.querySelectorAll('.ptr-dir-verdict').forEach(function (wrap) {
-            var id = wrap.getAttribute('data-participant');
-            var approve = wrap.querySelector('.ptr-dir-verdict-approve');
-            var reject = wrap.querySelector('.ptr-dir-verdict-reject');
+        // Delegated, because the table is paged: rows off the current page are
+        // detached from the document and would miss a direct binding.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.ptr-dir-verdict button');
+            if (!btn) return;
 
-            if (approve) approve.addEventListener('click', function () { setVerdict(id, 'approved'); });
-            if (reject) reject.addEventListener('click', function () { setVerdict(id, 'rejected'); });
+            var id = btn.closest('.ptr-dir-verdict').getAttribute('data-participant');
+
+            if (btn.classList.contains('ptr-dir-verdict-approve')) setVerdict(id, 'approved');
+            else if (btn.classList.contains('ptr-dir-verdict-reject')) setVerdict(id, 'rejected');
         });
 
         syncSection();

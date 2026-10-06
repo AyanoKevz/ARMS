@@ -5,6 +5,9 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/show-application.css') }}?v={{ filemtime(public_path('css/show-application.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/post-training.css') }}?v={{ filemtime(public_path('css/post-training.css')) }}">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<link rel="stylesheet" href="{{ asset('css/table-component.css') }}">
 @endpush
 
 @section('content')
@@ -422,7 +425,7 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                            data-has-file="{{ $doc->file_path ? 'true' : 'false' }}">
 
                     <div class="ntc-doc-name">
-                        <i class="bi bi-file-earmark-text text-primary me-1"></i>
+                        <i class="bi bi-file-earmark-text text-dark me-1"></i>
                         {{ $doc->documentType->name ?? 'Document' }}
                         <div class="ntc-doc-meta">
                             {{ $doc->original_filename }}
@@ -618,4 +621,39 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
 <script src="{{ asset('js/post-training-directory.js') }}?v={{ filemtime(public_path('js/post-training-directory.js')) }}"></script>
+
+@if(isset($allDocuments) && $allDocuments->contains(fn ($d) => $d->documentType?->isEncoded()))
+{{-- Directory of Participants uses the shared table component (search, paging, exports). --}}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="{{ asset('js/table-component.js') }}?v={{ filemtime(public_path('js/table-component.js')) }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!document.getElementById('ptr_directory_table')) return;
+
+    // ID pictures and verdict buttons mean nothing in a spreadsheet.
+    var exportOptions = { columns: ':not(.no-export)' };
+    var exportTitle = @json('Directory of Participants — ' . $postTrainingReport->reference_number);
+
+    initDynamicTable('#ptr_directory_table', {
+        responsive: false,
+        pageLength: 10,
+        buttons: [
+            { exportOptions: exportOptions, title: exportTitle },
+            { exportOptions: exportOptions, title: exportTitle },
+            { exportOptions: exportOptions, title: exportTitle },
+            { exportOptions: exportOptions, title: exportTitle }
+        ]
+    });
+});
+</script>
+@endif
 @endpush

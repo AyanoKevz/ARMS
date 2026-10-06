@@ -50,7 +50,7 @@
 
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 w-100 mb-2">
         <div class="ntc-doc-name">
-            <i class="bi bi-people text-primary me-1"></i>
+            <i class="bi bi-people text-dark me-1"></i>
             {{ $doc->documentType->name ?? 'List of Instructors' }}
             <div class="ntc-doc-meta">
                 Selected in the portal

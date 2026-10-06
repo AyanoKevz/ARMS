@@ -41,7 +41,7 @@
 
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 w-100 mb-2">
         <div class="ntc-doc-name">
-            <i class="bi bi-play-btn text-primary me-1"></i>
+            <i class="bi bi-play-btn text-dark me-1"></i>
             {{ $doc->documentType->name ?? 'Link to the Training Video' }}
             <div class="ntc-doc-meta">
                 Filed as a link
