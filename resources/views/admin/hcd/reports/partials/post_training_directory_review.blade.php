@@ -111,7 +111,10 @@
                     <th class="column-title">#</th>
                     <th class="column-title no-sort no-export">ID Picture</th>
                     <th class="column-title">Certificate Number</th>
-                    <th class="column-title">Participant</th>
+                    <th class="column-title">First Name</th>
+                    <th class="column-title">Middle Name</th>
+                    <th class="column-title">Last Name</th>
+                    <th class="column-title">Suffix</th>
                     <th class="column-title">Sex</th>
                     <th class="column-title">Age</th>
                     <th class="column-title">Company</th>
@@ -150,7 +153,10 @@
                         @endif
                     </td>
                     <td>{{ $participant->certificate_number }}</td>
-                    <td>{{ $participant->fullName() }}</td>
+                    <td>{{ $participant->first_name }}</td>
+                    <td>{{ $participant->middle_name ?: '—' }}</td>
+                    <td>{{ $participant->last_name }}</td>
+                    <td>{{ $participant->suffix ?: '—' }}</td>
                     <td>{{ $participant->sex }}</td>
                     <td>{{ $participant->age }}</td>
                     <td>{{ $participant->company }}</td>
