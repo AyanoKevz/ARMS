@@ -78,6 +78,8 @@
                 {{ $doc->documentType->name ?? 'Document' }}
                 @if($doc->documentType?->isEncoded())
                     <span style="font-weight:400;font-size:0.82rem;color:#777;">&mdash; edit the declined participant rows</span>
+                @elseif($doc->documentType?->isScores())
+                    <span style="font-weight:400;font-size:0.82rem;color:#777;">&mdash; re-enter the pre- and post-test scores</span>
                 @endif
             </div>
                 <div class="doc-item-remark">

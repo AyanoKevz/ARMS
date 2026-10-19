@@ -245,6 +245,43 @@ return new class extends Migration
             // Profile extras + the ten CV sections, flushed into the tables above
             // once the applicant clicks the email verification link.
         });
+
+        // ── Foreign keys PostgreSQL leaves unindexed ────────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not. application_id is the second column
+        // of each (user_id, application_id) index, so on its own — deleting
+        // an application cascades into all of these — it needs one.
+        foreach ($this->foreignKeyIndexes() as $table => $columns) {
+            Schema::table($table, function (Blueprint $blueprint) use ($table, $columns) {
+                foreach ($columns as $column) {
+                    $blueprint->index($column, "idx_fk_{$table}_{$column}");
+                }
+            });
+        }
+    }
+
+    /**
+     * Foreign key columns needing their own index on a database that does not
+     * create one automatically (anything but MySQL).
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function foreignKeyIndexes(): array
+    {
+        if (Schema::getConnection()->getDriverName() === 'mysql') {
+            return [];
+        }
+
+        $byApplication = [
+            'practitioner_profiles', 'practitioner_educations', 'practitioner_professional_licenses',
+            'practitioner_work_experiences', 'practitioner_trainings', 'practitioner_lectures',
+            'practitioner_skills', 'practitioner_awards', 'practitioner_examinations',
+            'practitioner_memberships', 'practitioner_references',
+        ];
+
+        return array_fill_keys($byApplication, ['application_id'])
+            // The checklist is filtered by accreditation type on every form.
+            + ['document_types' => ['accreditation_type_id']];
     }
 
     /**
@@ -269,6 +306,12 @@ return new class extends Migration
         });
 
         Schema::table('document_types', function (Blueprint $table) {
+            // The other foreignKeyIndexes() go with their tables below; this
+            // table stays, and SQLite refuses to drop an indexed column.
+            if (isset($this->foreignKeyIndexes()['document_types'])) {
+                $table->dropIndex('idx_fk_document_types_accreditation_type_id');
+            }
+
             $table->dropConstrainedForeignId('accreditation_type_id');
         });
 

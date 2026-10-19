@@ -627,3 +627,13 @@
     font-size: 0.88rem;
     font-weight: 600;
 }
+/* Download link for the blank DOLE-OSHC form, beside each upload label */
+.ntc-form-template-link {
+    display: inline-block;
+    margin-left: .5rem;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #1A4A8A;
+    text-decoration: none;
+}
+.ntc-form-template-link:hover { text-decoration: underline; }

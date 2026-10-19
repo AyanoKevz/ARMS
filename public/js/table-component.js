@@ -154,6 +154,122 @@ window.initDynamicTable = function(selector, options = {}) {
     return table;
 };
 
+/**
+ * A server-side table: the browser holds one page of rows at a time and asks
+ * the server for each page, search and sort. Same toolbar, look and date
+ * filter as initDynamicTable, for lists that grow without limit (e.g. the
+ * audit trail), where sending every row to the browser would not scale.
+ *
+ * config.ajaxUrl    — JSON endpoint speaking the DataTables server protocol
+ * config.exportUrl  — optional: a "CSV (all matching)" button downloads every
+ *                     matching row from here, since the browser only has one page
+ * config.print      — optional: false hides the "Print page" button
+ * config.extraData  — optional: function returning extra filter parameters
+ * config.columns    — DataTables column definitions
+ */
+window.initServerTable = function (selector, config) {
+    const filters = function () {
+        const extra = typeof config.extraData === 'function' ? config.extraData() : {};
+        return $.extend({
+            date_from: $('#date_from').val() || '',
+            date_to: $('#date_to').val() || ''
+        }, extra);
+    };
+
+    const buttons = [];
+
+    if (config.exportUrl) {
+        buttons.push({
+            text: '<i class="fas fa-file-csv me-1 text-muted"></i> CSV (all matching)',
+            className: 'btn btn-light btn-sm border text-secondary fw-semibold',
+            action: function (e, dt) {
+                const params = $.extend({ q: dt.search() }, filters());
+                window.location = config.exportUrl + '?' + $.param(params);
+            }
+        });
+    }
+
+    // config.print === false hides the "Print page" button.
+    if (config.print !== false) {
+        buttons.push({
+            extend: 'print',
+            text: '<i class="fas fa-print me-1 text-muted"></i> Print page',
+            className: 'btn btn-light btn-sm border text-secondary fw-semibold'
+        });
+    }
+
+    // Without buttons the toolbar keeps only the page-size picker and search.
+    const dom = buttons.length
+        ? '<"dt-toolbar"<"dt-toolbar-left"B l><"dt-toolbar-right"f>>rtip'
+        : '<"dt-toolbar"<"dt-toolbar-left"l><"dt-toolbar-right"f>>rtip';
+
+    const table = $(selector).DataTable({
+        serverSide: true,
+        processing: true,
+        searchDelay: 400,
+        responsive: false,
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100], ['10', '25', '50', '100']],
+        dom: dom,
+        buttons: buttons,
+        order: config.order || [[0, 'desc']],
+        columns: config.columns,
+        ajax: {
+            url: config.ajaxUrl,
+            data: function (d) { return $.extend(d, filters()); }
+        },
+        language: {
+            search: '<i class="fas fa-search"></i>',
+            searchPlaceholder: 'Search...',
+            lengthMenu: 'Show _MENU_ entries',
+            info: 'Showing _START_ to _END_ of _TOTAL_ entries',
+            infoEmpty: 'No entries to show',
+            infoFiltered: '(filtered from _MAX_ total entries)',
+            processing: '<i class="fas fa-spinner fa-spin me-1"></i> Loading…',
+            emptyTable: 'No entries yet.',
+            zeroRecords: 'No matching entries.',
+            paginate: {
+                first:    '<i class="fas fa-angle-double-left"></i>',
+                last:     '<i class="fas fa-angle-double-right"></i>',
+                next:     '<i class="fas fa-angle-right"></i>',
+                previous: '<i class="fas fa-angle-left"></i>'
+            }
+        }
+    });
+
+    // Same date-filter panel as initDynamicTable, but applied on the server.
+    $('#dateFilterToggle').on('click', function (e) {
+        e.stopPropagation();
+        $('#dateFilterPanel').toggleClass('show');
+        $(this).toggleClass('active');
+    });
+
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.date-filter-dropdown').length) {
+            $('#dateFilterPanel').removeClass('show');
+            $('#dateFilterToggle').removeClass('active');
+        }
+    });
+
+    $('#dateFilterPanel').on('click', function (e) { e.stopPropagation(); });
+
+    $('#apply_date_filter').on('click', function () {
+        table.draw();
+        $('#dateFilterPanel').removeClass('show');
+        $('#dateFilterToggle').removeClass('active')
+            .css('color', ($('#date_from').val() || $('#date_to').val()) ? '#f0ad4e' : '');
+    });
+
+    $('#clear_date_filter').on('click', function () {
+        $('#date_from').val('');
+        $('#date_to').val('');
+        $('#dateFilterToggle').css('color', '');
+        table.draw();
+    });
+
+    return table;
+};
+
 // --- Auto-Initialize on Document Ready ---
 $(document).ready(function() {
     $('.dynamic-table').each(function() {

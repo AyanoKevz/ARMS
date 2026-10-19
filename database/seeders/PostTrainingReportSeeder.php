@@ -10,10 +10,11 @@ class PostTrainingReportSeeder extends Seeder
     public function run(): void
     {
         // ── Post Training Report Document Types ───────────────────────────────
-        // All seven are required on every submission, in four flavours:
+        // All seven are required on every submission, in five flavours:
         //   encoded — the Directory of Participants, keyed in row by row
         //   roster  — the instructors, carried over from the NTC and amendable
-        //   file    — four scanned PDFs
+        //   scores  — pre-/post-test scores, encoded against the Directory
+        //   file    — three scanned PDFs
         //   link    — the training video, which is far too large to upload
         $documentTypes = [
             [
@@ -45,7 +46,8 @@ class PostTrainingReportSeeder extends Seeder
             [
                 'name'                => 'Pre- and Post-Test Summary Evaluation',
                 'code'                => 'PREPOST',
-                'accepted_extensions' => 'pdf',
+                'entry_type'          => 'scores',
+                'accepted_extensions' => null,
                 'sort_order'          => 5,
             ],
             [

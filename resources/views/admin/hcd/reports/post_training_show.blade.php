@@ -298,18 +298,20 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
             </div>
             <div class="col-md-3 col-6">
                 <div class="info-pair">
-                    <div class="lbl">{{ (optional($ntc?->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended')) ? 'Zoom Link / Meeting Link' : 'Venue' }}</div>
+                    <div class="lbl">Venue</div>
                     <div class="val">
                         @if($ntc && $ntc->venue)
-                            @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
-                                <a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ $ntc->venue }}</a>
-                            @else
-                                <i class="bi bi-geo-alt me-1 text-danger"></i>{{ $ntc->venue }}
-                            @endif
+                            <i class="bi bi-geo-alt me-1 text-danger"></i>{{ $ntc->venue }}
                         @else
                             —
                         @endif
                     </div>
+                    @if($ntc && $ntc->isBlended() && $ntc->meeting_link)
+                        <div class="lbl mt-2">Zoom Link / Meeting Link</div>
+                        <div class="val">
+                            <a href="{{ $ntc->meeting_link }}" target="_blank" rel="noopener" class="text-primary text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ $ntc->meeting_link }}</a>
+                        </div>
+                    @endif
                 </div>
             </div>
             <div class="col-md-3 col-6">
@@ -394,6 +396,10 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                 @endif
                 @if($doc->documentType?->isRoster())
                     @include('admin.hcd.reports.partials.post_training_instructors_review', ['doc' => $doc])
+                    @continue
+                @endif
+                @if($doc->documentType?->isScores())
+                    @include('admin.hcd.reports.partials.post_training_scores_review', ['doc' => $doc])
                     @continue
                 @endif
                 @if($doc->documentType?->isLink())
@@ -620,7 +626,6 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
     window.ARMS.ntcRejectLabel = 'Send Decline Email';
 </script>
 <script src="{{ asset('js/evaluation.js') }}?v={{ filemtime(public_path('js/evaluation.js')) }}"></script>
-<script src="{{ asset('js/post-training-directory.js') }}?v={{ filemtime(public_path('js/post-training-directory.js')) }}"></script>
 
 @if(isset($allDocuments) && $allDocuments->contains(fn ($d) => $d->documentType?->isEncoded()))
 {{-- Directory of Participants uses the shared table component (search, paging, exports). --}}
@@ -639,7 +644,7 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
 document.addEventListener('DOMContentLoaded', function () {
     if (!document.getElementById('ptr_directory_table')) return;
 
-    // ID pictures and verdict buttons mean nothing in a spreadsheet.
+    // ID pictures mean nothing in a spreadsheet.
     var exportOptions = { columns: ':not(.no-export)' };
     var exportTitle = @json('Directory of Participants — ' . $postTrainingReport->reference_number);
 

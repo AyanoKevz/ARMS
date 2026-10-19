@@ -57,11 +57,10 @@
         <p><strong>Type of Training:</strong> {{ $ntc->trainingType->name ?? 'N/A' }}</p>
         <p><strong>Mode of Training:</strong> {{ $ntc->trainingMode->name ?? 'N/A' }}</p>
         @if($ntc && $ntc->venue)
-            @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
-                <p><strong>Zoom Link / Meeting Link:</strong> <a href="{{ $ntc->venue }}" target="_blank">{{ $ntc->venue }}</a></p>
-            @else
-                <p><strong>Venue:</strong> {{ $ntc->venue }}</p>
-            @endif
+            <p><strong>Venue:</strong> {{ $ntc->venue }}</p>
+        @endif
+        @if($ntc && $ntc->isBlended() && $ntc->meeting_link)
+            <p><strong>Zoom Link / Meeting Link:</strong> <a href="{{ $ntc->meeting_link }}" target="_blank">{{ $ntc->meeting_link }}</a></p>
         @endif
         <p><strong>Training Period:</strong>
             {{ $ntc && $ntc->training_start_date ? $ntc->training_start_date->format('F d, Y') : 'N/A' }}
@@ -89,6 +88,8 @@
                 <p><strong>{{ $doc->documentType->name ?? 'Document' }}:</strong>
                     @if($doc->documentType?->isEncoded())
                         {{ $report->participants->count() }} {{ Str::plural('participant', $report->participants->count()) }} encoded
+                    @elseif($doc->documentType?->isScores())
+                        Pre- and post-test scores for {{ $report->participants->count() }} {{ Str::plural('participant', $report->participants->count()) }}
                     @else
                         {{ $doc->original_filename }}
                     @endif

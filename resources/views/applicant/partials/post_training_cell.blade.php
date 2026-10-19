@@ -77,6 +77,10 @@
             data-training-mode="{{ $ntc->trainingMode->name ?? '' }}"
             data-training-period="{{ $ntc->trainingPeriodLabel() }}"
             data-instructor-ids="{{ json_encode($ntc->instructors->pluck('id')) }}"
+            {{-- Catch-up participants: the earlier trainings they may have
+                 started in, and the day this one ended (when they finished). --}}
+            data-catchup-options="{{ json_encode($ntc->catchUpOptions()) }}"
+            data-training-end="{{ $ntc->training_end_date?->format('M d, Y') }}"
             data-deadline="{{ $deadline?->format('F d, Y') ?? 'N/A' }}"
             data-overdue="{{ $isOverdue ? '1' : '0' }}"
             data-draft-url="{{ route('applicant.post_training.draft.save', $ntc->id) }}"

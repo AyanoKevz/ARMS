@@ -21,6 +21,30 @@ use App\Services\PctService;
 
 class TrackingController extends Controller
 {
+    /**
+     * The application a tracking-page form acts on, found by the tracking
+     * number the applicant looked up.
+     *
+     * Never by database id: ids are sequential, so a hidden application_id
+     * field could be edited to a neighbouring number to upload files into a
+     * stranger's application without signing in. Only 'new' applications are
+     * tracked publicly — renewals go through the portal — matching index().
+     */
+    private function trackedApplication(Request $request, array $with = []): ?Application
+    {
+        $trackingNumber = strtoupper(trim((string) $request->input('tracking_number')));
+        if ($trackingNumber === '' || strlen($trackingNumber) > 32) {
+            return null;
+        }
+
+        $application = Application::with($with)->where('tracking_number', $trackingNumber)->first();
+
+        if (!$application || strtolower($application->application_type) !== 'new') {
+            return null;
+        }
+
+        return $application;
+    }
 
     /**
      * Display the tracking page, resolving the application if a tracking number is provided.
@@ -76,7 +100,7 @@ class TrackingController extends Controller
      */
     public function resubmitAll(Request $request)
     {
-        $application = Application::with(['instructors.credentials', 'accreditationType', 'latestStatus.status'])->find($request->input('application_id'));
+        $application = $this->trackedApplication($request, ['instructors.credentials', 'accreditationType', 'latestStatus.status']);
         if (!$application) {
             return back()->with('error', 'Application not found.');
         }
@@ -86,7 +110,6 @@ class TrackingController extends Controller
         }
 
         $request->validate([
-            'application_id' => ['required', 'exists:applications,id'],
             'files'          => ['nullable', 'array'],
             'files.*'        => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'values'         => ['nullable', 'array'],
@@ -403,12 +426,24 @@ class TrackingController extends Controller
      */
     public function submitPaymentPublic(Request $request)
     {
+        $application = $this->trackedApplication($request, ['latestStatus.status', 'payment', 'accreditationType']);
+        if (!$application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        // Same condition the tracking page uses to show the upload form: a
+        // hand-made POST must not replace a proof of payment that is already
+        // under review or approved.
+        $statusName = $application->latestStatus?->status?->name;
+        $paymentRejected = $application->payment?->proof_of_payment_status === 'rejected';
+        if ($statusName !== 'Awaiting Payment' && !($statusName === 'Payment Verification' && $paymentRejected)) {
+            return back()->with('error', 'Invalid action. Proof of payment can only be uploaded while your application is awaiting payment.');
+        }
+
         $request->validate([
-            'application_id'   => ['required', 'exists:applications,id'],
             'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:15360'],
         ]);
 
-        $application = Application::findOrFail($request->input('application_id'));
         $payment = $application->payment ?? new \App\Models\ApplicationPayment(['application_id' => $application->id]);
 
         $accreditationType = $application->accreditationType;

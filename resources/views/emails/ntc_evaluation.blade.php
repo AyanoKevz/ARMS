@@ -48,14 +48,13 @@
         <p class="value">{{ $ntcReport->trainingType->name ?? 'N/A' }} ({{ $ntcReport->trainingMode->name ?? 'N/A' }})</p>
 
         @if($ntcReport->venue)
-            <p class="label">{{ (optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended')) ? 'Zoom Link / Meeting Link' : 'Venue' }}</p>
-            <p class="value">
-                @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
-                    <a href="{{ $ntcReport->venue }}" target="_blank">{{ $ntcReport->venue }}</a>
-                @else
-                    {{ $ntcReport->venue }}
-                @endif
-            </p>
+            <p class="label">Venue</p>
+            <p class="value">{{ $ntcReport->venue }}</p>
+        @endif
+
+        @if($ntcReport->isBlended() && $ntcReport->meeting_link)
+            <p class="label">Zoom Link / Meeting Link</p>
+            <p class="value"><a href="{{ $ntcReport->meeting_link }}" target="_blank">{{ $ntcReport->meeting_link }}</a></p>
         @endif
 
         <p class="label">Training Period</p>

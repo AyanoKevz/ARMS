@@ -121,3 +121,8 @@
 <li class="{{ $activeFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros') }}"><i class="fas fa-certificate"></i> {{ ($isEvaluator || $isTeamLead) ? 'Active Accreditation' : 'Active FatPro' }} </a></li>
 <li class="{{ $inactiveFatProActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.directory.fatpros.inactive') }}"><i class="fas fa-ban"></i> Revoked / Expired </a></li>
 <li class="{{ $archivedActive ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.applications.archived') }}"><i class="fas fa-archive"></i> Archived Applications </a></li>
+
+{{-- Last on purpose. Each of these roles sees only its own role's entries. --}}
+@if(in_array($isAdminRole, \App\Models\AuditLog::VIEWABLE_ROLES, true))
+<li class="{{ request()->routeIs('admin.hcd.audit_logs.*') ? 'current-page active' : '' }}"><a href="{{ route('admin.hcd.audit_logs.index') }}"><i class="fas fa-history"></i> Audit Logs </a></li>
+@endif

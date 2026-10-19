@@ -46,6 +46,24 @@ window.NtcTrainingPicker = (function () {
         return toDateInputValue(date);
     }
 
+    /**
+     * The last date a training starting on a Y-m-d may still run on: one month
+     * on, less a day (Oct 01 → Oct 31). A next month too short for the same
+     * day is clamped to its end rather than spilling over — mirrors
+     * NtcReport::latestAllowedEndDate().
+     */
+    function lastAllowedDay(iso) {
+        const date = parseDateInput(iso);
+        if (!date) return '';
+
+        const daysInNext = new Date(date.getFullYear(), date.getMonth() + 2, 0).getDate();
+        const limit = new Date(date.getFullYear(), date.getMonth() + 1,
+                               Math.min(date.getDate(), daysInNext));
+        limit.setDate(limit.getDate() - 1);
+
+        return toDateInputValue(limit);
+    }
+
     /** "2027-03-04" → "Mar 04, 2027". Left as-is if it is not a plain date. */
     function formatDisplayDate(iso) {
         const parts = String(iso || '').split('-');
@@ -255,7 +273,9 @@ window.NtcTrainingPicker = (function () {
                     ? ''
                     : 'This training runs for ' + needed + (needed === 1 ? ' day' : ' days')
                       + '. Dates may fall on a weekend and need not be consecutive, and a day may'
-                      + ' run over more than one date — use Add date for that.';
+                      + ' run over more than one date — use Add date for that.'
+                      + ' The whole training must be completed within one month of its first date'
+                      + ' (e.g. starting on the 1st, the last date can be the 30th/31st at the latest).';
             }
 
             refreshRowControls();
@@ -269,16 +289,32 @@ window.NtcTrainingPicker = (function () {
          * ascending chain enforces both — across groups as well as within one.
          * A value a moved floor has overtaken is cleared, because leaving it
          * would post a date the input itself calls invalid.
+         *
+         * Every date after the first is also capped at one month from it, since
+         * a training has to be completed within a month of starting.
          */
         function applyMinimums() {
+            const inputs = dateInputs();
+            const first  = inputs.length ? inputs[0].value : '';
+            const latest = first ? lastAllowedDay(first) : '';
             let floor = '';
 
-            dateInputs().forEach(input => {
+            inputs.forEach((input, index) => {
                 const earliest = floor ? dayAfter(floor) : minDate;
 
                 if (earliest) input.min = earliest;
 
+                if (index > 0 && latest) {
+                    input.max = latest;
+                } else {
+                    input.removeAttribute('max');
+                }
+
                 if (input.value && earliest && input.value < earliest) {
+                    input.value = '';
+                }
+
+                if (index > 0 && input.value && latest && input.value > latest) {
                     input.value = '';
                 }
 
@@ -436,6 +472,53 @@ window.NtcTrainingPicker = (function () {
         };
     }
 
+    /**
+     * Wire one venue block (ntc_venue_fields partial) to its mode select.
+     *
+     * The venue is always asked for. The meeting link is shown, enabled and
+     * required only while the mode is Blended; otherwise it is disabled so it
+     * is neither validated nor posted.
+     */
+    function wireVenueFields(prefix, modeSelectId) {
+        const root       = document.querySelector('[data-venue-fields][data-prefix="' + prefix + '"]');
+        const modeSelect = document.getElementById(modeSelectId);
+        if (!root || !modeSelect) return null;
+
+        const linkGroup = root.querySelector('[data-meeting-link-group]');
+        const linkInput = linkGroup ? linkGroup.querySelector('input') : null;
+
+        function isBlended() {
+            const option = modeSelect.options[modeSelect.selectedIndex];
+            const code   = option ? (option.getAttribute('data-code') || option.text) : '';
+            return code.toUpperCase().includes('BLENDED');
+        }
+
+        function sync() {
+            const blended = isBlended();
+
+            if (linkGroup) linkGroup.hidden = !blended;
+            if (linkInput) {
+                linkInput.disabled = !blended;
+                linkInput.required = blended;
+            }
+        }
+
+        modeSelect.addEventListener('change', sync);
+        sync();
+
+        return {
+            sync,
+
+            /** Load an existing submission's venue and link. */
+            setValues(venue, meetingLink) {
+                const venueInput = root.querySelector('input[name="venue"]');
+                if (venueInput) venueInput.value = venue || '';
+                if (linkInput)  linkInput.value  = meetingLink || '';
+                sync();
+            }
+        };
+    }
+
     /** Keep a picker in step with the days chosen beside it. */
     function linkDaysToInstructors(days, instructors) {
         if (days && instructors) {
@@ -452,6 +535,8 @@ window.NtcTrainingPicker = (function () {
         safeJsonMap,
         wireTrainingDays,
         wireInstructorPicker,
+        wireVenueFields,
+        lastAllowedDay,
         link: linkDaysToInstructors,
     };
 })();

@@ -118,6 +118,55 @@ div.dataTables_wrapper div.dataTables_length select{
     width: 70px !important;
 }
 
+/* A filter dropdown placed in the toolbar beside "Show N entries" (e.g. the
+   audit log's Action filter). It shares the length picker's wrapper for the
+   matching label style, so it has to undo that picker's fixed 70px width, and
+   it keeps the room Bootstrap's .form-select needs for its arrow. */
+div.dataTables_wrapper div.dataTables_length select.dt-filter-select {
+    width: auto !important;
+    min-width: 230px;
+    max-width: 320px;
+    height: 31px;
+    padding: 4px 32px 4px 10px;
+    margin-left: 6px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background-color: #fff;
+    background-position: right 10px center;
+    color: #2A3F54;
+    font-size: 0.85rem;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+div.dataTables_wrapper div.dataTables_length select.dt-filter-select:hover {
+    border-color: #9aa8b8;
+}
+
+div.dataTables_wrapper div.dataTables_length select.dt-filter-select:focus {
+    border-color: #2A3F54;
+    box-shadow: 0 0 0 3px rgba(42, 63, 84, .12);
+    outline: none;
+}
+
+/* A chosen filter stands out, so it is obvious the list is narrowed. */
+div.dataTables_wrapper div.dataTables_length select.dt-filter-select.is-active {
+    border-color: #d4a72c;
+    background-color: #fffaf0;
+    font-weight: 600;
+}
+
+@media (max-width: 576px) {
+    div.dataTables_wrapper div.dataTables_length select.dt-filter-select {
+        min-width: 0;
+        width: 100% !important;
+        max-width: none;
+        margin-left: 0;
+        margin-top: 4px;
+    }
+}
+
 .page-link.active, .active>.page-link {
     color: #000000 !important;
 }

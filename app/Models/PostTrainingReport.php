@@ -129,6 +129,24 @@ class PostTrainingReport extends Model
     }
 
     /**
+     * The ptr_documents row standing in for the Pre- and Post-Test Summary
+     * Evaluation. Like the Directory it carries no file — the scores live on
+     * each participant row.
+     */
+    public function scoresDocument()
+    {
+        return $this->documents->first(fn ($d) => $d->documentType?->isScores());
+    }
+
+    /**
+     * Does the FATPro owe corrected pre-/post-test scores?
+     */
+    public function hasScoreCorrections(): bool
+    {
+        return $this->scoresDocument()?->status === 'rejected';
+    }
+
+    /**
      * Does the FATPro owe a new video link?
      */
     public function hasVideoCorrections(): bool
@@ -167,16 +185,18 @@ class PostTrainingReport extends Model
     /**
      * Does anything on this report need putting right?
      *
-     * A report is sent back in three different ways and the FATPro should not
-     * have to notice which: a declined attachment is re-uploaded, declined
-     * participants are edited row by row, and a declined instructor list is
-     * re-chosen. Any combination can be outstanding at once.
+     * A report is sent back in several ways and the FATPro should not have to
+     * notice which: a declined attachment is re-uploaded, declined participants
+     * are edited row by row, a declined instructor list is re-chosen and
+     * declined test scores are re-entered. Any combination can be outstanding
+     * at once.
      */
     public function needsCorrections(): bool
     {
         return $this->declinedDocuments()->isNotEmpty()
             || $this->hasDirectoryCorrections()
             || $this->hasInstructorCorrections()
+            || $this->hasScoreCorrections()
             || $this->hasVideoCorrections();
     }
 
@@ -191,6 +211,7 @@ class PostTrainingReport extends Model
         return $this->declinedDocuments()->count()
             + ($this->hasDirectoryCorrections() ? 1 : 0)
             + ($this->hasInstructorCorrections() ? 1 : 0)
+            + ($this->hasScoreCorrections() ? 1 : 0)
             + ($this->hasVideoCorrections() ? 1 : 0);
     }
 

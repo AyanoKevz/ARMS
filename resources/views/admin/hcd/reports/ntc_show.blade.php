@@ -114,6 +114,22 @@
 .ntc-badge-approved { background: #d1fae5; color: #065f46; }
 .ntc-badge-rejected { background: #fee2e2; color: #991b1b; }
 .ntc-badge-returned { background: #fef3c7; color: #92400e; }
+
+/* Report of Changes comparison */
+.ntc-changes-table { font-size: .84rem; }
+.ntc-changes-table thead th {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748b;
+    background: #f8fafc;
+}
+.ntc-changes-table td { word-break: break-word; }
+.ntc-changes-table tr.is-changed .ntc-change-from { background: #fef2f2; color: #991b1b; text-decoration: line-through; }
+.ntc-changes-table tr.is-changed .ntc-change-to   { background: #f0fdf4; color: #166534; font-weight: 600; }
+.ntc-changes-table tr.is-same td { color: #94a3b8; }
+.ntc-change-file { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ntc-change-file .text-truncate { flex: 1; min-width: 0; }
 </style>
 @endpush
 
@@ -369,6 +385,92 @@ $evaluationClosed = $isAcknowledged || $isCancelled;
     @endforelse
 </div>
 
+{{-- ── Report of Changes: before / after ──
+     Only while the changes await evaluation; the earlier details are dropped
+     once they are acknowledged. --}}
+@php
+    $reportedChanges = $ntcReport->reportedChanges();
+    $replacedDocs    = $ntcReport->status === 'report_changes'
+        ? $allDocuments->filter->hasPreviousFile()
+        : collect();
+@endphp
+@if($reportedChanges || $replacedDocs->isNotEmpty())
+<div class="ai-card mb-4" style="border:1px solid #bfdbfe;">
+    <div class="ai-card-header">
+        <div style="width:32px;height:32px;background:linear-gradient(135deg,#0ea5e9,#0369a1);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+            <i class="fas fa-exchange-alt text-white" style="font-size:.85rem;"></i>
+        </div>
+        <h5 class="mb-0">What Changed</h5>
+        <small class="text-muted ms-auto" style="font-size:.75rem;">
+            {{ collect($reportedChanges)->where('changed', true)->count() }} of {{ count($reportedChanges) }} details changed
+        </small>
+    </div>
+    <p class="text-muted mb-2" style="font-size:.8rem;">
+        The details acknowledged before this Report of Changes, beside what the FATPro has now filed.
+    </p>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 ntc-changes-table">
+            <thead>
+                <tr>
+                    <th style="width:18%;">Detail</th>
+                    <th style="width:41%;">Before</th>
+                    <th style="width:41%;">After</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reportedChanges as $field => $row)
+                <tr class="{{ $row['changed'] ? 'is-changed' : 'is-same' }}">
+                    <td class="fw-semibold">
+                        {{ $field }}
+                        @if($row['changed'])
+                            <span class="badge ntc-badge-pending ms-1" style="font-size:.65rem;">Changed</span>
+                        @endif
+                    </td>
+                    <td class="ntc-change-from">{{ $row['from'] !== '' ? $row['from'] : '—' }}</td>
+                    <td class="ntc-change-to">{{ $row['to'] !== '' ? $row['to'] : '—' }}</td>
+                </tr>
+                @endforeach
+                {{-- The forms are re-uploaded with every Report of Changes, so
+                     both versions are offered rather than a changed flag. --}}
+                @foreach($replacedDocs as $doc)
+                <tr class="is-file">
+                    <td class="fw-semibold">{{ $doc->documentType->name ?? 'Document' }}</td>
+                    <td>
+                        <div class="ntc-change-file">
+                            <span class="text-muted text-truncate">{{ $doc->previous_original_filename ?? 'Previous file' }}</span>
+                            <a href="{{ route('admin.hcd.reports.ntc.document.previous', $doc->id) }}"
+                               data-file-modal
+                               data-file-title="{{ ($doc->documentType->name ?? 'Document') . ' — Before' }}"
+                               class="btn btn-outline-secondary btn-xs px-2 py-0"
+                               style="font-size:.75rem;">
+                                <i class="bi bi-eye me-1"></i>View
+                            </a>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="ntc-change-file">
+                            @if($doc->file_path)
+                                <span class="text-truncate">{{ $doc->original_filename }}</span>
+                                <a href="{{ route('admin.hcd.reports.ntc.document.view', $doc->id) }}"
+                                   data-file-modal
+                                   data-file-title="{{ ($doc->documentType->name ?? 'Document') . ' — After' }}"
+                                   class="btn btn-outline-primary btn-xs px-2 py-0"
+                                   style="font-size:.75rem;">
+                                    <i class="bi bi-eye me-1"></i>View
+                                </a>
+                            @else
+                                <span class="text-muted fst-italic">Rejected — awaiting re-upload</span>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 {{-- ── NTC Details Card ── --}}
 <div class="ai-card mb-4">
     <div class="ai-card-header" style="cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#ntcDetailsBody" aria-expanded="true">
@@ -413,20 +515,30 @@ $evaluationClosed = $isAcknowledged || $isCancelled;
             </div>
             <div class="col-md-3 col-6">
                 <div class="info-pair">
-                    <div class="lbl">{{ (optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended')) ? 'Zoom Link / Meeting Link' : 'Venue' }}</div>
+                    <div class="lbl">Venue</div>
                     <div class="val">
                         @if($ntcReport->venue)
-                            @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
-                                <a href="{{ $ntcReport->venue }}" target="_blank" class="text-primary text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ $ntcReport->venue }}</a>
-                            @else
-                                <i class="bi bi-geo-alt me-1 text-danger"></i>{{ $ntcReport->venue }}
-                            @endif
+                            <i class="bi bi-geo-alt me-1 text-danger"></i>{{ $ntcReport->venue }}
                         @else
                             —
                         @endif
                     </div>
                 </div>
             </div>
+            @if($ntcReport->isBlended())
+                <div class="col-md-3 col-6">
+                    <div class="info-pair">
+                        <div class="lbl">Zoom Link / Meeting Link</div>
+                        <div class="val">
+                            @if($ntcReport->meeting_link)
+                                <a href="{{ $ntcReport->meeting_link }}" target="_blank" rel="noopener" class="text-primary text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ $ntcReport->meeting_link }}</a>
+                            @else
+                                —
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
             <div class="col-md-3 col-6">
                 <div class="info-pair">
                     <div class="lbl">FATPro</div>
@@ -561,6 +673,19 @@ $evaluationClosed = $isAcknowledged || $isCancelled;
                         <span class="badge bg-secondary" style="font-size:.72rem;">
                             <i class="bi bi-trash me-1"></i>File Removed
                         </span>
+                    </div>
+                    @endif
+
+                    {{-- The acknowledged file this Report of Changes replaced. --}}
+                    @if($replacedDocs->contains($doc))
+                    <div>
+                        <a href="{{ route('admin.hcd.reports.ntc.document.previous', $doc->id) }}"
+                           data-file-modal
+                           data-file-title="{{ ($doc->documentType->name ?? 'Document') . ' — Before' }}"
+                           class="btn btn-outline-secondary btn-xs px-2 py-0"
+                           style="font-size:.78rem;">
+                            <i class="bi bi-clock-history me-1"></i>Previous
+                        </a>
                     </div>
                     @endif
 
@@ -775,6 +900,7 @@ $evaluationClosed = $isAcknowledged || $isCancelled;
             var days = picker.wireTrainingDays('admin_', 'admin_ntc_training_type_id');
             var crew = picker.wireInstructorPicker('admin_');
             picker.link(days, crew);
+            picker.wireVenueFields('admin_', 'admin_ntc_training_mode_id');
 
             var form = document.getElementById('ntcDetailsEditForm');
             if (!form) return;

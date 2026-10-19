@@ -194,22 +194,12 @@
                         @enderror
                     </div>
 
-                    {{-- Venue / Zoom Link --}}
-                    <div class="form-group mb-3">
-                        <label class="fw-semibold" for="ntc_venue" id="ntc_venue_label">
-                            Venue / Zoom Link <span class="text-danger">*</span>
-                        </label>
-                        <input type="text"
-                               id="ntc_venue"
-                               name="venue"
-                               class="form-control @error('venue') is-invalid @enderror"
-                               placeholder="Enter venue address or Zoom meeting link"
-                               value="{{ old('venue') }}"
-                               required>
-                        @error('venue')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
+                    @include('applicant.partials.ntc_venue_fields', [
+                        'prefix'      => '',
+                        'venue'       => old('venue'),
+                        'meetingLink' => old('meeting_link'),
+                        'showErrors'  => true,
+                    ])
 
                     @include('applicant.partials.ntc_training_days', [
                         'prefix'       => '',
@@ -227,6 +217,7 @@
                         <label class="fw-semibold" for="file_rtcman">
                             DOLE-OSHC-STO-RTCMan Form <span class="text-danger">*</span>
                         </label>
+                        @include('applicant.partials.ntc_form_template_link', ['code' => 'RTCMAN'])
                         <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
@@ -267,6 +258,7 @@
                         <label class="fw-semibold" for="file_prog">
                             DOLE-OSHC-STO-PROG Form <span class="text-danger">*</span>
                         </label>
+                        @include('applicant.partials.ntc_form_template_link', ['code' => 'PROG'])
                         <p class="text-muted mb-1 ntc-text-80">
                             Accepted formats: <code>.pdf</code>, <code>.doc</code>, <code>.docx</code> &mdash; Max 100 MB
                         </p>
@@ -389,11 +381,12 @@
                                         <span class="fw-semibold ntc-text-ink">{{ $ntc->trainingMode->name ?? 'N/A' }}</span>
                                         @if($ntc->venue)
                                             <div class="text-muted mt-1 ntc-text-75">
-                                                @if(optional($ntc->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntc->trainingMode->name ?? ''), 'blended'))
-                                                    <a href="{{ $ntc->venue }}" target="_blank" class="text-primary text-decoration-none">{{ Str::limit($ntc->venue, 35) }}</a>
-                                                @else
-                                                    {{ Str::limit($ntc->venue, 35) }}
-                                                @endif
+                                                {{ Str::limit($ntc->venue, 35) }}
+                                            </div>
+                                        @endif
+                                        @if($ntc->isBlended() && $ntc->meeting_link)
+                                            <div class="mt-1 ntc-text-75">
+                                                <a href="{{ $ntc->meeting_link }}" target="_blank" rel="noopener" class="text-primary text-decoration-none">{{ Str::limit($ntc->meeting_link, 35) }}</a>
                                             </div>
                                         @endif
                                     </td>
@@ -472,6 +465,7 @@
                                                             data-training-type="{{ $ntc->ntc_training_type_id }}"
                                                             data-training-mode="{{ $ntc->ntc_training_mode_id }}"
                                                             data-venue="{{ $ntc->venue }}"
+                                                            data-meeting-link="{{ $ntc->meeting_link }}"
                                                             data-start-date="{{ $ntc->training_start_date ? $ntc->training_start_date->format('Y-m-d') : '' }}"
                                                             data-end-date="{{ $ntc->training_end_date ? $ntc->training_end_date->format('Y-m-d') : '' }}"
                                                             data-training-dates="{{ json_encode((object) $ntc->trainingDatesByDay()) }}"
@@ -615,18 +609,11 @@
                         </select>
                     </div>
 
-                    {{-- Venue / Zoom Link --}}
-                    <div class="form-group mb-3">
-                        <label class="fw-semibold" for="modal_ntc_venue" id="modal_ntc_venue_label">
-                            Venue / Zoom Link <span class="text-danger">*</span>
-                        </label>
-                        <input type="text"
-                               id="modal_ntc_venue"
-                               name="venue"
-                               class="form-control"
-                               placeholder="Enter venue address or Zoom meeting link"
-                               required>
-                    </div>
+                    @include('applicant.partials.ntc_venue_fields', [
+                        'prefix'      => 'modal_',
+                        'venue'       => '',
+                        'meetingLink' => '',
+                    ])
 
                     @include('applicant.partials.ntc_training_days', [
                         'prefix'       => 'modal_',
@@ -644,6 +631,7 @@
                         <label class="fw-semibold" for="modal_file_rtcman">
                             DOLE-OSHC-STO-RTCMan Form <span class="text-danger">*</span>
                         </label>
+                        @include('applicant.partials.ntc_form_template_link', ['code' => 'RTCMAN'])
                         <div id="modal_rtcman_current_container" class="mb-2 ntc-current-file">
                             <span class="text-muted">Current file:</span>
                             <a href="#" id="modal_rtcman_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>
@@ -685,6 +673,7 @@
                         <label class="fw-semibold" for="modal_file_prog">
                             DOLE-OSHC-STO-PROG Form <span class="text-danger">*</span>
                         </label>
+                        @include('applicant.partials.ntc_form_template_link', ['code' => 'PROG'])
                         <div id="modal_prog_current_container" class="mb-2 ntc-current-file">
                             <span class="text-muted">Current file:</span>
                             <a href="#" id="modal_prog_current_link" target="_blank" class="font-monospace text-primary fw-semibold ms-1"></a>

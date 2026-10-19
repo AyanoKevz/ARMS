@@ -127,6 +127,16 @@ class NtcController extends Controller
             $previousEnd = end($dates);
         }
 
+        // Every training type is conducted within one month: one that starts
+        // on the 1st must be over by the 30th/31st, not the 1st of next month.
+        $firstDate = $flat->min();
+
+        if ($flat->max()->greaterThan(NtcReport::latestAllowedEndDate($firstDate))) {
+            throw ValidationException::withMessages([
+                'training_dates' => NtcReport::oneMonthLimitMessage($firstDate),
+            ]);
+        }
+
         return array_map(
             fn (array $dates) => array_map(fn (Carbon $date) => $date->toDateString(), $dates),
             $byDay
@@ -349,7 +359,7 @@ class NtcController extends Controller
         $validated = $request->validate([
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
-            'venue'                => ['required', 'string', 'max:500'],
+            ...NtcReport::locationRules($request->input('ntc_training_mode_id')),
             // Every training date, under the day of the course it belongs to,
             // since one day may be delivered over several dates. The start and
             // end dates are outputs of this, not inputs, so the form posts
@@ -362,7 +372,7 @@ class NtcController extends Controller
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
-            'venue.required' => 'The venue or Zoom link is required.',
+            ...NtcReport::LOCATION_MESSAGES,
             'training_dates.required' => 'Please choose the training dates.',
             'training_dates.*.*.required' => 'Please fill in every training date, or remove the blank one.',
             'instructor_ids.required' => 'Select at least one instructor to conduct this training.',
@@ -395,6 +405,7 @@ class NtcController extends Controller
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
                     'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
                     'venue'                => $validated['venue'],
+                    'meeting_link'         => NtcReport::isBlendedModeId($validated['ntc_training_mode_id']) ? $validated['meeting_link'] : null,
                     'training_start_date'  => $validated['training_start_date'],
                     'training_end_date'    => $validated['training_end_date'],
                     'status'               => 'submitted',
@@ -738,7 +749,7 @@ class NtcController extends Controller
         $validated = $request->validate([
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
-            'venue'                => ['required', 'string', 'max:500'],
+            ...NtcReport::locationRules($request->input('ntc_training_mode_id')),
             // Every training date, under the day of the course it belongs to,
             // since one day may be delivered over several dates. The start and
             // end dates are outputs of this, not inputs, so the form posts
@@ -751,7 +762,7 @@ class NtcController extends Controller
             'file_rtcman'          => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
             'file_prog'            => ['required', 'file', 'mimes:pdf,doc,docx', 'max:102400'],
         ], [
-            'venue.required' => 'The venue or Zoom link is required.',
+            ...NtcReport::LOCATION_MESSAGES,
             'training_dates.required' => 'Please choose the training dates.',
             'training_dates.*.*.required' => 'Please fill in every training date, or remove the blank one.',
             'instructor_ids.required' => 'Select at least one instructor to conduct this training.',
@@ -774,19 +785,27 @@ class NtcController extends Controller
             Carbon::parse($validated['training_end_date'])
         );
 
+        // Taken before the write: the update below overwrites the acknowledged
+        // details, and the evaluator needs them to see what was changed. Read
+        // off a clone so the old relations it loads are not left on the model
+        // for the notification below to pick up as the new ones.
+        $previousDetails = (clone $ntcReport)->detailsSnapshot();
+
         try {
-            DB::transaction(function () use ($validated, $request, $ntcReport, $user, $trainingDays, $instructorIds) {
+            DB::transaction(function () use ($validated, $request, $ntcReport, $user, $trainingDays, $instructorIds, $previousDetails) {
                 // Update NTC Report details
                 $ntcReport->update([
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
                     'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
                     'venue'                => $validated['venue'],
+                    'meeting_link'         => NtcReport::isBlendedModeId($validated['ntc_training_mode_id']) ? $validated['meeting_link'] : null,
                     'training_start_date'  => $validated['training_start_date'],
                     'training_end_date'    => $validated['training_end_date'],
                     'status'               => 'report_changes',
                     'submitted_at'         => Carbon::now(),
                     'acknowledged_at'      => null,
                     'acknowledged_by'      => null,
+                    'previous_details'     => $previousDetails,
                 ]);
 
                 $ntcReport->syncTrainingDates($trainingDays);
@@ -811,17 +830,18 @@ class NtcController extends Controller
                     if ($request->hasFile($inputName)) {
                         $file = $request->file($inputName);
 
-                        // Delete old file - no stacking!
-                        if ($document && $document->file_path && Storage::disk('local')->exists($document->file_path)) {
-                            Storage::disk('local')->delete($document->file_path);
-                        }
-
                         $ext      = $file->getClientOriginalExtension() ?: 'pdf';
                         $filename = strtolower($docCode) . '_' . time() . '.' . $ext;
                         $path     = $file->storeAs($ntcBasePath, $filename, 'local');
 
                         if ($document) {
+                            // The acknowledged file is kept, not deleted, so the
+                            // evaluator can open it beside the new one. It is
+                            // removed once the changes are acknowledged.
                             $document->update([
+                                'previous_file_path'         => $document->file_path,
+                                'previous_original_filename' => $document->file_path ? $document->original_filename : null,
+                                'previous_mime_type'         => $document->file_path ? $document->mime_type : null,
                                 'file_path'         => $path,
                                 'original_filename' => $file->getClientOriginalName(),
                                 'mime_type'         => $file->getMimeType(),

@@ -24,7 +24,7 @@ return new class extends Migration
             // encoded = captured in the portal (Directory of Participants)
             // roster  = chosen in the portal (instructors, carried from the NTC)
             // link    = a URL typed in (the training video)
-
+            // scores  = encoded in the portal against the Directory (pre-/post-test)
             $table->string('accepted_extensions', 100)->nullable()->default('pdf');
             // Comma-separated extension whitelist, e.g. "pdf".
             // Null for an encoded type, which accepts no file at all.
@@ -207,6 +207,25 @@ return new class extends Migration
             // Pre-filled from the parent NTC's training mode, editable per row
             $table->string('batch_no', 50)->nullable();
 
+            // ── Pre- and Post-Test Summary Evaluation (requirement 5) ─────────
+            // Free text: the FATPro types the score as their test sheet has it.
+            $table->string('pre_test_score', 100)->nullable();
+            $table->string('post_test_score', 100)->nullable();
+
+            // ── Catch-up participant ──────────────────────────────────────────
+            // Someone who began this course in one of the FATPro's earlier
+            // trainings and completes it in this one.
+            $table->boolean('is_catch_up')->default(false);
+            $table->foreignId('catch_up_ntc_report_id')
+                ->nullable()
+                ->constrained('ntc_reports')
+                ->nullOnDelete();
+            // The earlier training they started in
+            $table->date('catch_up_start_date')->nullable();
+            // That training's first day — copied, so it survives the NTC
+            $table->date('catch_up_end_date')->nullable();
+            // This training's last day, when they finished
+
             // ── Per-row evaluation ────────────────────────────────────────────
             $table->string('status', 20)->default('pending');
             // pending → approved | rejected
@@ -235,6 +254,27 @@ return new class extends Migration
             // One-shot: the "you have missed the deadline" notice.
             $table->timestamp('ptr_overdue_notified_at')->nullable()->after('ptr_reminder_sent_at');
         });
+
+        // ── Foreign keys PostgreSQL leaves unindexed ──────────────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not. Nothing searches by these, but deleting
+        // a document type or an admin account would scan the table for them.
+        // The table drops in down() take these indexes with them.
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('post_training_reports', function (Blueprint $table) {
+                $table->index('accepted_by', 'idx_fk_post_training_reports_accepted_by');
+            });
+
+            Schema::table('ptr_documents', function (Blueprint $table) {
+                $table->index('ptr_document_type_id', 'idx_fk_ptr_documents_ptr_document_type_id');
+                $table->index('evaluated_by', 'idx_fk_ptr_documents_evaluated_by');
+            });
+
+            Schema::table('ptr_participants', function (Blueprint $table) {
+                $table->index('evaluated_by', 'idx_fk_ptr_participants_evaluated_by');
+                $table->index('catch_up_ntc_report_id', 'idx_fk_ptr_participants_catch_up_ntc_report_id');
+            });
+        }
     }
 
     /**

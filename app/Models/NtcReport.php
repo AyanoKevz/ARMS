@@ -59,11 +59,15 @@ class NtcReport extends Model
      */
     public const CANCELLABLE_STATUSES = ['submitted', 'acknowledged', 'report_changes'];
 
+    /** Training mode code for a training held partly in a venue and partly online. */
+    public const MODE_BLENDED = 'BLENDED';
+
     protected $fillable = [
         'accreditation_id',
         'ntc_training_type_id',
         'ntc_training_mode_id',
         'venue',
+        'meeting_link',
         'training_start_date',
         'training_end_date',
         'status',
@@ -74,6 +78,7 @@ class NtcReport extends Model
         'cancelled_at',
         'cancelled_by',
         'cancellation_reason',
+        'previous_details',
         'ptr_reminder_sent_at',
         'ptr_overdue_notified_at',
     ];
@@ -84,6 +89,7 @@ class NtcReport extends Model
         'submitted_at'            => 'datetime',
         'acknowledged_at'         => 'datetime',
         'cancelled_at'            => 'datetime',
+        'previous_details'        => 'array',
         'ptr_reminder_sent_at'    => 'datetime',
         'ptr_overdue_notified_at' => 'datetime',
     ];
@@ -329,6 +335,65 @@ class NtcReport extends Model
     }
 
     /**
+     * The last date a training may still run on, given its first date.
+     *
+     * Every training type has to be completed within one month of starting:
+     * one that starts on October 1 must end by October 31, and cannot reach
+     * November 1. Where the next month is too short to have the same day
+     * (January 31 → February), the month is clamped rather than spilling over
+     * into March.
+     */
+    public static function latestAllowedEndDate(Carbon $firstDate): Carbon
+    {
+        return $firstDate->copy()->startOfDay()->addMonthNoOverflow()->subDay();
+    }
+
+    /**
+     * The message given when a training runs past latestAllowedEndDate().
+     */
+    public static function oneMonthLimitMessage(Carbon $firstDate): string
+    {
+        return 'A training must be completed within one month. Starting '
+            . $firstDate->format('F d, Y') . ', the last training date can be no later than '
+            . self::latestAllowedEndDate($firstDate)->format('F d, Y') . '.';
+    }
+
+    /**
+     * Validation rules for where a training is held.
+     *
+     * Every training has a venue. A blended one is also partly online, so it
+     * needs the meeting link on top of the venue — not instead of it.
+     */
+    public static function locationRules($modeId): array
+    {
+        $blended = self::isBlendedModeId($modeId);
+
+        return [
+            'venue'        => ['required', 'string', 'max:500'],
+            'meeting_link' => $blended
+                ? ['required', 'url', 'max:500']
+                : ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    public const LOCATION_MESSAGES = [
+        'venue.required'        => 'The venue is required.',
+        'meeting_link.required' => 'A blended training needs a Zoom / meeting link.',
+        'meeting_link.url'      => 'The meeting link must be a full link, starting with https://.',
+    ];
+
+    /** Is this training mode id the blended one, which also needs a meeting link? */
+    public static function isBlendedModeId($modeId): bool
+    {
+        return NtcTrainingMode::whereKey($modeId)->value('code') === self::MODE_BLENDED;
+    }
+
+    public function isBlended(): bool
+    {
+        return optional($this->trainingMode)->code === self::MODE_BLENDED;
+    }
+
+    /**
      * Number of training days for a type code (EFA 1 / OFA 2 / SFA 4).
      */
     public static function durationDaysForCode(?string $code): int
@@ -508,6 +573,60 @@ class NtcReport extends Model
         return $segments;
     }
 
+    /**
+     * The details a Report of Changes or an evaluator's correction can touch,
+     * as a reader would see them.
+     *
+     * Taken before and after a change and compared, so what is shown names
+     * what actually moved rather than claiming the whole submission changed.
+     *
+     * @return array<string, string>
+     */
+    public function detailsSnapshot(): array
+    {
+        $this->loadMissing(['trainingType', 'trainingMode', 'trainingDates', 'instructors']);
+
+        return [
+            'Training Type' => $this->trainingType->name ?? '—',
+            'Mode'          => $this->trainingMode->name ?? '—',
+            'Venue'         => (string) $this->venue,
+            'Meeting Link'  => (string) $this->meeting_link,
+            'Training Days' => $this->trainingPeriodLabel(),
+            'Instructors'   => $this->instructors->map->fullName()->implode(', '),
+        ];
+    }
+
+    /**
+     * A pending Report of Changes laid against what was acknowledged before it.
+     *
+     * Empty unless one is awaiting evaluation: the earlier details are dropped
+     * once the changes are acknowledged, and a cancelled training has nothing
+     * left to compare. Rows blank on both sides — a meeting link on a training
+     * that was never blended — are left out.
+     *
+     * @return array<string, array{from: string, to: string, changed: bool}>
+     */
+    public function reportedChanges(): array
+    {
+        if ($this->status !== 'report_changes' || empty($this->previous_details)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($this->detailsSnapshot() as $field => $to) {
+            $from = (string) ($this->previous_details[$field] ?? '');
+
+            if ($from === '' && $to === '') {
+                continue;
+            }
+
+            $rows[$field] = ['from' => $from, 'to' => $to, 'changed' => $from !== $to];
+        }
+
+        return $rows;
+    }
+
     // ── Post Training Report ──────────────────────────────────────────────────
 
     /**
@@ -548,6 +667,55 @@ class NtcReport extends Model
     {
         return $this->training_end_date
             && Carbon::today()->greaterThanOrEqualTo($this->training_end_date->copy()->startOfDay());
+    }
+
+    /**
+     * The FATPro's other trainings a catch-up participant in this one may have
+     * started in — the "already done" entries of My Training Submissions.
+     *
+     * Any of this FATPro's trainings, of any type, that is acknowledged (not
+     * cancelled or still under review) and has already been held. This
+     * training itself is never offered. Most recent first.
+     *
+     * @return \Illuminate\Support\Collection<int, NtcReport>
+     */
+    public function catchUpSources()
+    {
+        $userId = $this->accreditation?->user_id;
+
+        if (!$userId) {
+            return collect();
+        }
+
+        return self::query()
+            ->with('trainingType')
+            ->whereHas('accreditation', fn ($q) => $q->where('user_id', $userId))
+            ->whereKeyNot($this->id)
+            ->where('status', 'acknowledged')
+            ->whereDate('training_end_date', '<=', Carbon::today())
+            ->orderByDesc('training_start_date')
+            ->get();
+    }
+
+    /**
+     * The catch-up choices for this training, as the submission dialog reads
+     * them: id, the start date it fills in, and a label to pick from — the
+     * date first, since that is what is being chosen, then which training.
+     *
+     * @return array<int, array{id: int, start: string, label: string}>
+     */
+    public function catchUpOptions(): array
+    {
+        return $this->catchUpSources()
+            ->map(fn (NtcReport $source) => [
+                'id'    => $source->id,
+                'start' => $source->training_start_date->format('M d, Y'),
+                'label' => $source->training_start_date->format('M d, Y')
+                    . ' — ' . $source->reference_number
+                    . ($source->trainingType?->code ? ' (' . $source->trainingType->code . ')' : ''),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

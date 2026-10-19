@@ -3,10 +3,12 @@
 
     Only the rejected rows appear: an approved participant is settled, and
     applyParticipantCorrections() ignores anything else that arrives anyway.
+    The evaluator judges the Directory as a whole, so a declined Directory
+    declines — and lists here — every participant.
 
     A card per participant rather than the encoding grid's nineteen columns —
-    corrections come in ones and twos, and a labelled card reads far better
-    than scrolling a wide table sideways to find the field that was wrong.
+    a labelled card reads far better than scrolling a wide table sideways to
+    find the field that was wrong.
 
     post-training-corrections.js serialises these back into the `participants`
     JSON the server already understands, so nothing downstream changes.
@@ -14,7 +16,12 @@
     Expects: $report (PostTrainingReport)
 --}}
 
-@php $rejectedRows = $report->rejectedParticipants()->sortBy('row_no'); @endphp
+@php
+    $rejectedRows = $report->rejectedParticipants()->sortBy('row_no');
+    // The trainings a catch-up participant may have started in — one query
+    // for the whole card list.
+    $catchUpOptions = $report->ntcReport?->catchUpOptions() ?? [];
+@endphp
 
 <div class="ptr-correction-rows" data-correction-participants>
     @foreach($rejectedRows as $participant)
@@ -79,13 +86,13 @@
                     'company_region'   => ['Company Address (Region)', true, 'region'],
                     'company_city'     => ['Company Address (City / Municipality)', true, 'city'],
                     'industry'         => ['Industry', true, 'text'],
-                    'total_workers'    => ['Total No. of Workers', false, 'number'],
-                    'company_email'    => ['Company Email', false, 'email'],
-                    'personal_email'   => ['Personal Email', false, 'email'],
+                    'total_workers'    => ['Total No. of Workers', true, 'number'],
+                    'company_email'    => ['Company Email', true, 'email'],
+                    'personal_email'   => ['Personal Email', true, 'email'],
                     'mobile_no'        => ['Mobile No.', true, 'mobile'],
-                    'company_landline' => ['Company Landline', false, 'landline'],
+                    'company_landline' => ['Company Landline', true, 'landline'],
                     'mode_of_training' => ['Mode of Training', true, 'text'],
-                    'batch_no'         => ['Batch No.', false, 'text'],
+                    'batch_no'         => ['Batch No.', true, 'text'],
                 ];
             @endphp
 
@@ -115,6 +122,32 @@
                 @endif
             </label>
             @endforeach
+
+            {{-- Catch-up participant: began this course in an earlier training. --}}
+            <label class="ptr-correction-field">
+                <span>Catch Up <b class="text-danger">*</b></span>
+                <select class="form-control form-control-sm" data-field="catch_up" data-catchup-toggle data-required>
+                    <option value="No" {{ $participant->is_catch_up ? '' : 'selected' }}>No</option>
+                    <option value="Yes" {{ $participant->is_catch_up ? 'selected' : '' }}>Yes</option>
+                </select>
+            </label>
+
+            <label class="ptr-correction-field" data-catchup-only @if(!$participant->is_catch_up) hidden @endif>
+                <span>Training Start Date <b class="text-danger">*</b></span>
+                <select class="form-control form-control-sm" data-field="catch_up_ntc_report_id" data-catchup-source>
+                    <option value="">{{ $catchUpOptions ? '— Select the training they started in —' : 'No completed training yet' }}</option>
+                    @foreach($catchUpOptions as $option)
+                        <option value="{{ $option['id'] }}" {{ (int) $participant->catch_up_ntc_report_id === $option['id'] ? 'selected' : '' }}>
+                            {{ $option['label'] }}
+                        </option>
+                    @endforeach
+                </select>
+            </label>
+
+            <label class="ptr-correction-field" data-catchup-only @if(!$participant->is_catch_up) hidden @endif>
+                <span>Training End Date</span>
+                <input type="text" class="form-control form-control-sm" value="{{ $report->ntcReport?->training_end_date?->format('M d, Y') }}" readonly>
+            </label>
         </div>
 
         {{-- The row already has a picture, so a replacement is optional. --}}

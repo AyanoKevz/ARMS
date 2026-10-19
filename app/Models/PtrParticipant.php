@@ -8,9 +8,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * One encoded row of the Directory of Participants.
  *
- * Evaluators judge participants individually (status lives here), but the
- * remarks explaining a decision belong to the Directory as a whole and are
- * stored on its PtrDocument section row.
+ * Evaluators judge the Directory as a whole on its PtrDocument section row,
+ * which also holds the remarks. That verdict is copied onto every participant
+ * (status lives here), so a declined Directory opens every row for correction.
  */
 class PtrParticipant extends Model
 {
@@ -68,6 +68,12 @@ class PtrParticipant extends Model
         'id_picture_size',
         'mode_of_training',
         'batch_no',
+        'pre_test_score',
+        'post_test_score',
+        'is_catch_up',
+        'catch_up_ntc_report_id',
+        'catch_up_start_date',
+        'catch_up_end_date',
         'status',
         'evaluated_by',
         'evaluated_at',
@@ -78,6 +84,9 @@ class PtrParticipant extends Model
         'age'             => 'integer',
         'total_workers'   => 'integer',
         'id_picture_size' => 'integer',
+        'is_catch_up'         => 'boolean',
+        'catch_up_start_date' => 'date',
+        'catch_up_end_date'   => 'date',
         'evaluated_at'    => 'datetime',
     ];
 
@@ -86,6 +95,12 @@ class PtrParticipant extends Model
     public function postTrainingReport()
     {
         return $this->belongsTo(PostTrainingReport::class);
+    }
+
+    /** For a catch-up participant: the earlier training they started in. */
+    public function catchUpSource()
+    {
+        return $this->belongsTo(NtcReport::class, 'catch_up_ntc_report_id');
     }
 
     public function evaluatedByUser()
@@ -100,6 +115,15 @@ class PtrParticipant extends Model
         $name = trim("{$this->first_name} {$this->middle_name} {$this->last_name}");
 
         return $this->suffix ? "{$name} {$this->suffix}" : $name;
+    }
+
+    /**
+     * First, middle (if any) and last name — how the Pre- and Post-Test
+     * Summary Evaluation names each participant.
+     */
+    public function scoreSheetName(): string
+    {
+        return trim(preg_replace('/\s+/', ' ', "{$this->first_name} {$this->middle_name} {$this->last_name}"));
     }
 
     public function isApproved(): bool

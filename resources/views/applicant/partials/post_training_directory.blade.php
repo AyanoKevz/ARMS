@@ -49,31 +49,41 @@
 </div>
 
 {{-- ── Grid ──────────────────────────────────────────────────────────────── --}}
+{{-- A red * marks every column the server requires; Middle Name and Suffix are
+     the only optional ones. A participant is listed in the Pre- and Post-Test
+     Summary Evaluation (requirement 5) once all of its * columns are filled. --}}
+@php $req = '<span class="ptr-dir-req" aria-hidden="true">*</span>'; @endphp
 <div class="ptr-dir-scroll">
     <table class="ptr-dir-table" id="ptrDirTable">
         <thead>
             <tr>
                 <th class="ptr-dir-sticky ptr-dir-col-no">#</th>
-                <th class="ptr-dir-w-cert">Certificate Number</th>
-                <th class="ptr-dir-sticky-2 ptr-dir-w-name">Last Name</th>
-                <th class="ptr-dir-sticky-3 ptr-dir-w-name">First Name</th>
+                <th class="ptr-dir-w-cert">Certificate Number {!! $req !!}</th>
+                <th class="ptr-dir-sticky-2 ptr-dir-w-name">Last Name {!! $req !!}</th>
+                <th class="ptr-dir-sticky-3 ptr-dir-w-name">First Name {!! $req !!}</th>
                 <th class="ptr-dir-w-name">Middle Name</th>
                 <th class="ptr-dir-w-suffix">Suffix</th>
-                <th class="ptr-dir-w-sex">Sex</th>
-                <th class="ptr-dir-w-age">Age</th>
-                <th class="ptr-dir-w-wide">Company</th>
-                <th class="ptr-dir-w-wide">Position</th>
-                <th class="ptr-dir-w-address">Company Address (Region)</th>
-                <th class="ptr-dir-w-address">Company Address (City / Municipality)</th>
-                <th class="ptr-dir-w-wide">Industry</th>
-                <th class="ptr-dir-w-num">Total No. of Workers</th>
-                <th class="ptr-dir-w-wide">Company Email</th>
-                <th class="ptr-dir-w-wide">Personal Email</th>
-                <th class="ptr-dir-w-phone">Mobile No.</th>
-                <th class="ptr-dir-w-phone">Company Landline</th>
-                <th class="ptr-dir-w-photo">ID Picture</th>
-                <th class="ptr-dir-w-mode">Mode of Training</th>
-                <th class="ptr-dir-w-batch">Batch No.</th>
+                <th class="ptr-dir-w-sex">Sex {!! $req !!}</th>
+                <th class="ptr-dir-w-age">Age {!! $req !!}</th>
+                <th class="ptr-dir-w-wide">Company {!! $req !!}</th>
+                <th class="ptr-dir-w-wide">Position {!! $req !!}</th>
+                <th class="ptr-dir-w-address">Company Address (Region) {!! $req !!}</th>
+                <th class="ptr-dir-w-address">Company Address (City / Municipality) {!! $req !!}</th>
+                <th class="ptr-dir-w-wide">Industry {!! $req !!}</th>
+                <th class="ptr-dir-w-num">Total No. of Workers {!! $req !!}</th>
+                <th class="ptr-dir-w-wide">Company Email {!! $req !!}</th>
+                <th class="ptr-dir-w-wide">Personal Email {!! $req !!}</th>
+                <th class="ptr-dir-w-phone">Mobile No. {!! $req !!}</th>
+                <th class="ptr-dir-w-phone">Company Landline {!! $req !!}</th>
+                <th class="ptr-dir-w-photo">ID Picture {!! $req !!}</th>
+                <th class="ptr-dir-w-mode">Mode of Training {!! $req !!}</th>
+                <th class="ptr-dir-w-batch">Batch No. {!! $req !!}</th>
+                {{-- A participant who began this course in an earlier training
+                     and completes it here. The two date columns appear once
+                     any row says Yes. --}}
+                <th class="ptr-dir-w-catchup">Catch Up {!! $req !!}</th>
+                <th class="ptr-dir-w-catchup-date ptr-dir-catchup-col">Training Start Date {!! $req !!}</th>
+                <th class="ptr-dir-w-catchup-date ptr-dir-catchup-col">Training End Date</th>
                 <th class="ptr-dir-w-act"></th>
             </tr>
         </thead>
@@ -121,17 +131,17 @@
         <td><select class="ptr-dir-input" data-field="company_region" data-ph-region required></select></td>
         <td><select class="ptr-dir-input" data-field="company_city" data-ph-city required disabled></select></td>
         <td><input type="text" class="ptr-dir-input" data-field="industry" required></td>
-        <td><input type="number" class="ptr-dir-input" data-field="total_workers" min="0"></td>
+        <td><input type="number" class="ptr-dir-input" data-field="total_workers" min="0" required></td>
         <td><input type="email" class="ptr-dir-input" data-field="company_email"
-                   placeholder="name@company.com" maxlength="255"></td>
+                   placeholder="name@company.com" maxlength="255" required></td>
         <td><input type="email" class="ptr-dir-input" data-field="personal_email"
-                   placeholder="name@email.com" maxlength="255"></td>
+                   placeholder="name@email.com" maxlength="255" required></td>
         {{-- The two shapes RegistrationController already enforces: a PH mobile
              number, and a ten-digit landline with its area code. --}}
         <td><input type="text" class="ptr-dir-input" data-field="mobile_no" data-ph-mobile
                    inputmode="tel" maxlength="13" placeholder="09171234567" required></td>
         <td><input type="text" class="ptr-dir-input" data-field="company_landline" data-ph-landline
-                   inputmode="numeric" maxlength="10" placeholder="0281234567"></td>
+                   inputmode="numeric" maxlength="10" placeholder="0281234567" required></td>
         <td>
             <div class="ptr-dir-photo">
                 <input type="file" class="d-none ptr-dir-photo-input" accept=".jpg,.jpeg,.png">
@@ -142,7 +152,22 @@
             </div>
         </td>
         <td><input type="text" class="ptr-dir-input" data-field="mode_of_training" required></td>
-        <td><input type="text" class="ptr-dir-input" data-field="batch_no"></td>
+        <td><input type="text" class="ptr-dir-input" data-field="batch_no" required></td>
+        <td>
+            <select class="ptr-dir-input" data-field="catch_up" data-catchup-toggle required>
+                <option value="No" selected>No</option>
+                <option value="Yes">Yes</option>
+            </select>
+        </td>
+        {{-- Filled by post-training.js with the FATPro's other trainings
+             that have already been held: picking one sets the start date. --}}
+        <td class="ptr-dir-catchup-col">
+            <select class="ptr-dir-input" data-field="catch_up_ntc_report_id" data-catchup-source disabled></select>
+        </td>
+        {{-- Always this training's last day; shown, never typed or posted. --}}
+        <td class="ptr-dir-catchup-col">
+            <span class="ptr-dir-catchup-end" data-catchup-end>—</span>
+        </td>
         <td class="ptr-dir-act">
             <button type="button" class="btn btn-sm ptr-dir-remove" title="Remove this participant">
                 <i class="fas fa-trash-alt"></i>

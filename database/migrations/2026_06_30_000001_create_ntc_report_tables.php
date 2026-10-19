@@ -61,7 +61,10 @@ return new class extends Migration
             // Face to Face / Blended
 
             $table->string('venue', 500)->nullable();
-            // Training venue (F2F) or Zoom/Meeting link (Blended)
+            // Training venue — required for every mode, Blended included
+
+            $table->string('meeting_link', 500)->nullable();
+            // Zoom / meeting link — Blended only, null for Face to Face
 
             $table->date('training_start_date');
             // NTC Training Start Date
@@ -101,6 +104,11 @@ return new class extends Migration
             $table->text('cancellation_reason')->nullable();
             // Why. The evaluators are only notified, never asked to approve,
             // so this is the whole of what they are told.
+
+            $table->json('previous_details')->nullable();
+            // The acknowledged details a pending Report of Changes replaced,
+            // so the evaluator can compare before and after. Cleared once the
+            // changes are acknowledged.
 
             $table->timestamps();
 
@@ -144,6 +152,14 @@ return new class extends Migration
             // File size in bytes; max enforced at controller (100 MB = 104857600 bytes)
 
             $table->timestamp('uploaded_at')->useCurrent();
+
+            // ── Before a Report of Changes ────────────────────────────────
+            // The acknowledged file a pending Report of Changes replaced, kept
+            // so the evaluator can open both. The file and these columns are
+            // cleared once the changes are acknowledged.
+            $table->string('previous_file_path')->nullable();
+            $table->string('previous_original_filename')->nullable();
+            $table->string('previous_mime_type')->nullable();
 
             // ── Evaluation ────────────────────────────────────────────────
             $table->string('status')->default('pending');
@@ -223,6 +239,25 @@ return new class extends Migration
             $table->unique(['ntc_report_id', 'instructor_person_id'], 'ntc_report_instructor_unique');
             $table->index('instructor_person_id', 'ntc_report_instructor_person_idx');
         });
+
+        // ── Foreign keys PostgreSQL leaves unindexed ──────────────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not. Nothing searches by these, but deleting
+        // a lookup type or an admin account would scan the table for them.
+        // The table drops in down() take these indexes with them.
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('ntc_reports', function (Blueprint $table) {
+                $table->index('ntc_training_type_id', 'idx_fk_ntc_reports_ntc_training_type_id');
+                $table->index('ntc_training_mode_id', 'idx_fk_ntc_reports_ntc_training_mode_id');
+                $table->index('acknowledged_by', 'idx_fk_ntc_reports_acknowledged_by');
+                $table->index('cancelled_by', 'idx_fk_ntc_reports_cancelled_by');
+            });
+
+            Schema::table('ntc_documents', function (Blueprint $table) {
+                $table->index('ntc_document_type_id', 'idx_fk_ntc_documents_ntc_document_type_id');
+                $table->index('evaluated_by', 'idx_fk_ntc_documents_evaluated_by');
+            });
+        }
     }
 
     /**

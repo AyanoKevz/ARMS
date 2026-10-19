@@ -44,8 +44,20 @@ class PtrDocumentType extends Model
     }
 
     /**
-     * Is this an uploaded attachment? Checked positively: with four entry
-     * types in play, "not encoded" would sweep in the roster and the link.
+     * Is this the Pre- and Post-Test Summary Evaluation?
+     *
+     * Encoded rather than uploaded: one pre-test and one post-test score per
+     * participant, keyed in against the Directory's rows.
+     */
+    public function isScores(): bool
+    {
+        return $this->entry_type === 'scores';
+    }
+
+    /**
+     * Is this an uploaded attachment? Checked positively: with five entry
+     * types in play, "not encoded" would sweep in the roster, the scores and
+     * the link.
      */
     public function isFile(): bool
     {
@@ -64,6 +76,10 @@ class PtrDocumentType extends Model
 
         if ($this->isRoster()) {
             return 'roster';
+        }
+
+        if ($this->isScores()) {
+            return 'scores';
         }
 
         return $this->isLink() ? 'link' : 'file';

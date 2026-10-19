@@ -56,6 +56,13 @@ class ProfileController extends Controller
             return redirect()->route('profile.index');
         }
 
+        // Someone else's profile is for staff only (the admins list links here).
+        // Profile ids are sequential, so without this any applicant could walk
+        // /profile/1, /profile/2, … and read every other account's details.
+        $isStaff = in_array(strtolower($loggedInUser->role?->name ?? ''), ['admin', 'super admin'], true)
+            && $loggedInUser->adminProfile;
+        abort_unless($isStaff, 403, 'You can only view your own profile.');
+
         // Determine layout based on logged-in user so the sidebar/nav remains consistent for them
         $layout = 'layouts.applicant';
         if ($loggedInUser->role && strtolower($loggedInUser->role->name) === 'admin') {

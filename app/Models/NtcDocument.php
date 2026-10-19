@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class NtcDocument extends Model
 {
@@ -14,6 +15,9 @@ class NtcDocument extends Model
         'mime_type',
         'file_size',
         'uploaded_at',
+        'previous_file_path',
+        'previous_original_filename',
+        'previous_mime_type',
         'status',
         'remarks',
         'evaluated_by',
@@ -39,5 +43,34 @@ class NtcDocument extends Model
     public function evaluatedByUser()
     {
         return $this->belongsTo(User::class, 'evaluated_by');
+    }
+
+    /** Whether a pending Report of Changes left the acknowledged file behind. */
+    public function hasPreviousFile(): bool
+    {
+        return filled($this->previous_file_path);
+    }
+
+    /**
+     * Drop the file a Report of Changes replaced, once it has been acknowledged.
+     *
+     * The new file is the acknowledged one from then on, so the old one is
+     * deleted from storage and its columns cleared.
+     */
+    public function discardPreviousFile(): void
+    {
+        if (!$this->hasPreviousFile()) {
+            return;
+        }
+
+        if (Storage::disk('local')->exists($this->previous_file_path)) {
+            Storage::disk('local')->delete($this->previous_file_path);
+        }
+
+        $this->update([
+            'previous_file_path'         => null,
+            'previous_original_filename' => null,
+            'previous_mime_type'         => null,
+        ]);
     }
 }

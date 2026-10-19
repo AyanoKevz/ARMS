@@ -211,6 +211,24 @@ class NtcController extends Controller
     }
 
     /**
+     * Serve the file a pending Report of Changes replaced, so the evaluator
+     * can open it beside the new one. Gone once the changes are acknowledged.
+     */
+    public function servePreviousDocument(NtcDocument $document)
+    {
+        $this->requireTrainingEvaluatorAccess();
+        if (!$document->hasPreviousFile() || !Storage::disk('local')->exists($document->previous_file_path)) {
+            abort(404, 'File not found.');
+        }
+
+        return Storage::disk('local')->response(
+            $document->previous_file_path,
+            $document->previous_original_filename,
+            ['Content-Type' => $document->previous_mime_type]
+        );
+    }
+
+    /**
      * Correct an acknowledged NTC's details on the FATPro's behalf.
      *
      * The FATPro's own route for this is the Report of Changes, which closes
@@ -238,7 +256,7 @@ class NtcController extends Controller
         $validated = $request->validate([
             'ntc_training_type_id' => ['required', 'exists:ntc_training_types,id'],
             'ntc_training_mode_id' => ['required', 'exists:ntc_training_modes,id'],
-            'venue'                => ['required', 'string', 'max:500'],
+            ...NtcReport::locationRules($request->input('ntc_training_mode_id')),
             'training_dates'       => ['required', 'array'],
             'training_dates.*'     => ['array'],
             'training_dates.*.*'   => ['required', 'date'],
@@ -246,7 +264,7 @@ class NtcController extends Controller
             'instructor_ids.*'     => ['integer', 'exists:instructor_people,id'],
             'remarks'              => ['nullable', 'string', 'max:1000'],
         ], [
-            'venue.required'          => 'The venue or Zoom link is required.',
+            ...NtcReport::LOCATION_MESSAGES,
             'training_dates.required' => 'Please choose the training dates.',
             'instructor_ids.required' => 'Select at least one instructor to conduct this training.',
             'instructor_ids.min'      => 'Select at least one instructor to conduct this training.',
@@ -263,7 +281,7 @@ class NtcController extends Controller
 
         // Captured before the write so the notice can say what actually
         // changed. "Your NTC was updated" on its own tells a FATPro nothing.
-        $before = $this->detailsSnapshot($ntcReport);
+        $before = $ntcReport->detailsSnapshot();
 
         try {
             DB::transaction(function () use ($ntcReport, $validated, $trainingDays, $instructorIds) {
@@ -271,6 +289,7 @@ class NtcController extends Controller
                     'ntc_training_type_id' => $validated['ntc_training_type_id'],
                     'ntc_training_mode_id' => $validated['ntc_training_mode_id'],
                     'venue'                => $validated['venue'],
+                    'meeting_link'         => NtcReport::isBlendedModeId($validated['ntc_training_mode_id']) ? $validated['meeting_link'] : null,
                     'remarks'              => $validated['remarks'] ?? $ntcReport->remarks,
                 ]);
 
@@ -291,27 +310,6 @@ class NtcController extends Controller
     }
 
     /**
-     * The details a correction can touch, as the FATPro would read them.
-     *
-     * Taken before and after the write and compared, so the notice names what
-     * actually moved rather than claiming the whole submission changed.
-     *
-     * @return array<string, string>
-     */
-    private function detailsSnapshot(NtcReport $ntcReport): array
-    {
-        $ntcReport->loadMissing(['trainingType', 'trainingMode', 'trainingDates', 'instructors']);
-
-        return [
-            'Training Type'  => $ntcReport->trainingType->name ?? '—',
-            'Mode'           => $ntcReport->trainingMode->name ?? '—',
-            'Venue'          => (string) $ntcReport->venue,
-            'Training Days'  => $ntcReport->trainingPeriodLabel(),
-            'Instructors'    => $ntcReport->instructors->map->fullName()->implode(', '),
-        ];
-    }
-
-    /**
      * Tell the FATPro their acknowledged submission was corrected.
      *
      * Silent when nothing actually differs — re-saving the dialog without
@@ -323,7 +321,7 @@ class NtcController extends Controller
      */
     private function notifyFatproOfEdit(NtcReport $ntcReport, array $before, ?string $note): void
     {
-        $after   = $this->detailsSnapshot($ntcReport->refresh());
+        $after   = $ntcReport->refresh()->detailsSnapshot();
         $changes = [];
 
         foreach ($after as $field => $value) {
@@ -427,6 +425,16 @@ class NtcController extends Controller
             }
 
             $previousEnd = end($dates);
+        }
+
+        // Every training type is conducted within one month: one that starts
+        // on the 1st must be over by the 30th/31st, not the 1st of next month.
+        $firstDate = $flat->min();
+
+        if ($flat->max()->greaterThan(NtcReport::latestAllowedEndDate($firstDate))) {
+            throw ValidationException::withMessages([
+                'training_dates' => NtcReport::oneMonthLimitMessage($firstDate),
+            ]);
         }
 
         return array_map(
@@ -544,10 +552,16 @@ class NtcController extends Controller
 
         if ($allApproved && $ntcReport->status !== 'acknowledged') {
             $ntcReport->update([
-                'status'          => 'acknowledged',
-                'acknowledged_at' => now(),
-                'acknowledged_by' => $admin->id,
+                'status'           => 'acknowledged',
+                'acknowledged_at'  => now(),
+                'acknowledged_by'  => $admin->id,
+                // The changes are now the acknowledged details; there is
+                // nothing left to compare them against.
+                'previous_details' => null,
             ]);
+
+            // Likewise the files a Report of Changes replaced.
+            $ntcReport->documents->each->discardPreviousFile();
 
             try {
                 $fatproEmail = $ntcReport->accreditation->user->email ?? null;

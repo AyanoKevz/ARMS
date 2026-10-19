@@ -189,7 +189,7 @@ test('resubmitAll blocks uploads if application status is not For Update', funct
 
     $response = $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
         ->post(route('track.resubmit.all'), [
-            'application_id' => $application->id,
+            'tracking_number' => $application->tracking_number,
             'files' => [],
         ]);
 
@@ -407,14 +407,14 @@ test('applicant track and renewal pages display original statuses like "Requires
         'user_id' => $applicant->id,
         'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'new',
-        'tracking_number' => 'ARMS-TEST-BADGES-NEW',
+        'tracking_number' => 'ARMS2026-TB0001',
     ]);
 
     $renewalApplication = Application::create([
         'user_id' => $applicant->id,
         'accreditation_type_id' => $this->fatproTypeId,
         'application_type' => 'renewal',
-        'tracking_number' => 'ARMS-TEST-BADGES-REN',
+        'tracking_number' => 'ARMS2026-TB0002',
     ]);
 
     $docType = DocumentType::firstOrCreate([
@@ -987,8 +987,10 @@ test('optional documents not uploaded in renewal are not created and thus hidden
             'org_name' => 'Test Organization',
             'org_address' => 'Test Address',
             'head_name' => 'Head Name',
+            'head_sex' => 'Female',
             'org_email' => 'app_test_opt_docs@example.com',
             'rep_full_name' => 'Rep Full Name',
+            'rep_sex' => 'Male',
             'rep_position' => 'Rep Position',
             'rep_contact_number' => '09171234567',
             'rep_email' => 'rep@example.com',
@@ -999,6 +1001,7 @@ test('optional documents not uploaded in renewal are not created and thus hidden
                 [
                     'first_name' => 'John',
                     'last_name' => 'Doe',
+                    'sex' => 'Male',
                     'service_agreement' => $file,
                     'cv' => $file,
                     'credentials' => [
@@ -1676,7 +1679,7 @@ test('approve/reject buttons are hidden outside working hours', function () {
     \Carbon\Carbon::setTestNow();
 });
 
-test('applicant can submit report of changes and evaluation status resets to pending and deletes old files', function () {
+test('applicant can submit report of changes and evaluation status resets to pending and keeps old files for comparison', function () {
     $this->withoutExceptionHandling();
     \Illuminate\Support\Facades\Storage::fake('local');
     \Illuminate\Support\Facades\Mail::fake();
@@ -1802,13 +1805,16 @@ test('applicant can submit report of changes and evaluation status resets to pen
     expect($ntcReport->status)->toBe('report_changes');
     expect($ntcReport->training_start_date->format('Y-m-d'))->toBe(now()->addDays(20)->format('Y-m-d'));
 
-    // Assert old files deleted
-    \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($oldFilePath1);
-    \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($oldFilePath2);
+    // Old files are kept for the evaluator to compare against until the
+    // changes are acknowledged, not deleted on submission.
+    \Illuminate\Support\Facades\Storage::disk('local')->assertExists($oldFilePath1);
+    \Illuminate\Support\Facades\Storage::disk('local')->assertExists($oldFilePath2);
 
     // Assert documents reset to pending
     $doc1->refresh();
     $doc2->refresh();
+    expect($doc1->previous_file_path)->toBe($oldFilePath1);
+    expect($doc2->previous_file_path)->toBe($oldFilePath2);
     expect($doc1->status)->toBe('pending');
     expect($doc2->status)->toBe('pending');
     expect($doc1->file_path)->not->toBe($oldFilePath1);

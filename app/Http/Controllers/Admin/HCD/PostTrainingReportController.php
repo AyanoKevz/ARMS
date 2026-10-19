@@ -67,7 +67,7 @@ class PostTrainingReportController extends Controller
             'instructors.records.credentials',
             'documents.documentType',
             'documents.evaluatedByUser',
-            'participants.evaluatedByUser',
+            'participants.catchUpSource',
             'acceptedByUser',
         ]);
 
@@ -137,39 +137,6 @@ class PostTrainingReportController extends Controller
     }
 
     /**
-     * Finalize the whole evaluation: accept the report when every document is
-     * approved, or mail the FATPro the list of declined documents.
-     */
-    /**
-     * Accept/decline a single participant. Clicking an already-active button
-     * reverts it to pending, mirroring how documents behave.
-     *
-     * Declining a participant never deletes their ID picture: the FATPro
-     * corrects the row in place rather than re-filing the whole Directory.
-     */
-    public function evaluateParticipant(Request $request, PtrParticipant $participant)
-    {
-        $this->requireTrainingEvaluatorAccess();
-
-        $validated = $request->validate([
-            'status' => ['required', 'in:approved,rejected,pending'],
-        ]);
-
-        $admin = Auth::user();
-
-        $participant->update([
-            'status'       => $validated['status'],
-            'evaluated_by' => $validated['status'] === 'pending' ? null : $admin->id,
-            'evaluated_at' => $validated['status'] === 'pending' ? null : now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'status'  => $participant->status,
-        ]);
-    }
-
-    /**
      * Serve a participant's ID picture to the admin (private storage).
      */
     public function serveParticipantPhoto(PtrParticipant $participant)
@@ -187,77 +154,34 @@ class PostTrainingReportController extends Controller
     }
 
     /**
-     * Save the per-participant verdicts submitted alongside the document ones.
+     * Copy the Directory's verdict onto every participant.
+     *
+     * The Directory is judged as a whole, like the instructor list. The FATPro
+     * corrects it by editing declined rows, so declining the section declines
+     * every row — all of them open for correction — and accepting it accepts
+     * every row.
      */
-    private function applyParticipantEvaluations(Request $request, PostTrainingReport $report, $admin): void
+    private function syncParticipantsWithDirectory(PostTrainingReport $report, $admin): void
     {
-        $evaluations = $request->input('participants', []);
+        $report->load('documents.documentType');
 
-        if (!is_array($evaluations) || $evaluations === []) {
+        $status = $report->directoryDocument()?->status;
+
+        if (!in_array($status, ['approved', 'rejected'], true)) {
             return;
         }
 
-        $rows = $report->participants()
-            ->whereIn('id', array_column($evaluations, 'id'))
-            ->get()
-            ->keyBy('id');
-
-        foreach ($evaluations as $eval) {
-            $row = $rows->get($eval['id'] ?? null);
-
-            if (!$row) {
-                continue;
-            }
-
-            $status = $eval['status'] ?? 'pending';
-
-            $row->update([
-                'status'       => $status,
-                'evaluated_by' => $status === 'pending' ? null : $admin->id,
-                'evaluated_at' => $status === 'pending' ? null : now(),
-            ]);
-        }
+        $report->participants()->update([
+            'status'       => $status,
+            'evaluated_by' => $admin->id,
+            'evaluated_at' => now(),
+        ]);
     }
 
     /**
-     * Give the Directory's section row the verdict its participants imply.
-     *
-     * The Directory holds no file, so its status is not something the evaluator
-     * sets directly — one declined participant declines the section. Remarks are
-     * section-wide by design: there is a single explanation for the whole
-     * Directory rather than one per participant.
-     *
-     * Returns true when the section came out declined.
+     * Finalize the whole evaluation: accept the report when every document is
+     * approved, or mail the FATPro the list of declined documents.
      */
-    private function syncDirectoryStatus(Request $request, PostTrainingReport $report, $admin): bool
-    {
-        $report->load(['documents.documentType', 'participants']);
-
-        $directory = $report->documents->first(fn ($d) => $d->documentType?->isEncoded());
-
-        if (!$directory || $report->participants->isEmpty()) {
-            return false;
-        }
-
-        $anyRejected = $report->participants->contains(fn ($p) => $p->status === 'rejected');
-        $allApproved = $report->participants->every(fn ($p) => $p->status === 'approved');
-
-        $status = match (true) {
-            $anyRejected => 'rejected',
-            $allApproved => 'approved',
-            default      => 'pending',
-        };
-
-        $directory->update([
-            'status'       => $status,
-            'remarks'      => $status === 'rejected' ? $request->input('directory_remarks') : null,
-            'evaluated_by' => $status === 'pending' ? null : $admin->id,
-            'evaluated_at' => $status === 'pending' ? null : now(),
-        ]);
-
-        return $anyRejected;
-    }
-
     public function finalizeEvaluation(Request $request, PostTrainingReport $postTrainingReport)
     {
         $this->requireTrainingEvaluatorAccess();
@@ -267,11 +191,6 @@ class PostTrainingReportController extends Controller
             'evaluations.*.id'      => ['required', 'exists:ptr_documents,id'],
             'evaluations.*.status'  => ['required', 'in:approved,rejected,pending,returned'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
-            // The Directory is judged row by row, under a single remark.
-            'participants'           => ['nullable', 'array'],
-            'participants.*.id'      => ['required', 'exists:ptr_participants,id'],
-            'participants.*.status'  => ['required', 'in:approved,rejected,pending'],
-            'directory_remarks'      => ['nullable', 'string', 'max:1000'],
         ]);
 
         $evaluations   = $request->input('evaluations', []);
@@ -313,11 +232,7 @@ class PostTrainingReportController extends Controller
             $doc->update($attributes);
         }
 
-        $this->applyParticipantEvaluations($request, $postTrainingReport, $admin);
-
-        if ($this->syncDirectoryStatus($request, $postTrainingReport, $admin)) {
-            $hasRejections = true;
-        }
+        $this->syncParticipantsWithDirectory($postTrainingReport, $admin);
 
         $postTrainingReport->load('documents');
         $allApproved = $postTrainingReport->documents->isNotEmpty()

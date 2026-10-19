@@ -78,18 +78,11 @@
                         </select>
                     </div>
 
-                    {{-- Venue / Zoom Link --}}
-                    <div class="form-group mb-3">
-                        <label class="fw-semibold" for="admin_ntc_venue">
-                            Venue / Zoom Link <span class="text-danger">*</span>
-                        </label>
-                        <input type="text"
-                               id="admin_ntc_venue"
-                               name="venue"
-                               class="form-control"
-                               value="{{ $ntcReport->venue }}"
-                               required>
-                    </div>
+                    @include('applicant.partials.ntc_venue_fields', [
+                        'prefix'      => 'admin_',
+                        'venue'       => $ntcReport->venue,
+                        'meetingLink' => $ntcReport->meeting_link,
+                    ])
 
                     @include('applicant.partials.ntc_training_days', [
                         'prefix'       => 'admin_',

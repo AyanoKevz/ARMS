@@ -36,10 +36,9 @@ class AdminUserSeeder extends Seeder
         $trainingEvaluatorRole = \App\Models\AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
 
         // Create Admin 1: Evaluator
-        $evaluator = User::updateOrCreate(
+        $evaluator = $this->seedAdmin(
             ['email' => 'data@oshc.dole.gov.ph'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -59,10 +58,9 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create Admin 2: Verifier
-        $verifier = User::updateOrCreate(
+        $verifier = $this->seedAdmin(
             ['email' => 'oshc1987accreditation@gmail.com'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -82,10 +80,9 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create Admin 3: Verifier (Queenie Francisco)
-        $verifierQueenie = User::updateOrCreate(
+        $verifierQueenie = $this->seedAdmin(
             ['email' => 'queeniefrancisco2002@gmail.com'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -105,10 +102,9 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create Admin 4: Team Lead (HCD Arms 2026)
-        $teamLead = User::updateOrCreate(
+        $teamLead = $this->seedAdmin(
             ['email' => 'hcdarms2026@gmail.com'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -128,10 +124,9 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create Admin 5: Training Evaluator (OSHC Devs)
-        $trainingEvaluator = User::updateOrCreate(
+        $trainingEvaluator = $this->seedAdmin(
             ['email' => 'oshcdevs@gmail.com'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -151,10 +146,9 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create Admin 6: Evaluator (Queenie 2)
-        $evaluator2 = User::updateOrCreate(
+        $evaluator2 = $this->seedAdmin(
             ['email' => 'queenief102702@gmail.com'],
             [
-                'password'          => Hash::make('Hcd@2026'),
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
                 'user_photo'        => 'images/profile_picture/default_photo.jpg',
@@ -172,5 +166,30 @@ class AdminUserSeeder extends Seeder
                 'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
             ]
         );
+    }
+
+    /**
+     * Create or refresh one seeded admin account.
+     *
+     * The password is set ONLY when the account is first created. Re-running
+     * the seeder on a live system (php artisan db:seed) must never put back a
+     * password an admin has since changed.
+     *
+     * The initial password comes from SEED_ADMIN_PASSWORD in .env, so the real
+     * one need not live in the repository. Without it the old default is used,
+     * which keeps a fresh install loggable-into — change it after first login.
+     */
+    private function seedAdmin(array $match, array $attributes): User
+    {
+        $user = User::firstOrNew($match);
+        $user->fill($attributes);
+
+        if (!$user->exists) {
+            $user->password = Hash::make(config('app.seed_admin_password') ?: 'Hcd@2026');
+        }
+
+        $user->save();
+
+        return $user;
     }
 }

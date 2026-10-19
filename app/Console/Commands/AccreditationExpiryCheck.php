@@ -23,6 +23,15 @@ class AccreditationExpiryCheck extends Command
     protected $description = 'Auto-expire past-due accreditations and send email reminders at 3 months, 2 months, and 1 month before expiration.';
 
     /**
+     * Reminder milestones, furthest first: period label => sent-at column.
+     */
+    private const MILESTONES = [
+        '3 months' => 'reminder_3mo_sent_at',
+        '2 months' => 'reminder_2mo_sent_at',
+        '1 month'  => 'reminder_1mo_sent_at',
+    ];
+
+    /**
      * Execute the console command.
      */
     public function handle(): int
@@ -69,83 +78,83 @@ class AccreditationExpiryCheck extends Command
     }
 
     /**
-     * Send 3-month and 1-month expiry reminders for active accreditations.
+     * Send the 3-month, 2-month and 1-month expiry reminders.
+     *
+     * Only the closest milestone that has been reached is ever sent. An
+     * accreditation first seen with 20 days left gets the 1-month reminder
+     * alone, and the 3- and 2-month ones are marked spent without sending —
+     * "expiring in 3 months" next to "expiring in 1 month" on the same day
+     * reads as a system fault, and the earlier notices are moot by then.
      */
     private function sendReminders(Carbon $today): void
     {
-        $threeMonthsFromNow = $today->copy()->addMonths(3);
-        $twoMonthsFromNow   = $today->copy()->addMonths(2);
-        $oneMonthFromNow    = $today->copy()->addMonth();
-
-        // ── 3-month reminders ────────────────────────────────────────────
-        $threeMonthCandidates = Accreditation::where('status', 'active')
-            ->whereNull('reminder_3mo_sent_at')
-            ->where('validity_date', '<=', $threeMonthsFromNow->toDateString())
+        $candidates = Accreditation::where('status', 'active')
             ->where('validity_date', '>=', $today->toDateString())
+            ->where('validity_date', '<=', $today->copy()->addMonths(3)->toDateString())
+            ->where(function ($q) {
+                foreach (self::MILESTONES as $column) {
+                    $q->orWhereNull($column);
+                }
+            })
             ->with('user')
             ->get();
 
-        $sent3 = 0;
-        foreach ($threeMonthCandidates as $accreditation) {
-            if ($accreditation->user && $accreditation->user->email) {
-                try {
-                    Mail::to($accreditation->user->email)
-                        ->send(new AccreditationExpiryReminderEmail($accreditation, '3 months'));
+        $sent = array_fill_keys(array_keys(self::MILESTONES), 0);
 
-                    $accreditation->update(['reminder_3mo_sent_at' => now()]);
-                    $sent3++;
-                } catch (\Exception $e) {
-                    Log::error('Failed to send 3-month reminder for #' . $accreditation->accreditation_number . ': ' . $e->getMessage());
+        foreach ($candidates as $accreditation) {
+            $period = $this->currentMilestone($accreditation, $today);
+            $column = self::MILESTONES[$period];
+
+            if ($accreditation->{$column}) {
+                continue;
+            }
+
+            if (!$accreditation->user || !$accreditation->user->email) {
+                continue;
+            }
+
+            try {
+                Mail::to($accreditation->user->email)
+                    ->send(new AccreditationExpiryReminderEmail($accreditation, $period));
+            } catch (\Exception $e) {
+                // Left unmarked so tomorrow's run tries again.
+                Log::error("Failed to send {$period} reminder for #" . $accreditation->accreditation_number . ': ' . $e->getMessage());
+                continue;
+            }
+
+            // Mark this milestone and every earlier one still pending.
+            $updates = [];
+            foreach (self::MILESTONES as $milestone => $milestoneColumn) {
+                if (!$accreditation->{$milestoneColumn}) {
+                    $updates[$milestoneColumn] = now();
+                }
+                if ($milestone === $period) {
+                    break;
                 }
             }
+            $accreditation->update($updates);
+
+            $sent[$period]++;
         }
 
-        // ── 2-month reminders ────────────────────────────────────────────
-        $twoMonthCandidates = Accreditation::where('status', 'active')
-            ->whereNull('reminder_2mo_sent_at')
-            ->where('validity_date', '<=', $twoMonthsFromNow->toDateString())
-            ->where('validity_date', '>', $oneMonthFromNow->toDateString())
-            ->with('user')
-            ->get();
+        $this->info("Sent {$sent['3 months']} three-month reminder(s), {$sent['2 months']} two-month reminder(s), and {$sent['1 month']} one-month reminder(s).");
+    }
 
-        $sent2 = 0;
-        foreach ($twoMonthCandidates as $accreditation) {
-            if ($accreditation->user && $accreditation->user->email) {
-                try {
-                    Mail::to($accreditation->user->email)
-                        ->send(new AccreditationExpiryReminderEmail($accreditation, '2 months'));
+    /**
+     * The closest milestone the accreditation has reached.
+     */
+    private function currentMilestone(Accreditation $accreditation, Carbon $today): string
+    {
+        $validity = Carbon::parse($accreditation->validity_date)->startOfDay();
 
-                    $accreditation->update(['reminder_2mo_sent_at' => now()]);
-                    $sent2++;
-                } catch (\Exception $e) {
-                    Log::error('Failed to send 2-month reminder for #' . $accreditation->accreditation_number . ': ' . $e->getMessage());
-                }
-            }
+        if ($validity->lessThanOrEqualTo($today->copy()->addMonth())) {
+            return '1 month';
         }
 
-        // ── 1-month reminders ────────────────────────────────────────────
-        $oneMonthCandidates = Accreditation::where('status', 'active')
-            ->whereNull('reminder_1mo_sent_at')
-            ->where('validity_date', '<=', $oneMonthFromNow->toDateString())
-            ->where('validity_date', '>=', $today->toDateString())
-            ->with('user')
-            ->get();
-
-        $sent1 = 0;
-        foreach ($oneMonthCandidates as $accreditation) {
-            if ($accreditation->user && $accreditation->user->email) {
-                try {
-                    Mail::to($accreditation->user->email)
-                        ->send(new AccreditationExpiryReminderEmail($accreditation, '1 month'));
-
-                    $accreditation->update(['reminder_1mo_sent_at' => now()]);
-                    $sent1++;
-                } catch (\Exception $e) {
-                    Log::error('Failed to send 1-month reminder for #' . $accreditation->accreditation_number . ': ' . $e->getMessage());
-                }
-            }
+        if ($validity->lessThanOrEqualTo($today->copy()->addMonths(2))) {
+            return '2 months';
         }
 
-        $this->info("Sent {$sent3} three-month reminder(s), {$sent2} two-month reminder(s), and {$sent1} one-month reminder(s).");
+        return '3 months';
     }
 }

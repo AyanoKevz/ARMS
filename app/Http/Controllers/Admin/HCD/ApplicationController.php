@@ -93,6 +93,27 @@ class ApplicationController extends Controller
     }
 
     /**
+     * SQL for the month (1–12) of a date column.
+     *
+     * EXTRACT() is what MySQL runs in production; the SQLite database the test
+     * suite uses has no EXTRACT, so the dashboard could not be tested at all.
+     */
+    private static function monthSql(string $column): string
+    {
+        return \Illuminate\Support\Facades\DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%m', {$column}) AS INTEGER)"
+            : "EXTRACT(MONTH FROM {$column})";
+    }
+
+    /** SQL for the year of a date column. See monthSql(). */
+    private static function yearSql(string $column): string
+    {
+        return \Illuminate\Support\Facades\DB::getDriverName() === 'sqlite'
+            ? "CAST(strftime('%Y', {$column}) AS INTEGER)"
+            : "EXTRACT(YEAR FROM {$column})";
+    }
+
+    /**
      * Admin Dashboard — summary stats, monthly table, chart data.
      */
     public function dashboard(Request $request)
@@ -154,22 +175,31 @@ class ApplicationController extends Controller
                 )->whereHas('accreditation', fn($q) => $q->whereNull('scanned_certificate'))->count();
 
                 // ── Monthly Tables & Chart ──────────────────────────────────
+                // A date range rather than whereYear(): YEAR(col) = ? hides the
+                // column from its index, while a BETWEEN can use the
+                // (application_type, created_at) composite directly.
+                $yearStart = \Carbon\Carbon::create((int) $selectedYear, 1, 1)->startOfDay();
+                $yearEnd   = $yearStart->copy()->endOfYear();
+
                 $monthlyNew = Application::where('application_type', 'new')
-                    ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('EXTRACT(MONTH FROM created_at) as month, COUNT(*) as total')
+                    ->whereBetween('created_at', [$yearStart, $yearEnd])
+                    ->selectRaw(self::monthSql('created_at') . ' as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
                 $monthlyRenewal = Application::where('application_type', 'renewal')
-                    ->whereYear('created_at', $selectedYear)
-                    ->selectRaw('EXTRACT(MONTH FROM created_at) as month, COUNT(*) as total')
+                    ->whereBetween('created_at', [$yearStart, $yearEnd])
+                    ->selectRaw(self::monthSql('created_at') . ' as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
 
-                $monthlyAccredited = \App\Models\Accreditation::whereYear('date_of_accreditation', $selectedYear)
-                    ->selectRaw('EXTRACT(MONTH FROM date_of_accreditation) as month, COUNT(*) as total')
+                $monthlyAccredited = \App\Models\Accreditation::whereBetween('date_of_accreditation', [
+                        $yearStart->toDateString(),
+                        $yearEnd->toDateString(),
+                    ])
+                    ->selectRaw(self::monthSql('date_of_accreditation') . ' as month, COUNT(*) as total')
                     ->groupBy('month')
                     ->orderBy('month')
                     ->pluck('total', 'month');
@@ -196,7 +226,7 @@ class ApplicationController extends Controller
                     ->pluck('total', 'name');
 
                 // ── Available years ─────────────────────────────────────────
-                $availableYears = Application::selectRaw('EXTRACT(YEAR FROM created_at) as yr')
+                $availableYears = Application::selectRaw(self::yearSql('created_at') . ' as yr')
                     ->groupBy('yr')
                     ->orderByDesc('yr')
                     ->pluck('yr');
@@ -1732,7 +1762,6 @@ class ApplicationController extends Controller
     public function revokeAccreditation(\App\Models\Accreditation $accreditation)
     {
         $this->checkVerifierAccess();
-        $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
         if ($accreditation->status !== 'active') {
             return back()->with('error', 'Only active accreditations can be revoked.');

@@ -363,8 +363,17 @@
                 var overdueEl = document.getElementById('ptrModalOverdue');
                 if (overdueEl) overdueEl.hidden = this.getAttribute('data-overdue') !== '1';
 
-                // Rebuild the Directory for this training, with its mode pre-filled.
+                // Rebuild the Directory for this training, with its mode pre-filled
+                // and this training's own catch-up choices.
                 if (window.ptrDirectory) {
+                    var catchUpOptions = [];
+                    try {
+                        catchUpOptions = JSON.parse(this.getAttribute('data-catchup-options') || '[]');
+                    } catch (err) {
+                        catchUpOptions = [];
+                    }
+
+                    window.ptrDirectory.setCatchUp(catchUpOptions, this.getAttribute('data-training-end'));
                     window.ptrDirectory.reset(this.getAttribute('data-training-mode'));
                 }
 
@@ -448,11 +457,21 @@
 (function () {
     'use strict';
 
+    // Everything but Middle Name and Suffix — the columns marked * in the grid.
     var REQUIRED = [
         'certificate_number', 'last_name', 'first_name', 'sex', 'age',
         'company', 'position', 'company_region', 'company_city',
-        'industry', 'mobile_no', 'mode_of_training'
+        'industry', 'total_workers', 'company_email', 'personal_email',
+        'mobile_no', 'company_landline', 'mode_of_training', 'batch_no',
+        'catch_up'
     ];
+
+    // Requirement 5's scores live on the Directory row they belong to, as
+    // attributes rather than cells, and ride in the same JSON entry.
+    var SCORE_ATTRS = {
+        pre_test_score:  'data-pre-test-score',
+        post_test_score: 'data-post-test-score'
+    };
 
     var EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -470,6 +489,12 @@
 
     var body, template, payload, emptyMsg, errorMsg, countEl, pluralEl, modalEl;
     var defaultMode = '';
+
+    // Catch-up participants, for the training the dialog is open on: the
+    // FATPro's other trainings already held, which they may have started in
+    // ([{id, start, label}]), and the day this one ended.
+    var catchUpOptions = [];
+    var trainingEnd = '';
 
     function $(id) { return document.getElementById(id); }
 
@@ -591,6 +616,68 @@
         el.title = text;
     }
 
+    // ── Catch-up participants ─────────────────────────────────────────────────
+
+    function isCatchUp(row) {
+        return valueOf(row, 'catch_up') === 'Yes';
+    }
+
+    /** Offer this training's earlier trainings in a row's start-date picker. */
+    function fillCatchUpSource(row) {
+        var select = field(row, 'catch_up_ntc_report_id');
+        if (!select) return;
+
+        var current = select.value;
+        select.innerHTML = '';
+
+        var prompt = document.createElement('option');
+        prompt.value = '';
+        prompt.textContent = catchUpOptions.length
+            ? '— Select the training they started in —'
+            : 'No completed training yet';
+        select.appendChild(prompt);
+
+        catchUpOptions.forEach(function (option) {
+            var el = document.createElement('option');
+            el.value = String(option.id);
+            el.textContent = option.label;
+            select.appendChild(el);
+        });
+
+        select.value = current;
+    }
+
+    /** Enable the start-date picker and show the end date only for a Yes. */
+    function syncCatchUp(row) {
+        var yes = isCatchUp(row);
+        var source = field(row, 'catch_up_ntc_report_id');
+        var end = row.querySelector('[data-catchup-end]');
+
+        if (source) {
+            source.disabled = !yes;
+            source.required = yes;
+            if (!yes) {
+                source.value = '';
+                source.classList.remove('is-invalid-cell');
+            }
+        }
+
+        if (end) end.textContent = yes ? (trainingEnd || '—') : '—';
+
+        refreshCatchUpColumns();
+    }
+
+    /** The two date columns appear once any participant is a catch-up. */
+    function refreshCatchUpColumns() {
+        var table = $('ptrDirTable');
+        if (table) table.classList.toggle('has-catchup', rows().some(isCatchUp));
+    }
+
+    /** A catch-up row needs the training they started in. */
+    function catchUpComplete(row) {
+        return !isCatchUp(row) || valueOf(row, 'catch_up_ntc_report_id') !== '';
+    }
+
     // ── Rows ──────────────────────────────────────────────────────────────────
 
     function addRows(count) {
@@ -614,8 +701,10 @@
             var batchAll = $('ptrDirBatchAll');
             if (batch && batchAll) batch.value = batchAll.value.trim();
 
+            fillCatchUpSource(row);
             wireRow(row);
             body.appendChild(fragment);
+            syncCatchUp(row);
         }
 
         renumber();
@@ -627,7 +716,13 @@
             remove.addEventListener('click', function () {
                 row.parentNode.removeChild(row);
                 renumber();
+                refreshCatchUpColumns();
             });
+        }
+
+        var catchUp = field(row, 'catch_up');
+        if (catchUp) {
+            catchUp.addEventListener('change', function () { syncCatchUp(row); });
         }
 
         var button = row.querySelector('.ptr-dir-photo-btn');
@@ -683,6 +778,15 @@
                 problems++;
             });
 
+            // A catch-up participant needs the training they started in.
+            if (!catchUpComplete(row)) {
+                if (!silent) {
+                    var source = field(row, 'catch_up_ntc_report_id');
+                    if (source) source.classList.add('is-invalid-cell');
+                }
+                problems++;
+            }
+
             // Shape, not just presence. A blank optional field is fine; one
             // that could never be an address or a number is not, and the
             // server rejects the whole directory over a single bad cell.
@@ -722,6 +826,9 @@
 
             entry.photo_token = token || '';
             entry.photo_name = row.getAttribute('data-photo-name') || '';
+
+            // Checked on their own step (window.ptrScores), not here.
+            readScores(row, entry);
 
             return entry;
         });
@@ -834,8 +941,41 @@
             entry.photo_token = row.getAttribute('data-photo-token') || '';
             entry.photo_name  = row.getAttribute('data-photo-name') || '';
 
+            readScores(row, entry);
+
             return entry;
         });
+    }
+
+    function readScores(row, entry) {
+        Object.keys(SCORE_ATTRS).forEach(function (key) {
+            entry[key] = (row.getAttribute(SCORE_ATTRS[key]) || '').trim();
+        });
+    }
+
+    /**
+     * Has every required (*) column of this row been filled in, picture
+     * included? That is what lists a participant on the scores step.
+     */
+    function isComplete(row) {
+        var filled = REQUIRED.every(function (name) { return valueOf(row, name) !== ''; });
+
+        return filled && catchUpComplete(row) && !!row.getAttribute('data-photo-token');
+    }
+
+    /** First, middle (if any) and last name, as the scores step names a row. */
+    function scoreSheetName(row) {
+        return [valueOf(row, 'first_name'), valueOf(row, 'middle_name'), valueOf(row, 'last_name')]
+            .filter(function (part) { return part !== ''; })
+            .join(' ');
+    }
+
+    function getScore(row, key) {
+        return row.getAttribute(SCORE_ATTRS[key]) || '';
+    }
+
+    function setScore(row, key, value) {
+        if (SCORE_ATTRS[key]) row.setAttribute(SCORE_ATTRS[key], value);
     }
 
     /**
@@ -876,16 +1016,173 @@
                 row.setAttribute('data-photo-name', entry.photo_name || '');
                 setPhotoState(row.querySelector('.ptr-dir-photo-state'), 'ok', entry.photo_name || 'Uploaded');
             }
+
+            Object.keys(SCORE_ATTRS).forEach(function (key) {
+                if (entry[key] !== undefined) setScore(row, key, String(entry[key]));
+            });
+
+            // A saved training that is no longer offered simply clears.
+            syncCatchUp(row);
         });
 
         renumber();
+    }
+
+    /**
+     * Point the catch-up pickers at the training the dialog was opened on.
+     * Called before reset(), so the rows it builds offer the right trainings.
+     */
+    function setCatchUp(options, endLabel) {
+        catchUpOptions = Array.isArray(options) ? options : [];
+        trainingEnd = endLabel || '';
     }
 
     window.ptrDirectory = {
         reset: reset,
         validateAndSerialize: validateAndSerialize,
         rowsForDraft: rowsForDraft,
-        loadRows: loadRows
+        loadRows: loadRows,
+        setCatchUp: setCatchUp,
+        // Used by the scores step, which mirrors these rows.
+        rows: rows,
+        isComplete: isComplete,
+        scoreSheetName: scoreSheetName,
+        getScore: getScore,
+        setScore: setScore
+    };
+})();
+
+/**
+ * Pre- and Post-Test Summary Evaluation — requirement 5.
+ *
+ * Not a grid of its own: it lists the Directory's rows, once each one's
+ * required columns are complete, and takes two scores per participant. The
+ * scores are written straight back onto the Directory row, so they are saved
+ * in drafts and posted in the `participants` JSON with everything else.
+ */
+(function () {
+    'use strict';
+
+    var body, emptyMsg, pendingMsg, pendingCount, pendingNoun, errorMsg;
+
+    function dir() { return window.ptrDirectory; }
+
+    function listed() {
+        var d = dir();
+        return d ? d.rows().filter(d.isComplete) : [];
+    }
+
+    function pending() {
+        var d = dir();
+        return d ? d.rows().length - listed().length : 0;
+    }
+
+    function scored(row) {
+        var d = dir();
+        return d.getScore(row, 'pre_test_score').trim() !== ''
+            && d.getScore(row, 'post_test_score').trim() !== '';
+    }
+
+    function scoreInput(row, key, label) {
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ptr-dir-input';
+        input.maxLength = 100;
+        input.value = dir().getScore(row, key);
+        input.setAttribute('aria-label', label);
+        input.setAttribute('data-score', key);
+
+        input.addEventListener('input', function () {
+            dir().setScore(row, key, input.value);
+            input.classList.remove('is-invalid-cell');
+        });
+
+        return input;
+    }
+
+    /** Rebuild the table from the Directory as it stands now. */
+    function render() {
+        if (!body || !dir()) return;
+
+        body.innerHTML = '';
+
+        listed().forEach(function (row, index) {
+            var name = dir().scoreSheetName(row);
+            var tr = document.createElement('tr');
+
+            var no = document.createElement('td');
+            no.className = 'ptr-dir-rowno';
+            no.textContent = String(index + 1);
+
+            var nameCell = document.createElement('td');
+            nameCell.className = 'ptr-scores-name';
+            nameCell.textContent = name;
+
+            var pre = document.createElement('td');
+            pre.appendChild(scoreInput(row, 'pre_test_score', 'Pre-test score for ' + name));
+
+            var post = document.createElement('td');
+            post.appendChild(scoreInput(row, 'post_test_score', 'Post-test score for ' + name));
+
+            tr.appendChild(no);
+            tr.appendChild(nameCell);
+            tr.appendChild(pre);
+            tr.appendChild(post);
+            body.appendChild(tr);
+        });
+
+        var waiting = pending();
+
+        if (emptyMsg) emptyMsg.classList.toggle('d-none', body.children.length > 0);
+        if (pendingMsg) pendingMsg.classList.toggle('d-none', waiting === 0 || body.children.length === 0);
+        if (pendingCount) pendingCount.textContent = String(waiting);
+        if (pendingNoun) pendingNoun.textContent = waiting === 1 ? 'participant' : 'participants';
+        if (errorMsg) errorMsg.classList.add('d-none');
+    }
+
+    /**
+     * Satisfied when the Directory is complete and every participant in it has
+     * both scores. Reads the rows directly, so it also works for the progress
+     * ticks before the step has ever been opened.
+     */
+    function validate(silent) {
+        if (!dir()) return true;
+
+        var rows = listed();
+        var waiting = pending();
+        var missing = rows.filter(function (row) { return !scored(row); });
+        var ok = rows.length > 0 && waiting === 0 && missing.length === 0;
+
+        if (!silent) {
+            if (errorMsg) {
+                errorMsg.textContent = rows.length === 0 || waiting > 0
+                    ? 'Complete every required (*) column of the Directory of Participants first — each participant needs a score here.'
+                    : 'Enter both the pre-test and the post-test score for every participant.';
+                errorMsg.classList.toggle('d-none', ok);
+            }
+
+            if (body) {
+                body.querySelectorAll('input[data-score]').forEach(function (input) {
+                    input.classList.toggle('is-invalid-cell', input.value.trim() === '');
+                });
+            }
+        }
+
+        return ok;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        body = document.getElementById('ptrScoresBody');
+        emptyMsg = document.getElementById('ptrScoresEmpty');
+        pendingMsg = document.getElementById('ptrScoresPending');
+        pendingCount = document.getElementById('ptrScoresPendingCount');
+        pendingNoun = document.getElementById('ptrScoresPendingNoun');
+        errorMsg = document.getElementById('error_ptr_scores');
+    });
+
+    window.ptrScores = {
+        render: render,
+        validate: validate
     };
 })();
 
@@ -928,6 +1225,13 @@
             item.setAttribute('aria-current', isCurrent ? 'step' : 'false');
         });
 
+        // The scores step mirrors the Directory, so it is redrawn from it on
+        // every visit rather than kept in step with each keystroke there.
+        var opened = panelFor(step);
+        if (opened && opened.getAttribute('data-kind') === 'scores' && window.ptrScores) {
+            window.ptrScores.render();
+        }
+
         if (backBtn) backBtn.hidden = step === 1;
         if (nextBtn) nextBtn.hidden = step === total;
         if (submitBtn) submitBtn.hidden = step !== total;
@@ -956,6 +1260,12 @@
         if (kind === 'roster') {
             return window.ptrInstructors
                 ? window.ptrInstructors.validate(silent)
+                : true;
+        }
+
+        if (kind === 'scores') {
+            return window.ptrScores
+                ? window.ptrScores.validate(silent)
                 : true;
         }
 

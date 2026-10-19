@@ -1,11 +1,11 @@
 {{--
     One corrections modal per report the evaluator sent back.
 
-    A report is declined in three different ways and the FATPro should not have
-    to find three places to fix them: a wiped attachment is re-uploaded, the
-    rejected participants are edited in place, and a refused instructor list is
-    re-chosen. Whichever are outstanding appear here together, and they post as
-    one submission.
+    A report is declined in several ways and the FATPro should not have to find
+    several places to fix them: a wiped attachment is re-uploaded, the rejected
+    participants are edited in place, a refused instructor list is re-chosen and
+    declined test scores are re-entered. Whichever are outstanding appear here
+    together, and they post as one submission.
 
     Sections already accepted are deliberately absent — there is nothing to do
     to them, and showing them would invite re-filing work that was already
@@ -19,6 +19,7 @@
     $declinedDocs     = $report->declinedDocuments()->sortBy(fn ($d) => $d->documentType->sort_order ?? 0);
     $needsDirectory   = $report->hasDirectoryCorrections();
     $needsInstructors = $report->hasInstructorCorrections();
+    $needsScores      = $report->hasScoreCorrections();
     $needsVideo       = $report->hasVideoCorrections();
     $declaredIds      = $report->ntcReport?->instructors->pluck('id')->all() ?? [];
     $chosenIds        = $report->instructors->pluck('id')->all();
@@ -86,9 +87,8 @@
                     <div class="ptr-upload-group">
                         <div class="ptr-upload-group-title">Directory of Participants</div>
                         <div class="ptr-upload-group-hint">
-                            {{ $report->rejectedParticipants()->count() }}
-                            {{ Str::plural('participant', $report->rejectedParticipants()->count()) }}
-                            were declined. Correct them below — the rest of the Directory is untouched.
+                            The Directory was declined. Review the participants below and correct
+                            whatever the evaluator's remarks point out.
                         </div>
 
                         @if($report->directoryDocument()?->remarks)
@@ -144,6 +144,61 @@
                                 </label>
                             @endforeach
                         </div>
+                    </div>
+                    @endif
+
+                    {{-- ── Declined test scores ─────────────────────────── --}}
+                    @if($needsScores)
+                    <div class="ptr-upload-group">
+                        <div class="ptr-upload-group-title">Pre- and Post-Test Summary Evaluation</div>
+                        <div class="ptr-upload-group-hint">
+                            Correct the scores below. Every participant needs both a pre-test and a
+                            post-test score; the ones you entered before are filled in.
+                        </div>
+
+                        @if($report->scoresDocument()?->remarks)
+                        <div class="ptr-doc-remarks mb-2 mt-0">
+                            <i class="fas fa-comment me-1"></i><strong>Evaluator remarks:</strong>
+                            {{ $report->scoresDocument()->remarks }}
+                        </div>
+                        @endif
+
+                        <div class="ptr-dir-scroll">
+                            <table class="ptr-dir-table ptr-scores-table" data-correction-scores>
+                                <thead>
+                                    <tr>
+                                        <th class="ptr-dir-col-no">#</th>
+                                        <th class="ptr-scores-w-name">Full Name</th>
+                                        <th class="ptr-scores-w-score">Pre-Test <span class="ptr-dir-req" aria-hidden="true">*</span></th>
+                                        <th class="ptr-scores-w-score">Post-Test <span class="ptr-dir-req" aria-hidden="true">*</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($report->participants->sortBy('row_no') as $participant)
+                                    <tr data-score-participant="{{ $participant->id }}">
+                                        <td class="ptr-dir-rowno">{{ $participant->row_no }}</td>
+                                        <td class="ptr-scores-name">{{ $participant->scoreSheetName() }}</td>
+                                        <td>
+                                            <input type="text" class="ptr-dir-input" maxlength="100"
+                                                   data-score="pre_test_score"
+                                                   value="{{ $participant->pre_test_score }}"
+                                                   aria-label="Pre-test score for {{ $participant->scoreSheetName() }}">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="ptr-dir-input" maxlength="100"
+                                                   data-score="post_test_score"
+                                                   value="{{ $participant->post_test_score }}"
+                                                   aria-label="Post-test score for {{ $participant->scoreSheetName() }}">
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {{-- Serialised by post-training-corrections.js on submit:
+                             one JSON field rather than two inputs per participant. --}}
+                        <input type="hidden" name="test_scores" data-correction-scores-payload value="{}">
                     </div>
                     @endif
 

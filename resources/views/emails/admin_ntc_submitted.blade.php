@@ -68,11 +68,10 @@
         <p><strong>Type of Training:</strong> {{ $ntcReport->trainingType->name ?? 'N/A' }}</p>
         <p><strong>Mode of Training:</strong> {{ $ntcReport->trainingMode->name ?? 'N/A' }}</p>
         @if($ntcReport->venue)
-            @if(optional($ntcReport->trainingMode)->code === 'BLENDED' || str_contains(strtolower($ntcReport->trainingMode->name ?? ''), 'blended'))
-                <p><strong>Zoom Link / Meeting Link:</strong> <a href="{{ $ntcReport->venue }}" target="_blank">{{ $ntcReport->venue }}</a></p>
-            @else
-                <p><strong>Venue:</strong> {{ $ntcReport->venue }}</p>
-            @endif
+            <p><strong>Venue:</strong> {{ $ntcReport->venue }}</p>
+        @endif
+        @if($ntcReport->isBlended() && $ntcReport->meeting_link)
+            <p><strong>Zoom Link / Meeting Link:</strong> <a href="{{ $ntcReport->meeting_link }}" target="_blank">{{ $ntcReport->meeting_link }}</a></p>
         @endif
         <p><strong>Training Days:</strong> {{ $ntcReport->trainingPeriodLabel() }}</p>
         <p><strong>Instructors Conducting:</strong>

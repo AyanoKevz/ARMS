@@ -32,8 +32,9 @@
                     of the last training day (OSHC MC 04 Series 2025).
                     All {{ $requiredCount }} numbered items below are required — complete them one step
                     at a time, then add any remarks at the end.
-                    The Directory of Participants is encoded in this form, the instructors
-                    carry over from your Notice to Conduct and the training video is a link;
+                    The Directory of Participants and the pre- and post-test scores are encoded
+                    in this form, the instructors carry over from your Notice to Conduct and the
+                    training video is a link;
                     the other {{ $ptrDocumentTypes->where('entry_type', 'file')->count() }}
                     are PDF uploads of up to <strong>25 MB</strong> each.
                 </p>
@@ -54,6 +55,8 @@
                             Encoded here &mdash; ID picture 5 MB
                         @elseif($docType->isRoster())
                             Selected here &mdash; from your NTC
+                        @elseif($docType->isScores())
+                            Encoded here &mdash; from the Directory
                         @elseif($docType->isLink())
                             A link &mdash; not an upload
                         @else
@@ -88,9 +91,13 @@
                     @elseif($docType->isRoster())
                         Already selected on your Notice to Conduct. Amend the list if someone
                         else conducted the training, or simply continue.
+                    @elseif($docType->isScores())
+                        Participants appear here from the Directory of Participants once their
+                        required columns are complete. Enter each one's pre-test and post-test score.
                     @elseif($docType->isLink())
                         Upload the recording wherever you keep it, then paste the link here.
-                        A full session is far too large to upload through this form.
+                        <strong>Note:</strong> record only the Knowledge and Skills Assessment,
+                        not the full training.
                     @else
                         Accepted format: <code>{{ $docType->formatLabel() }}</code> &mdash; up to
                         <strong>25 MB</strong>.
@@ -103,6 +110,8 @@
                     @include('applicant.partials.post_training_directory')
                 @elseif($docType->isRoster())
                     @include('applicant.partials.post_training_instructors')
+                @elseif($docType->isScores())
+                    @include('applicant.partials.post_training_scores_step')
                 @elseif($docType->isLink())
                     @include('applicant.partials.post_training_video_step')
                 @else

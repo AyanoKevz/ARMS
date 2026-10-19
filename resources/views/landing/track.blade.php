@@ -182,7 +182,7 @@
 
                                 <form action="{{ route('track.submit_payment') }}" method="POST" enctype="multipart/form-data" id="payment-submit-form" class="mt-2">
                                     @csrf
-                                    <input type="hidden" name="application_id" value="{{ $application->id }}">
+                                    <input type="hidden" name="tracking_number" value="{{ $application->tracking_number }}">
 
                                     <div class="d-flex flex-column gap-3">
                                         @foreach($reqs as $key => $info)
@@ -345,7 +345,7 @@
 
                             <form action="{{ route('track.resubmit.all') }}" method="POST" enctype="multipart/form-data" id="batch-resubmit-form">
                                 @csrf
-                                <input type="hidden" name="application_id" value="{{ $application->id }}">
+                                <input type="hidden" name="tracking_number" value="{{ $application->tracking_number }}">
 
                                 <div class="d-flex flex-column gap-4">
                                     {{-- FATPro Documents Section --}}

@@ -135,7 +135,7 @@ class PostTrainingReportController extends Controller
 
         // The Directory arrives as one JSON field rather than N*19 form inputs,
         // so the row count never has to fit under max_input_vars.
-        $participants = $this->validateParticipants($request, $user);
+        $participants = $this->validateParticipants($request, $user, $ntcReport);
 
         // Requirement 2 is no longer a PDF: the instructors come over from the
         // NTC pre-selected and the FATPro either proceeds or amends the list.
@@ -634,9 +634,10 @@ class PostTrainingReportController extends Controller
         $declinedDocs     = $postTrainingReport->declinedDocuments();
         $needsDirectory   = $postTrainingReport->hasDirectoryCorrections();
         $needsInstructors = $postTrainingReport->hasInstructorCorrections();
+        $needsScores      = $postTrainingReport->hasScoreCorrections();
         $needsVideo       = $postTrainingReport->hasVideoCorrections();
 
-        if ($declinedDocs->isEmpty() && !$needsDirectory && !$needsInstructors && !$needsVideo) {
+        if ($declinedDocs->isEmpty() && !$needsDirectory && !$needsInstructors && !$needsScores && !$needsVideo) {
             return back()->withErrors([
                 'error' => 'Nothing on this Post Training Report has been sent back for correction.',
             ]);
@@ -649,11 +650,15 @@ class PostTrainingReportController extends Controller
             : [];
 
         $participants = $needsDirectory
-            ? $this->validateParticipants($request, $user, true)
+            ? $this->validateParticipants($request, $user, $postTrainingReport->ntcReport, true)
             : [];
 
         $instructorIds = $needsInstructors
             ? $this->resolveReportInstructors($request, $postTrainingReport->ntcReport, $user)
+            : [];
+
+        $scores = $needsScores
+            ? $this->validateScores($request, $postTrainingReport)
             : [];
 
         $videoUrl = null;
@@ -673,7 +678,7 @@ class PostTrainingReportController extends Controller
             DB::transaction(function () use (
                 $request, $postTrainingReport, $user, $files, $participants,
                 $instructorIds, $needsDirectory, $needsInstructors, $needsVideo,
-                $videoUrl, &$summary
+                $videoUrl, $needsScores, $scores, &$summary
             ) {
                 $accreditation = $postTrainingReport->accreditation()->with('accreditationType')->first();
                 $basePath      = ApplicantStoragePath::postTrainingReports(
@@ -733,6 +738,19 @@ class PostTrainingReportController extends Controller
                     $summary[] = [
                         'type'     => 'List of Instructors Who Conducted the Training',
                         'filename' => count($instructorIds) . ' ' . Str::plural('instructor', count($instructorIds)),
+                    ];
+                }
+
+                if ($needsScores) {
+                    foreach ($postTrainingReport->participants as $participant) {
+                        $participant->update($scores[$participant->id]);
+                    }
+
+                    $this->reopenSection($postTrainingReport->scoresDocument());
+
+                    $summary[] = [
+                        'type'     => 'Pre- and Post-Test Summary Evaluation',
+                        'filename' => 'Scores re-entered for ' . count($scores) . ' ' . Str::plural('participant', count($scores)),
                     ];
                 }
 
@@ -800,6 +818,48 @@ class PostTrainingReportController extends Controller
         }
 
         return $files;
+    }
+
+    /**
+     * The corrected pre-/post-test scores, one pair per participant.
+     *
+     * Posted as one JSON field, `test_scores`, keyed by participant id — the
+     * same reason the Directory is: two inputs per participant would run into
+     * max_input_vars on a large training. Every participant must have both
+     * scores; a section declined as a whole is re-entered as a whole.
+     *
+     * @return array<int, array{pre_test_score: string, post_test_score: string}>
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    private function validateScores(Request $request, PostTrainingReport $report): array
+    {
+        $decoded = json_decode((string) $request->input('test_scores'), true);
+        $decoded = is_array($decoded) ? $decoded : [];
+
+        $scores = [];
+
+        foreach ($report->participants as $participant) {
+            $entry = $decoded[$participant->id] ?? [];
+            $pre   = trim((string) ($entry['pre_test_score'] ?? ''));
+            $post  = trim((string) ($entry['post_test_score'] ?? ''));
+
+            if ($pre === '' || $post === '') {
+                throw ValidationException::withMessages([
+                    'test_scores' => 'Enter both the pre-test and the post-test score for every participant.',
+                ]);
+            }
+
+            if (mb_strlen($pre) > 100 || mb_strlen($post) > 100) {
+                throw ValidationException::withMessages([
+                    'test_scores' => 'A test score cannot be longer than 100 characters.',
+                ]);
+            }
+
+            $scores[$participant->id] = ['pre_test_score' => $pre, 'post_test_score' => $post];
+        }
+
+        return $scores;
     }
 
     /**
@@ -1071,7 +1131,7 @@ class PostTrainingReportController extends Controller
             return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
         }
 
-        $rows = $this->validateParticipants($request, $user, true);
+        $rows = $this->validateParticipants($request, $user, $postTrainingReport->ntcReport, true);
 
         try {
             DB::transaction(function () use ($rows, $postTrainingReport, $user) {
@@ -1122,7 +1182,7 @@ class PostTrainingReportController extends Controller
      * .user.ini, but a host running PHP's 1000 default would truncate the POST
      * array at roughly 52 participants without raising an error.
      */
-    private function validateParticipants(Request $request, User $user, bool $isCorrection = false): array
+    private function validateParticipants(Request $request, User $user, NtcReport $ntcReport, bool $isCorrection = false): array
     {
         $decoded = json_decode((string) $request->input('participants'), true);
 
@@ -1155,15 +1215,19 @@ class PostTrainingReportController extends Controller
             'participants.*.company_region'     => ['required', 'string', Rule::in(PhLocations::regionCodes())],
             'participants.*.company_city'       => ['required', 'string', 'max:255'],
             'participants.*.industry'           => ['required', 'string', 'max:255'],
-            'participants.*.total_workers'      => ['nullable', 'integer', 'min:0'],
-            'participants.*.company_email'      => ['nullable', 'email', 'max:255'],
-            'participants.*.personal_email'     => ['nullable', 'email', 'max:255'],
+            'participants.*.total_workers'      => ['required', 'integer', 'min:0'],
+            'participants.*.company_email'      => ['required', 'email', 'max:255'],
+            'participants.*.personal_email'     => ['required', 'email', 'max:255'],
             // The shapes RegistrationController applies to the same two kinds
             // of number, so one form cannot accept what the other refuses.
             'participants.*.mobile_no'          => ['required', 'string', 'max:13', 'regex:/^(09|\+639)\d{9}$/'],
-            'participants.*.company_landline'   => ['nullable', 'string', 'regex:/^\d{10}$/'],
+            'participants.*.company_landline'   => ['required', 'string', 'regex:/^\d{10}$/'],
             'participants.*.mode_of_training'   => ['required', 'string', 'max:100'],
-            'participants.*.batch_no'           => ['nullable', 'string', 'max:50'],
+            'participants.*.batch_no'           => ['required', 'string', 'max:50'],
+            // A participant who began this course in an earlier training. Which
+            // one is checked against this FATPro's own trainings below.
+            'participants.*.catch_up'               => ['required', 'in:Yes,No'],
+            'participants.*.catch_up_ntc_report_id' => ['nullable', 'integer'],
         ];
 
         // Every participant needs a picture to submit. On a correction the row
@@ -1174,6 +1238,13 @@ class PostTrainingReportController extends Controller
 
         if ($isCorrection) {
             $rules['participants.*.id'] = ['required', 'integer'];
+        } else {
+            // Requirement 5, keyed in against the same rows. Free text: the
+            // score is typed as the FATPro's own test sheet records it. A
+            // correction of the Directory leaves the scores alone, so these
+            // are only asked for on the first submission.
+            $rules['participants.*.pre_test_score']  = ['required', 'string', 'max:100'];
+            $rules['participants.*.post_test_score'] = ['required', 'string', 'max:100'];
         }
 
         $messages = [
@@ -1187,14 +1258,40 @@ class PostTrainingReportController extends Controller
             'participants.*.company_landline.regex'      => 'A company landline must be a 10-digit number including the area code (e.g. 0281234567).',
             'participants.*.company_email.email'         => 'Company e-mail addresses must be valid e-mail addresses.',
             'participants.*.personal_email.email'        => 'Personal e-mail addresses must be valid e-mail addresses.',
+            'participants.*.pre_test_score.required'     => 'Every participant needs a pre-test score in the Pre- and Post-Test Summary Evaluation.',
+            'participants.*.post_test_score.required'    => 'Every participant needs a post-test score in the Pre- and Post-Test Summary Evaluation.',
+            'participants.*.catch_up.required'           => 'Answer Catch Up (Yes or No) for every participant.',
+            'participants.*.catch_up.in'                 => 'Catch Up must be Yes or No.',
         ];
+
+        // The earlier trainings a catch-up participant may have started in —
+        // one query, whatever the number of rows.
+        $catchUpSources = $ntcReport->catchUpSources()->keyBy('id');
 
         $validator = Validator::make(['participants' => $decoded], $rules, $messages);
 
-        $validator->after(function ($v) use ($decoded, $user) {
+        $validator->after(function ($v) use ($decoded, $user, $catchUpSources) {
             $seen = [];
 
             foreach ($decoded as $i => $row) {
+                // A catch-up participant must name a training the dialog could
+                // actually have offered: one of this FATPro's trainings, already held.
+                if (($row['catch_up'] ?? null) === 'Yes') {
+                    $sourceId = (int) ($row['catch_up_ntc_report_id'] ?? 0);
+
+                    if (!$sourceId) {
+                        $v->errors()->add(
+                            "participants.{$i}.catch_up_ntc_report_id",
+                            'Row ' . ($i + 1) . ': choose the training this catch-up participant started in.'
+                        );
+                    } elseif (!$catchUpSources->has($sourceId)) {
+                        $v->errors()->add(
+                            "participants.{$i}.catch_up_ntc_report_id",
+                            'Row ' . ($i + 1) . ': the training chosen as the catch-up start is not one of your trainings that has already been held.'
+                        );
+                    }
+                }
+
                 // A certificate number may repeat across trainings, never within one.
                 $cert = trim((string) ($row['certificate_number'] ?? ''));
 
@@ -1239,7 +1336,21 @@ class PostTrainingReportController extends Controller
 
         $validator->validate();
 
-        return $decoded;
+        // Resolve each row's catch-up columns here, from the server's own
+        // records — whatever the post said about them is overwritten. The
+        // start is the earlier training's first day; the end is this one's last.
+        return array_map(function (array $row) use ($catchUpSources, $ntcReport) {
+            $source = ($row['catch_up'] ?? 'No') === 'Yes'
+                ? $catchUpSources->get((int) ($row['catch_up_ntc_report_id'] ?? 0))
+                : null;
+
+            $row['is_catch_up']            = (bool) $source;
+            $row['catch_up_ntc_report_id'] = $source?->id;
+            $row['catch_up_start_date']    = $source?->training_start_date?->toDateString();
+            $row['catch_up_end_date']      = $source ? $ntcReport->training_end_date?->toDateString() : null;
+
+            return $row;
+        }, $decoded);
     }
 
     /**
@@ -1256,6 +1367,8 @@ class PostTrainingReportController extends Controller
                 + [
                     'post_training_report_id' => $report->id,
                     'row_no'                  => $rowNo,
+                    'pre_test_score'          => trim((string) ($row['pre_test_score'] ?? '')),
+                    'post_test_score'         => trim((string) ($row['post_test_score'] ?? '')),
                     'status'                  => 'pending',
                 ]
             );
@@ -1280,6 +1393,13 @@ class PostTrainingReportController extends Controller
             }
 
             $attributes[$field] = in_array($field, $numeric, true) ? (int) $value : $value;
+        }
+
+        // Already resolved by validateParticipants() from the server's records.
+        foreach (['is_catch_up', 'catch_up_ntc_report_id', 'catch_up_start_date', 'catch_up_end_date'] as $field) {
+            if (array_key_exists($field, $row)) {
+                $attributes[$field] = $row[$field];
+            }
         }
 
         return $attributes;

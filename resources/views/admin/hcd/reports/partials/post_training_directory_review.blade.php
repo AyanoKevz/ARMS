@@ -1,20 +1,17 @@
 {{--
     Directory of Participants — evaluator view.
 
-    The Directory holds no file: it is encoded row by row, so the evaluator
-    judges participants individually. The section's own verdict is derived
-    server-side from those rows (one declined participant declines the
-    section), which is why there are no Accept/Decline buttons for the
-    document itself — only the single set of remarks that covers the whole
-    Directory.
+    The Directory holds no file: it is encoded row by row in the portal. Like
+    the instructor list, it is judged as a whole — one Accept / Decline for
+    the entire Directory, with one set of remarks if declined. The verdict is
+    copied onto every participant server-side, so a declined Directory opens
+    every row for the FATPro to correct.
 
     Expects: $doc (PtrDocument), $postTrainingReport, $isAccepted (bool)
 --}}
 
 @php
     $participants = $postTrainingReport->participants;
-    $approvedRows = $participants->where('status', 'approved')->count();
-    $rejectedRows = $participants->where('status', 'rejected')->count();
 
     $docStatus  = $doc->status ?? 'pending';
     $badgeClass = match($docStatus) {
@@ -29,19 +26,15 @@
         'returned' => 'Corrected — Awaiting Review',
         default    => 'Pending',
     };
+    $evalStatus = in_array($docStatus, ['approved', 'rejected', 'returned']) ? $docStatus : 'pending';
 @endphp
 
 <div class="ntc-doc-row d-block" id="ntc-doc-row-{{ $doc->id }}">
-    {{-- The section's status is derived from the rows, so it is submitted as a
-         read-only passenger rather than something the evaluator toggles. --}}
     <input type="hidden" name="evaluations[{{ $doc->id }}][id]" value="{{ $doc->id }}">
     <input type="hidden" name="evaluations[{{ $doc->id }}][status]"
            id="ntc-status-input-{{ $doc->id }}"
-           value="{{ in_array($docStatus, ['approved','rejected','returned']) ? $docStatus : 'pending' }}"
+           value="{{ $evalStatus }}"
            data-db-status="{{ $doc->status }}"
-           data-ptr-directory="1"
-           data-doc-id="{{ $doc->id }}"
-           data-evaluate-base="{{ url('admin/hcd/reports/post-training/participants') }}"
            data-has-file="{{ $docStatus === 'rejected' ? 'false' : 'true' }}">
 
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 w-100 mb-2">
@@ -71,36 +64,6 @@
     @if($participants->isEmpty())
         <div class="alert alert-secondary mb-0">No participants were encoded for this report.</div>
     @else
-
-    <div class="ptr-dir-summary">
-        <span><strong id="ptrDirApprovedCount">{{ $approvedRows }}</strong> accepted</span>
-        <span><strong id="ptrDirRejectedCount">{{ $rejectedRows }}</strong> declined</span>
-        <span><strong id="ptrDirPendingCount">{{ $participants->count() - $approvedRows - $rejectedRows }}</strong> pending</span>
-        @if(!$isAccepted)
-        <span class="ms-auto text-muted" style="font-size:.74rem;">
-            <i class="bi bi-info-circle me-1"></i>
-            One declined participant declines the whole Directory.
-        </span>
-        @endif
-    </div>
-
-    {{-- Verdict inputs live outside the table: DataTables detaches rows that are
-         paged or filtered out, and the form and the section tally must still
-         see every participant. --}}
-    @if(!$isAccepted)
-    <div class="d-none">
-        @foreach($participants as $participant)
-        <input type="hidden"
-               name="participants[{{ $participant->id }}][id]"
-               value="{{ $participant->id }}">
-        <input type="hidden"
-               name="participants[{{ $participant->id }}][status]"
-               id="ptr-participant-status-{{ $participant->id }}"
-               value="{{ $participant->status ?? 'pending' }}">
-        @endforeach
-    </div>
-    @endif
-
     <div class="table-responsive">
         <table id="ptr_directory_table"
                class="table table-striped table-bordered jambo_table table-compact ptr-dir-review-table"
@@ -129,14 +92,14 @@
                     <th class="column-title">Company Landline</th>
                     <th class="column-title">Mode of Training</th>
                     <th class="column-title">Batch No.</th>
-                    @if(!$isAccepted)<th class="column-title no-sort no-export">Verdict</th>@endif
+                    <th class="column-title">Catch Up</th>
+                    <th class="column-title">Training Start Date</th>
+                    <th class="column-title">Training End Date</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($participants as $participant)
-                @php $pStatus = $participant->status ?? 'pending'; @endphp
-                <tr id="ptr-participant-row-{{ $participant->id }}"
-                    class="{{ $pStatus === 'approved' ? 'is-approved' : ($pStatus === 'rejected' ? 'is-rejected' : '') }}">
+                <tr id="ptr-participant-row-{{ $participant->id }}">
                     <td>{{ $participant->row_no }}</td>
                     <td>
                         @if($participant->hasIdPicture())
@@ -171,44 +134,60 @@
                     <td>{{ $participant->company_landline ?: '—' }}</td>
                     <td>{{ $participant->mode_of_training }}</td>
                     <td>{{ $participant->batch_no ?: '—' }}</td>
-                    @if(!$isAccepted)
                     <td>
-                        <span class="ptr-dir-verdict" data-participant="{{ $participant->id }}">
-                            <button type="button"
-                                    class="ptr-dir-verdict-approve {{ $pStatus === 'approved' ? 'is-active-approve' : '' }}"
-                                    title="Accept this participant">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
-                            <button type="button"
-                                    class="ptr-dir-verdict-reject {{ $pStatus === 'rejected' ? 'is-active-reject' : '' }}"
-                                    title="Decline this participant">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        </span>
+                        @if($participant->is_catch_up)
+                            <span class="badge bg-warning-subtle text-warning-emphasis" style="font-size:.72rem;">Catch Up</span>
+                        @else
+                            No
+                        @endif
                     </td>
-                    @endif
+                    <td data-order="{{ $participant->catch_up_start_date?->format('Y-m-d') }}">
+                        {{ $participant->catch_up_start_date?->format('M d, Y') ?? '—' }}
+                        @if($participant->catchUpSource)
+                            <div style="font-size:.72rem;color:#888;">{{ $participant->catchUpSource->reference_number }}</div>
+                        @endif
+                    </td>
+                    <td>{{ $participant->catch_up_end_date?->format('M d, Y') ?? '—' }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
+    @endif
 
-    @if(!$isAccepted)
-    {{-- One set of remarks for the entire Directory, by design: the FATPro gets
-         a single explanation rather than one note per participant. --}}
-    <div class="reject-panel w-100 mt-2" id="ptr-directory-remarks-panel"
-         style="{{ $rejectedRows > 0 ? '' : 'display:none;' }}">
-        <label class="reject-remarks-label" for="ptr-directory-remarks">
-            <i class="bi bi-pencil-square me-1"></i>
-            Decline Remarks for the Directory <span class="text-muted">(applies to all declined participants)</span>
-        </label>
-        <textarea class="reject-remarks-input w-100"
-                  name="directory_remarks"
-                  id="ptr-directory-remarks"
-                  placeholder="Explain what the FATPro needs to correct in the declined participant rows…"
-                  rows="2">{{ $doc->remarks }}</textarea>
+    @if(!$isAccepted && $docStatus !== 'rejected')
+    <div class="doc-eval-actions mt-2" id="ntc-eval-actions-{{ $doc->id }}">
+        <button type="button"
+                class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
+                id="btn-approve-{{ $doc->id }}"
+                onclick="setNtcDocStatus({{ $doc->id }}, 'approved')">
+            <i class="bi bi-check-circle-fill"></i> Accept
+        </button>
+        <button type="button"
+                class="btn-eval btn-reject {{ $evalStatus === 'rejected' ? 'active' : '' }}"
+                id="btn-reject-{{ $doc->id }}"
+                onclick="setNtcDocStatus({{ $doc->id }}, 'rejected')">
+            <i class="bi bi-x-circle-fill"></i> Decline
+        </button>
+    </div>
+    @elseif(!$isAccepted)
+    <div class="doc-eval-actions mt-2" id="ntc-eval-actions-{{ $doc->id }}">
+        <span class="badge bg-secondary" style="font-size:.75rem;">Awaiting correction from FATPro</span>
     </div>
     @endif
 
+    @if(!$isAccepted)
+    <div class="reject-panel w-100" id="ntc-reject-panel-{{ $doc->id }}"
+         style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
+        <label class="reject-remarks-label">
+            <i class="bi bi-pencil-square me-1"></i>Decline Remarks <span class="text-muted">(optional)</span>
+        </label>
+        <textarea class="reject-remarks-input w-100"
+                  name="evaluations[{{ $doc->id }}][remarks]"
+                  id="ntc-remarks-{{ $doc->id }}"
+                  placeholder="Explain what the FATPro needs to correct in the Directory…"
+                  rows="2"
+                  {{ $docStatus === 'rejected' ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+    </div>
     @endif
 </div>

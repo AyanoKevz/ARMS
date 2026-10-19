@@ -157,8 +157,9 @@ test('the Directory of Participants is seeded as encoded, not as a spreadsheet',
     expect($directory->isEncoded())->toBeTrue();
     expect($directory->accepted_extensions)->toBeNull();
 
-    // Four plain uploads are left: the roster stopped being one of them.
-    expect(PtrDocumentType::where('entry_type', 'file')->count())->toBe(4);
+    // Three plain uploads are left: the roster and the test scores stopped
+    // being uploads.
+    expect(PtrDocumentType::where('entry_type', 'file')->count())->toBe(3);
     $instructors = PtrDocumentType::where('code', 'INSTRUCTORS')->first();
     expect($instructors->entry_type)->toBe('roster');
     expect($instructors->isRoster())->toBeTrue();
@@ -220,6 +221,9 @@ test('a report submits with encoded participants and no Directory file', functio
         'company_landline'   => '0281234567',
         'mode_of_training'   => 'Face to Face',
         'batch_no'           => '2026-01',
+        'pre_test_score'     => '9/20',
+        'post_test_score'    => '17/20',
+        'catch_up'           => 'No',
         'photo_token'        => $token,
         'photo_name'         => 'id.jpg',
     ]];
@@ -245,6 +249,16 @@ test('a report submits with encoded participants and no Directory file', functio
     expect($row->total_workers)->toBe(250);
     expect($row->status)->toBe('pending');
     expect($row->hasIdPicture())->toBeTrue();
+
+    // Requirement 5's scores are kept on the row, as typed.
+    expect($row->pre_test_score)->toBe('9/20');
+    expect($row->post_test_score)->toBe('17/20');
+    expect($row->scoreSheetName())->toBe('Juan Santos Dela Cruz');
+
+    // And requirement 5 is a fileless section of its own.
+    $scores = $report->scoresDocument();
+    expect($scores)->not->toBeNull();
+    expect($scores->file_path)->toBeNull();
 
     // All six sections exist; the Directory carries no file.
     expect($report->documents)->toHaveCount(7);
@@ -274,6 +288,7 @@ test('submission is refused when a participant has no ID picture', function () {
         'industry'           => 'Healthcare',
         'mobile_no'          => '09181234567',
         'mode_of_training'   => 'Face to Face',
+        ...ptrRequiredExtras(),
         'photo_token'        => '',
     ]];
 
@@ -303,6 +318,7 @@ test('a certificate number cannot repeat inside one Directory', function () {
         'industry'         => 'Logistics',
         'mobile_no'        => '09191234567',
         'mode_of_training' => 'Face to Face',
+        ...ptrRequiredExtras(),
     ];
 
     $participants = [
@@ -324,7 +340,7 @@ test('a certificate number cannot repeat inside one Directory', function () {
     )->assertSessionHasErrors('participants.1.certificate_number');
 });
 
-test('one declined participant declines the whole Directory', function () {
+test('declining the Directory as a whole declines every participant', function () {
     [$applicant, $ntc] = ptrFixture('06');
 
     $token = fn () => $this->actingAs($applicant)
@@ -342,6 +358,7 @@ test('one declined participant declines the whole Directory', function () {
         'industry'         => 'Retail',
         'mobile_no'        => '09201234567',
         'mode_of_training' => 'Face to Face',
+        ...ptrRequiredExtras(),
     ];
 
     $participants = [
@@ -373,40 +390,79 @@ test('one declined participant declines the whole Directory', function () {
         'admin_role_id' => AdminRole::firstOrCreate(['name' => 'Training Evaluator'])->id,
     ]);
 
-    $rows = $report->participants;
+    $report->load('documents.documentType');
+    $directoryId = $report->directoryDocument()->id;
 
-    // Accept every attachment, accept one participant, decline the other.
-    $evaluations = $report->documents->map(fn ($d) => [
-        'id' => $d->id, 'status' => 'approved', 'remarks' => '',
-    ])->values()->all();
+    // Accept every attachment; decline the Directory as one section, with remarks.
+    $evaluations = $report->documents->map(fn ($d) => $d->id === $directoryId
+        ? ['id' => $d->id, 'status' => 'rejected', 'remarks' => 'Row 2 has the wrong certificate number.']
+        : ['id' => $d->id, 'status' => 'approved', 'remarks' => '']
+    )->values()->all();
 
     $this->actingAs($evaluator)->postJson(
         route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
-        [
-            'evaluations'  => $evaluations,
-            'participants' => [
-                ['id' => $rows[0]->id, 'status' => 'approved'],
-                ['id' => $rows[1]->id, 'status' => 'rejected'],
-            ],
-            'directory_remarks' => 'Row 2 has the wrong certificate number.',
-        ]
-    )->assertOk();
+        ['evaluations' => $evaluations]
+    )->assertOk()->assertJson(['has_rejections' => true]);
 
     $report->refresh()->load(['documents.documentType', 'participants']);
 
-    // The section takes the verdict its rows imply, with the one shared remark.
     $directory = $report->directoryDocument();
     expect($directory->status)->toBe('rejected');
     expect($directory->remarks)->toBe('Row 2 has the wrong certificate number.');
 
+    // Every participant is opened for correction, not just one.
     expect($report->hasDirectoryCorrections())->toBeTrue();
-    expect($report->rejectedParticipants())->toHaveCount(1);
+    expect($report->rejectedParticipants())->toHaveCount(2);
 
-    // The declined row keeps its ID picture: the FATPro edits it in place.
-    expect($report->participants->firstWhere('status', 'rejected')->hasIdPicture())->toBeTrue();
+    // The declined rows keep their ID pictures: the FATPro edits them in place.
+    expect($report->participants->every->hasIdPicture())->toBeTrue();
 
     // And the whole report is declined, not accepted.
     expect($report->status)->toBe('declined');
+});
+
+test('accepting the Directory as a whole accepts every participant', function () {
+    [$applicant, $ntc] = ptrFixture('06b');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrOneParticipant('C-ACC', $token)])
+    )->assertSessionHas('success');
+
+    $report = PostTrainingReport::where('ntc_report_id', $ntc->id)->first();
+
+    $evaluator = User::forceCreate([
+        'email'        => 'ptr_dir_accepter@example.com',
+        'password'     => bcrypt('password'),
+        'role_id'      => Role::firstOrCreate(['name' => 'Admin'])->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id'       => $evaluator->id,
+        'division_id'   => Division::firstOrCreate(['name' => 'HCD'])->id,
+        'first_name'    => 'Acc',
+        'last_name'     => 'Evaluator',
+        'position'      => 'LSO III',
+        'admin_role_id' => AdminRole::firstOrCreate(['name' => 'Training Evaluator'])->id,
+    ]);
+
+    $this->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => [
+            'id' => $d->id, 'status' => 'approved', 'remarks' => '',
+        ])->values()->all()]
+    )->assertOk();
+
+    $report->refresh()->load('participants');
+
+    expect($report->status)->toBe('accepted');
+    expect($report->participants->every(fn ($p) => $p->status === 'approved'))->toBeTrue();
 });
 
 test('the FATPro corrects declined rows without re-uploading anything', function () {
@@ -430,6 +486,7 @@ test('the FATPro corrects declined rows without re-uploading anything', function
         'industry'           => 'Mining',
         'mobile_no'          => '09211234567',
         'mode_of_training'   => 'Face to Face',
+        ...ptrRequiredExtras(),
         'photo_token'        => $token,
     ]];
 
@@ -462,6 +519,7 @@ test('the FATPro corrects declined rows without re-uploading anything', function
             'industry'           => 'Mining',
             'mobile_no'          => '09211234567',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => '', // no replacement picture needed
         ]])]
     )->assertSessionHas('success');
@@ -499,6 +557,7 @@ test('an approved participant cannot be edited by the FATPro', function () {
             'industry'           => 'Services',
             'mobile_no'          => '09221234567',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => $token,
         ]])])
     );
@@ -523,6 +582,7 @@ test('an approved participant cannot be edited by the FATPro', function () {
             'industry'           => 'Services',
             'mobile_no'          => '09221234567',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => '',
         ]])]
     );
@@ -557,6 +617,7 @@ test('a staged picture belonging to another FATPro cannot be claimed', function 
             'industry'           => 'X',
             'mobile_no'          => '09000000000',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => $victimToken,
         ]])])
     )->assertSessionHasErrors('participants.0.photo_token');
@@ -582,6 +643,7 @@ test('a path traversal token is rejected outright', function () {
             'industry'           => 'X',
             'mobile_no'          => '09000000000',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => '../../../.env',
         ]])])
     )->assertSessionHasErrors('participants.0.photo_token');
@@ -610,7 +672,7 @@ test('the applicant portal renders the encoding grid instead of a file dropzone'
     expect($html)->not->toContain('.xlsx');
 });
 
-test('the evaluator page renders the participant table with per-row verdicts', function () {
+test('the evaluator page judges the participant table with one Accept or Decline', function () {
     [$applicant, $ntc] = ptrFixture('13');
 
     $token = $this->actingAs($applicant)
@@ -633,6 +695,7 @@ test('the evaluator page renders the participant table with per-row verdicts', f
             'industry'           => 'Construction',
             'mobile_no'          => '09231234567',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
             'photo_token'        => $token,
         ]])])
     );
@@ -661,16 +724,18 @@ test('the evaluator page renders the participant table with per-row verdicts', f
     $response->assertOk();
     $html = $response->getContent();
 
-    $row = $report->participants->first();
+    $directoryId = $report->load('documents.documentType')->directoryDocument()->id;
 
     expect($html)->toContain('Bautista');
     expect($html)->toContain('VIEW-1');
-    expect($html)->toContain('ptr-participant-status-' . $row->id);
-    expect($html)->toContain('name="directory_remarks"');
 
-    // The section is judged through its rows, so it is flagged for the script
-    // that derives the Directory's verdict.
-    expect($html)->toContain('data-ptr-directory="1"');
+    // One verdict for the whole Directory, with the same remarks box as the
+    // instructor list — no per-row verdict column.
+    expect($html)->toContain("setNtcDocStatus({$directoryId}, 'approved')");
+    expect($html)->toContain("setNtcDocStatus({$directoryId}, 'rejected')");
+    expect($html)->toContain('name="evaluations[' . $directoryId . '][remarks]"');
+    expect($html)->not->toContain('ptr-dir-verdict');
+    expect($html)->not->toContain('ptr-participant-status-');
 });
 
 test('the submission modal is a step-by-step wizard listing every requirement', function () {
@@ -735,6 +800,7 @@ function ptrOneParticipant(string $certificate, string $photoToken): string
         'industry'           => 'Manufacturing',
         'mobile_no'          => '09171234567',
         'mode_of_training'   => 'Face to Face',
+        ...ptrRequiredExtras(),
     ]]);
 }
 
@@ -945,6 +1011,7 @@ test('a participant must have a real sex, not the placeholder or anything else',
             'industry'           => 'Manufacturing',
             'mobile_no'          => '09171234567',
             'mode_of_training'   => 'Face to Face',
+            ...ptrRequiredExtras(),
         ]]);
     };
 
@@ -1027,6 +1094,13 @@ function ptrCorrectedRow(PtrParticipant $participant, array $overrides = []): ar
         'industry'           => $participant->industry,
         'mobile_no'          => $participant->mobile_no,
         'mode_of_training'   => $participant->mode_of_training,
+        'total_workers'      => $participant->total_workers,
+        'company_email'      => $participant->company_email,
+        'personal_email'     => $participant->personal_email,
+        'company_landline'   => $participant->company_landline,
+        'batch_no'           => $participant->batch_no,
+        'catch_up'           => $participant->is_catch_up ? 'Yes' : 'No',
+        'catch_up_ntc_report_id' => $participant->catch_up_ntc_report_id,
         'photo_token'        => '',
     ], $overrides);
 }
@@ -1320,8 +1394,8 @@ test('the training video is requirement 7, with a section of its own', function 
     expect($video->isFile())->toBeFalse();
     expect($video->isLink())->toBeTrue();
 
-    // Still four PDF uploads; the video did not become a fifth.
-    expect(PtrDocumentType::where('entry_type', 'file')->count())->toBe(4);
+    // Still three PDF uploads; the video did not become a fourth.
+    expect(PtrDocumentType::where('entry_type', 'file')->count())->toBe(3);
 });
 
 test('the video is the last required step and remarks closes the wizard', function () {
@@ -1638,6 +1712,7 @@ function ptrRow(string $photoToken, array $overrides = []): string
         'industry'           => 'Manufacturing',
         'mobile_no'          => '09171234567',
         'mode_of_training'   => 'Face to Face',
+        ...ptrRequiredExtras(),
     ], $overrides)]);
 }
 
@@ -1721,7 +1796,7 @@ test('a mobile number is held to the registration form shape', function () {
     expect(PtrParticipant::first()->mobile_no)->toBe('+639171234567');
 });
 
-test('a company landline is optional but must be ten digits when given', function () {
+test('a company landline is required and must be ten digits', function () {
     [$applicant, $ntc] = ptrFixture('83');
 
     $token = $this->actingAs($applicant)
@@ -1736,13 +1811,14 @@ test('a company landline is optional but must be ten digits when given', functio
         )->assertSessionHasErrors('participants.0.company_landline');
     }
 
-    // Left out entirely it is no obstacle at all.
+    // Left out entirely it is refused too: every Directory column but Middle
+    // Name and Suffix is required.
     $this->actingAs($applicant)->post(
         route('applicant.post_training.store', $ntc->id),
         array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['company_landline' => ''])])
-    )->assertSessionHasNoErrors();
+    )->assertSessionHasErrors('participants.0.company_landline');
 
-    expect(PtrParticipant::first()->company_landline)->toBeNull();
+    expect(PtrParticipant::count())->toBe(0);
 });
 
 test('both e-mail columns have to be real addresses', function () {
@@ -1811,4 +1887,365 @@ test('the PSGC register covers every region and keeps its cities apart', functio
     expect(PhLocations::isCityIn('Cebu City', 'NCR'))->toBeFalse();
     expect(PhLocations::isRegion('Region IV'))->toBeFalse();
     expect(PhLocations::isRegion('Region IV-A'))->toBeTrue();
+});
+
+/**
+ * The Directory columns that became required alongside the ones every payload
+ * above already names, plus requirement 5's two scores, which ride on each
+ * participant row.
+ */
+function ptrRequiredExtras(): array
+{
+    return [
+        'total_workers'    => 50,
+        'company_email'    => 'safety@acme.example',
+        'personal_email'   => 'participant@mail.example',
+        'company_landline' => '0281234567',
+        'batch_no'         => '2026-01',
+        'pre_test_score'   => '12/20',
+        'post_test_score'  => '18/20',
+        'catch_up'         => 'No',
+    ];
+}
+
+/*
+|--------------------------------------------------------------------------
+| Requirement 5 — Pre- and Post-Test Summary Evaluation
+|--------------------------------------------------------------------------
+|
+| Encoded against the Directory rather than uploaded: every participant
+| carries a pre-test and a post-test score, typed as free text.
+|
+*/
+
+/** A Training Evaluator, for the review page and the verdicts. */
+function ptrScoresEvaluator(string $suffix): User
+{
+    $evaluator = User::forceCreate([
+        'email'        => "ptr_scores_eval_{$suffix}@example.com",
+        'password'     => bcrypt('password'),
+        'role_id'      => Role::firstOrCreate(['name' => 'Admin'])->id,
+        'profile_type' => 'Individual',
+    ]);
+
+    AdminProfile::create([
+        'user_id'       => $evaluator->id,
+        'division_id'   => Division::firstOrCreate(['name' => 'HCD'])->id,
+        'first_name'    => 'Score',
+        'last_name'     => 'Evaluator',
+        'position'      => 'LSO III',
+        'admin_role_id' => AdminRole::firstOrCreate(['name' => 'Training Evaluator'])->id,
+    ]);
+
+    return $evaluator;
+}
+
+test('the Pre- and Post-Test Summary Evaluation is encoded, not uploaded', function () {
+    $prepost = PtrDocumentType::where('code', 'PREPOST')->first();
+
+    expect($prepost->entry_type)->toBe('scores');
+    expect($prepost->isScores())->toBeTrue();
+    expect($prepost->isFile())->toBeFalse();
+    expect($prepost->stepKind())->toBe('scores');
+    expect($prepost->accepted_extensions)->toBeNull();
+});
+
+test('every participant needs both a pre-test and a post-test score', function () {
+    [$applicant, $ntc] = ptrFixture('90');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    foreach (['pre_test_score', 'post_test_score'] as $field) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [$field => ''])])
+        )->assertSessionHasErrors("participants.0.{$field}");
+    }
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('only Middle Name and Suffix may be left blank in the Directory', function () {
+    [$applicant, $ntc] = ptrFixture('91');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(200),
+        ])->json('token');
+
+    foreach (['total_workers', 'company_email', 'personal_email', 'company_landline', 'batch_no'] as $field) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [$field => ''])])
+        )->assertSessionHasErrors("participants.0.{$field}");
+    }
+
+    // Middle Name and Suffix blank is fine.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['middle_name' => '', 'suffix' => ''])])
+    )->assertSessionHasNoErrors();
+});
+
+test('the wizard marks required Directory columns and renders the scores step', function () {
+    [$applicant] = ptrFixture('92');
+
+    $html = $this->actingAs($applicant)->get(route('applicant.ntc.index'))->assertOk()->getContent();
+
+    // A * on every required column header: 18 in the Directory, plus the two
+    // score columns on step 5.
+    expect(substr_count($html, 'class="ptr-dir-req"'))->toBeGreaterThanOrEqual(20);
+
+    // Step 5 is the scores table, not a dropzone.
+    expect($html)->toContain('data-kind="scores"');
+    expect($html)->toContain('id="ptrScoresTable"');
+    expect($html)->not->toContain('name="file_prepost"');
+});
+
+test('the evaluator reads the scores and judges them with one Accept or Decline', function () {
+    [, , , $report] = ptrFiledReport('93');
+    $evaluator = ptrScoresEvaluator('93');
+
+    $report->load('documents.documentType');
+    $scoresId = $report->scoresDocument()->id;
+
+    $html = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.post_training.show', $report->id))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('Ana Reyes');
+    expect($html)->toContain('12/20');
+    expect($html)->toContain('18/20');
+    expect($html)->toContain("setNtcDocStatus({$scoresId}, 'approved')");
+    expect($html)->toContain('name="evaluations[' . $scoresId . '][remarks]"');
+});
+
+test('declined scores are re-entered through the corrections dialog', function () {
+    [$applicant, , , $report] = ptrFiledReport('94');
+    $evaluator = ptrScoresEvaluator('94');
+
+    $report->load('documents.documentType');
+    $scoresId = $report->scoresDocument()->id;
+
+    // Accept everything but the scores.
+    $this->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => $d->id === $scoresId
+            ? ['id' => $d->id, 'status' => 'rejected', 'remarks' => 'Post-test totals do not match the sheets.']
+            : ['id' => $d->id, 'status' => 'approved', 'remarks' => '']
+        )->values()->all()]
+    )->assertOk()->assertJson(['has_rejections' => true]);
+
+    $report->refresh()->load(['documents.documentType', 'participants']);
+
+    expect($report->hasScoreCorrections())->toBeTrue();
+    expect($report->declinedSectionCount())->toBe(1);
+
+    // The dialog offers the score table, pre-filled.
+    $html = $this->actingAs($applicant)->get(route('applicant.ntc.index'))->assertOk()->getContent();
+    expect($html)->toContain('data-correction-scores');
+    expect($html)->toContain('Post-test totals do not match the sheets.');
+
+    $participant = $report->participants->first();
+
+    // A blank score is refused outright.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => '12/20', 'post_test_score' => '']])]
+    )->assertSessionHasErrors('test_scores');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => '12/20', 'post_test_score' => '19/20']])]
+    )->assertSessionHas('success');
+
+    $participant->refresh();
+    expect($participant->post_test_score)->toBe('19/20');
+
+    $report->refresh()->load('documents.documentType');
+    expect($report->scoresDocument()->status)->toBe('returned');
+    expect($report->status)->toBe('submitted');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Catch-up participants
+|--------------------------------------------------------------------------
+|
+| A participant who began this course in one of the FATPro's earlier
+| trainings and completes it in this one. The start is that earlier
+| training's first day; the end is this training's last.
+|
+*/
+
+/** Another of the same FATPro's trainings, for catch-up sources. */
+function ptrOtherTraining(NtcReport $like, array $overrides = []): NtcReport
+{
+    return NtcReport::create(array_merge([
+        'accreditation_id'     => $like->accreditation_id,
+        'ntc_training_type_id' => $like->ntc_training_type_id,
+        'ntc_training_mode_id' => $like->ntc_training_mode_id,
+        'venue'                => 'Earlier Venue',
+        'training_start_date'  => now()->subDays(40)->format('Y-m-d'),
+        'training_end_date'    => now()->subDays(38)->format('Y-m-d'),
+        'status'               => 'acknowledged',
+        'acknowledged_at'      => now()->subDays(50),
+    ], $overrides))->refresh();
+}
+
+test('catch-up choices are the FATPro\'s other trainings already held, of any type', function () {
+    [$applicant, $ntc] = ptrFixture('c1');
+
+    // Offered: already held — whatever the type, and whether before or after.
+    $earlier   = ptrOtherTraining($ntc);
+    $otherType = ptrOtherTraining($ntc, [
+        'ntc_training_type_id' => NtcTrainingType::where('id', '!=', $ntc->ntc_training_type_id)->value('id'),
+        'training_start_date'  => now()->subDays(30)->format('Y-m-d'),
+        'training_end_date'    => now()->subDays(29)->format('Y-m-d'),
+    ]);
+    $heldAfter = ptrOtherTraining($ntc, [
+        'training_start_date' => now()->subDays(5)->format('Y-m-d'),
+        'training_end_date'   => now()->subDays(4)->format('Y-m-d'),
+    ]);
+
+    // Not offered: cancelled, not yet held, or another FATPro's.
+    ptrOtherTraining($ntc, ['status' => 'cancelled']);
+    ptrOtherTraining($ntc, [
+        'training_start_date' => now()->addDays(20)->format('Y-m-d'),
+        'training_end_date'   => now()->addDays(21)->format('Y-m-d'),
+    ]);
+    [, $someoneElses] = ptrFixture('c2');
+    $someoneElses->update(['training_start_date' => now()->subDays(60), 'training_end_date' => now()->subDays(59)]);
+
+    // Most recent first; the training being reported is never offered.
+    expect(collect($ntc->catchUpOptions())->pluck('id')->all())
+        ->toBe([$heldAfter->id, $otherType->id, $earlier->id]);
+
+    // The label names the training type, since the list mixes courses.
+    expect($ntc->catchUpOptions()[1]['label'])->toContain('(' . $otherType->trainingType->code . ')');
+
+    // And the Submit button hands them to the dialog.
+    $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->assertSee('data-catchup-options', false)
+        ->assertSee($earlier->reference_number);
+});
+
+test('a catch-up participant records where they started and when they finished', function () {
+    [$applicant, $ntc] = ptrFixture('c3');
+    $earlier = ptrOtherTraining($ntc);
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'catch_up'               => 'Yes',
+            'catch_up_ntc_report_id' => $earlier->id,
+            // Whatever the post claims, the server works the dates out itself.
+            'catch_up_start_date'    => '2000-01-01',
+        ])])
+    )->assertSessionHas('success');
+
+    $participant = PtrParticipant::firstOrFail();
+
+    expect($participant->is_catch_up)->toBeTrue();
+    expect($participant->catch_up_ntc_report_id)->toBe($earlier->id);
+    expect($participant->catch_up_start_date->toDateString())->toBe($earlier->training_start_date->toDateString());
+    expect($participant->catch_up_end_date->toDateString())->toBe($ntc->training_end_date->toDateString());
+});
+
+test('a participant who is not a catch-up carries no catch-up dates', function () {
+    [$applicant, $ntc] = ptrFixture('c4');
+    $earlier = ptrOtherTraining($ntc);
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'catch_up'               => 'No',
+            'catch_up_ntc_report_id' => $earlier->id,
+        ])])
+    )->assertSessionHas('success');
+
+    $participant = PtrParticipant::firstOrFail();
+
+    expect($participant->is_catch_up)->toBeFalse();
+    expect($participant->catch_up_ntc_report_id)->toBeNull();
+    expect($participant->catch_up_start_date)->toBeNull();
+});
+
+test('a catch-up participant must name one of the FATPro\'s own trainings already held', function () {
+    [$applicant, $ntc] = ptrFixture('c5');
+    [, $someoneElses] = ptrFixture('c6');
+    $notYetHeld = ptrOtherTraining($ntc, [
+        'training_start_date' => now()->addDays(20)->format('Y-m-d'),
+        'training_end_date'   => now()->addDays(21)->format('Y-m-d'),
+    ]);
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    foreach ([null, $someoneElses->id, $notYetHeld->id, $ntc->id] as $sourceId) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+                'catch_up'               => 'Yes',
+                'catch_up_ntc_report_id' => $sourceId,
+            ])])
+        )->assertSessionHasErrors('participants.0.catch_up_ntc_report_id');
+    }
+
+    // Catch Up itself must be answered.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, ['catch_up' => ''])])
+    )->assertSessionHasErrors('participants.0.catch_up');
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('the wizard offers Catch Up, and the evaluator sees who is one', function () {
+    [$applicant, $ntc] = ptrFixture('c7');
+    $earlier = ptrOtherTraining($ntc);
+
+    $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertSee('data-field="catch_up"', false)
+        ->assertSee('data-field="catch_up_ntc_report_id"', false);
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'catch_up' => 'Yes', 'catch_up_ntc_report_id' => $earlier->id,
+        ])])
+    )->assertSessionHas('success');
+
+    $report = PostTrainingReport::where('ntc_report_id', $ntc->id)->firstOrFail();
+
+    $this->actingAs(ptrScoresEvaluator('c7'))
+        ->get(route('admin.hcd.reports.post_training.show', $report->id))
+        ->assertOk()
+        ->assertSee('Catch Up')
+        ->assertSee($earlier->training_start_date->format('M d, Y'))
+        ->assertSee($earlier->reference_number);
 });

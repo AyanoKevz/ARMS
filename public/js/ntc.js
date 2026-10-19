@@ -296,44 +296,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const mainInstructors = wireInstructorPicker('');
     linkDaysToInstructors(mainDays, mainInstructors);
 
-    // ── Venue Label & Placeholder Sync ─────────────────────
-    function syncVenueLabels() {
-        const mainModeSelect = document.getElementById('ntc_training_mode_id');
-        const mainVenueLabel = document.getElementById('ntc_venue_label');
-        const mainVenueInput = document.getElementById('ntc_venue');
-        if (mainModeSelect && mainVenueLabel && mainVenueInput) {
-            const selectedOpt = mainModeSelect.options[mainModeSelect.selectedIndex];
-            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
-            if (code.toUpperCase().includes('BLENDED')) {
-                mainVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
-                mainVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
-            } else {
-                mainVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
-                mainVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
-            }
-        }
-
-        const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
-        const modalVenueLabel = document.getElementById('modal_ntc_venue_label');
-        const modalVenueInput = document.getElementById('modal_ntc_venue');
-        if (modalModeSelect && modalVenueLabel && modalVenueInput) {
-            const selectedOpt = modalModeSelect.options[modalModeSelect.selectedIndex];
-            const code = selectedOpt ? (selectedOpt.getAttribute('data-code') || selectedOpt.text) : '';
-            if (code.toUpperCase().includes('BLENDED')) {
-                modalVenueLabel.innerHTML = 'Zoom Link / Meeting Link <span class="text-danger">*</span>';
-                modalVenueInput.placeholder = 'e.g. https://zoom.us/j/123456789';
-            } else {
-                modalVenueLabel.innerHTML = 'Venue <span class="text-danger">*</span>';
-                modalVenueInput.placeholder = 'e.g. OSHC Main Auditorium, Quezon City';
-            }
-        }
-    }
-
-    const mainModeSelect = document.getElementById('ntc_training_mode_id');
-    const modalModeSelect = document.getElementById('modal_ntc_training_mode_id');
-    if (mainModeSelect) mainModeSelect.addEventListener('change', syncVenueLabels);
-    if (modalModeSelect) modalModeSelect.addEventListener('change', syncVenueLabels);
-    syncVenueLabels();
+    // ── Venue / meeting link ──────────────────────────────
+    // Blended trainings take a meeting link on top of the venue.
+    Picker.wireVenueFields('', 'ntc_training_mode_id');
+    const modalVenue = Picker.wireVenueFields('modal_', 'modal_ntc_training_mode_id');
 
     // ── Submit spinner guard ──────────────────────────────
     const form       = document.getElementById('ntcSubmitForm');
@@ -398,6 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const instructorIds = this.getAttribute('data-instructor-ids');
 
             const venue = this.getAttribute('data-venue');
+            const meetingLink = this.getAttribute('data-meeting-link');
             const rtcmanName = this.getAttribute('data-rtcman-file-name');
             const rtcmanUrl = this.getAttribute('data-rtcman-file-url');
             const progName = this.getAttribute('data-prog-file-name');
@@ -416,12 +383,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     modeSelect.value = trainingMode;
                 }
 
-                const venueInputModal = document.getElementById('modal_ntc_venue');
-                if (venueInputModal) {
-                    venueInputModal.value = venue || '';
+                if (modalVenue) {
+                    modalVenue.setValues(venue, meetingLink);
                 }
-                syncVenueLabels();
-                
+
                 // Reload the submission's own days. The type is already set
                 // above, so the right number of rows is built before they are
                 // filled; the end date follows from the days as usual.
@@ -684,6 +649,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const cancelModal    = cancelModalEl && window.bootstrap
         ? new bootstrap.Modal(cancelModalEl)
         : null;
+
+    // The X and "Keep this training" must close through the same instance that
+    // opened the dialog — the portal theme builds its own, which hide() ignores.
+    if (cancelModalEl && cancelModal) {
+        cancelModalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(btn => {
+            btn.addEventListener('click', () => cancelModal.hide());
+        });
+    }
 
     const MIN_REASON = 10;
 

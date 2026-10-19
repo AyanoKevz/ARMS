@@ -90,7 +90,10 @@
                     </div>
                     @endif
                     @if($isTrueRejected)
-                    <div class="ntc-compact-drop-zone mt-2"
+                    <div class="mt-2">
+                        @include('applicant.partials.ntc_form_template_link', ['code' => $doc->documentType->code ?? ''])
+                    </div>
+                    <div class="ntc-compact-drop-zone mt-1"
                          id="dropZoneReject-{{ $doc->id }}"
                          data-input="file-reject-{{ $doc->id }}">
                         <div class="file-info text-secondary">

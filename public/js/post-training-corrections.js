@@ -1,10 +1,10 @@
 /* ══════════════════════════════════════════════════════════════
    Post Training Report — corrections dialog
 
-   A report can be sent back in three ways at once: a wiped
+   A report can be sent back in several ways at once: a wiped
    attachment, rejected participant rows, a refused instructor
-   list. The dialog shows whichever are outstanding and posts them
-   as one submission.
+   list, declined test scores. The dialog shows whichever are
+   outstanding and posts them as one submission.
 
    The attachments look after themselves — ptr-compact-drop-zone is
    already wired by post-training.js. What is left for this file is
@@ -139,6 +139,13 @@
             row.photo_token = card.getAttribute('data-photo-token') || '';
             row.photo_name  = card.getAttribute('data-photo-name') || '';
 
+            // A catch-up participant needs the training they started in.
+            var source = card.querySelector('[data-catchup-source]');
+            var missingSource = row.catch_up === 'Yes' && !row.catch_up_ntc_report_id;
+
+            if (source) source.classList.toggle('is-invalid', missingSource);
+            if (missingSource) problems++;
+
             return row;
         });
 
@@ -165,6 +172,38 @@
 
             if (!ok) complete = false;
         });
+
+        return complete;
+    }
+
+    /**
+     * Fold the corrected test scores into the `test_scores` JSON, keyed by
+     * participant id. Every participant needs both; blanks are marked.
+     */
+    function serialiseScores(form) {
+        var table = form.querySelector('[data-correction-scores]');
+        var payload = form.querySelector('[data-correction-scores-payload]');
+
+        if (!table || !payload) return true;
+
+        var scores = {};
+        var complete = true;
+
+        table.querySelectorAll('[data-score-participant]').forEach(function (row) {
+            var entry = {};
+
+            row.querySelectorAll('[data-score]').forEach(function (input) {
+                var value = (input.value || '').trim();
+                entry[input.getAttribute('data-score')] = value;
+
+                input.classList.toggle('is-invalid-cell', value === '');
+                if (value === '') complete = false;
+            });
+
+            scores[row.getAttribute('data-score-participant')] = entry;
+        });
+
+        payload.value = JSON.stringify(scores);
 
         return complete;
     }
@@ -196,6 +235,26 @@
                 });
             }
 
+            // Catch Up: the start and end date fields only apply to a Yes.
+            form.querySelectorAll('[data-participant-id]').forEach(function (card) {
+                var toggle = card.querySelector('[data-catchup-toggle]');
+                if (!toggle) return;
+
+                toggle.addEventListener('change', function () {
+                    var yes = toggle.value === 'Yes';
+
+                    card.querySelectorAll('[data-catchup-only]').forEach(function (el) {
+                        el.hidden = !yes;
+                    });
+
+                    var source = card.querySelector('[data-catchup-source]');
+                    if (source && !yes) {
+                        source.value = '';
+                        source.classList.remove('is-invalid');
+                    }
+                });
+            });
+
             // Replacement pictures.
             form.querySelectorAll('[data-correction-photo-btn]').forEach(function (button) {
                 var card  = button.closest('[data-participant-id]');
@@ -219,6 +278,8 @@
                         : 'Complete every highlighted participant field.';
                 } else if (!instructorsChosen(form)) {
                     message = 'Name at least one instructor who conducted this training.';
+                } else if (!serialiseScores(form)) {
+                    message = 'Enter both the pre-test and the post-test score for every participant.';
                 }
 
                 if (error) {

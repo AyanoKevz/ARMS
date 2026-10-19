@@ -186,7 +186,9 @@ test('an instructor whose credentials lapse before the last training day is refu
     [$applicant, $instructor] = ntcFixture('08');
 
     $start = NtcReport::earliestAllowedStartDate();
-    $extra = $start->copy()->addDays(30);
+    // 20 days, not 30: a training must end within a month of its first day,
+    // so a 30-day gap failed that rule (not the instructor's) on some dates.
+    $extra = $start->copy()->addDays(20);
 
     // Valid on day one, expired well before the last day.
     $instructor->credentials()->where('type', 'TM1')->update([
@@ -880,4 +882,243 @@ test('re-saving an NTC without changing anything emails nobody', function () {
         ->assertSessionHas('success');
 
     Mail::assertNothingQueued();
+});
+
+test('a training must be completed within one month of its first date', function () {
+    [$applicant, $instructor] = ntcFixture('90');
+
+    $start = NtcReport::earliestAllowedStartDate();
+    $limit = NtcReport::latestAllowedEndDate($start);
+
+    // One day past the limit is refused...
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), ntcPayload('OFA', $instructor, [
+            1 => [$start->format('Y-m-d')],
+            2 => [$limit->copy()->addDay()->format('Y-m-d')],
+        ]))
+        ->assertSessionHasErrors('training_dates');
+
+    expect(ntcCountFor($applicant))->toBe(0);
+
+    // ...the limit itself is fine.
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), ntcPayload('OFA', $instructor, [
+            1 => [$start->format('Y-m-d')],
+            2 => [$limit->format('Y-m-d')],
+        ]))
+        ->assertSessionHas('success');
+});
+
+test('a training starting on the 1st can run to the end of that month but not the 1st of the next', function () {
+    $first = Carbon\Carbon::parse('2027-01-01');
+    expect(NtcReport::latestAllowedEndDate($first)->toDateString())->toBe('2027-01-31');
+
+    $first = Carbon\Carbon::parse('2027-04-01');
+    expect(NtcReport::latestAllowedEndDate($first)->toDateString())->toBe('2027-04-30');
+
+    // A mid-month start gets a full month, less a day.
+    $first = Carbon\Carbon::parse('2027-03-15');
+    expect(NtcReport::latestAllowedEndDate($first)->toDateString())->toBe('2027-04-14');
+});
+
+test('a blended training needs a venue and a meeting link', function () {
+    [$applicant, $instructor] = ntcFixture('91');
+
+    $blended = NtcTrainingMode::where('code', NtcReport::MODE_BLENDED)->first();
+
+    $payload = array_merge(ntcPayload('EFA', $instructor), [
+        'ntc_training_mode_id' => $blended->id,
+    ]);
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), $payload)
+        ->assertSessionHasErrors('meeting_link');
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), array_merge(ntcPayload('EFA', $instructor), [
+            'ntc_training_mode_id' => $blended->id,
+            'venue'                => '',
+            'meeting_link'         => 'https://zoom.us/j/123456789',
+        ]))
+        ->assertSessionHasErrors('venue');
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), array_merge(ntcPayload('EFA', $instructor), [
+            'ntc_training_mode_id' => $blended->id,
+            'meeting_link'         => 'https://zoom.us/j/123456789',
+        ]))
+        ->assertSessionHas('success');
+
+    $ntc = NtcReport::latest('id')->first();
+
+    expect($ntc->venue)->toBe('OSHC Auditorium, Quezon City');
+    expect($ntc->meeting_link)->toBe('https://zoom.us/j/123456789');
+});
+
+test('a face to face training does not keep a meeting link', function () {
+    [$applicant, $instructor] = ntcFixture('92');
+
+    $f2f = NtcTrainingMode::where('code', 'F2F')->first();
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.store'), array_merge(ntcPayload('EFA', $instructor), [
+            'ntc_training_mode_id' => $f2f->id,
+            'meeting_link'         => 'https://zoom.us/j/123456789',
+        ]))
+        ->assertSessionHas('success');
+
+    expect(NtcReport::latest('id')->first()->meeting_link)->toBeNull();
+});
+
+test('the NTC form asks for a venue and a blended-only meeting link with a join notice', function () {
+    [$applicant] = ntcFixture('93');
+
+    $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->assertSee('name="venue"', false)
+        ->assertSee('name="meeting_link"', false)
+        ->assertSee('data-meeting-link-group', false)
+        ->assertSee('no waiting room, host approval, or');
+});
+
+test('a Report of Changes shows the evaluator what changed until it is acknowledged', function () {
+    [$applicant, $instructor] = ntcFixture('60');
+    $evaluator = ntcEvaluator('60');
+
+    $ntc = acknowledgedNtcFor($applicant, $instructor, [
+        1 => [now()->addDays(30)->format('Y-m-d')],
+        2 => [now()->addDays(31)->format('Y-m-d')],
+    ]);
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.report_changes', $ntc->id), ntcPayload('OFA', $instructor))
+        ->assertSessionHas('success');
+
+    $ntc->refresh();
+
+    // The acknowledged details survive the overwrite, beside the new ones.
+    expect($ntc->status)->toBe('report_changes');
+    expect($ntc->previous_details['Venue'])->toBe('Original Venue');
+
+    $changes = $ntc->reportedChanges();
+
+    expect($changes['Venue'])->toBe([
+        'from'    => 'Original Venue',
+        'to'      => 'OSHC Auditorium, Quezon City',
+        'changed' => true,
+    ]);
+    expect($changes['Training Days']['changed'])->toBeTrue();
+    expect($changes['Training Type']['changed'])->toBeFalse();
+    // Never blended on either side, so there is no meeting link to compare.
+    expect($changes)->not->toHaveKey('Meeting Link');
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.show', $ntc->id))
+        ->assertOk()
+        ->assertSee('What Changed')
+        ->assertSee('Original Venue');
+
+    $this->actingAs($evaluator)
+        ->postJson(route('admin.hcd.reports.ntc.finalize_evaluation', $ntc->id), [
+            'evaluations' => $ntc->documents->map(fn ($doc) => ['id' => $doc->id, 'status' => 'approved'])->all(),
+        ])
+        ->assertJson(['ntc_acknowledged' => true]);
+
+    // Acknowledged: the changes are now the details, with nothing to compare.
+    $ntc->refresh();
+
+    expect($ntc->status)->toBe('acknowledged');
+    expect($ntc->previous_details)->toBeNull();
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.show', $ntc->id))
+        ->assertOk()
+        ->assertDontSee('What Changed');
+});
+
+test('the files a Report of Changes replaced stay viewable until it is acknowledged', function () {
+    \Illuminate\Support\Facades\Storage::fake('local');
+
+    [$applicant, $instructor] = ntcFixture('61');
+    $evaluator = ntcEvaluator('61');
+
+    $ntc = acknowledgedNtcFor($applicant, $instructor, [
+        1 => [now()->addDays(30)->format('Y-m-d')],
+        2 => [now()->addDays(31)->format('Y-m-d')],
+    ]);
+
+    // The acknowledged forms, as filed with the original NTC.
+    $oldPaths = [];
+    foreach (['RTCMAN', 'PROG'] as $code) {
+        $path = "ntc/old_{$code}.pdf";
+        \Illuminate\Support\Facades\Storage::disk('local')->put($path, 'old ' . $code);
+        $oldPaths[$code] = $path;
+
+        \App\Models\NtcDocument::create([
+            'ntc_report_id'        => $ntc->id,
+            'ntc_document_type_id' => \App\Models\NtcDocumentType::where('code', $code)->value('id'),
+            'file_path'            => $path,
+            'original_filename'    => "old_{$code}.pdf",
+            'mime_type'            => 'application/pdf',
+            'file_size'            => 6,
+            'status'               => 'approved',
+        ]);
+    }
+
+    $this->actingAs($applicant)
+        ->post(route('applicant.ntc.report_changes', $ntc->id), ntcPayload('OFA', $instructor))
+        ->assertSessionHas('success');
+
+    $docs = $ntc->refresh()->documents;
+
+    // Kept, not deleted, beside the new upload.
+    foreach ($docs as $doc) {
+        expect($doc->previous_file_path)->toBe($oldPaths[$doc->documentType->code]);
+        expect($doc->file_path)->not->toBe($doc->previous_file_path);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($doc->previous_file_path);
+    }
+
+    $first = $docs->first();
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.show', $ntc->id))
+        ->assertOk()
+        ->assertSee(route('admin.hcd.reports.ntc.document.previous', $first->id), false)
+        ->assertSee($first->previous_original_filename);
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.document.previous', $first->id))
+        ->assertOk();
+
+    $this->actingAs($evaluator)
+        ->postJson(route('admin.hcd.reports.ntc.finalize_evaluation', $ntc->id), [
+            'evaluations' => $docs->map(fn ($doc) => ['id' => $doc->id, 'status' => 'approved'])->all(),
+        ])
+        ->assertJson(['ntc_acknowledged' => true]);
+
+    // Acknowledged: the old files are gone from storage and from the record.
+    foreach ($oldPaths as $path) {
+        \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($path);
+    }
+
+    foreach ($ntc->refresh()->documents as $doc) {
+        expect($doc->previous_file_path)->toBeNull();
+        expect($doc->previous_original_filename)->toBeNull();
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($doc->file_path);
+    }
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.ntc.document.previous', $first->id))
+        ->assertNotFound();
+});
+
+test('each NTC form upload links to the blank DOLE-OSHC form', function () {
+    [$applicant] = ntcFixture('62');
+
+    $this->actingAs($applicant)
+        ->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->assertSee(\App\Models\NtcDocumentType::TEMPLATE_URLS['RTCMAN'], false)
+        ->assertSee(\App\Models\NtcDocumentType::TEMPLATE_URLS['PROG'], false);
 });

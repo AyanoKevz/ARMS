@@ -829,6 +829,26 @@
 .ptr-dir-w-batch { width: 110px; min-width: 110px; }
 .ptr-dir-w-act { width: 46px; min-width: 46px; }
 
+/* Catch-up participants: the date columns only appear once a row says Yes. */
+.ptr-dir-w-catchup { width: 100px; min-width: 100px; }
+.ptr-dir-w-catchup-date { width: 220px; min-width: 220px; }
+.ptr-dir-table .ptr-dir-catchup-col { display: none; }
+.ptr-dir-table.has-catchup .ptr-dir-catchup-col { display: table-cell; }
+.ptr-dir-catchup-end { font-size: 0.78rem; color: #22303f; white-space: nowrap; }
+.ptr-dir-input:disabled[data-catchup-source] { background: #f4f6f9; color: #9aa6b2; }
+
+/* Required-column marker. Light enough to read on the navy header, and the
+   same mark the scores step points back to. */
+.ptr-dir-req { color: #ff8f8f; font-weight: 700; }
+.ptr-dir-empty .ptr-dir-req { color: #dc3545; }
+
+/* ── Pre- and Post-Test Summary Evaluation (requirement 5) ──────── */
+
+.ptr-scores-table { min-width: 0; width: 100%; }
+.ptr-scores-w-name { min-width: 220px; }
+.ptr-scores-w-score { width: 160px; min-width: 120px; }
+.ptr-scores-name { font-weight: 600; color: #22303f; }
+
 /* ── ID picture cell ──────────────────────────────────────────── */
 
 .ptr-dir-photo {
@@ -905,14 +925,11 @@
 /* ── Admin: participant review table ──────────────────────────── */
 
 /* The table itself takes the shared data-table look (table-component.css);
-   these rules only keep the cells on one line and tint judged rows. */
+   these rules only keep the cells on one line. */
 .ptr-dir-review-table th,
 .ptr-dir-review-table td {
     white-space: nowrap;
 }
-
-.ptr-dir-review-table tbody tr.is-approved > td { background: #f4fbf7 !important; box-shadow: none !important; }
-.ptr-dir-review-table tbody tr.is-rejected > td { background: #fff6f6 !important; box-shadow: none !important; }
 
 .ptr-dir-review-photo {
     width: 38px;
@@ -921,68 +938,6 @@
     border-radius: 5px;
     border: 1px solid #dbe3ee;
     display: block;
-}
-
-.ptr-dir-verdict {
-    display: inline-flex;
-    gap: 4px;
-}
-
-.ptr-dir-verdict button {
-    border: 1px solid #dbe3ee;
-    background: #fff;
-    border-radius: 6px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 3px 9px;
-    color: #64748b;
-    line-height: 1.2;
-    cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
-}
-
-.ptr-dir-verdict button.ptr-dir-verdict-approve:hover {
-    background: #eaf7f0;
-    border-color: #1f8a53;
-    color: #1f8a53;
-    box-shadow: 0 1px 3px rgba(31, 138, 83, 0.2);
-}
-
-.ptr-dir-verdict button.ptr-dir-verdict-reject:hover {
-    background: #fdecee;
-    border-color: #dc3545;
-    color: #dc3545;
-    box-shadow: 0 1px 3px rgba(220, 53, 69, 0.2);
-}
-
-.ptr-dir-verdict button:focus-visible {
-    outline: 2px solid #2a3f54;
-    outline-offset: 1px;
-}
-
-.ptr-dir-verdict button.is-active-approve:hover { background: #197346; border-color: #197346; color: #fff; }
-.ptr-dir-verdict button.is-active-reject:hover  { background: #bb2d3b; border-color: #bb2d3b; color: #fff; }
-
-.ptr-dir-verdict button.is-active-approve {
-    background: #1f8a53;
-    border-color: #1f8a53;
-    color: #fff;
-}
-
-.ptr-dir-verdict button.is-active-reject {
-    background: #dc3545;
-    border-color: #dc3545;
-    color: #fff;
-}
-
-.ptr-dir-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    align-items: center;
-    font-size: 0.78rem;
-    color: #2a3f54;
-    margin-bottom: 8px;
 }
 
 /* ── Submission wizard ─────────────────────────────────────────

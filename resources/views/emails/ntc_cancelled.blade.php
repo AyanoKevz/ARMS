@@ -49,6 +49,11 @@
         <p class="label">Venue</p>
         <p class="value">{{ $ntcReport->venue ?: 'N/A' }}</p>
 
+        @if($ntcReport->isBlended() && $ntcReport->meeting_link)
+            <p class="label">Zoom Link / Meeting Link</p>
+            <p class="value">{{ $ntcReport->meeting_link }}</p>
+        @endif
+
         <p class="label">Cancelled On</p>
         <p class="value">{{ $ntcReport->cancelled_at?->format('F d, Y h:i A') ?? 'N/A' }}</p>
 

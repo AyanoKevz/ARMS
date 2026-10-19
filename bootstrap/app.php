@@ -34,9 +34,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // account: logging in on a new device signs the account out everywhere
         // else. It no-ops for guests and applicants, so it is safe on the whole
         // web group and does not need chasing across every admin route group.
+        //
+        // RecordAdminActivity writes the admin audit trail after each admin
+        // action that succeeded. It no-ops for reads, guests and applicants.
         $middleware->web(append: [
             \App\Http\Middleware\CheckArchivedAccount::class,
             \App\Http\Middleware\AuthenticateAdminSession::class,
+            \App\Http\Middleware\RecordAdminActivity::class,
         ]);
 
         $middleware->alias([

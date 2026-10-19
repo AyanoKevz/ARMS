@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use App\Services\AuditTrail;
 use App\Support\UploadLimits;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\DB;
@@ -72,6 +76,22 @@ class AppServiceProvider extends ServiceProvider
 
             if (!$headers->has('X-Auto-Response-Suppress')) {
                 $headers->addTextHeader('X-Auto-Response-Suppress', 'All');
+            }
+        });
+
+        // ── Admin audit trail: sign-ins and sign-outs ───────────────────────
+        // Everything else an admin does is recorded by RecordAdminActivity;
+        // these two happen inside the auth guard, where events are the clean
+        // hook. AuditTrail::record() skips anyone who is not an admin.
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->user instanceof User) {
+                AuditTrail::record($event->user, 'auth.login', 'Signed in', null, [], request()->ip());
+            }
+        });
+
+        Event::listen(Logout::class, function (Logout $event) {
+            if ($event->user instanceof User) {
+                AuditTrail::record($event->user, 'auth.logout', 'Signed out', null, [], request()->ip());
             }
         });
 

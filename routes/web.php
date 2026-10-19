@@ -16,6 +16,7 @@ use App\Http\Controllers\Applicant\NtcController;
 use App\Http\Controllers\Applicant\PostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\NtcController as AdminNtcController;
 use App\Http\Controllers\Admin\HCD\PostTrainingReportController as AdminPostTrainingReportController;
+use App\Http\Controllers\Admin\HCD\AuditLogController as AdminAuditLogController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -232,8 +233,11 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::get('/reports/post-training', [AdminPostTrainingReportController::class, 'index'])->name('reports.post_training.index');
             Route::get('/reports/post-training/{postTrainingReport}', [AdminPostTrainingReportController::class, 'show'])->name('reports.post_training.show');
             Route::post('/reports/post-training/documents/{document}/evaluate', [AdminPostTrainingReportController::class, 'evaluateDocument'])->name('reports.post_training.documents.evaluate');
-            Route::post('/reports/post-training/participants/{participant}/evaluate', [AdminPostTrainingReportController::class, 'evaluateParticipant'])->name('reports.post_training.participants.evaluate');
             Route::post('/reports/post-training/{postTrainingReport}/finalize-evaluation', [AdminPostTrainingReportController::class, 'finalizeEvaluation'])->name('reports.post_training.finalize_evaluation');
+
+            // Audit Logs — each role sees its own role's entries only.
+            Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit_logs.index');
+            Route::get('/audit-logs/data', [AdminAuditLogController::class, 'data'])->name('audit_logs.data')->middleware('throttle:120,1');
         });
 
         // ── Accreditation Division (Verifier Portal) ──────────────────────
@@ -284,6 +288,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/admin/hcd/instructors/cv/{instructor}/view', [HCDApplicationController::class, 'serveInstructorCv'])->name('admin.hcd.instructors.cv.view');
     Route::get('/admin/hcd/payments/{payment}/view/{fileType}', [HCDApplicationController::class, 'servePaymentFile'])->name('admin.hcd.payments.view');
     Route::get('/admin/hcd/reports/ntc/documents/{document}/view', [AdminNtcController::class, 'serveDocument'])->name('admin.hcd.reports.ntc.document.view');
+    Route::get('/admin/hcd/reports/ntc/documents/{document}/previous', [AdminNtcController::class, 'servePreviousDocument'])->name('admin.hcd.reports.ntc.document.previous');
     Route::get('/admin/hcd/reports/post-training/documents/{document}/view', [AdminPostTrainingReportController::class, 'serveDocument'])->name('admin.hcd.reports.post_training.document.view');
     Route::get('/admin/hcd/reports/post-training/participants/{participant}/photo', [AdminPostTrainingReportController::class, 'serveParticipantPhoto'])->name('admin.hcd.reports.post_training.participant.photo');
 
