@@ -82,6 +82,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Seed Test Data
+    |--------------------------------------------------------------------------
+    |
+    | Lets `db:seed` run TestApplicationSeeder outside local/testing — for a
+    | beta server that needs sample applications. Its accounts share a known
+    | password, so this must be false (or absent) on the real launch.
+    |
+    */
+
+    'seed_test_data' => (bool) env('SEED_TEST_DATA', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

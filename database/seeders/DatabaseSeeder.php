@@ -24,12 +24,13 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Sample FATPros and applications, with known passwords. Only for a
-        // developer machine and the test suite — never on the live site, where
-        // real users would see them and anyone could log in as them.
-        if (app()->environment(['local', 'testing'])) {
+        // developer machine, the test suite, or a beta server that opts in with
+        // SEED_TEST_DATA=true — never on the real launch, where anyone could
+        // log in as them.
+        if (app()->environment(['local', 'testing']) || config('app.seed_test_data')) {
             $this->call(TestApplicationSeeder::class);
         } else {
-            $this->command?->warn('Skipped TestApplicationSeeder (APP_ENV=' . app()->environment() . ').');
+            $this->command?->warn('Skipped TestApplicationSeeder (APP_ENV=' . app()->environment() . '). Set SEED_TEST_DATA=true to include it.');
         }
     }
 }
