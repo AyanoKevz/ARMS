@@ -14,9 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('accreditation:expiry-check')->daily();
         $schedule->command('instructor-credential:expiry-check')->daily();
+        // FATPro first-aider certificate: 3/2/1-month reminders and an expired notice.
+        $schedule->command('first-aider-certificate:expiry-check')->daily();
         // Tells FATPros their post training report is due the day after a
         // training ends, and again once its deadline has passed.
         $schedule->command('post-training:reminder-check')->daily();
+        // Voids declined reports not resubmitted within 10 working days.
+        $schedule->command('post-training:void-lapsed')->daily();
         // Verification links live for one hour, so hourly keeps abandoned
         // registrations (and the password hashes they carry) from lingering.
         $schedule->command('pending-registrations:prune')->hourly();

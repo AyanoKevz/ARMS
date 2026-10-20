@@ -926,6 +926,7 @@ test('a declined instructor list is corrected by re-choosing, not re-uploading',
     $report  = PostTrainingReport::where('ntc_report_id', $ntc->id)->first();
     $section = $report->instructorsDocument();
     $section->update(['status' => 'rejected', 'remarks' => 'Wrong person listed.']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     expect($report->fresh()->hasInstructorCorrections())->toBeTrue();
 
@@ -1113,6 +1114,7 @@ test('a declined participant row is corrected in place, keeping its picture', fu
 
     $participant->update(['status' => 'rejected']);
     $report->directoryDocument()->update(['status' => 'rejected', 'remarks' => 'Wrong company.']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     expect($report->fresh()->needsCorrections())->toBeTrue();
 
@@ -1154,6 +1156,7 @@ test('a declined instructor roster is corrected through the same submission', fu
     [$applicant, $ntc, $instructor, $report] = ptrFiledReport('52');
 
     $report->instructorsDocument()->update(['status' => 'rejected', 'remarks' => 'Wrong person.']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     expect($report->fresh()->needsCorrections())->toBeTrue();
     expect($report->fresh()->declinedSectionCount())->toBe(1);
@@ -1178,6 +1181,7 @@ test('every declined section is corrected together in one submission', function 
     $report->directoryDocument()->update(['status' => 'rejected']);
 
     $report->instructorsDocument()->update(['status' => 'rejected']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     $report->refresh()->load(['documents.documentType', 'participants', 'instructors']);
 
@@ -1214,6 +1218,7 @@ test('a correction that leaves a declined attachment empty is refused outright',
     $participant = $report->participants->first();
     $participant->update(['status' => 'rejected']);
     $report->directoryDocument()->update(['status' => 'rejected']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     // The participant half is valid, the file half is missing — so nothing at
     // all is written, rather than half the report being corrected.
@@ -1242,6 +1247,7 @@ test('another FATPro cannot correct a report that is not theirs', function () {
     [$outsider] = ptrFixture('57');
 
     $report->instructorsDocument()->update(['status' => 'rejected']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     $this->actingAs($outsider)->post(
         route('applicant.post_training.corrections', $report->id),
@@ -1262,6 +1268,7 @@ test('the portal offers one dialog carrying every declined section', function ()
     $report->directoryDocument()->update(['status' => 'rejected', 'remarks' => 'Wrong company.']);
 
     $report->instructorsDocument()->update(['status' => 'rejected', 'remarks' => 'Wrong person.']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     $html = $this->actingAs($applicant)
         ->get(route('applicant.ntc.index'))
@@ -1433,6 +1440,7 @@ test('a declined video link is corrected by entering a new one', function () {
     expect($section->file_path)->toBeNull();
 
     $section->update(['status' => 'rejected', 'remarks' => 'Link is private.']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
     $report->refresh();
 
     expect($report->hasVideoCorrections())->toBeTrue();
@@ -1466,6 +1474,7 @@ test('a corrected video link still has to be a usable URL', function () {
     [$applicant, , , $report] = ptrFiledReport('64');
 
     $report->videoDocument()->update(['status' => 'rejected']);
+    $report->update(['status' => 'declined']); // the evaluator pressed Send
 
     $this->actingAs($applicant)->post(
         route('applicant.post_training.corrections', $report->id),
@@ -2248,4 +2257,324 @@ test('the wizard offers Catch Up, and the evaluator sees who is one', function (
         ->assertSee('Catch Up')
         ->assertSee($earlier->training_start_date->format('M d, Y'))
         ->assertSee($earlier->reference_number);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Test score format — score over total, e.g. 7/10
+|--------------------------------------------------------------------------
+*/
+
+test('a test score is the score over the total, and nothing else', function () {
+    expect(PtrParticipant::normalizeScore('7/10'))->toBe('7/10');
+    expect(PtrParticipant::normalizeScore(' 07 / 10 '))->toBe('7/10');
+    expect(PtrParticipant::normalizeScore('10/10'))->toBe('10/10');
+    expect(PtrParticipant::normalizeScore('0/10'))->toBe('0/10');
+
+    foreach (['', 'null', 'abc', '7', '7/', '/10', '11/10', '7/0', '0/0', '7.5/10', '-1/10', '7/10/10', '70%'] as $bad) {
+        expect(PtrParticipant::normalizeScore($bad))->toBeNull();
+    }
+});
+
+test('a submission refuses a score that is not written as score/total', function () {
+    [$applicant, $ntc] = ptrFixture('s1');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    foreach (['pre_test_score' => '12', 'post_test_score' => '21/20'] as $field => $bad) {
+        $this->actingAs($applicant)->post(
+            route('applicant.post_training.store', $ntc->id),
+            array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [$field => $bad])])
+        )->assertSessionHasErrors("participants.0.{$field}");
+    }
+
+    expect(PostTrainingReport::where('ntc_report_id', $ntc->id)->exists())->toBeFalse();
+});
+
+test('scores are stored in one shape whatever spacing was typed', function () {
+    [$applicant, $ntc] = ptrFixture('s2');
+
+    $token = $this->actingAs($applicant)
+        ->post(route('applicant.post_training.participant_photo'), [
+            'photo' => UploadedFile::fake()->image('id.jpg')->size(150),
+        ])->json('token');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        array_merge(ptrSubmissionFields($ntc), ['participants' => ptrRow($token, [
+            'pre_test_score'  => ' 06 / 10 ',
+            'post_test_score' => '9/10',
+        ])])
+    )->assertSessionHas('success');
+
+    $participant = PtrParticipant::firstOrFail();
+
+    expect($participant->pre_test_score)->toBe('6/10');
+    expect($participant->post_test_score)->toBe('9/10');
+});
+
+test('corrected scores must be written as score/total too', function () {
+    [$applicant, , , $report] = ptrFiledReport('s3');
+    $evaluator = ptrScoresEvaluator('s3');
+
+    $report->load('documents.documentType');
+    $scoresId = $report->scoresDocument()->id;
+
+    $this->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => $d->id === $scoresId
+            ? ['id' => $d->id, 'status' => 'rejected', 'remarks' => 'Wrong totals.']
+            : ['id' => $d->id, 'status' => 'approved', 'remarks' => '']
+        )->values()->all()]
+    )->assertOk();
+
+    $participant = $report->participants()->firstOrFail();
+
+    $this->flushSession();
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => 'twelve', 'post_test_score' => '19/20']])]
+    )->assertSessionHasErrors('test_scores');
+
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => '012/20', 'post_test_score' => '19/20']])]
+    )->assertSessionHas('success');
+
+    expect($participant->refresh()->pre_test_score)->toBe('12/20');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Declined reports: 10 working days to comply, or voided
+|--------------------------------------------------------------------------
+*/
+
+/** Decline only the scores section of a filed report, as an evaluator. */
+function ptrDeclineScores(PostTrainingReport $report, User $evaluator): void
+{
+    $report->load('documents.documentType');
+    $scoresId = $report->scoresDocument()->id;
+
+    test()->flushSession();
+
+    test()->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => $d->id === $scoresId
+            ? ['id' => $d->id, 'status' => 'rejected', 'remarks' => 'Fix the totals.']
+            : ['id' => $d->id, 'status' => 'approved', 'remarks' => '']
+        )->values()->all()]
+    )->assertOk();
+}
+
+/** Resubmit the declined scores as the FATPro. */
+function ptrResubmitScores(User $applicant, PostTrainingReport $report): void
+{
+    $participant = $report->participants()->firstOrFail();
+
+    test()->flushSession();
+
+    test()->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => '12/20', 'post_test_score' => '19/20']])]
+    )->assertSessionHas('success');
+}
+
+test('a declined report must be resubmitted within 10 working days, and is told so', function () {
+    [, , , $report] = ptrFiledReport('v1');
+
+    ptrDeclineScores($report, ptrScoresEvaluator('v1'));
+
+    $report->refresh();
+
+    expect($report->status)->toBe('declined');
+    expect($report->declined_at)->not->toBeNull();
+    expect($report->correction_due_date->toDateString())
+        ->toBe(NtcReport::addWorkingDays(now()->startOfDay(), PostTrainingReport::CORRECTION_WORKING_DAYS)->toDateString());
+
+    Mail::assertQueued(\App\Mail\PostTrainingEvaluationEmail::class, fn ($mail) => $mail->declinedDocuments->isNotEmpty());
+
+    // The e-mail spells out the deadline and what missing it means.
+    $html = (new \App\Mail\PostTrainingEvaluationEmail($report, $report->documents->where('status', 'rejected')))->render();
+    expect($html)->toContain($report->correction_due_date->format('F d, Y'));
+    expect($html)->toContain('voided');
+});
+
+test('re-saving an evaluation does not push the deadline back', function () {
+    [, , , $report] = ptrFiledReport('v2');
+    $evaluator = ptrScoresEvaluator('v2');
+
+    ptrDeclineScores($report, $evaluator);
+    $due = $report->refresh()->correction_due_date->toDateString();
+
+    $this->travel(3)->days();
+    ptrDeclineScores($report->refresh(), $evaluator);
+
+    expect($report->refresh()->correction_due_date->toDateString())->toBe($due);
+});
+
+test('resubmitting clears the deadline, and the next decline starts a fresh one', function () {
+    [$applicant, , , $report] = ptrFiledReport('v3');
+    $evaluator = ptrScoresEvaluator('v3');
+
+    ptrDeclineScores($report, $evaluator);
+    $first = $report->refresh()->correction_due_date->toDateString();
+
+    ptrResubmitScores($applicant, $report->refresh());
+    expect($report->refresh()->status)->toBe('submitted');
+    expect($report->correction_due_date)->toBeNull();
+
+    $this->travel(5)->days();
+    ptrDeclineScores($report->refresh(), $evaluator);
+
+    $second = $report->refresh()->correction_due_date->toDateString();
+    expect($second)->not->toBe($first);
+    expect($second)->toBe(NtcReport::addWorkingDays(now()->startOfDay(), 10)->toDateString());
+});
+
+test('a declined report is voided the day after its deadline, and both sides are told', function () {
+    [, , , $report] = ptrFiledReport('v4');
+    $evaluator = ptrScoresEvaluator('v4');
+
+    ptrDeclineScores($report, $evaluator);
+    $due = $report->refresh()->correction_due_date;
+
+    // On the last day it is still open.
+    $this->travelTo($due->copy()->setTime(12, 0));
+    $this->artisan('post-training:void-lapsed')->assertSuccessful();
+    expect($report->refresh()->status)->toBe('declined');
+
+    // The day after, it is voided.
+    $this->travelTo($due->copy()->addDay()->setTime(1, 0));
+    $this->artisan('post-training:void-lapsed')->assertSuccessful();
+
+    $report->refresh();
+    expect($report->status)->toBe('voided');
+    expect($report->voided_at)->not->toBeNull();
+
+    Mail::assertQueued(\App\Mail\PostTrainingVoidedEmail::class, fn ($mail) => $mail->audience === 'fatpro'
+        && $mail->hasTo($report->accreditation->user->email));
+    Mail::assertQueued(\App\Mail\PostTrainingVoidedEmail::class, fn ($mail) => $mail->audience === 'evaluator'
+        && $mail->hasTo($evaluator->email));
+
+    expect($evaluator->notifications()->where('type', 'App\Notifications\PostTrainingReportVoidedNotification')->exists())->toBeTrue();
+});
+
+test('a report resubmitted in time is never voided', function () {
+    [$applicant, , , $report] = ptrFiledReport('v5');
+
+    ptrDeclineScores($report, ptrScoresEvaluator('v5'));
+    $due = $report->refresh()->correction_due_date;
+
+    ptrResubmitScores($applicant, $report->refresh());
+
+    $this->travelTo($due->copy()->addDays(5));
+    $this->artisan('post-training:void-lapsed')->assertSuccessful();
+
+    expect($report->refresh()->status)->toBe('submitted');
+    Mail::assertNotQueued(\App\Mail\PostTrainingVoidedEmail::class);
+});
+
+test('a voided report can no longer be corrected, evaluated or submitted', function () {
+    [$applicant, $ntc, , $report] = ptrFiledReport('v6');
+    $evaluator = ptrScoresEvaluator('v6');
+
+    ptrDeclineScores($report, $evaluator);
+    $this->travelTo($report->refresh()->correction_due_date->copy()->addDay());
+    $this->artisan('post-training:void-lapsed')->assertSuccessful();
+
+    $report->refresh()->load('documents.documentType', 'participants');
+    expect($report->isVoided())->toBeTrue();
+    expect($report->needsCorrections())->toBeFalse();
+    expect($ntc->refresh()->requiresPostTrainingReport())->toBeFalse();
+
+    // The FATPro cannot correct it…
+    $participant = $report->participants->first();
+    $this->flushSession();
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.corrections', $report->id),
+        ['test_scores' => json_encode([$participant->id => ['pre_test_score' => '12/20', 'post_test_score' => '19/20']])]
+    )->assertSessionHasErrors('error');
+
+    // …nor file a new report for the training.
+    $this->actingAs($applicant)->post(
+        route('applicant.post_training.store', $ntc->id),
+        ptrSubmissionFields($ntc)
+    )->assertSessionHasErrors('error');
+
+    // The portal says so.
+    $this->actingAs($applicant)->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->assertSee('Voided')
+        ->assertSee('can no longer be submitted');
+
+    // And the evaluator cannot evaluate it.
+    $this->flushSession();
+    $this->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => ['id' => $d->id, 'status' => 'approved'])->values()->all()]
+    )->assertStatus(422);
+
+    $this->actingAs($evaluator)->get(route('admin.hcd.reports.post_training.show', $report->id))
+        ->assertOk()
+        ->assertSee('Post Training Report Voided');
+});
+
+test('a Decline is only a draft until the evaluator sends it', function () {
+    [$applicant, , , $report] = ptrFiledReport('d1');
+    $evaluator = ptrScoresEvaluator('d1');
+
+    $report->load('documents.documentType');
+    $video = $report->videoDocument();
+
+    // The evaluator clicks Decline on the video link: saved as they work…
+    $this->actingAs($evaluator)
+        ->postJson(route('admin.hcd.reports.post_training.documents.evaluate', $video->id), [
+            'status' => 'rejected', 'remarks' => 'Link is private.',
+        ])->assertOk();
+
+    expect($video->refresh()->status)->toBe('rejected');
+
+    // …but after a refresh it is still theirs to change, not "sent".
+    $html = $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.post_training.show', $report->id))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('Declined (not sent yet)');
+    expect($html)->not->toContain('Awaiting a new link from the FATPro');
+    expect($html)->toContain("setNtcDocStatus({$video->id}, 'approved')");
+
+    // And the FATPro is told nothing yet.
+    $report->refresh()->load('documents.documentType', 'participants');
+    expect($report->hasVideoCorrections())->toBeFalse();
+    expect($report->needsCorrections())->toBeFalse();
+    expect($report->correction_due_date)->toBeNull();
+
+    $this->flushSession();
+    $this->actingAs($applicant)->get(route('applicant.ntc.index'))
+        ->assertOk()
+        ->assertDontSee('ptrReuploadModal-' . $report->id);
+
+    // Pressing Send makes it real: the FATPro now owes a new link.
+    $this->flushSession();
+    $this->actingAs($evaluator)->postJson(
+        route('admin.hcd.reports.post_training.finalize_evaluation', $report->id),
+        ['evaluations' => $report->documents->map(fn ($d) => $d->id === $video->id
+            ? ['id' => $d->id, 'status' => 'rejected', 'remarks' => 'Link is private.']
+            : ['id' => $d->id, 'status' => 'approved', 'remarks' => '']
+        )->values()->all()]
+    )->assertOk()->assertJson(['has_rejections' => true]);
+
+    $report->refresh()->load('documents.documentType', 'participants');
+    expect($report->hasVideoCorrections())->toBeTrue();
+    expect($report->correction_due_date)->not->toBeNull();
+
+    $this->actingAs($evaluator)
+        ->get(route('admin.hcd.reports.post_training.show', $report->id))
+        ->assertSee('Awaiting a new link from the FATPro');
 });

@@ -16,6 +16,9 @@
     $link = $postTrainingReport->training_video_url;
 
     $docStatus  = $doc->status ?? 'pending';
+    // A Decline only counts once it has been sent (report declined). Until
+    // then it is the evaluator's draft: still editable, unseen by the FATPro.
+    $sentBack   = $docStatus === 'rejected' && $postTrainingReport->isDeclined();
     $badgeClass = match($docStatus) {
         'approved' => 'ntc-badge-approved',
         'rejected' => 'ntc-badge-rejected',
@@ -24,7 +27,7 @@
     };
     $badgeLabel = match($docStatus) {
         'approved' => 'Accepted',
-        'rejected' => 'Declined — Awaiting New Link',
+        'rejected' => $sentBack ? 'Declined — Awaiting New Link' : 'Declined (not sent yet)',
         'returned' => 'Updated — Awaiting Review',
         default    => 'Pending',
     };
@@ -37,7 +40,7 @@
            id="ntc-status-input-{{ $doc->id }}"
            value="{{ $evalStatus }}"
            data-db-status="{{ $doc->status }}"
-           data-has-file="{{ $docStatus === 'rejected' ? 'false' : 'true' }}">
+           data-has-file="{{ $sentBack ? 'false' : 'true' }}">
 
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 w-100 mb-2">
         <div class="ntc-doc-name">
@@ -49,7 +52,7 @@
                     &bull; Evaluated by {{ $doc->evaluatedByUser->name }} on {{ $doc->evaluated_at?->format('M d, Y') }}
                 @endif
             </div>
-            @if($docStatus === 'rejected' && $doc->remarks)
+            @if($sentBack && $doc->remarks)
             <div class="ntc-doc-remark-box">
                 <i class="bi bi-chat-left-text me-1"></i>
                 <strong>Remarks:</strong> {{ $doc->remarks }}
@@ -78,7 +81,7 @@
         </div>
     @endif
 
-    @if(!$isAccepted && $docStatus !== 'rejected')
+    @if(!$isAccepted && !$sentBack)
     <div class="doc-eval-actions mt-2" id="ntc-eval-actions-{{ $doc->id }}">
         <button type="button"
                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -110,7 +113,7 @@
                   id="ntc-remarks-{{ $doc->id }}"
                   placeholder="Explain why this link was declined — unreachable, wrong training, private…"
                   rows="2"
-                  {{ $docStatus === 'rejected' ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
+                  {{ $sentBack ? 'readonly' : '' }}>{{ $doc->remarks }}</textarea>
     </div>
     @endif
 </div>

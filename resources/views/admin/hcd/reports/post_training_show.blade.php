@@ -23,6 +23,9 @@ $totalDocs     = $allDocuments->count();
 $approvedDocs  = $allDocuments->where('status', 'approved')->count();
 
 $isAccepted = $postTrainingReport->isAccepted();
+$isVoided   = $postTrainingReport->isVoided();
+// Accepted or voided: either way nothing is left to evaluate.
+$evaluationClosed = $isAccepted || $isVoided;
 $isLate     = $postTrainingReport->wasSubmittedLate();
 @endphp
 
@@ -62,14 +65,23 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
         <small style="color:#1d4ed8;">Related NTC: {{ $ntc->reference_number ?? '—' }}</small>
     </div>
     <div class="d-flex flex-column align-items-end gap-1">
-        @if($isAccepted)
+        @if($isVoided)
+        <span class="badge fs-6 px-3 py-2 bg-dark">
+            <i class="bi bi-slash-circle-fill me-1"></i> Voided
+        </span>
+        @elseif($isAccepted)
         <span class="badge fs-6 px-3 py-2 bg-success">
             <i class="bi bi-check-circle-fill me-1"></i> Accepted
         </span>
-        @elseif($allDocuments->contains(fn($d) => $d->status === 'rejected' && !$d->file_path))
+        @elseif($postTrainingReport->isDeclined())
         <span class="badge fs-6 px-3 py-2 bg-danger">
-            <i class="bi bi-x-circle-fill me-1"></i> Documents Declined
+            <i class="bi bi-x-circle-fill me-1"></i> Declined
         </span>
+        @if($postTrainingReport->correction_due_date)
+        <small style="color:#991b1b; font-size:.78rem;">
+            FATPro must resubmit by {{ $postTrainingReport->correction_due_date->format('M d, Y') }}
+        </small>
+        @endif
         @else
         <span class="badge fs-6 px-3 py-2 bg-warning text-dark">
             <i class="bi bi-hourglass-split me-1"></i> Under Review
@@ -391,19 +403,19 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                 @else
                 @foreach($allDocuments as $doc)
                 @if($doc->documentType?->isEncoded())
-                    @include('admin.hcd.reports.partials.post_training_directory_review', ['doc' => $doc])
+                    @include('admin.hcd.reports.partials.post_training_directory_review', ['doc' => $doc, 'isAccepted' => $evaluationClosed])
                     @continue
                 @endif
                 @if($doc->documentType?->isRoster())
-                    @include('admin.hcd.reports.partials.post_training_instructors_review', ['doc' => $doc])
+                    @include('admin.hcd.reports.partials.post_training_instructors_review', ['doc' => $doc, 'isAccepted' => $evaluationClosed])
                     @continue
                 @endif
                 @if($doc->documentType?->isScores())
-                    @include('admin.hcd.reports.partials.post_training_scores_review', ['doc' => $doc])
+                    @include('admin.hcd.reports.partials.post_training_scores_review', ['doc' => $doc, 'isAccepted' => $evaluationClosed])
                     @continue
                 @endif
                 @if($doc->documentType?->isLink())
-                    @include('admin.hcd.reports.partials.post_training_video_review', ['doc' => $doc])
+                    @include('admin.hcd.reports.partials.post_training_video_review', ['doc' => $doc, 'isAccepted' => $evaluationClosed])
                     @continue
                 @endif
                 @php
@@ -471,7 +483,7 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                     </div>
                     @endif
 
-                    @if(!$isAccepted && $doc->file_path)
+                    @if(!$evaluationClosed && $doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <button type="button"
                                 class="btn-eval btn-approve {{ $evalStatus === 'approved' ? 'active' : '' }}"
@@ -486,13 +498,13 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                             <i class="bi bi-x-circle-fill"></i> Decline
                         </button>
                     </div>
-                    @elseif(!$isAccepted && !$doc->file_path)
+                    @elseif(!$evaluationClosed && !$doc->file_path)
                     <div class="doc-eval-actions" id="ntc-eval-actions-{{ $doc->id }}">
                         <span class="badge bg-secondary" style="font-size:.75rem;">Awaiting re-upload from FATPro</span>
                     </div>
                     @endif
 
-                    @if(!$isAccepted)
+                    @if(!$evaluationClosed)
                     <div class="reject-panel w-100" id="ntc-reject-panel-{{ $doc->id }}"
                          style="{{ $evalStatus === 'rejected' ? '' : 'display:none;' }}">
                         <label class="reject-remarks-label">
@@ -514,7 +526,7 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
     </div>
 </div>
 
-@if(!$isAccepted)
+@if(!$evaluationClosed)
 <div class="mt-4 mb-4 text-center">
     <div class="ntc-eval-saving-indicator mb-2 text-center" style="display: none;">
         <div class="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-light border text-primary small fw-semibold shadow-sm">
@@ -589,6 +601,26 @@ $isLate     = $postTrainingReport->wasSubmittedLate();
                     <i class="bi bi-send-fill me-2"></i>Confirm &amp; Send Email
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ── Voided Notice ── --}}
+@if($isVoided)
+<div class="ai-card mb-4" style="background:linear-gradient(135deg,#f4f4f5,#e4e4e7);border:1px solid #d4d4d8;">
+    <div class="d-flex align-items-center gap-3 p-1">
+        <div style="width:44px;height:44px;background:#3f3f46;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="bi bi-slash-circle text-white fs-5"></i>
+        </div>
+        <div>
+            <h6 class="mb-0 fw-bold" style="color:#27272a;">Post Training Report Voided</h6>
+            <small style="color:#3f3f46;">
+                Declined on {{ $postTrainingReport->declined_at?->format('M d, Y') ?? '—' }} and not resubmitted by
+                {{ $postTrainingReport->correction_due_date?->format('M d, Y') ?? 'the deadline' }}
+                ({{ \App\Models\PostTrainingReport::CORRECTION_WORKING_DAYS }} working days). Voided automatically on
+                {{ $postTrainingReport->voided_at?->format('M d, Y h:i A') ?? '—' }}; it can no longer be evaluated or resubmitted.
+            </small>
         </div>
     </div>
 </div>

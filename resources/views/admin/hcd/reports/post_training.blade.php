@@ -82,10 +82,16 @@
                                             {{ $report->due_date ? $report->due_date->format('M d, Y') : '—' }}
                                         </td>
                                         <td class="text-center">
-                                            @if($report->isAccepted())
+                                            @if($report->isVoided())
+                                                <span class="badge bg-dark" style="font-size:0.75rem;">Voided</span>
+                                                <div style="font-size:0.7rem; color:#999;">{{ $report->voided_at?->format('M d, Y') }}</div>
+                                            @elseif($report->isAccepted())
                                                 <span class="badge bg-success" style="font-size:0.75rem;">Accepted</span>
-                                            @elseif($report->documents->contains(fn($d) => $d->status === 'rejected' && !$d->file_path))
-                                                <span class="badge bg-danger" style="font-size:0.75rem;">Documents Declined</span>
+                                            @elseif($report->isDeclined())
+                                                <span class="badge bg-danger" style="font-size:0.75rem;">Declined</span>
+                                                @if($report->correction_due_date)
+                                                    <div style="font-size:0.7rem; color:#999;">Resubmit by {{ $report->correction_due_date->format('M d, Y') }}</div>
+                                                @endif
                                             @elseif($report->documents->contains('status', 'returned'))
                                                 <span class="badge bg-warning text-dark" style="font-size:0.75rem;">Under Review (Re-uploaded)</span>
                                             @else

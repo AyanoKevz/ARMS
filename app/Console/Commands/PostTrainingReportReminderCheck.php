@@ -58,6 +58,8 @@ class PostTrainingReportReminderCheck extends Command
                       fn ($q2) => $q2->where('status', 'rejected')
                   );
             })
+            // A voided report can no longer be filed; it has its own notice.
+            ->whereDoesntHave('postTrainingReport', fn ($q) => $q->where('status', 'voided'))
             ->with(['trainingType', 'trainingMode', 'accreditation.user', 'postTrainingReport']);
     }
 

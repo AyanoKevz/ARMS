@@ -17,6 +17,8 @@ use App\Http\Controllers\Applicant\PostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\NtcController as AdminNtcController;
 use App\Http\Controllers\Admin\HCD\PostTrainingReportController as AdminPostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\HCD\FirstAiderCertificateController as AdminFirstAiderCertificateController;
+use App\Http\Controllers\Applicant\FirstAiderCertificateController as ApplicantFirstAiderCertificateController;
 
 // LANDING PAGE 
 Route::get('/', function () {
@@ -112,6 +114,9 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         Route::delete('/instructors/{instructor}', [ApplicantInstructorController::class, 'destroy'])->name('instructors.destroy')->middleware('throttle:5,1');
         Route::post('/instructors/{instructor}/update-name', [ApplicantInstructorController::class, 'updateName'])->name('instructors.update_name');
         Route::post('/instructors/{instructor}/batch-update', [ApplicantInstructorController::class, 'batchUpdate'])->name('instructors.batch_update')->middleware('throttle:5,1');
+
+        // First-aider certificate renewal during an active accreditation.
+        Route::post('/first-aider-certificate', [ApplicantFirstAiderCertificateController::class, 'store'])->name('first_aider_certificate.store')->middleware('throttle:5,1');
         // Note: instructor update requests are now admin-initiated only
 
         // Renewal / Reinstatement
@@ -190,6 +195,11 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             Route::post('/instructors/{instructor}/request-update', [HCDApplicationController::class, 'requestInstructorUpdate'])->name('instructors.request_update');
             Route::post('/instructors/{instructor}/complete-update', [HCDApplicationController::class, 'completeInstructorUpdate'])->name('instructors.complete_update');
             Route::post('/instructors/{instructor}/reject-update', [HCDApplicationController::class, 'rejectInstructorUpdate'])->name('instructors.reject_update');
+
+            // First-aider certificate renewals, reviewed from the application page.
+            Route::get('/first-aider-certificates/{submission}/view', [AdminFirstAiderCertificateController::class, 'view'])->name('first_aider_certificates.view');
+            Route::post('/first-aider-certificates/{submission}/approve', [AdminFirstAiderCertificateController::class, 'approve'])->name('first_aider_certificates.approve');
+            Route::post('/first-aider-certificates/{submission}/reject', [AdminFirstAiderCertificateController::class, 'reject'])->name('first_aider_certificates.reject');
 
             // Payment and Recommendation
             Route::get('/applications/awaiting-payment', [HCDApplicationController::class, 'awaitingPaymentList'])->name('applications.awaiting_payment');

@@ -318,7 +318,10 @@
             color: #888;
         }
 
-        /* ── Per-email overrides injected via @section('css') ── */
+        /* ── Per-email overrides, from each email's "css" section ──
+           (Not written with the at-sign directive here: Blade compiles
+           directives even inside a CSS comment, and an unclosed section
+           left an output buffer open on every email rendered.) */
         @yield('css')
     </style>
 </head>

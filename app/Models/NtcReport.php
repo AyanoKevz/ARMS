@@ -730,7 +730,9 @@ class NtcReport extends Model
 
         $report = $this->postTrainingReport;
 
-        return !$report || !$report->isAccepted();
+        // A voided report is final: it can no longer be filed, so it is not
+        // owed either, and nobody should be reminded about it.
+        return !$report || !$report->isClosed();
     }
 
     /**

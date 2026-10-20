@@ -133,6 +133,11 @@ $instructors = $instructors ?? \App\Models\Instructor::accreditedRosterFor(auth(
     </div>
     @endif
 
+    {{-- ── First-aider certificate: renew it during the accreditation ──── --}}
+    @if($myAccreditation && $myAccreditation->status === 'active' && $myAccreditation->hasFirstAiderCertificate())
+        @include('applicant.partials.first_aider_certificate_card', ['accreditation' => $myAccreditation])
+    @endif
+
     <div class="row">
 
         {{-- Accreditation Summary --}}

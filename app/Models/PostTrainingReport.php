@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class PostTrainingReport extends Model
 {
+    /**
+     * Working days a FATPro has to resubmit a declined report. Missing it voids
+     * the report (post-training:void-lapsed), after which it cannot be filed.
+     */
+    public const CORRECTION_WORKING_DAYS = 10;
+
     protected $fillable = [
         'ntc_report_id',
         'accreditation_id',
@@ -17,12 +23,18 @@ class PostTrainingReport extends Model
         'accepted_at',
         'accepted_by',
         'remarks',
+        'declined_at',
+        'correction_due_date',
+        'voided_at',
     ];
 
     protected $casts = [
         'due_date'     => 'date',
         'submitted_at' => 'datetime',
         'accepted_at'  => 'datetime',
+        'declined_at'         => 'datetime',
+        'correction_due_date' => 'date',
+        'voided_at'           => 'datetime',
     ];
 
     // ── Relationships ─────────────────────────────────────────────────────────
@@ -88,11 +100,77 @@ class PostTrainingReport extends Model
         return $this->status === 'accepted';
     }
 
+    /** Sent back to the FATPro and not yet corrected. */
+    public function isDeclined(): bool
+    {
+        return $this->status === 'declined';
+    }
+
+    /**
+     * Not corrected within CORRECTION_WORKING_DAYS of being declined. Final:
+     * nothing more can be submitted against it, and nothing is evaluated.
+     */
+    public function isVoided(): bool
+    {
+        return $this->status === 'voided';
+    }
+
+    /** Accepted or voided — either way there is nothing left to do on it. */
+    public function isClosed(): bool
+    {
+        return $this->isAccepted() || $this->isVoided();
+    }
+
+    /**
+     * Send the report back to the FATPro, starting their correction window.
+     *
+     * Only a report not already waiting on corrections gets a new window: an
+     * evaluator re-saving the evaluation while the FATPro is still on the
+     * clock must not push their deadline back. Once they resubmit, the next
+     * decline starts a fresh one.
+     */
+    public function markDeclined(): void
+    {
+        if ($this->isDeclined() && $this->correction_due_date) {
+            return;
+        }
+
+        $this->update([
+            'status'              => 'declined',
+            'declined_at'         => now(),
+            'correction_due_date' => NtcReport::addWorkingDays(\Carbon\Carbon::today(), self::CORRECTION_WORKING_DAYS),
+        ]);
+    }
+
+    /**
+     * Working days left to resubmit, counting today if it is a weekday and
+     * the deadline itself. 0 on the last day; negative once it has passed.
+     */
+    public function correctionWorkingDaysLeft(): ?int
+    {
+        if (!$this->correction_due_date) {
+            return null;
+        }
+
+        $today = \Carbon\Carbon::today();
+        $due   = $this->correction_due_date->copy()->startOfDay();
+        $days  = (int) abs($today->diffInWeekdays($due));
+
+        return $today->greaterThan($due) ? -$days : $days;
+    }
+
     /**
      * Documents the FATPro still has to re-upload: declined and the file wiped.
      */
     public function declinedDocuments()
     {
+        // Every "owes a correction" check below waits for the decline to be
+        // SENT (status declined). An evaluator's Decline click is saved as they
+        // work, but until they press Send it is their draft, not the FATPro's.
+        if (!$this->isDeclined()) {
+            return collect();
+        }
+
         return $this->documents->filter(
             fn ($d) => $d->status === 'rejected' && !$d->file_path && $d->documentType?->isFile()
         );
@@ -143,7 +221,7 @@ class PostTrainingReport extends Model
      */
     public function hasScoreCorrections(): bool
     {
-        return $this->scoresDocument()?->status === 'rejected';
+        return $this->isDeclined() && $this->scoresDocument()?->status === 'rejected';
     }
 
     /**
@@ -151,7 +229,7 @@ class PostTrainingReport extends Model
      */
     public function hasVideoCorrections(): bool
     {
-        return $this->videoDocument()?->status === 'rejected';
+        return $this->isDeclined() && $this->videoDocument()?->status === 'rejected';
     }
 
     /**
@@ -168,7 +246,7 @@ class PostTrainingReport extends Model
      */
     public function hasDirectoryCorrections(): bool
     {
-        return $this->rejectedParticipants()->isNotEmpty();
+        return $this->isDeclined() && $this->rejectedParticipants()->isNotEmpty();
     }
 
     /**
@@ -179,7 +257,7 @@ class PostTrainingReport extends Model
      */
     public function hasInstructorCorrections(): bool
     {
-        return $this->instructorsDocument()?->status === 'rejected';
+        return $this->isDeclined() && $this->instructorsDocument()?->status === 'rejected';
     }
 
     /**
@@ -193,6 +271,11 @@ class PostTrainingReport extends Model
      */
     public function needsCorrections(): bool
     {
+        // A voided report is past correcting: nothing more can be filed.
+        if ($this->isVoided()) {
+            return false;
+        }
+
         return $this->declinedDocuments()->isNotEmpty()
             || $this->hasDirectoryCorrections()
             || $this->hasInstructorCorrections()
@@ -208,6 +291,10 @@ class PostTrainingReport extends Model
      */
     public function declinedSectionCount(): int
     {
+        if ($this->isVoided()) {
+            return 0;
+        }
+
         return $this->declinedDocuments()->count()
             + ($this->hasDirectoryCorrections() ? 1 : 0)
             + ($this->hasInstructorCorrections() ? 1 : 0)

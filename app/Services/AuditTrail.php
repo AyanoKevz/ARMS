@@ -70,6 +70,10 @@ class AuditTrail
         'admin.hcd.instructors.complete_update' => ['instructor.update_completed', 'Approved an instructor update'],
         'admin.hcd.instructors.reject_update'   => ['instructor.update_rejected',  'Rejected an instructor update'],
 
+        // ── First-aider certificate renewals ─────────────────────────────────
+        'admin.hcd.first_aider_certificates.approve' => ['fa_cert.approved', 'Approved a first-aider certificate renewal'],
+        'admin.hcd.first_aider_certificates.reject'  => ['fa_cert.rejected', 'Rejected a first-aider certificate renewal'],
+
         // ── Training reports ─────────────────────────────────────────────────
         'admin.hcd.reports.ntc.documents.evaluate'                => ['ntc.document_evaluated',  'Evaluated an NTC document'],
         'admin.hcd.reports.ntc.finalize_evaluation'               => ['ntc.evaluation_saved',    'Saved the NTC evaluation'],
@@ -106,6 +110,7 @@ class AuditTrail
             'application.deleted',
             'accreditation.revoked', 'accreditation.archived', 'accreditation.unarchived',
             'instructor.update_requested', 'instructor.update_completed', 'instructor.update_rejected',
+            'fa_cert.approved', 'fa_cert.rejected',
         ],
         'Training Evaluator' => [
             'ntc.document_evaluated', 'ntc.evaluation_saved', 'ntc.details_corrected',
@@ -294,6 +299,12 @@ class AuditTrail
                 $subject instanceof Accreditation => [
                     $subject->accreditation_number,
                     $subject->application_id ? route('admin.hcd.applications.show', $subject->application_id) : null,
+                ],
+                $subject instanceof \App\Models\FirstAiderCertificateSubmission => [
+                    trim(($subject->accreditation?->accreditation_number ?? 'Accreditation') . ' — First-Aider Certificate'),
+                    $subject->accreditation?->application_id
+                        ? route('admin.hcd.applications.show', $subject->accreditation->application_id)
+                        : null,
                 ],
                 $subject instanceof Instructor => [
                     'Instructor ' . $subject->fullName(),

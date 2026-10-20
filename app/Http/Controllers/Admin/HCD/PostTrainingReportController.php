@@ -97,6 +97,13 @@ class PostTrainingReportController extends Controller
     {
         $this->requireTrainingEvaluatorAccess();
 
+        if ($document->postTrainingReport?->isVoided()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This Post Training Report was voided and can no longer be evaluated.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'status'  => ['required', 'in:approved,rejected,pending'],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -186,6 +193,15 @@ class PostTrainingReportController extends Controller
     {
         $this->requireTrainingEvaluatorAccess();
 
+        // Voided is final: the FATPro missed the correction deadline and can no
+        // longer file anything against this report.
+        if ($postTrainingReport->isVoided()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This Post Training Report was voided and can no longer be evaluated.',
+            ], 422);
+        }
+
         $request->validate([
             'evaluations'           => ['required', 'array'],
             'evaluations.*.id'      => ['required', 'exists:ptr_documents,id'],
@@ -243,6 +259,8 @@ class PostTrainingReportController extends Controller
                 'status'      => 'accepted',
                 'accepted_at' => now(),
                 'accepted_by' => $admin->id,
+                // Nothing is owed any more.
+                'correction_due_date' => null,
             ]);
 
             try {
@@ -256,7 +274,9 @@ class PostTrainingReportController extends Controller
         }
 
         if ($hasRejections) {
-            $postTrainingReport->update(['status' => 'declined']);
+            // Starts the FATPro's 10-working-day window to resubmit — unless
+            // one is already running, which a re-save must not extend.
+            $postTrainingReport->markDeclined();
 
             try {
                 $declinedDocs = $postTrainingReport->documents->where('status', 'rejected');

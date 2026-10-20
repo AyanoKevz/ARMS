@@ -37,7 +37,7 @@ class AdminUserSeeder extends Seeder
 
         // Create Admin 1: Evaluator
         $evaluator = $this->seedAdmin(
-            ['email' => 'data@oshc.dole.gov.ph'],
+            ['email' => 'reynold.staana@oshc.dole.gov.ph'],
             [
                 'role_id'           => $adminRole->id,
                 'profile_type'      => 'Individual',
@@ -142,28 +142,6 @@ class AdminUserSeeder extends Seeder
                 'last_name'     => 'Training Evaluator',
                 'position'      => 'LSO III',
                 'admin_role_id' => $trainingEvaluatorRole ? $trainingEvaluatorRole->id : null,
-            ]
-        );
-
-        // Create Admin 6: Evaluator (Queenie 2)
-        $evaluator2 = $this->seedAdmin(
-            ['email' => 'queenief102702@gmail.com'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        AdminProfile::updateOrCreate(
-            ['user_id' => $evaluator2->id],
-            [
-                'division_id'   => $hcdDivision->id,
-                'first_name'    => 'Queenie',
-                'last_name'     => 'Evaluator',
-                'position'      => 'LSO III',
-                'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
             ]
         );
     }

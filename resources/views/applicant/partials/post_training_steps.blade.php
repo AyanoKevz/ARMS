@@ -93,7 +93,7 @@
                         else conducted the training, or simply continue.
                     @elseif($docType->isScores())
                         Participants appear here from the Directory of Participants once their
-                        required columns are complete. Enter each one's pre-test and post-test score.
+                        required columns are complete. Enter each one's pre-test and post-test score as the score over the total, e.g. <strong>7/10</strong>.
                     @elseif($docType->isLink())
                         Upload the recording wherever you keep it, then paste the link here.
                         <strong>Note:</strong> record only the Knowledge and Skills Assessment,

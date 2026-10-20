@@ -182,6 +182,10 @@ $pctStatus = $activePct ? $activePct->stepStatus() : '';
         </small>
     </div>
 </div>
+{{-- First-aider certificate renewals during the accreditation (FATPro only). --}}
+@if(!$isTrainingEvaluator && $application->accreditation->hasFirstAiderCertificate())
+    @include('admin.hcd.partials.first_aider_certificate_review', ['accreditation' => $application->accreditation])
+@endif
 @elseif($isAccredited && $application->accreditation->status === 'revoked')
 <div class="ai-card d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fecaca;">
     <div>

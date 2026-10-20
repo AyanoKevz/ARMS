@@ -51,7 +51,18 @@ return new class extends Migration
             // Denormalised from the NTC so admin listings can scope by FATPro cheaply
 
             $table->string('status', 50)->default('submitted');
-            // Lifecycle: submitted → accepted. Declines are tracked per document.
+            // Lifecycle: submitted → accepted, or submitted → declined → (corrected)
+            // submitted → … ; a declined report not corrected within 10 working
+            // days becomes voided and can no longer be submitted. Which sections
+            // were declined is tracked per document.
+
+            $table->timestamp('declined_at')->nullable();
+            // When it last went back to the FATPro
+            $table->date('correction_due_date')->nullable();
+            // Last day to resubmit: 10 working days after declined_at. Cleared
+            // once corrections are in; a fresh one is set on the next decline.
+            $table->timestamp('voided_at')->nullable();
+            // When the daily check voided it for missing that deadline
 
             $table->date('due_date')->nullable();
             // Snapshot of the submission deadline at the time of submission
@@ -83,6 +94,9 @@ return new class extends Migration
 
             // The admin list orders every report by created_at.
             $table->index(['status', 'created_at'], 'ptr_reports_status_created_idx');
+
+            // The daily void check: declined reports past their deadline.
+            $table->index(['status', 'correction_due_date'], 'ptr_reports_status_due_idx');
         });
 
         // ── File Attachments: Post Training Report Documents ──────────────────

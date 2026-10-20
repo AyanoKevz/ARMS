@@ -101,7 +101,9 @@
 
     <div class="ptr-status-block">
         <div>
-            @if($ptr->isAccepted())
+            @if($ptr->isVoided())
+                <span class="badge-ptr-secondary">Voided</span>
+            @elseif($ptr->isAccepted())
                 <span class="badge-ptr-success">Accepted</span>
             @elseif($toCorrect > 0)
                 <span class="badge-ptr-danger">Requires Re-submission</span>
@@ -120,7 +122,31 @@
         </div>
     </div>
 
-    @if($toCorrect > 0)
+    @if($ptr->isVoided())
+        {{-- Final: missed the correction window, nothing more can be filed. --}}
+        <div class="ptr-muted-line">
+            <i class="fas fa-ban text-muted me-1"></i>
+            Not resubmitted within {{ \App\Models\PostTrainingReport::CORRECTION_WORKING_DAYS }} working days
+            of being declined. It can no longer be submitted.
+        </div>
+    @elseif($toCorrect > 0)
+        @if($ptr->correction_due_date)
+            @php $workDaysLeft = $ptr->correctionWorkingDaysLeft(); @endphp
+            <div class="mb-1">
+                <span class="ptr-deadline-pill {{ $workDaysLeft !== null && $workDaysLeft <= 2 ? 'ptr-deadline-over' : 'ptr-deadline-soon' }}">
+                    <i class="fas fa-exclamation-circle"></i>
+                    @if($workDaysLeft === 0)
+                        Resubmit today
+                    @else
+                        {{ $workDaysLeft }} working {{ Str::plural('day', $workDaysLeft) }} left to resubmit
+                    @endif
+                </span>
+            </div>
+            <div class="ptr-muted-line mb-2">
+                Resubmit by <strong>{{ $ptr->correction_due_date->format('F d, Y') }}</strong>
+                or the report is voided.
+            </div>
+        @endif
         <button type="button"
                 class="btn btn-danger btn-sm fw-bold w-100 d-inline-flex align-items-center justify-content-center gap-1 ptr-btn-reupload"
                 data-bs-toggle="modal"

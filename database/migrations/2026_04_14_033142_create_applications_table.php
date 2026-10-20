@@ -126,9 +126,55 @@ return new class extends Migration
             $table->timestamp('reminder_2mo_sent_at')->nullable();
             $table->timestamp('reminder_1mo_sent_at')->nullable();
 
+            // First-aider certificate (document field PREM_07, validity in
+            // PREM_DATE) reminders: 3/2/1 months before its validity date and
+            // once after it passes. Reset when a renewed certificate is approved.
+            $table->timestamp('fa_cert_reminder_3mo_sent_at')->nullable();
+            $table->timestamp('fa_cert_reminder_2mo_sent_at')->nullable();
+            $table->timestamp('fa_cert_reminder_1mo_sent_at')->nullable();
+            $table->timestamp('fa_cert_expired_notified_at')->nullable();
+
             $table->timestamps();
         });
 
+        // ── First-aider certificate renewals during an accreditation ──────────
+        // The FATPro re-uploads the certificate with a new validity date; the
+        // assigned evaluator approves or rejects it. The approved certificate
+        // in user_documents stays in force until a submission is approved, so
+        // a rejected upload never wipes out a valid one.
+        Schema::create('first_aider_certificate_submissions', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('accreditation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // The FATPro who submitted it
+
+            $table->string('file_path')->nullable();
+            // Null once a rejected upload's file has been removed
+            $table->string('original_filename');
+            $table->date('validity_date');
+
+            $table->string('status', 20)->default('pending');
+            // pending → approved | rejected
+            $table->text('remarks')->nullable();
+            // Why the evaluator rejected it
+
+            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('reviewed_at')->nullable();
+
+            $table->timestamps();
+
+            // "The pending renewal for this accreditation" and its history.
+            $table->index(['accreditation_id', 'status'], 'fa_cert_subs_acc_status_idx');
+        });
+
+        // PostgreSQL does not index foreign keys on its own (MySQL does).
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('first_aider_certificate_submissions', function (Blueprint $table) {
+                $table->index('user_id', 'idx_fk_first_aider_certificate_submissions_user_id');
+                $table->index('reviewed_by', 'idx_fk_first_aider_certificate_submissions_reviewed_by');
+            });
+        }
     }
 
     /**
@@ -136,6 +182,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('first_aider_certificate_submissions');
         Schema::dropIfExists('accreditations');
         Schema::dropIfExists('pending_registrations');
         Schema::dropIfExists('application_status_logs');

@@ -38,7 +38,7 @@ class TestApplicationSeeder extends Seeder
         // Applications need an in-charge or the notifications addressed to
         // $application->assignedEvaluator — instructor updates, document
         // re-uploads — are logged as skipped and never sent.
-        $evaluatorId = User::where('email', 'data@oshc.dole.gov.ph')->value('id');
+        $evaluatorId = User::where('email', 'reynold.staana@oshc.dole.gov.ph')->value('id');
 
         // We will create 2 test registrations
         for ($i = 1; $i <= 2; $i++) {

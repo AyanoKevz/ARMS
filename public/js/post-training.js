@@ -999,7 +999,9 @@
                 // until its region has chosen the list it comes from.
                 if (el.hasAttribute('data-ph-region') || el.hasAttribute('data-ph-city')) return;
 
-                if (entry[name] !== undefined) el.value = entry[name];
+                // Laravel stores an empty field as null, so a blank cell comes
+                // back as null: leave the cell as the template made it.
+                if (entry[name] !== undefined && entry[name] !== null) el.value = entry[name];
             });
 
             if (window.PhFields) {
@@ -1018,7 +1020,8 @@
             }
 
             Object.keys(SCORE_ATTRS).forEach(function (key) {
-                if (entry[key] !== undefined) setScore(row, key, String(entry[key]));
+                // null is a blank score saved in a draft — never the text "null".
+                if (entry[key] !== undefined && entry[key] !== null) setScore(row, key, String(entry[key]));
             });
 
             // A saved training that is no longer offered simply clears.
@@ -1063,6 +1066,77 @@
 (function () {
     'use strict';
 
+    /**
+     * Scores are written as the score over the total — "7/10" — whole numbers
+     * only, the score no more than the total. The same rule as
+     * PtrParticipant::normalizeScore() on the server. Shared with the
+     * corrections dialog through window.ptrScoreFormat.
+     */
+    var SCORE_FORMAT = 'Scores are written as the score over the total, e.g. 7/10 — whole numbers only, and the score cannot be more than the total.';
+
+    /** "7/10" for a valid score (spaces and leading zeros dropped), else null. */
+    function normalizeScore(value) {
+        var m = /^\s*(\d{1,4})\s*\/\s*(\d{1,4})\s*$/.exec(String(value || ''));
+        if (!m) return null;
+
+        var score = parseInt(m[1], 10);
+        var total = parseInt(m[2], 10);
+
+        if (total < 1 || score > total) return null;
+
+        return score + '/' + total;
+    }
+
+    /**
+     * Keep only what a score can contain while it is typed: digits and one
+     * slash, at most four digits either side.
+     */
+    function sanitizeScoreInput(input) {
+        var raw = input.value;
+        var parts = raw.replace(/[^\d\/]/g, '').split('/');
+        var clean = parts[0].slice(0, 4);
+
+        if (parts.length > 1) {
+            clean += '/' + parts.slice(1).join('').slice(0, 4);
+        }
+
+        if (clean !== raw) input.value = clean;
+    }
+
+    /** Wire one score box: filter keystrokes, tidy and flag it on leaving. */
+    function wireScoreInput(input, onChange) {
+        input.setAttribute('placeholder', 'e.g. 7/10');
+        input.setAttribute('inputmode', 'numeric');
+        input.setAttribute('title', SCORE_FORMAT);
+        input.maxLength = 9;
+
+        input.addEventListener('input', function () {
+            sanitizeScoreInput(input);
+            input.classList.remove('is-invalid-cell');
+            if (onChange) onChange(input.value);
+        });
+
+        input.addEventListener('blur', function () {
+            var value = input.value.trim();
+            if (value === '') return;
+
+            var normalized = normalizeScore(value);
+
+            if (normalized === null) {
+                input.classList.add('is-invalid-cell');
+            } else if (normalized !== value) {
+                input.value = normalized;
+                if (onChange) onChange(normalized);
+            }
+        });
+    }
+
+    window.ptrScoreFormat = {
+        message: SCORE_FORMAT,
+        normalize: normalizeScore,
+        wire: wireScoreInput
+    };
+
     var body, emptyMsg, pendingMsg, pendingCount, pendingNoun, errorMsg;
 
     function dir() { return window.ptrDirectory; }
@@ -1077,24 +1151,23 @@
         return d ? d.rows().length - listed().length : 0;
     }
 
+    /** Both scores present and written as score/total. */
     function scored(row) {
         var d = dir();
-        return d.getScore(row, 'pre_test_score').trim() !== ''
-            && d.getScore(row, 'post_test_score').trim() !== '';
+        return normalizeScore(d.getScore(row, 'pre_test_score')) !== null
+            && normalizeScore(d.getScore(row, 'post_test_score')) !== null;
     }
 
     function scoreInput(row, key, label) {
         var input = document.createElement('input');
         input.type = 'text';
         input.className = 'ptr-dir-input';
-        input.maxLength = 100;
         input.value = dir().getScore(row, key);
         input.setAttribute('aria-label', label);
         input.setAttribute('data-score', key);
 
-        input.addEventListener('input', function () {
-            dir().setScore(row, key, input.value);
-            input.classList.remove('is-invalid-cell');
+        wireScoreInput(input, function (value) {
+            dir().setScore(row, key, value);
         });
 
         return input;
@@ -1154,17 +1227,23 @@
         var ok = rows.length > 0 && waiting === 0 && missing.length === 0;
 
         if (!silent) {
-            if (errorMsg) {
-                errorMsg.textContent = rows.length === 0 || waiting > 0
-                    ? 'Complete every required (*) column of the Directory of Participants first — each participant needs a score here.'
-                    : 'Enter both the pre-test and the post-test score for every participant.';
-                errorMsg.classList.toggle('d-none', ok);
-            }
+            var blank = false;
 
             if (body) {
                 body.querySelectorAll('input[data-score]').forEach(function (input) {
-                    input.classList.toggle('is-invalid-cell', input.value.trim() === '');
+                    var value = input.value.trim();
+                    if (value === '') blank = true;
+                    input.classList.toggle('is-invalid-cell', normalizeScore(value) === null);
                 });
+            }
+
+            if (errorMsg) {
+                errorMsg.textContent = rows.length === 0 || waiting > 0
+                    ? 'Complete every required (*) column of the Directory of Participants first — each participant needs a score here.'
+                    : (blank
+                        ? 'Enter both the pre-test and the post-test score for every participant.'
+                        : 'Check the highlighted scores. ' + SCORE_FORMAT);
+                errorMsg.classList.toggle('d-none', ok);
             }
         }
 

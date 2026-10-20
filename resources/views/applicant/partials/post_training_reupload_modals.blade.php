@@ -153,7 +153,8 @@
                         <div class="ptr-upload-group-title">Pre- and Post-Test Summary Evaluation</div>
                         <div class="ptr-upload-group-hint">
                             Correct the scores below. Every participant needs both a pre-test and a
-                            post-test score; the ones you entered before are filled in.
+                            post-test score, written as the score over the total (e.g. <strong>7/10</strong>);
+                            the ones you entered before are filled in.
                         </div>
 
                         @if($report->scoresDocument()?->remarks)
@@ -179,13 +180,13 @@
                                         <td class="ptr-dir-rowno">{{ $participant->row_no }}</td>
                                         <td class="ptr-scores-name">{{ $participant->scoreSheetName() }}</td>
                                         <td>
-                                            <input type="text" class="ptr-dir-input" maxlength="100"
+                                            <input type="text" class="ptr-dir-input" maxlength="9" placeholder="e.g. 7/10"
                                                    data-score="pre_test_score"
                                                    value="{{ $participant->pre_test_score }}"
                                                    aria-label="Pre-test score for {{ $participant->scoreSheetName() }}">
                                         </td>
                                         <td>
-                                            <input type="text" class="ptr-dir-input" maxlength="100"
+                                            <input type="text" class="ptr-dir-input" maxlength="9" placeholder="e.g. 7/10"
                                                    data-score="post_test_score"
                                                    value="{{ $participant->post_test_score }}"
                                                    aria-label="Post-test score for {{ $participant->scoreSheetName() }}">

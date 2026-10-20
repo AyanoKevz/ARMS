@@ -36,6 +36,13 @@ class PostTrainingReportController extends Controller
     /** Upper bound on one encoded Directory of Participants. */
     private const MAX_PARTICIPANTS = 500;
 
+    /** Why nothing more can be filed against a voided report. */
+    private const VOIDED_MESSAGE = 'This Post Training Report was voided because it was not resubmitted within '
+        . PostTrainingReport::CORRECTION_WORKING_DAYS . ' working days of being declined. It can no longer be submitted.';
+
+    /** How a pre-/post-test score has to be written. See PtrParticipant::normalizeScore(). */
+    private const SCORE_FORMAT_MESSAGE = 'Scores are written as the score over the total, e.g. 7/10 — whole numbers only, and the score cannot be more than the total.';
+
     /**
      * How long an unreferenced staged file is kept.
      *
@@ -486,6 +493,10 @@ class PostTrainingReportController extends Controller
             return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
         }
 
+        if ($postTrainingReport->isVoided()) {
+            return back()->withErrors(['error' => self::VOIDED_MESSAGE]);
+        }
+
         $request->validate([
             'files'   => ['required', 'array'],
             'files.*' => ['required', 'file', 'max:' . self::MAX_FILE_KB],
@@ -549,7 +560,7 @@ class PostTrainingReportController extends Controller
             }
 
             if (!empty($reuploadedDocsInfo)) {
-                $postTrainingReport->update(['status' => 'submitted']);
+                $postTrainingReport->update(['status' => 'submitted', 'correction_due_date' => null]);
                 $this->notifyEvaluators($postTrainingReport, $user, $reuploadedDocsInfo);
             }
 
@@ -629,6 +640,10 @@ class PostTrainingReportController extends Controller
 
         if ($postTrainingReport->isAccepted()) {
             return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
+        }
+
+        if ($postTrainingReport->isVoided()) {
+            return back()->withErrors(['error' => self::VOIDED_MESSAGE]);
         }
 
         $declinedDocs     = $postTrainingReport->declinedDocuments();
@@ -765,7 +780,7 @@ class PostTrainingReportController extends Controller
                     ];
                 }
 
-                $postTrainingReport->update(['status' => 'submitted']);
+                $postTrainingReport->update(['status' => 'submitted', 'correction_due_date' => null]);
             });
 
             $this->notifyEvaluators($postTrainingReport, $user, $summary);
@@ -850,9 +865,12 @@ class PostTrainingReportController extends Controller
                 ]);
             }
 
-            if (mb_strlen($pre) > 100 || mb_strlen($post) > 100) {
+            $pre  = PtrParticipant::normalizeScore($pre);
+            $post = PtrParticipant::normalizeScore($post);
+
+            if ($pre === null || $post === null) {
                 throw ValidationException::withMessages([
-                    'test_scores' => 'A test score cannot be longer than 100 characters.',
+                    'test_scores' => self::SCORE_FORMAT_MESSAGE . ' Check ' . $participant->scoreSheetName() . '.',
                 ]);
             }
 
@@ -956,6 +974,10 @@ class PostTrainingReportController extends Controller
             return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
         }
 
+        if ($postTrainingReport->isVoided()) {
+            return back()->withErrors(['error' => self::VOIDED_MESSAGE]);
+        }
+
         $section = $postTrainingReport->instructorsDocument();
 
         if (!$section || $section->status !== 'rejected') {
@@ -978,6 +1000,14 @@ class PostTrainingReportController extends Controller
                     'evaluated_by' => null,
                     'evaluated_at' => null,
                 ]);
+
+                // If this was the last thing sent back, the report is resubmitted:
+                // the correction deadline is met and must not void it.
+                $postTrainingReport->load('documents.documentType', 'participants');
+
+                if (!$postTrainingReport->needsCorrections()) {
+                    $postTrainingReport->update(['status' => 'submitted', 'correction_due_date' => null]);
+                }
 
                 $this->notifyEvaluators($postTrainingReport, $user);
             });
@@ -1131,6 +1161,10 @@ class PostTrainingReportController extends Controller
             return back()->withErrors(['error' => 'This Post Training Report has already been accepted.']);
         }
 
+        if ($postTrainingReport->isVoided()) {
+            return back()->withErrors(['error' => self::VOIDED_MESSAGE]);
+        }
+
         $rows = $this->validateParticipants($request, $user, $postTrainingReport->ntcReport, true);
 
         try {
@@ -1155,7 +1189,7 @@ class PostTrainingReportController extends Controller
                     return;
                 }
 
-                $postTrainingReport->update(['status' => 'submitted']);
+                $postTrainingReport->update(['status' => 'submitted', 'correction_due_date' => null]);
 
                 $this->notifyEvaluators($postTrainingReport, $user, [[
                     'type'     => 'Directory of Participants',
@@ -1239,12 +1273,12 @@ class PostTrainingReportController extends Controller
         if ($isCorrection) {
             $rules['participants.*.id'] = ['required', 'integer'];
         } else {
-            // Requirement 5, keyed in against the same rows. Free text: the
-            // score is typed as the FATPro's own test sheet records it. A
-            // correction of the Directory leaves the scores alone, so these
-            // are only asked for on the first submission.
-            $rules['participants.*.pre_test_score']  = ['required', 'string', 'max:100'];
-            $rules['participants.*.post_test_score'] = ['required', 'string', 'max:100'];
+            // Requirement 5, keyed in against the same rows, as score/total
+            // (e.g. 7/10) — checked in the after() pass below. A correction of
+            // the Directory leaves the scores alone, so these are only asked
+            // for on the first submission.
+            $rules['participants.*.pre_test_score']  = ['required', 'string', 'max:20'];
+            $rules['participants.*.post_test_score'] = ['required', 'string', 'max:20'];
         }
 
         $messages = [
@@ -1270,10 +1304,25 @@ class PostTrainingReportController extends Controller
 
         $validator = Validator::make(['participants' => $decoded], $rules, $messages);
 
-        $validator->after(function ($v) use ($decoded, $user, $catchUpSources) {
+        $validator->after(function ($v) use ($decoded, $user, $catchUpSources, $isCorrection) {
             $seen = [];
 
             foreach ($decoded as $i => $row) {
+                // Requirement 5's scores, written as score/total (e.g. 7/10).
+                // A blank one is already reported by the required rule.
+                if (!$isCorrection) {
+                    foreach (['pre_test_score' => 'pre-test', 'post_test_score' => 'post-test'] as $key => $label) {
+                        $value = trim((string) ($row[$key] ?? ''));
+
+                        if ($value !== '' && PtrParticipant::normalizeScore($value) === null) {
+                            $v->errors()->add(
+                                "participants.{$i}.{$key}",
+                                'Row ' . ($i + 1) . ': the ' . $label . ' score "' . $value . '" is not valid. ' . self::SCORE_FORMAT_MESSAGE
+                            );
+                        }
+                    }
+                }
+
                 // A catch-up participant must name a training the dialog could
                 // actually have offered: one of this FATPro's trainings, already held.
                 if (($row['catch_up'] ?? null) === 'Yes') {
@@ -1339,7 +1388,13 @@ class PostTrainingReportController extends Controller
         // Resolve each row's catch-up columns here, from the server's own
         // records — whatever the post said about them is overwritten. The
         // start is the earlier training's first day; the end is this one's last.
-        return array_map(function (array $row) use ($catchUpSources, $ntcReport) {
+        return array_map(function (array $row) use ($catchUpSources, $ntcReport, $isCorrection) {
+            // Stored in one shape ("7/10"), whatever spacing was typed.
+            if (!$isCorrection) {
+                $row['pre_test_score']  = PtrParticipant::normalizeScore($row['pre_test_score'] ?? null);
+                $row['post_test_score'] = PtrParticipant::normalizeScore($row['post_test_score'] ?? null);
+            }
+
             $source = ($row['catch_up'] ?? 'No') === 'Yes'
                 ? $catchUpSources->get((int) ($row['catch_up_ntc_report_id'] ?? 0))
                 : null;

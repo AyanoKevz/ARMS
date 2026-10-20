@@ -118,6 +118,29 @@ class PtrParticipant extends Model
     }
 
     /**
+     * A test score as "score/total" — e.g. "7/10" — or null when it is not one.
+     *
+     * Whole numbers only, the total at least 1 and the score no more than it.
+     * Spaces and leading zeros are dropped, so " 07 / 10 " is stored "7/10"
+     * and every score in the system reads the same way.
+     */
+    public static function normalizeScore(?string $value): ?string
+    {
+        if (!preg_match('/^\s*(\d{1,4})\s*\/\s*(\d{1,4})\s*$/', (string) $value, $m)) {
+            return null;
+        }
+
+        $score = (int) $m[1];
+        $total = (int) $m[2];
+
+        if ($total < 1 || $score > $total) {
+            return null;
+        }
+
+        return $score . '/' . $total;
+    }
+
+    /**
      * First, middle (if any) and last name — how the Pre- and Post-Test
      * Summary Evaluation names each participant.
      */

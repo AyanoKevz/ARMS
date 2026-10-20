@@ -62,12 +62,25 @@
             <p class="value-status" style="color: #2ecc71;">Accepted</p>
         @else
             <p class="value-status">Requires Re-submission</p>
+
+            @if($report->correction_due_date)
+                <p class="label">Resubmit No Later Than</p>
+                <p class="value" style="color: #7a2222;">{{ $report->correction_due_date->format('F d, Y') }}</p>
+            @endif
         @endif
     </div>
 
     @if($isAccepted)
         <p>All submitted documents have been approved. No further action is required for this training.</p>
     @else
+        <p>
+            <strong>You must comply within {{ \App\Models\PostTrainingReport::CORRECTION_WORKING_DAYS }} working days</strong>
+            @if($report->correction_due_date)
+                &mdash; by <strong>{{ $report->correction_due_date->format('F d, Y') }}</strong>
+            @endif.
+            If the corrections are not resubmitted by then, this Post Training Report will be
+            <strong>voided</strong> and can no longer be submitted.
+        </p>
         <p>Please review the items listed below and submit the corrections through your Post Training Report portal.</p>
 
         <div class="doc-list">

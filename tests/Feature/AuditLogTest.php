@@ -85,7 +85,7 @@ test('each role sees only its own role\'s entries', function () {
 
     $cases = [
         'hcdarms2026@gmail.com' => ['Team Lead', 1],
-        'data@oshc.dole.gov.ph' => ['Evaluator', 2],
+        'reynold.staana@oshc.dole.gov.ph' => ['Evaluator', 2],
         'oshcdevs@gmail.com'    => ['Training Evaluator', 1],
     ];
 
@@ -113,7 +113,7 @@ test('search, action and date filters narrow the entries on the server', functio
     auditEntry('Evaluator', ['actor_name' => 'Maria Santos', 'created_at' => now()->subDays(10)]);
     auditEntry('Evaluator', ['actor_name' => 'Juan Cruz', 'action' => 'interview.scheduled', 'description' => 'Scheduled an interview']);
 
-    $evaluator = auditAdmin('data@oshc.dole.gov.ph');
+    $evaluator = auditAdmin('reynold.staana@oshc.dole.gov.ph');
     $url = fn (array $q) => route('admin.hcd.audit_logs.data', array_merge(['draw' => 1, 'start' => 0, 'length' => 25], $q));
 
     // Case-insensitive search.
@@ -134,7 +134,7 @@ test('the page is paged on the server and never sends more than 100 rows', funct
         auditEntry('Evaluator', ['subject_label' => 'ARMS2026-AB' . str_pad($i, 4, '0', STR_PAD_LEFT)]);
     }
 
-    $json = $this->actingAs(auditAdmin('data@oshc.dole.gov.ph'))
+    $json = $this->actingAs(auditAdmin('reynold.staana@oshc.dole.gov.ph'))
         ->getJson(route('admin.hcd.audit_logs.data', ['draw' => 3, 'start' => 0, 'length' => 1000]))
         ->json();
 
@@ -153,7 +153,7 @@ test('the action filter offers only what the role can do, and everything to the 
             ->viewData('actions');
     };
 
-    $evaluator = $options('data@oshc.dole.gov.ph');
+    $evaluator = $options('reynold.staana@oshc.dole.gov.ph');
     expect($evaluator)->toHaveKey('application.document_evaluated');
     expect($evaluator)->toHaveKey('auth.login');
     expect($evaluator)->not->toHaveKey('ntc.document_evaluated');
@@ -175,7 +175,7 @@ test('the action filter offers only what the role can do, and everything to the 
 });
 
 test('the audit trail can be viewed but not exported or printed', function () {
-    $html = $this->actingAs(auditAdmin('data@oshc.dole.gov.ph'))
+    $html = $this->actingAs(auditAdmin('reynold.staana@oshc.dole.gov.ph'))
         ->get(route('admin.hcd.audit_logs.index'))
         ->assertOk()
         ->getContent();
@@ -185,13 +185,13 @@ test('the audit trail can be viewed but not exported or printed', function () {
     expect($html)->not->toContain('buttons.print.min.js');
 
     // And the export endpoint no longer exists.
-    $this->actingAs(auditAdmin('data@oshc.dole.gov.ph'))
+    $this->actingAs(auditAdmin('reynold.staana@oshc.dole.gov.ph'))
         ->get('/admin/hcd/audit-logs/export')
         ->assertNotFound();
 });
 
 test('the audit page and its menu item are only for the three HCD roles', function () {
-    foreach (['hcdarms2026@gmail.com', 'data@oshc.dole.gov.ph', 'oshcdevs@gmail.com'] as $email) {
+    foreach (['hcdarms2026@gmail.com', 'reynold.staana@oshc.dole.gov.ph', 'oshcdevs@gmail.com'] as $email) {
         $this->flushSession();
 
         $this->actingAs(auditAdmin($email))

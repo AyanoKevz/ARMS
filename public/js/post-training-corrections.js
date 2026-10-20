@@ -188,16 +188,21 @@
 
         var scores = {};
         var complete = true;
+        var format = window.ptrScoreFormat;
 
         table.querySelectorAll('[data-score-participant]').forEach(function (row) {
             var entry = {};
 
             row.querySelectorAll('[data-score]').forEach(function (input) {
                 var value = (input.value || '').trim();
-                entry[input.getAttribute('data-score')] = value;
+                // Written as score/total (e.g. 7/10), as on a first filing.
+                var normalized = format ? format.normalize(value) : (value || null);
+                var bad = normalized === null;
 
-                input.classList.toggle('is-invalid-cell', value === '');
-                if (value === '') complete = false;
+                entry[input.getAttribute('data-score')] = bad ? value : normalized;
+
+                input.classList.toggle('is-invalid-cell', bad);
+                if (bad) complete = false;
             });
 
             scores[row.getAttribute('data-score-participant')] = entry;
@@ -255,6 +260,13 @@
                 });
             });
 
+            // Score boxes: digits and one slash only, tidied to e.g. 7/10.
+            if (window.ptrScoreFormat) {
+                form.querySelectorAll('[data-correction-scores] [data-score]').forEach(function (input) {
+                    window.ptrScoreFormat.wire(input);
+                });
+            }
+
             // Replacement pictures.
             form.querySelectorAll('[data-correction-photo-btn]').forEach(function (button) {
                 var card  = button.closest('[data-participant-id]');
@@ -279,7 +291,7 @@
                 } else if (!instructorsChosen(form)) {
                     message = 'Name at least one instructor who conducted this training.';
                 } else if (!serialiseScores(form)) {
-                    message = 'Enter both the pre-test and the post-test score for every participant.';
+                    message = 'Enter both scores for every participant. ' + (window.ptrScoreFormat ? window.ptrScoreFormat.message : 'Scores are written as the score over the total, e.g. 7/10.');
                 }
 
                 if (error) {
