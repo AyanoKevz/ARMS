@@ -7,143 +7,74 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\AdminProfile;
+use App\Models\AdminRole;
 use App\Models\Division;
 
 class AdminUserSeeder extends Seeder
 {
+    /**
+     * Every seeded admin account: email, division, role, name and position.
+     * All share the same initial password — see seedAdmin().
+     */
+    private const ADMINS = [
+        // ── HCD: Team Leads ───────────────────────────────────────────────────
+        ['hcdarms2026@gmail.com',                  'HCD', 'Team Lead',          'HCD',          'Team Lead',  'LSO III'],
+        ['mariarevelyn.galura@oshc.dole.gov.ph',   'HCD', 'Team Lead',          'Maria Revelyn', 'Galura',    'LSO III'],
+
+        // ── HCD: Evaluators ───────────────────────────────────────────────────
+        ['data@oshc.dole.gov.ph',                  'HCD', 'Evaluator',          'HCD',          'Evaluator',  'LSO III'],
+        ['reynold.staana@oshc.dole.gov.ph',        'HCD', 'Evaluator',          'Reynold',      'Sta. Ana',   'LSO III'],
+
+        // ── HCD: Training Evaluators ──────────────────────────────────────────
+        ['oshcdevs@gmail.com',                     'HCD', 'Training Evaluator', 'OSHC',         'Training Evaluator', 'LSO III'],
+        ['johnremon.gonzales@oshc.dole.gov.ph',    'HCD', 'Training Evaluator', 'John Remon',   'Gonzales',   'LSO III'],
+        ['mritzie.leanda@oshc.dole.gov.ph',        'HCD', 'Training Evaluator', 'Mritzie',      'Leanda',     'LSO III'],
+        ['beanicole.castro@oshc.dole.gov.ph',      'HCD', 'Training Evaluator', 'Bea Nicole',   'Castro',     'LSO III'],
+        ['rhyankeith.melgarejo@oshc.dole.gov.ph',  'HCD', 'Training Evaluator', 'Rhyan Keith',  'Melgarejo',  'LSO III'],
+
+        // ── Accreditation: Verifiers ──────────────────────────────────────────
+        ['oshc1987accreditation@gmail.com',        'Accreditation', 'Verifier', 'Accreditation', 'Verifier',  'LSO VI'],
+        ['kevin.goto@oshc.dole.gov.ph',            'Accreditation', 'Verifier', 'Kevin',        'Goto',       'LSO VI'],
+    ];
+
     public function run(): void
     {
         // Seed Divisions FIRST
-        $divisions = ['HCD', 'SCD', 'ECD', 'TPID', 'Accreditation'];
-
-        foreach ($divisions as $divisionName) {
-            Division::firstOrCreate([
-                'name' => $divisionName
-            ]);
+        foreach (['HCD', 'SCD', 'ECD', 'TPID', 'Accreditation'] as $divisionName) {
+            Division::firstOrCreate(['name' => $divisionName]);
         }
 
-        // Get Admin Role
         $adminRole = Role::firstOrCreate(['name' => 'Admin']);
 
-        // Get Divisions
-        $hcdDivision = Division::firstOrCreate(['name' => 'HCD']);
-        $accreditationDivision = Division::firstOrCreate(['name' => 'Accreditation']);
+        foreach (['Evaluator', 'Verifier', 'Team Lead', 'Training Evaluator'] as $roleName) {
+            AdminRole::firstOrCreate(['name' => $roleName]);
+        }
 
-        // Get Admin Roles
-        $evaluatorRole = \App\Models\AdminRole::firstOrCreate(['name' => 'Evaluator']);
-        $verifierRole  = \App\Models\AdminRole::firstOrCreate(['name' => 'Verifier']);
-        $teamLeadRole  = \App\Models\AdminRole::firstOrCreate(['name' => 'Team Lead']);
-        $trainingEvaluatorRole = \App\Models\AdminRole::firstOrCreate(['name' => 'Training Evaluator']);
+        $divisions  = Division::pluck('id', 'name');
+        $adminRoles = AdminRole::pluck('id', 'name');
 
-        // Create Admin 1: Evaluator
-        $evaluator = $this->seedAdmin(
-            ['email' => 'reynold.staana@oshc.dole.gov.ph'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
+        foreach (self::ADMINS as [$email, $division, $role, $firstName, $lastName, $position]) {
+            $user = $this->seedAdmin(
+                ['email' => $email],
+                [
+                    'role_id'           => $adminRole->id,
+                    'profile_type'      => 'Individual',
+                    'user_photo'        => 'images/profile_picture/default_photo.jpg',
+                    'email_verified_at' => now(),
+                ]
+            );
 
-        AdminProfile::updateOrCreate(
-            ['user_id' => $evaluator->id],
-            [
-                'division_id'   => $hcdDivision->id,
-                'first_name'    => 'HCD',
-                'last_name'     => 'Evaluator',
-                'position'      => 'LSO III',
-                'admin_role_id' => $evaluatorRole ? $evaluatorRole->id : null,
-            ]
-        );
-
-        // Create Admin 2: Verifier
-        $verifier = $this->seedAdmin(
-            ['email' => 'oshc1987accreditation@gmail.com'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        AdminProfile::updateOrCreate(
-            ['user_id' => $verifier->id],
-            [
-                'division_id'   => $accreditationDivision->id,
-                'first_name'    => 'Accreditation',
-                'last_name'     => 'Verifier',
-                'position'      => 'LSO VI',
-                'admin_role_id' => $verifierRole ? $verifierRole->id : null,
-            ]
-        );
-
-        // Create Admin 3: Verifier (Queenie Francisco)
-        $verifierQueenie = $this->seedAdmin(
-            ['email' => 'queeniefrancisco2002@gmail.com'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        AdminProfile::updateOrCreate(
-            ['user_id' => $verifierQueenie->id],
-            [
-                'division_id'   => $accreditationDivision->id,
-                'first_name'    => 'Queenie',
-                'last_name'     => 'Francisco',
-                'position'      => 'LSO VI',
-                'admin_role_id' => $verifierRole ? $verifierRole->id : null,
-            ]
-        );
-
-        // Create Admin 4: Team Lead (HCD Arms 2026)
-        $teamLead = $this->seedAdmin(
-            ['email' => 'hcdarms2026@gmail.com'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        AdminProfile::updateOrCreate(
-            ['user_id' => $teamLead->id],
-            [
-                'division_id'   => $hcdDivision->id,
-                'first_name'    => 'HCD',
-                'last_name'     => 'Team Lead',
-                'position'      => 'LSO III',
-                'admin_role_id' => $teamLeadRole ? $teamLeadRole->id : null,
-            ]
-        );
-
-        // Create Admin 5: Training Evaluator (OSHC Devs)
-        $trainingEvaluator = $this->seedAdmin(
-            ['email' => 'oshcdevs@gmail.com'],
-            [
-                'role_id'           => $adminRole->id,
-                'profile_type'      => 'Individual',
-                'user_photo'        => 'images/profile_picture/default_photo.jpg',
-                'email_verified_at' => now(),
-            ]
-        );
-
-        AdminProfile::updateOrCreate(
-            ['user_id' => $trainingEvaluator->id],
-            [
-                'division_id'   => $hcdDivision->id,
-                'first_name'    => 'OSHC',
-                'last_name'     => 'Training Evaluator',
-                'position'      => 'LSO III',
-                'admin_role_id' => $trainingEvaluatorRole ? $trainingEvaluatorRole->id : null,
-            ]
-        );
+            AdminProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'division_id'   => $divisions[$division],
+                    'first_name'    => $firstName,
+                    'last_name'     => $lastName,
+                    'position'      => $position,
+                    'admin_role_id' => $adminRoles[$role],
+                ]
+            );
+        }
     }
 
     /**
