@@ -3,249 +3,107 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Certificate of Accreditation – {{ $accreditation->accreditation_number }}</title>
-    <style>
-        /* ─── Page ──────────────────────────────────────────────────────────── */
-        @page {
-            size: A4 portrait;
-            margin: 0;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: "Times New Roman", Times, serif;
-            background: #ffffff;
-            color: #1a1a1a;
-            width: 210mm;
-            height: 297mm;
-        }
-
-        /* ─── Signature block – aligned inside bottom table ─────────────────── */
-        .signature-block {
-            width: 100%;
-            text-align: center;
-        }
-
-        .sig-name {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 13pt;
-            font-weight: bold;
-            color: #1a1a1a;
-            letter-spacing: 0.3px;
-        }
-
-        .sig-title {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 11pt;
-            color: #1a1a1a;
-            margin-top: 1mm;
-        }
-
-        .sig-org {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 11pt;
-            color: #1a1a1a;
-            margin-top: 0.5mm;
-        }
-
-        /* ─── Main content ────────────────────────────────────────────────── */
-        .cert-content {
-            padding: 32mm 25mm 0 25mm;
-            text-align: center;
-        }
-
-        /* ─── "CERTIFICATE OF ACCREDITATION" – serif small-caps ──────────── */
-        .cert-title {
-            font-family: "Copperplate Gothic Bold", "Copperplate", "Copperplate Gothic", serif;
-            font-size: 24pt;
-            font-weight: bold;
-            color: #1a1a1a;
-            letter-spacing: 2px;
-            margin-bottom: 2mm;
-        }
-
-        /* ─── "as" ───────────────────────────────────────────────────────── */
-        .cert-as {
-            font-family: "Calibri", "Calibri (Body)", "Carlito", sans-serif;
-            font-size: 14pt;
-            color: #1a1a1a;
-            margin-bottom: 1px;
-        }
-
-        /* ─── "FIRST AID TRAINING PROVIDER" – heavy black sans-serif ─────── */
-        .cert-type {
-            font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-            font-size: 24pt;
-            font-weight: 900;
-            color: #1a1a1a;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            line-height: 1.15;
-            margin-bottom: 2mm;
-        }
-
-        /* ─── "No." and "Valid until:" ────────────────────────────────────── */
-        .info-section {
-            margin-bottom: 4mm;
-        }
-
-        .info-row {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 16pt;
-            color: #1a1a1a;
-            margin: 1mm 0;
-        }
-
-        .info-row-valid {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 14pt;
-            color: #1a1a1a;
-            margin: 1mm 0;
-        }
-
-        /* ─── "This certifies that –" ────────────────────────────────────── */
-        .certifies-line {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 12pt;
-            font-style: italic;
-            color: #1a1a1a;
-            text-align: left;
-            margin-bottom: 4mm;
-        }
-
-        /* Font size for certifies-line kept at default; no specific pt given – italicized per spec */
-
-        /* ─── Company name (large bold serif, centered) ──────────────────── */
-        .fatpro-name {
-            font-family: "Bodoni MT", "Bodoni 72", "Bodoni", "Didot", serif;
-            font-size: 32pt;
-            font-weight: bold;
-            color: #1a1a1a;
-            text-transform: uppercase;
-            line-height: 1.2;
-            margin-bottom: 6mm;
-            text-align: center;
-        }
-
-        /* ─── Body paragraphs – Script MT Bold ────────────────────────────── */
-        .body-copy {
-            font-family: "Script MT Bold", "Brush Script MT", cursive;
-            font-size: 14pt;
-            font-weight: bold;
-            line-height: 1.45;
-            color: #1a1a1a;
-            text-align: justify;
-        }
-
-        .validity-statement {
-            margin-top: 3mm;
-        }
-
-        .given-text {
-            font-family: "Script MT Bold", "Brush Script MT", cursive;
-            font-size: 14pt;
-            font-weight: bold;
-            color: #1a1a1a;
-            margin-top: 3mm;
-            line-height: 1.45;
-            text-align: left;
-        }
-
-        /* ─── Footer note ────────────────────────────────────────────────── */
-        .footer-note {
-            position: fixed;
-            bottom: 10mm;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            font-family: "Arial Narrow", "Arial", Helvetica, sans-serif;
-            font-size: 7.5pt;
-            color: #333;
-            letter-spacing: 0.3px;
-            text-transform: uppercase;
-        }
-    </style>
+    {{-- Layout copied from the DOLE-OSHC Word templates; see the stylesheet's header. --}}
+    <link rel="stylesheet" href="{{ public_path('css/accreditation-certificate.css') }}">
 </head>
 
 <body>
 
     @php
-    $accNumber = $accreditation->accreditation_number;
-    $validUntil = $accreditation->validity_date->format('F d, Y');
-    $dateIssued = $accreditation->date_of_accreditation;
-    $dayNum = (int) $dateIssued->format('j');
-    $suffix = match(true) {
-    in_array($dayNum % 100, [11, 12, 13]) => 'th',
-    ($dayNum % 10) === 1 => 'st',
-    ($dayNum % 10) === 2 => 'nd',
-    ($dayNum % 10) === 3 => 'rd',
-    default => 'th',
-    };
-    $givenDay = $dayNum . $suffix;
-    $givenMonthYear = $dateIssued->format('F Y');
+        $accNumber  = $accreditation->accreditation_number;
+        $validUntil = $accreditation->validity_date->format('F j, Y');
+        $dateIssued = $accreditation->date_of_accreditation;
+        $dayNum     = (int) $dateIssued->format('j');
+        $daySuffix  = match (true) {
+            in_array($dayNum % 100, [11, 12, 13]) => 'th',
+            ($dayNum % 10) === 1 => 'st',
+            ($dayNum % 10) === 2 => 'nd',
+            ($dayNum % 10) === 3 => 'rd',
+            default => 'th',
+        };
+        $givenMonthYear = $dateIssued->format('F Y');
+
+        // FATPro wording unless the caller passes its own (OSH Practitioner /
+        // Consultant — Admin\Accreditation\PractitionerController::certificate).
+        $certType   = $certType ?? 'First Aid Training Provider';
+        $bodyCopy   = $bodyCopy ?? 'has been accredited by the Occupational Safety and Health Center (OSHC) by virtue of DOLE Department Order No. 235, Series of 2022, to conduct in the Philippines the 1-day Emergency First Aid, 2-day Occupational First Aid, and 4-day Standard First Aid Training Courses within the validity period.';
+        $footerNote = $footerNote ?? '(Accreditation is valid per requirements set forth in D.O. No. 235-22 and RA No. 11058 and its IRR D.O. No. 198-18.)';
+
+        // Page 2 — FATPro only: 'new' or 'renewal' (FATPRO TEMPLATE NEW / RENEWAL (BACK)).
+        $backPage = $backPage ?? null;
+
+        // The template's 36 pt name, a step smaller for a long one.
+        $nameLength = mb_strlen($fatproName);
+        $nameSize   = $nameLength > 80 ? 'cert-name-sm' : ($nameLength > 40 ? 'cert-name-md' : '');
     @endphp
 
-    {{-- ── Main certificate content ──────────────────────────────────────────── --}}
-    <div class="cert-content">
-
-        {{-- Title --}}
-        <div class="cert-title">Certificate of Accreditation</div>
+    {{-- ── Front ─────────────────────────────────────────────────────────── --}}
+    <div class="cert-front">
+        <div class="cert-title">CERTIFICATE OF ACCREDITATION</div>
         <div class="cert-as">as</div>
-        <div class="cert-type">First Aid Training Provider</div>
+        <div class="cert-type">{{ $certType }}</div>
+        <div class="cert-number">No. {{ $accNumber }}</div>
+        <div class="cert-valid">Valid until: {{ $validUntil }}</div>
 
-        {{-- Accreditation info --}}
-        <div class="info-section">
-            <div class="info-row">No. {{ $accNumber }}</div>
-            <div class="info-row-valid">Valid until: {{ $validUntil }}</div>
+        <div class="cert-certifies">This certifies that &ndash;</div>
+
+        <div class="cert-name {{ $nameSize }}">{{ $fatproName }}</div>
+
+        <div class="cert-body">
+            <p>{{ $bodyCopy }}</p>
+            <p>This accreditation shall be valid until {{ $validUntil }}, unless otherwise suspended or revoked in accordance with the Order.</p>
+            <p class="cert-given">Given this {{ $dayNum }}<sup>{{ $daySuffix }}</sup> day of {{ $givenMonthYear }} at Quezon City, Philippines.</p>
         </div>
 
-        {{-- Certifies body --}}
-        <div class="certifies-line">This certifies that &ndash;</div>
+        <div class="cert-signatory">
+            <div class="cert-signatory-name">{{ $executiveDirector }}</div>
+            <div class="cert-signatory-title">Executive Director</div>
+            <div class="cert-signatory-title">Occupational Safety and Health Center</div>
+        </div>
 
-        <div class="fatpro-name">{{ $fatproName }}</div>
+        <div class="cert-footer-note">{{ $footerNote }}</div>
+    </div>
 
-        <div class="body-copy">
-            has been accredited by the Occupational Safety and Health Center (OSHC)
-            by virtue of DOLE Department Order No. 235, Series of 2022, to conduct in the
-            Philippines the 1-day Emergency First Aid, 2-day Occupational First Aid, and
-            4-day Standard First Aid Training Courses within the validity period.
-            <div class="validity-statement">
-                This accreditation shall be valid until {{ $validUntil }}, unless otherwise
-                suspended or revoked in accordance with the Order.
+    {{-- ── Back (FATPro) ─────────────────────────────────────────────────── --}}
+    @if($backPage)
+        <div class="cert-back cert-fatpro-back">
+            <div class="cert-back-heading">CONDITIONS</div>
+
+            <p>The Occupational Safety and Health Center (OSHC) shall conduct observation on its conduct of first-aid training courses to determine compliance with the criteria set forth by the OSHC and to assess the quality and effectiveness of its training staff, systems, and methods of training.</p>
+
+            <p>Renewal of accreditation will be based on the results of observation/evaluation on the actual conduct of OSH trainings and upon compliance with the minimum requirements stated in the First Aid Training Provider&rsquo;s Manual of Procedures and in Section 3, Rule III of Department Order 235 series 2022 - &ldquo;Rules on the Accreditation of First Aiders and the Accreditation of First Aid Training Providers&rdquo;.</p>
+
+            <p>Accreditation may be suspended or cancelled pursuant to the provisions of Sections 10 to 13, Rule III of Department Order 235-22.</p>
+
+            <div class="cert-conforme-label">CONFORME:</div>
+            <div class="cert-conforme">
+                <div class="cert-sign-line"></div>
+                <div>(Signature over printed name)</div>
+            </div>
+
+            <div class="cert-certification">
+                <div class="cert-back-heading cert-back-heading-lg">CERTIFICATION</div>
+
+                <p>This hereby certifies that <strong>{{ $fatproName }}</strong> has satisfactorily complied with all the requirements for the {{ $backPage === 'renewal' ? 'renewal of ' : '' }}accreditation as First Aid Training Provider (FATPro) per the Department Order 235 series 2022 - &ldquo;Rules on the Accreditation of First Aiders and the Accreditation of First Aid Training Providers&rdquo;.</p>
+            </div>
+
+            {{-- Each signatory's name on the template's bold line under the signature
+                 line — typed in the pop-up, or blank to write by hand. --}}
+            <div class="cert-hcd-signatories">
+                <div class="cert-hcd-line"></div>
+                <div class="cert-hcd-name">{{ $hcdSupervisor ?? '' }}</div>
+                <div>Supervising Occupational Health Officer</div>
+
+                <div class="cert-hcd-gap"></div>
+
+                <div class="cert-hcd-line"></div>
+                <div class="cert-hcd-name">{{ $hcdChief ?? '' }}</div>
+                <div>Chief, Health Control Division</div>
             </div>
         </div>
-
-        <div class="given-text">
-            Given this {{ $givenDay }} day of {{ $givenMonthYear }} at Quezon City, Philippines.
-        </div>
-
-        {{-- ── Bottom layout table (Signature Block pushed to the right side) ── --}}
-        <table style="width: 100%; margin-top:40mm; border: none; border-collapse: collapse;">
-            <tr>
-                <td style="width: 50%;"></td>
-                <td style="width: 50%; text-align: center; vertical-align: top; padding: 0;">
-                    <div class="signature-block">
-                        <div class="sig-name">{{ $executiveDirector }}</div>
-                        <div class="sig-title">Executive Director</div>
-                        <div class="sig-org">Occupational Safety and Health Center</div>
-                    </div>
-                </td>
-            </tr>
-        </table>
-
-    </div>
-
-    <div class="footer-note">
-        (Accreditation is valid per requirements set forth in D.O. No. 235-22 and RA No. 11058 and its IRR D.O. No. 198-18.)
-    </div>
+    @endif
 
 </body>
 

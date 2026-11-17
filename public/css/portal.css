@@ -750,3 +750,35 @@ body, button, input, select, textarea {
 .sidebar-notice-text   { font-size: 0.95rem; }
 .sidebar-notice-lock   { font-size: 3rem; }
 .sidebar-notice-btn    { background: #0d2b55; color: #fff; border-radius: 6px; font-size: 0.85rem; border: none; padding: 6px 12px; transition: background 0.2s; }
+
+/* ── Sidebar: section subheadings & locked entries ─────────────────────────
+   Used by the Accreditation sidebar for portal sections that are listed but
+   not open yet (admin/accreditation/_locked_link.blade.php). */
+.nav.child_menu.is-open {
+    display: block;
+}
+
+.nav.child_menu > li.nav-subheading {
+    padding: 8px 15px 2px 32px;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .45);
+}
+
+.nav.child_menu > li.nav-subheading::before,
+.nav.child_menu > li.nav-subheading::after {
+    display: none;
+}
+
+.nav.child_menu > li.nav-locked > a {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.nav-lock-icon {
+    margin-left: 6px;
+    font-size: .7rem;
+}

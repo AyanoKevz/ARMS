@@ -33,6 +33,9 @@
                     <a href="{{ route('track') }}" class="btn-hero-outline">
                         <i class="bi bi-search"></i> Track Application
                     </a>
+                    <a href="{{ route('graduates.request') }}" class="btn-hero-outline">
+                        <i class="bi bi-mortarboard"></i> List of Graduates
+                    </a>
                 </div>
             </div>
         </div>

@@ -25,12 +25,22 @@
         <p style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
             ⚠️ Important Resubmission Deadline
         </p>
+        @if(!empty($complianceDueDate))
+        <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
+            You have 5 working days to resubmit your required documents — until {{ $complianceDueDate->format('l, F j, Y') }}.
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
+            If the corrected documents are not received by then, your application will be archived and you may
+            apply again only after {{ $reapplyMonths }} {{ \Illuminate\Support\Str::plural('month', $reapplyMonths) }}.
+        </p>
+        @else
         <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
             You have 5 days to resubmit your required documents.
         </p>
         <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
             Please re-upload all requested revisions within 5 calendar days to avoid cancellation of your application.
         </p>
+        @endif
     </div>
 
     <div class="tracking-card">

@@ -501,7 +501,7 @@ class NtcController extends Controller
         }
         $validated = $request->validate([
             'evaluations' => ['required', 'array'],
-            'evaluations.*.id' => ['required', 'exists:ntc_documents,id'],
+            'evaluations.*.id' => ['required', 'integer'], // resolved below, scoped to this report
             'evaluations.*.status' => ['required', 'in:approved,rejected,pending,returned'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);

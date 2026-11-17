@@ -1,8 +1,16 @@
-﻿@extends('layouts.admin')
+@extends('layouts.admin')
 
 @section('title', 'Accreditation Portal Dashboard')
 
+@push('styles')
+<link rel="stylesheet" href="{{ \App\Support\AssetVersion::url('css/accreditation-practitioner.css') }}">
+@endpush
+
 @section('content')
+@php
+    $p = $division['practitioner'];
+    $c = $division['consultant'];
+@endphp
 <div class="">
 
     {{-- ── Page Header ── --}}
@@ -14,11 +22,66 @@
 
     <div class="clearfix"></div>
 
-    {{-- ── Stat Cards ── --}}
+    {{-- ── OSH Practitioner & OSH Consultant ── --}}
+    <p class="dash-section-title">OSH Practitioner &amp; OSH Consultant</p>
     <div class="row mb-4">
-        {{-- Card 1: Total Active Accreditations (all types, not just FATPro) --}}
+        {{-- New Applications --}}
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-card-blue" style="cursor:default;">
+            <a href="{{ route('admin.accreditation.practitioner.new.pending') }}" class="stat-card stat-card-green">
+                <div class="stat-card-icon green"><i class="bi bi-file-earmark-plus-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $p['new']['pending'] + $p['new']['under_review'] + $c['new']['pending'] + $c['new']['under_review'] }}</div>
+                    <div class="stat-card-label">New Applications</div>
+                    <div class="stat-card-sub">Practitioner: {{ $p['new']['pending'] }} Pending · {{ $p['new']['under_review'] }} Under Review</div>
+                    <div class="stat-card-sub">Consultant: {{ $c['new']['pending'] }} Pending · {{ $c['new']['under_review'] }} Under Review</div>
+                </div>
+            </a>
+        </div>
+
+        {{-- Renewal Applications (not open yet, so the card does not link) --}}
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-card-amber stat-card-static">
+                <div class="stat-card-icon amber"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $p['renewal']['pending'] + $p['renewal']['under_review'] + $c['renewal']['pending'] + $c['renewal']['under_review'] }}</div>
+                    <div class="stat-card-label">Renewal Applications</div>
+                    <div class="stat-card-sub">Practitioner: {{ $p['renewal']['pending'] }} Pending · {{ $p['renewal']['under_review'] }} Under Review</div>
+                    <div class="stat-card-sub">Consultant: {{ $c['renewal']['pending'] }} Pending · {{ $c['renewal']['under_review'] }} Under Review</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Scheduled Interviews --}}
+        <div class="col-xl-3 col-md-6 mb-3">
+            <a href="{{ route('admin.accreditation.division.interviews.scheduled') }}" class="stat-card stat-card-violet">
+                <div class="stat-card-icon violet"><i class="bi bi-calendar2-check-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $p['interviews'] + $c['interviews'] }}</div>
+                    <div class="stat-card-label">Scheduled Interviews</div>
+                    <div class="stat-card-sub">Practitioner: {{ $p['interviews'] }} · Consultant: {{ $c['interviews'] }}</div>
+                </div>
+            </a>
+        </div>
+
+        {{-- Rejected Applications --}}
+        <div class="col-xl-3 col-md-6 mb-3">
+            <a href="{{ route('admin.accreditation.division.applications.archived') }}" class="stat-card stat-card-red">
+                <div class="stat-card-icon red"><i class="bi bi-x-circle-fill"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-num">{{ $p['rejected'] + $c['rejected'] }}</div>
+                    <div class="stat-card-label">Rejected Applications</div>
+                    <div class="stat-card-sub">Practitioner: {{ $p['rejected'] }} · Consultant: {{ $c['rejected'] }}</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    {{-- ── Every accreditation type: payment, certificates, totals ── --}}
+    <p class="dash-section-title">All Accreditations — Payment &amp; Certificates</p>
+    <div class="row mb-4">
+        {{-- Total Active Accreditations (all types, not just FATPro) --}}
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-card-blue stat-card-static">
                 <div class="stat-card-icon blue"><i class="bi bi-patch-check-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalActiveFATPro }}</div>
@@ -28,7 +91,7 @@
             </div>
         </div>
 
-        {{-- Card 2: Awaiting Payment/Recommendation --}}
+        {{-- Awaiting Payment/Recommendation --}}
         <div class="col-xl-3 col-md-6 mb-3">
             <a href="{{ route('admin.accreditation.applications.awaiting_payment') }}" class="stat-card stat-card-green">
                 <div class="stat-card-icon green"><i class="bi bi-cash-coin"></i></div>
@@ -40,7 +103,7 @@
             </a>
         </div>
 
-        {{-- Card 3: Certificate Issuance (Releasing) --}}
+        {{-- Certificate Issuance (Releasing) --}}
         <div class="col-xl-3 col-md-6 mb-3">
             <a href="{{ route('admin.accreditation.applications.releasing') }}" class="stat-card stat-card-amber">
                 <div class="stat-card-icon amber"><i class="bi bi-award-fill"></i></div>
@@ -52,9 +115,9 @@
             </a>
         </div>
 
-        {{-- Card 4: Total Revoked Accreditations (all types, not just FATPro) --}}
+        {{-- Total Revoked Accreditations (all types, not just FATPro) --}}
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-card-red" style="cursor:default;">
+            <div class="stat-card stat-card-red stat-card-static">
                 <div class="stat-card-icon red"><i class="bi bi-slash-circle-fill"></i></div>
                 <div class="stat-card-body">
                     <div class="stat-card-num">{{ $totalRevokedFATPro }}</div>
@@ -72,7 +135,11 @@
                 <div class="dash-chart-title">
                     <i class="bi bi-bar-chart-fill me-1"></i> Monthly Applications — {{ $selectedYear }}
                 </div>
-                <canvas id="barChart" height="80"></canvas>
+                <canvas id="barChart" height="80"
+                        data-months="{{ $monthlyRows->pluck('month')->toJson() }}"
+                        data-new="{{ $monthlyRows->pluck('new')->toJson() }}"
+                        data-renewal="{{ $monthlyRows->pluck('renewal')->toJson() }}"
+                        data-accredited="{{ $monthlyRows->pluck('accredited')->toJson() }}"></canvas>
             </div>
         </div>
     </div>
@@ -85,7 +152,7 @@
                     <h2><i class="bi bi-table me-1"></i> Monthly Applications and Accreditations</h2>
                     <form method="GET" action="{{ route('admin.accreditation.dashboard') }}" class="d-flex align-items-center gap-2 mb-0">
                         <label class="form-label mb-0 small fw-semibold">Year:</label>
-                        <select name="year" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+                        <select name="year" class="form-select form-select-sm w-auto" data-autosubmit>
                             @foreach($availableYears as $yr)
                             <option value="{{ $yr }}" {{ $yr == $selectedYear ? 'selected' : '' }}>{{ $yr }}</option>
                             @endforeach
@@ -151,57 +218,5 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-        @php
-            $months = $monthlyRows->pluck('month');
-            $newData = $monthlyRows->pluck('new');
-            $renewalData = $monthlyRows->pluck('renewal');
-            $accreditedData = $monthlyRows->pluck('accredited');
-        @endphp
-
-        const months = @json($months);
-        const newData = @json($newData);
-        const renewalData = @json($renewalData);
-        const accreditedData = @json($accreditedData);
-
-        new Chart(document.getElementById('barChart').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                        label: 'New',
-                        data: newData,
-                        backgroundColor: 'rgba(26,111,189,.75)',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Renewal',
-                        data: renewalData,
-                        backgroundColor: 'rgba(230,126,34,.75)',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Accredited',
-                        data: accreditedData,
-                        backgroundColor: 'rgba(39,174,96,.75)',
-                        borderRadius: 4
-                    },
-                ]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { position: 'top', labels: { font: { size: 11 } } },
-                    tooltip: { mode: 'index', intersect: false }
-                },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,.05)' } }
-                }
-            }
-        });
-    });
-</script>
+<script src="{{ \App\Support\AssetVersion::url('js/accreditation-dashboard.js') }}" defer></script>
 @endpush

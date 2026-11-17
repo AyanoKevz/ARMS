@@ -1,0 +1,396 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRACKING PAGE — choose an interview slot
+   (resources/views/landing/partials/interview_slot_picker)
+
+   Calendar of interview dates (Available / Fully Booked) beside the times
+   of the chosen date. Without JavaScript the calendar stays empty and every
+   date's times are listed.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ti-card {
+    margin-bottom: 1.5rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.ti-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #1d4ed8;
+    color: #fff;
+    font-size: .9rem;
+    font-weight: 700;
+}
+
+.ti-card-body {
+    padding: 16px 20px 20px;
+    background: #fff;
+}
+
+.ti-intro {
+    margin-bottom: 16px;
+    font-size: .9rem;
+    color: #1e3a5f;
+}
+
+/* ── Two columns: Date | Time ─────────────────────────────────────────── */
+.ti-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+}
+
+@media (max-width: 767.98px) {
+    .ti-columns {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+}
+
+.ti-col-title {
+    margin: 0 0 4px;
+    padding-bottom: 6px;
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.ti-col > .ti-col-title + .ti-placeholder,
+.ti-col > .ti-col-title + .ti-slots {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 14px;
+}
+
+.ti-earliest {
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: .88rem;
+    color: #b91c1c;
+}
+
+.ti-earliest strong {
+    font-weight: 700;
+}
+
+.ti-regular {
+    margin: 10px 0 14px;
+    font-size: .85rem;
+    font-weight: 700;
+    color: #b91c1c;
+}
+
+/* ── Calendar ─────────────────────────────────────────────────────────── */
+.ti-calendar {
+    max-width: 340px;
+    margin: 0 auto;
+}
+
+.ti-cal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.ti-cal-month {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1f2937;
+}
+
+.ti-cal-nav {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 6px;
+    background: #e5e7eb;
+    color: #1f2937;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.ti-cal-nav:hover:not(:disabled) {
+    background: #d1d5db;
+}
+
+.ti-cal-nav:disabled {
+    background: transparent;
+    color: #cbd5e1;
+    cursor: default;
+}
+
+.ti-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    text-align: center;
+}
+
+.ti-cal-dow {
+    padding: 6px 0;
+    font-weight: 700;
+    font-size: .88rem;
+    color: #1f2937;
+}
+
+.ti-cal-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    font-size: .95rem;
+    padding: 0;
+}
+
+.ti-cal-day.is-outside {
+    color: #c4c9d2;
+}
+
+.ti-cal-day.is-open,
+.ti-cal-day.is-full {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ti-cal-day.is-open {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.ti-cal-day.is-open:hover {
+    background: #bbf7d0;
+}
+
+.ti-cal-day.is-full {
+    background: #fdecef;
+    color: #dc2626;
+}
+
+.ti-cal-day.is-full:hover {
+    background: #fbd5dc;
+}
+
+.ti-cal-day.is-selected,
+.ti-cal-day.is-selected:hover {
+    background: linear-gradient(180deg, #3b6fd9, #1d4ed8);
+    color: #fff;
+}
+
+.ti-legend {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.ti-legend-item {
+    min-width: 120px;
+    padding: 4px 14px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 700;
+    font-size: .9rem;
+}
+
+.ti-legend-item.is-open {
+    background: #e3f1df;
+    color: #3f7d1f;
+}
+
+.ti-legend-item.is-full {
+    background: #fdecef;
+    color: #dc2626;
+}
+
+/* ── Times of the chosen date ─────────────────────────────────────────── */
+.ti-placeholder {
+    margin: 0;
+    font-size: .9rem;
+    color: #64748b;
+}
+
+.ti-slots {
+    margin: 0 0 14px;
+    padding: 0;
+    border: 0;
+}
+
+.ti-slots-date {
+    float: none;
+    width: auto;
+    margin-bottom: 8px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #0b3d91;
+}
+
+.ti-slot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 6px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+}
+
+.ti-slot:hover:not(.is-full) {
+    background: #f8fafc;
+}
+
+.ti-slot input {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    margin: 0;
+}
+
+.ti-slot-time {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1f2937;
+}
+
+.ti-slot-time small {
+    font-weight: 400;
+    font-size: .78rem;
+    color: #64748b;
+}
+
+.ti-slot-state {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: .95rem;
+    color: #15803d;
+}
+
+.ti-slot.is-full {
+    cursor: not-allowed;
+}
+
+.ti-slot.is-full .ti-slot-state {
+    color: #be123c;
+}
+
+.ti-slot:has(input:checked) {
+    background: #eff6ff;
+    box-shadow: inset 3px 0 0 #1d4ed8;
+}
+
+/* With JavaScript: only the chosen date's times show. */
+.ti-picker.ti-js .ti-slots:not(.is-active),
+.ti-picker.ti-js.has-date .ti-placeholder {
+    display: none;
+}
+
+.ti-picker.ti-js .ti-slots-date {
+    display: none;
+}
+
+.ti-picker.ti-js .ti-slots.is-active {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 6px;
+}
+
+.ti-picker:not(.ti-js) .ti-calendar,
+.ti-picker:not(.ti-js) .ti-legend {
+    display: none;
+}
+
+/* ── Confirm ──────────────────────────────────────────────────────────── */
+.ti-submit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #dbe4f0;
+}
+
+.ti-chosen {
+    font-size: .88rem;
+    color: #1e3a5f;
+}
+
+.ti-chosen strong {
+    color: #1d4ed8;
+}
+
+/* ── Confirmation modal ───────────────────────────────────────────────────
+   The Accreditation admins' modal (.prac-modal, is-primary header and note
+   in accreditation-practitioner.css), which this page does not load. */
+.ti-modal {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
+}
+
+.ti-modal-header {
+    padding: 22px 28px;
+    background: linear-gradient(135deg, #1A4A8A, #0D2B55);
+}
+
+.ti-modal-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+    font-size: 1.4rem;
+}
+
+.ti-modal-body {
+    background: #fafafa;
+}
+
+.modal-footer.ti-modal-body {
+    padding: 16px 28px;
+}
+
+.ti-modal-slot {
+    background: #fff;
+    border: 1px solid #e4eaf2;
+    border-radius: 10px;
+    padding: 14px 18px;
+}
+
+.ti-modal-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 4px 0;
+    color: #2A3F54;
+    font-weight: 600;
+    font-size: .95rem;
+}
+
+.ti-modal-row i {
+    color: #1A4A8A;
+}
+
+.ti-modal-note {
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+    background: #fff3cd;
+}
+
+.ti-modal-note i {
+    color: #b45309;
+}

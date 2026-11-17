@@ -1,0 +1,844 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCREDITATION — OSH Practitioner admin pages
+   (resources/views/admin/accreditation/practitioner)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.prac-admin-hint {
+    display: block;
+    margin-bottom: 12px;
+    font-size: .85rem;
+    color: #64748b;
+}
+
+/* ── Status & PCT badges ───────────────────────────────────────────────── */
+.prac-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.prac-status-submitted        { background: #fef3c7; color: #92400e; }
+.prac-status-under-evaluation { background: #dbeafe; color: #1e40af; }
+.prac-status-for-update       { background: #fee2e2; color: #991b1b; }
+
+.prac-modal-facts {
+    padding-left: 18px;
+    margin-bottom: 14px;
+}
+
+/* ── Application page (practitioner/show) ──────────────────────────────────
+   Layout comes from show-application.css (the HCD FATPro page); these are
+   the bits HCD styles inline. */
+.prac-strip-label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .45px;
+    color: #999;
+}
+
+.prac-strip-number {
+    margin: 0;
+    font-weight: 700;
+    color: #2A3F54;
+}
+
+.prac-strip-btn {
+    border-radius: 8px;
+    font-size: .82rem;
+}
+
+.prac-card-toggle {
+    cursor: pointer;
+}
+
+.prac-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1A4A8A, #0D2B55);
+    color: #fff;
+    font-size: .95rem;
+}
+
+.prac-pct-total-badge {
+    font-size: .75rem;
+}
+
+/* PCT ring / stats colours */
+.prac-tone            { color: #2A3F54; }
+.prac-tone.is-ok      { color: #22c55e; }
+.prac-tone.is-warning { color: #f59e0b; }
+.prac-tone.is-overdue { color: #dc2626; }
+
+.prac-tone-stroke.is-ok      { stroke: #22c55e; }
+.prac-tone-stroke.is-warning { stroke: #f59e0b; }
+.prac-tone-stroke.is-overdue { stroke: #dc2626; }
+
+/* Toggled by evaluation.js through style.display, so no !important here. */
+.pct-paused-reason-text.is-hidden,
+.reject-panel.is-hidden {
+    display: none;
+}
+
+/* Step bar: a <progress> in place of HCD's inline-width fill. */
+.prac-step-progress {
+    display: block;
+    width: 100%;
+    height: 4px;
+    border: 0;
+    border-radius: 3px;
+    background: #f3f4f6;
+    appearance: none;
+}
+
+.prac-step-progress::-webkit-progress-bar   { background: #f3f4f6; border-radius: 3px; }
+.prac-step-progress::-webkit-progress-value { border-radius: 3px; background: #22c55e; }
+.prac-step-progress::-moz-progress-bar      { border-radius: 3px; background: #22c55e; }
+
+.prac-step-progress.pct-sla-warning::-webkit-progress-value { background: #f59e0b; }
+.prac-step-progress.pct-sla-warning::-moz-progress-bar      { background: #f59e0b; }
+.prac-step-progress.pct-sla-overdue::-webkit-progress-value { background: #dc2626; }
+.prac-step-progress.pct-sla-overdue::-moz-progress-bar      { background: #dc2626; }
+
+.prac-legend-completed { color: #22c55e; }
+.prac-legend-active    { color: #3b82f6; }
+.prac-legend-paused    { color: #f59e0b; }
+.prac-legend-pending   { color: #d1d5db; }
+
+/* Applicant */
+.prac-applicant-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+}
+
+.prac-photo {
+    flex: 0 0 96px;
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e4e8ee;
+}
+
+/* Document rows */
+.prac-doc-file {
+    font-size: .75rem;
+}
+
+.prac-doc-view {
+    font-size: .78rem;
+}
+
+.prac-doc-remarks {
+    width: 100%;
+    font-size: .78rem;
+    color: #991b1b;
+}
+
+.prac-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 4px solid #1A4A8A;
+    background: #eef5ff;
+    font-size: .85rem;
+    color: #2A3F54;
+}
+
+.prac-notice.is-warning { border-left-color: #f59e0b; background: #fffbeb; }
+.prac-notice.is-success { border-left-color: #16a34a; background: #f0fdf4; color: #166534; font-weight: 600; }
+
+/* Rejection modal (HCD's, minus the inline styles) */
+.prac-modal {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .2);
+}
+
+.prac-modal-header {
+    padding: 22px 28px;
+}
+
+.prac-modal-header.is-danger {
+    background: linear-gradient(135deg, #c0392b, #922b21);
+}
+
+.prac-modal-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+    font-size: 1.4rem;
+}
+
+.prac-modal-body {
+    background: #fafafa;
+}
+
+.modal-footer.prac-modal-body {
+    padding: 16px 28px;
+}
+
+.prac-modal-applicant {
+    background: #fff;
+    border: 1px solid #e4eaf2;
+    border-radius: 10px;
+}
+
+.prac-modal-name {
+    color: #2A3F54;
+    font-size: .95rem;
+}
+
+.prac-modal-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 8px;
+}
+
+.prac-modal-subtitle {
+    color: #922b21;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.prac-modal-header.is-success {
+    background: linear-gradient(135deg, #1a7a4a, #145c38);
+}
+
+.prac-modal-note {
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+    background: #d4edda;
+}
+
+.prac-modal-note.is-danger {
+    border-left-color: #dc3545;
+    background: #f8d7da;
+}
+
+/* ── Panel interview card (HCD's interview card, minus the inline styles) ── */
+.prac-card-icon.is-danger { background: linear-gradient(135deg, #c0392b, #922b21); }
+.prac-card-icon.is-success { background: linear-gradient(135deg, #1a7a4a, #145c38); }
+
+.prac-notice.is-danger { border-left-color: #dc3545; background: #fff5f5; color: #842029; }
+.prac-notice > div { line-height: 1.5; }
+
+.prac-int-card {
+    margin: 1rem 0;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
+}
+
+.prac-int-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #1A4A8A, #0D2B55);
+    color: #fff;
+    font-weight: 700;
+}
+
+.prac-int-head h6 {
+    color: #fff;
+    font-weight: 700;
+}
+
+.prac-int-head-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .15);
+    font-size: 1.15rem;
+}
+
+.prac-int-body {
+    padding: 16px 24px 10px;
+    text-align: center;
+}
+
+.prac-int-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.prac-int-chip {
+    padding: 8px 14px;
+    background: #f0f5ff;
+    border: 1px solid #d0ddf7;
+    border-radius: 8px;
+}
+
+.prac-int-chip-label {
+    margin-bottom: 2px;
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: #6b7c9e;
+}
+
+.prac-int-chip-value {
+    font-size: .88rem;
+    font-weight: 600;
+    color: #1A3A6A;
+}
+
+.prac-int-link {
+    text-decoration: underline;
+}
+
+.prac-int-foot {
+    padding: 14px 24px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.prac-int-foot.is-running {
+    background: #fff4e5;
+}
+
+.prac-int-foot.is-result {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #dc3545;
+}
+
+.prac-int-foot.is-passed {
+    color: #166534;
+}
+
+.prac-int-update {
+    padding: 8px 24px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+}
+
+/* Update Schedule modal */
+.prac-modal-header.is-primary {
+    background: linear-gradient(135deg, #1A4A8A, #0D2B55);
+}
+
+.prac-modal-note.is-primary {
+    border-left-color: #1A4A8A;
+    background: #eef5ff;
+}
+
+.prac-resched-list {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.prac-resched-day {
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+}
+
+.prac-resched-date {
+    float: none;
+    width: auto;
+    margin-bottom: 6px;
+    font-size: .9rem;
+    font-weight: 700;
+    color: #0b3d91;
+}
+
+.prac-resched-times {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.prac-resched-time {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1.5px solid #dbe4f0;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.prac-resched-time input {
+    margin-top: 4px;
+}
+
+.prac-resched-time span {
+    display: flex;
+    flex-direction: column;
+    font-size: .88rem;
+    color: #1e3a5f;
+}
+
+.prac-resched-time small {
+    color: #64748b;
+}
+
+.prac-resched-time:has(input:checked) {
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, .15);
+}
+
+.prac-int-lead {
+    margin-bottom: 8px;
+    font-size: .9rem;
+    font-weight: 600;
+    color: #2A3F54;
+}
+
+/* ── Recommendation / payment (HCD's verifier card, minus the inline styles) ── */
+.prac-verify-card {
+    border-left: 4px solid #1A4A8A;
+    background-color: #f7f9fc;
+}
+
+.prac-verify-box {
+    min-height: 250px;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 .125rem .25rem rgba(0, 0, 0, .075);
+}
+
+.prac-verify-box.is-primary {
+    border-color: #d0ddf7;
+    box-shadow: none;
+}
+
+.prac-verify-title {
+    color: #1A3A6A;
+}
+
+.prac-verify-box .is-hidden {
+    display: none;
+}
+
+/* ── Accreditation strip and certificate issuance (HCD's, minus inline styles) ── */
+.prac-acc-strip {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #bbf7d0;
+}
+
+.prac-acc-label {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .45px;
+    text-transform: uppercase;
+    color: #166534;
+}
+
+.prac-acc-number {
+    color: #14532d;
+}
+
+.prac-acc-meta {
+    color: #166534;
+}
+
+.prac-acc-strip.is-archived {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border-color: #cbd5e1;
+}
+
+.prac-acc-small-btn {
+    border-radius: 8px;
+    font-size: .78rem;
+}
+
+.prac-acc-btn {
+    border-radius: 8px;
+    font-size: .82rem;
+    background: #15803d;
+    border-color: #166534;
+}
+
+.prac-cert-card {
+    border-left: 4px solid #16a34a;
+    background-color: #f0fdf4;
+}
+
+.prac-cert-box {
+    min-height: 0;
+}
+
+.prac-cert-released {
+    min-height: 0;
+    border-color: #bbf7d0;
+}
+
+.prac-cert-release {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #bbf7d0;
+}
+
+.prac-step-continues {
+    margin-left: 4px;
+    font-size: .74rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.prac-file-name {
+    font-size: .72rem;
+    word-break: break-all;
+}
+
+.prac-hint-inline {
+    font-size: .72rem;
+}
+
+.prac-interview-live {
+    margin-bottom: 10px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #dc3545;
+    animation: prac-pulse 2s infinite;
+}
+
+.prac-pill-btn {
+    border-radius: 8px;
+}
+
+.prac-stop-btn {
+    box-shadow: 0 0 10px rgba(220, 53, 69, .4);
+}
+
+@keyframes prac-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .prac-interview-live { animation: none; }
+}
+
+@media (max-width: 575.98px) {
+    .prac-applicant-row {
+        flex-direction: column;
+    }
+}
+
+/* ── Division lists (admin/accreditation/division) ─────────────────────── */
+.prac-cell-sub {
+    display: block;
+    font-size: .75rem;
+    color: #64748b;
+}
+
+.prac-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.prac-status-scheduled-for-interview { background: #ede9fe; color: #5b21b6; }
+.prac-status-pending-for-interview   { background: #fef3c7; color: #92400e; }
+.prac-status-for-recommendation,
+.prac-status-awaiting-payment,
+.prac-status-payment-verification    { background: #dcfce7; color: #166534; }
+.prac-status-rejected                { background: #fee2e2; color: #991b1b; }
+.prac-status-approved                { background: #e0e7ff; color: #3730a3; }
+
+.prac-acc-status {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.prac-acc-status.is-active  { background: #dcfce7; color: #166534; }
+.prac-acc-status.is-revoked { background: #fee2e2; color: #991b1b; }
+.prac-acc-status.is-expired { background: #fef3c7; color: #92400e; }
+
+/* ── Accreditation dashboard ───────────────────────────────────────────── */
+.dash-section-title {
+    margin: 4px 0 10px;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+/* A stat card that is not a link. */
+.stat-card-static,
+.stat-card-static:hover {
+    cursor: default;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+
+/* ── Manage Interview Slots (division/interview_slots) ─────────────────── */
+.slot-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.slot-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border-left: 4px solid #16a34a;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+}
+
+.slot-stat.is-booked  { border-left-color: #1A4A8A; }
+.slot-stat.is-waiting { border-left-color: #f59e0b; }
+
+.slot-stat-num {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.slot-stat-label {
+    font-size: .8rem;
+    color: #64748b;
+}
+
+.slot-label {
+    display: block;
+    margin: 14px 0 2px;
+    font-weight: 700;
+    color: #2A3F54;
+}
+
+.slot-label:first-of-type {
+    margin-top: 0;
+}
+
+/* The form runs the page's full width: its three steps sit side by side,
+   divided by a rule, and stack on narrower screens. */
+.slot-steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+}
+
+@media (min-width: 1200px) {
+    .slot-steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0;
+    }
+
+    .slot-step {
+        padding: 0 24px;
+        border-left: 1px solid #e2e8f0;
+    }
+
+    .slot-step:first-child {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .slot-step:last-child {
+        padding-right: 0;
+    }
+}
+
+.slot-step > .slot-label:first-child {
+    margin-top: 0;
+}
+
+.slot-date-picker {
+    display: flex;
+    gap: 8px;
+}
+
+.slot-date-picker .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Added dates: one row each, with the mode and venue the date took. */
+.slot-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.slot-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 12px;
+    border-left: 3px solid #16a34a;
+    border-radius: 6px;
+    background: #f0fdf4;
+    color: #14532d;
+}
+
+.slot-chip.is-online {
+    border-left-color: #2563eb;
+    background: #eff6ff;
+    color: #1e3a8a;
+}
+
+.slot-chip-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.slot-chip-date {
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+.slot-chip-venue {
+    overflow: hidden;
+    font-size: .74rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: .85;
+}
+
+.slot-chip-remove {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(30, 58, 138, .12);
+    color: #1e3a8a;
+    line-height: 1;
+}
+
+.slot-chip-remove:hover {
+    background: #1e3a8a;
+    color: #fff;
+}
+
+.slot-chips-empty {
+    font-size: .8rem;
+    color: #94a3b8;
+}
+
+.slot-presets {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.slot-preset,
+.slot-mode {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .85rem;
+    color: #334155;
+    cursor: pointer;
+}
+
+.slot-preset:has(input:checked),
+.slot-mode:has(input:checked) {
+    border-color: #1A4A8A;
+    background: #eef5ff;
+    color: #1A4A8A;
+}
+
+.slot-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.slot-custom-row input {
+    max-width: 150px;
+}
+
+.slot-modes {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.slot-submit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.slot-summary {
+    font-size: .85rem;
+    color: #475569;
+}
+
+.slot-status {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.slot-status.is-open   { background: #dcfce7; color: #166534; }
+.slot-status.is-booked { background: #dbeafe; color: #1e40af; }
+.slot-status.is-passed { background: #f1f5f9; color: #64748b; }
+
+@media (max-width: 575.98px) {
+    .slot-presets {
+        grid-template-columns: 1fr;
+    }
+}

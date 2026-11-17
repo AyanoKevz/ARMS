@@ -624,9 +624,9 @@ class RenewalController extends Controller
             // Notify Admin Evaluators after HTTP response (instant user feedback)
             dispatch(function () use ($application) {
                 try {
-                    $teamLeads = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Team Lead');
-                    })->get();
+                    // HCD Team Leads only — the Accreditation division has its
+                    // own Team Lead, who does not deck FATPro applications.
+                    $teamLeads = \App\Support\AdminAccess::teamLeadsOf(\App\Support\AdminAccess::HCD)->get();
 
                     if ($teamLeads->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
@@ -1103,9 +1103,9 @@ class RenewalController extends Controller
 
             // Notify Verifiers via Notification system (Email + DB)
             try {
-                $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->where('name', 'Verifier');
-                })->get();
+                // Every Accreditation admin (Verifiers and their Team Lead)
+                // handles FATPro payment verification.
+                $verifiers = \App\Support\AdminAccess::membersOf(\App\Support\AdminAccess::ACCREDITATION)->get();
 
                 if ($verifiers->isNotEmpty()) {
                     \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\PaymentSubmittedNotification($application));

@@ -39,7 +39,7 @@
                 View Pending Renewals
             </a>
         @else
-            <a href="{{ route('admin.hcd.applications.pending') }}" class="btn-primary">
+            <a href="{{ $application->adminPendingUrl() }}" class="btn-primary">
                 View Pending Applications
             </a>
         @endif

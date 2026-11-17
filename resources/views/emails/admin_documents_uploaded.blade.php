@@ -48,7 +48,7 @@
     <p>{{ $isInstructor ? 'The instructor credentials are now pending review. Please log in to the admin portal to evaluate the submitted instructor files.' : 'The application is now back under review. Please log in to the admin portal to evaluate the updated files.' }}</p>
 
     <div class="btn-wrap">
-        <a href="{{ route('admin.hcd.applications.show', $application->id) }}" class="btn-primary">
+        <a href="{{ $application->adminShowUrl() }}" class="btn-primary">
             {{ $isInstructor ? 'Review Instructor Documents' : 'Review Resubmitted Documents' }}
         </a>
     </div>

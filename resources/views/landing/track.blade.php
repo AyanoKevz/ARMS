@@ -95,6 +95,11 @@
                             </div>
                         </div>
 
+                        {{-- ── Re-upload deadline / archived (Practitioner / Consultant) ── --}}
+                        @if(\App\Support\AdminAccess::isAccreditationDivisionType($application->accreditation_type_id))
+                            @include('landing.partials.division_notice', ['application' => $application])
+                        @endif
+
                         {{-- ── Payment Verification Notice (after payment submitted) ── --}}
                         @php
                             $payment = $application->payment;
@@ -141,14 +146,14 @@
                                     <i class="bi bi-info-circle-fill fs-5 mt-1 text-warning"></i>
                                     <div class="w-100">
                                         <h6 class="fw-bold mb-2" style="color: #856404; font-size: 1rem;">Payment Instructions & Steps</h6>
-                                        <p class="mb-3 small text-dark">Congratulations on your accreditation as a First Aid Training Provider! We would like to inform you that your accreditation as First Aid Training Provider is approved by the Office of the Executive Director.</p>
+                                        <p class="mb-3 small text-dark">Congratulations on your accreditation as {{ $application->isPractitioner() ? 'an' : 'a' }} {{ $application->accreditationTitle() }}! We would like to inform you that your accreditation as {{ $application->accreditationTitle() }} is approved by the Office of the Executive Director.</p>
                                         
                                         <div class="mb-3">
                                             <strong class="small d-block text-dark mb-1">1. Payment Details:</strong>
                                             <ul class="mb-0 small text-muted pl-3" style="list-style-type: disc;">
                                                 <li>Account Name: <strong>Occupational Safety and Health Center</strong></li>
                                                 <li>Account Number: <strong>0711-0536-03</strong></li>
-                                                <li>Amount: <strong>900.00 Pesos</strong></li>
+                                                <li>Amount: <strong>{{ $application->paymentAmount() }} Pesos</strong></li>
                                             </ul>
                                         </div>
 
@@ -259,6 +264,13 @@
                         </div>
                         @endif
 
+                        {{-- ── Choose an interview slot (Practitioner / Consultant) ── --}}
+                        @if(\App\Support\AdminAccess::isAccreditationDivisionType($application->accreditation_type_id)
+                            && $application->latestStatus?->status?->name === 'Scheduled for Interview'
+                            && ! $application->interview)
+                            @include('landing.partials.interview_slot_picker', ['application' => $application, 'slotsByDate' => $interviewSlots ?? collect()])
+                        @endif
+
                         {{-- ── Interview Schedule Banner ── --}}
                         @php $interview = $application->interview; @endphp
                         @if($interview && $application->latestStatus?->status?->name === 'Scheduled for Interview')
@@ -362,7 +374,7 @@
                                     @endphp
                                     <div>
                                         <div class="mb-2 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
-                                            <i class="bi bi-file-earmark-text me-1"></i> FATPro Documents
+                                            <i class="bi bi-file-earmark-text me-1"></i> {{ $application->isConsultant() ? 'Consultant Documents' : ($application->isPractitioner() ? 'Practitioner Documents' : 'FATPro Documents') }}
                                         </div>
                                         <div class="d-flex flex-column gap-4">
                                             @foreach($groupedRejected as $typeId => $docs)
@@ -375,6 +387,11 @@
                                                 </h6>
                                                 <div class="d-flex flex-column gap-3">
                                                     @foreach($docs as $rdoc)
+                                                    @if($pracValues && \App\Services\PractitionerApplicationService::isApplicationFormCode($rdoc->documentField?->code))
+                                                    {{-- The practitioner's application form is corrected here, not re-uploaded. --}}
+                                                    @include('landing.partials.practitioner.correction', ['document' => $rdoc])
+                                                    @continue
+                                                    @endif
                                                     <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 p-3 bg-white rounded-2 border shadow-sm">
                                                         <div class="flex-grow-1">
                                                             <div class="fw-semibold" style="font-size:.9rem; color:#1a2e5a;">

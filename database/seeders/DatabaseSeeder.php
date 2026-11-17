@@ -29,6 +29,13 @@ class DatabaseSeeder extends Seeder
         // log in as them.
         if (app()->environment(['local', 'testing']) || config('app.seed_test_data')) {
             $this->call(TestApplicationSeeder::class);
+
+            // Sample OSH Practitioner applications for the Accreditation
+            // division. Skipped in the test suite: it writes real PDFs and
+            // photos to the local disk.
+            if (! app()->environment('testing')) {
+                $this->call(PractitionerTestApplicationSeeder::class);
+            }
         } else {
             $this->command?->warn('Skipped TestApplicationSeeder (APP_ENV=' . app()->environment() . '). Set SEED_TEST_DATA=true to include it.');
         }

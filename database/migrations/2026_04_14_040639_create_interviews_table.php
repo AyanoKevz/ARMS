@@ -19,6 +19,11 @@ return new class extends Migration
             $table->string('mode');
             $table->string('venue')->nullable();
             $table->timestamps();
+
+            $table->index('interview_date', 'idx_interviews_date');
+            $table->index('mode', 'idx_interviews_mode');
+            // Also serves the application_id foreign key.
+            $table->index(['application_id', 'interview_date'], 'idx_interviews_app_date');
         });
     }
 

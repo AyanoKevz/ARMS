@@ -74,7 +74,7 @@
                                             {{--
                                             Seeder order (IDs):
                                             1  Practitioners              â†’ Individual (OPEN)
-                                            2  Consultant                 â†’ Individual (disabled)
+                                            2  Consultant                 â†’ Individual (OPEN)
                                             3  WEM Providers              â†’ Organization (disabled)
                                             4  CHETO                      â†’ Organization (disabled)
                                             5  Safety Training Orgs       â†’ Organization (disabled)
@@ -82,7 +82,7 @@
                                             7  First Aid Training Providers â†’ Organization (OPEN)
                                         --}}
                                             <option value="1">Practitioners</option>
-                                            <option value="2" disabled>Consultant</option>
+                                            <option value="2">Consultant</option>
                                             <option value="3" disabled>Work and Environment Measurement Providers</option>
                                             <option value="4" disabled>Construction Heavy Equipment Testing Organizations</option>
                                             <option value="5" disabled>Safety Training Organizations</option>
@@ -92,8 +92,8 @@
                                         <div class="invalid-feedback">Please select an accreditation type.</div>
                                         <div class="form-text">
                                             <i class="bi bi-info-circle me-1"></i>
-                                            Currently open: <strong>First Aid Training Providers</strong> and
-                                            <strong>Practitioners</strong>.
+                                            Currently open: <strong>First Aid Training Providers</strong>,
+                                            <strong>Practitioners</strong> and <strong>Consultant</strong>.
                                         </div>
                                     </div>
 
@@ -249,18 +249,23 @@
                                                     name="first_name" placeholder="Juan">
                                                 <div class="invalid-feedback">First name is required.</div>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label for="middle_name" class="form-label fw-semibold">Middle Name</label>
                                                 <input type="text" class="form-control" id="middle_name"
                                                     name="middle_name" placeholder="(optional)">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label for="last_name" class="form-label fw-semibold">
                                                     Last Name <span class="text-danger">*</span>
                                                 </label>
                                                 <input type="text" class="form-control" id="last_name"
                                                     name="last_name" placeholder="Dela Cruz">
                                                 <div class="invalid-feedback">Last name is required.</div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="suffix" class="form-label fw-semibold">Suffix</label>
+                                                <input type="text" class="form-control" id="suffix"
+                                                    name="suffix" maxlength="20" placeholder="Jr., Sr., III">
                                             </div>
                                             <div class="col-md-4">
                                                 <label for="sex" class="form-label fw-semibold">
@@ -607,7 +612,7 @@
 
                                             {{-- Service Agreement --}}
                                             <div class="credential-block border rounded-2 p-3" style="background:#fffdf4;border-color:#d4ac4b !important;">
-                                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="bi bi-file-earmark-text-fill me-1"></i>Service Agreement between FATPro head and instructor.</p>
+                                                <p class="fw-bold mb-2" style="font-size:.83rem;color:#7a5c00;"><i class="bi bi-file-earmark-text-fill me-1"></i>Service Agreement between FATPro head and instructor. <span class="text-danger">*</span></p>
                                                 <div class="file-upload-wrapper">
                                                     <input class="real-file-input visually-hidden" type="file" name="instructors[__IDX__][service_agreement]" id="inst_sa___IDX__" accept=".pdf" required>
                                                     <div class="d-flex align-items-center gap-2">
@@ -1072,9 +1077,14 @@
 </div>
 @endsection
 
+@push('styles')
+    {{-- The AF-PCN-A1 form shown by "Review Details" for OSH Practitioner. --}}
+    <link rel="stylesheet" href="{{ \App\Support\AssetVersion::url('css/af-pcn-a1.css') }}">
+@endpush
+
 @push('scripts')
     {{-- Practitioner branch: section toggling, the CV repeaters, the derived
-         fields and the review summary. Loads ahead of landing.js (the layout
-         stacks scripts above it) so its submit guard is registered first. --}}
+         fields and the AF-PCN-A1 review. Loads ahead of landing.js (the layout
+         stacks scripts above it), which calls into it from "Review Details". --}}
     <script src="{{ \App\Support\AssetVersion::url('js/practitioner-form.js') }}" defer></script>
 @endpush

@@ -15,6 +15,7 @@ class PendingRegistration extends Model
         'form_data',
         'documents_data',
         'instructors_data',
+        'practitioner_data',
         'expires_at',
     ];
 
@@ -22,6 +23,7 @@ class PendingRegistration extends Model
         'form_data'       => 'array',
         'documents_data'  => 'array',
         'instructors_data'=> 'array',
+        'practitioner_data' => 'array',
         'expires_at'      => 'datetime',
     ];
 

@@ -894,114 +894,51 @@ select option:disabled { color: #bbb; }
     box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
 }
 
-.prac-step-sub {
-    font-weight: 500;
-    font-size: .82rem;
-    color: #6c757d;
-    text-transform: none;
-    letter-spacing: 0;
-}
+/* The form controls (.prac-label, .prac-card, .prac-note…) are in
+   practitioner-fields.css, which the form partial loads itself. */
 
-.prac-subheading {
-    font-size: .82rem;
-    font-weight: 600;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    margin-bottom: .5rem;
-}
+/* ── Requirements notice ───────────────────────────────────────────────── */
 
-.prac-section-heading {
-    font-size: .92rem;
-    font-weight: 700;
+.prac-notice-title {
     color: #0b3d91;
+    font-size: .96rem;
 }
 
-.prac-note {
-    background: rgba(46, 111, 216, .08);
-    border: 1px solid rgba(46, 111, 216, .2);
-    border-radius: 8px;
-    color: var(--blue-deep);
-    font-size: .82rem;
+.prac-notice-lead {
+    font-size: .84rem;
     line-height: 1.45;
-    padding: .55rem .75rem;
 }
 
-.prac-card {
-    border-left: 3px solid rgba(11, 61, 145, .35) !important;
-}
-
-.prac-card-label {
-    color: #0b3d91;
-    font-size: .88rem;
-}
-
-/* Yes/No disclosures read as a row per question rather than a wall of radios. */
-.prac-yesno {
-    background: #f8f9ff;
-    border: 1px solid rgba(11, 61, 145, .12);
-}
-
-.prac-blocked-notice {
-    display: flex;
-    align-items: flex-start;
-    background: rgba(212, 172, 75, .12);
-    border: 1px solid rgba(212, 172, 75, .4);
-    border-radius: 10px;
-    color: #7a5c00;
-    font-size: .85rem;
+.prac-notice-grid {
+    font-size: .81rem;
     line-height: 1.5;
-    padding: .75rem 1rem;
 }
 
-/* ── Review step ───────────────────────────────────────────────────────── */
-
-.prac-summary-group {
-    background: #fff;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-left: 4px solid #0b3d91;
-    border-radius: 8px;
-    padding: .85rem 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
-}
-
-.prac-summary-title {
-    font-weight: 700;
-    font-size: .85rem;
+.prac-notice-col-title {
     color: #0b3d91;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-    margin-bottom: .5rem;
 }
 
-.prac-summary-card + .prac-summary-card {
-    margin-top: .65rem;
-    padding-top: .65rem;
-    border-top: 1px dashed rgba(0, 0, 0, .12);
+.prac-notice-list {
+    font-size: .78rem;
 }
 
-.prac-summary-card-label {
-    font-size: .75rem;
-    font-weight: 600;
-    color: #6c757d;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-    margin-bottom: .2rem;
-}
-
-.prac-summary-table {
+.prac-notice-foot {
     font-size: .8rem;
-    line-height: 1.35;
-    background: transparent;
+    color: #0b3d91;
 }
 
-.prac-summary-table td {
-    border: 0;
-    vertical-align: top;
-    word-break: break-word;
+/* ── Review step ───────────────────────────────────────────────────────
+   "Review Details" swaps the summary for the AF-PCN-A1 form itself; its
+   styles are in af-pcn-a1.css. */
+
+.prac-review-loading {
+    padding: 2rem 0;
+    text-align: center;
+    color: #6c757d;
 }
 
-@media (max-width: 575.98px) {
-    .prac-summary-table td { display: block; width: 100% !important; }
-    .prac-summary-table td:first-child { padding-bottom: 0; }
+.prac-review-card {
+    background: transparent !important;
+    padding: 0 !important;
 }
+

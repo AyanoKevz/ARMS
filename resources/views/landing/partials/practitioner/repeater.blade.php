@@ -9,56 +9,59 @@
 
     Expects: $key, $title, $addLabel, $fields
     Optional: $icon, $itemLabel, $initial, $min, $note
+    When the form comes back pre-filled, the rows in $pracValues['sections']
+    are rendered as cards here; the script numbers new ones after them.
+
+    $pracLocked (portal renewal, a step the AF-PCR-A2 does not ask): the rows
+    on file only — no Add / Remove, every field disabled (field.blade.php),
+    and practitioner-form.js adds no blank cards.
 --}}
 @php
-    $icon      = $icon      ?? 'bi-collection-fill';
-    $itemLabel = $itemLabel ?? 'Entry';
-    $initial   = $initial   ?? 1;
-    $min       = $min       ?? 1;
+    $icon       = $icon      ?? 'bi-collection-fill';
+    $itemLabel  = $itemLabel ?? 'Entry';
+    $initial    = $initial   ?? 1;
+    $min        = $min       ?? 1;
+    $rows       = array_values($pracValues['sections'][$key] ?? []);
+    $pracLocked = $pracLocked ?? false;
 @endphp
 
 <div class="prac-section mb-4"
      data-repeater="{{ $key }}"
      data-initial="{{ $initial }}"
      data-min="{{ $min }}"
+     data-next-index="{{ count($rows) }}"
      data-item-label="{{ $itemLabel }}"
-     data-section-title="{{ $title }}">
+     data-section-title="{{ $title }}"
+     @if($pracLocked) data-locked="1" @endif>
 
     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
         <h6 class="prac-section-heading mb-0">
             <i class="bi {{ $icon }} me-2"></i>{{ $title }}
         </h6>
-        <button type="button" class="btn btn-outline-primary btn-sm fw-semibold px-3"
-                style="border-radius:8px;" data-repeater-add="{{ $key }}">
-            <i class="bi bi-plus-circle me-1"></i>{{ $addLabel }}
-        </button>
+        @unless($pracLocked)
+            <button type="button" class="btn btn-outline-primary btn-sm fw-semibold px-3 prac-add-btn"
+                    data-repeater-add="{{ $key }}">
+                <i class="bi bi-plus-circle me-1"></i>{{ $addLabel }}
+            </button>
+        @endunless
     </div>
 
-    @isset($note)
+    @if(isset($note) && ! $pracLocked)
         <div class="prac-note mb-3">
             <i class="bi bi-info-circle-fill me-1"></i><span>{!! $note !!}</span>
         </div>
-    @endisset
+    @endif
 
-    <div class="prac-cards" data-repeater-cards="{{ $key }}"></div>
+    <div class="prac-cards" data-repeater-cards="{{ $key }}">
+        @foreach($rows as $i => $row)
+            @include('landing.partials.practitioner.repeater_card', ['idx' => $i, 'pracRow' => $row])
+        @endforeach
+        @if($pracLocked && $rows === [])
+            <p class="prac-locked-empty mb-0">None on record.</p>
+        @endif
+    </div>
 
     <template data-repeater-template="{{ $key }}">
-        <div class="prac-card border rounded-3 bg-white shadow-sm p-3 mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <span class="fw-bold prac-card-label">{{ $itemLabel }} #1</span>
-                <button type="button" class="btn btn-sm btn-outline-danger prac-remove-btn d-none">
-                    <i class="bi bi-trash me-1"></i>Remove
-                </button>
-            </div>
-            <div class="row g-3">
-                @foreach($fields as $f)
-                    @include('landing.partials.practitioner.field', [
-                        'f'        => $f,
-                        'group'    => "practitioner[{$key}][__IDX__]",
-                        'idPrefix' => "prac_{$key}___IDX__",
-                    ])
-                @endforeach
-            </div>
-        </div>
+        @include('landing.partials.practitioner.repeater_card', ['idx' => '__IDX__', 'pracRow' => []])
     </template>
 </div>

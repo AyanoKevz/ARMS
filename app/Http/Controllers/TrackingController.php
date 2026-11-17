@@ -17,7 +17,15 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\AdminDocumentsUploadedEmail;
+use App\Mail\AdminInterviewSlotBookedEmail;
+use App\Mail\InterviewScheduleEmail;
+use App\Models\Interview;
+use App\Models\InterviewSlot;
 use App\Services\PctService;
+use App\Services\PractitionerApplicationService;
+use App\Services\PractitionerArchiveService;
+use App\Support\AdminAccess;
+use Illuminate\Support\Facades\DB;
 
 class TrackingController extends Controller
 {
@@ -82,7 +90,145 @@ class TrackingController extends Controller
             }
         }
 
-        return view('landing.track', compact('application'));
+        // Upcoming interview slots (taken ones show as Fully Booked), read
+        // fresh rather than from the cached application — another applicant
+        // may have just taken one.
+        $interviewSlots = $application && $this->choosesInterviewSlot($application)
+            ? InterviewSlot::upcoming()->chronological()->get()->groupBy(fn ($slot) => $slot->slot_date->format('Y-m-d'))
+            : collect();
+
+        // A rejected AF-PCN-A1 comes back as the form itself, filled in.
+        $pracValues = $application && $this->applicationFormToCorrect($application)
+            ? app(PractitionerApplicationService::class)->correctionValues($application, $request->session()->getOldInput())
+            : null;
+
+        return view('landing.track', compact('application', 'interviewSlots', 'pracValues'));
+    }
+
+    /**
+     * The practitioner's rejected AF-PCN-A1, while the application waits for
+     * the applicant's corrections; null otherwise.
+     */
+    private function applicationFormToCorrect(Application $application): ?ApplicationDocument
+    {
+        if (! $application->isPractitioner()
+            || $application->latestStatus?->status?->name !== 'For Update') {
+            return null;
+        }
+
+        $application->loadMissing('documents.documentField');
+
+        return $application->documents->first(fn ($d) =>
+            PractitionerApplicationService::isApplicationFormCode($d->documentField?->code)
+            && in_array($d->status, ['rejected', 'returned'], true));
+    }
+
+    /**
+     * The applicant books one of the Accreditation division's open interview
+     * slots. The slot is claimed atomically (only while still unbooked), the
+     * application's interview record is written from it, the applicant gets
+     * the confirmation email and every Accreditation admin is emailed what was
+     * chosen.
+     */
+    public function bookInterview(Request $request)
+    {
+        $request->validate([
+            'slot_id' => ['required', 'integer'],
+        ], [
+            'slot_id.required' => 'Please choose an interview date and time.',
+        ]);
+
+        $application = $this->trackedApplication($request, ['latestStatus.status', 'interview', 'user']);
+        if (! $application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        if (! $this->choosesInterviewSlot($application)) {
+            return back()->with('error', $application->interview
+                ? 'Your interview schedule has already been set.'
+                : 'Your application is not yet open for interview scheduling.');
+        }
+
+        $slot = InterviewSlot::open()->find($request->integer('slot_id'));
+        if (! $slot) {
+            return back()->with('error', 'That interview slot is no longer available. Please choose another one.');
+        }
+
+        try {
+            $booked = DB::transaction(function () use ($application, $slot) {
+                // Claim it only if nobody else did in the meantime.
+                $claimed = InterviewSlot::whereKey($slot->id)
+                    ->whereNull('application_id')
+                    ->update(['application_id' => $application->id, 'booked_at' => now()]);
+
+                if ($claimed !== 1) {
+                    return null;
+                }
+
+                return Interview::create([
+                    'application_id' => $application->id,
+                    'interview_date' => $slot->slot_date->format('Y-m-d'),
+                    'interview_time' => $slot->start_time,
+                    'mode'           => $slot->mode,
+                    'venue'          => $slot->venue,
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // The unique application_id on interview_slots: a double submit.
+            Log::warning('Interview slot booking conflict for ' . $application->tracking_number . ': ' . $e->getMessage());
+            $booked = null;
+        }
+
+        if (! $booked) {
+            return back()->with('error', 'That interview slot was just taken by another applicant. Please choose another one.');
+        }
+
+        $slot->refresh();
+
+        // PCT Step 5 (Panel Interview) waits, paused, until the slot starts.
+        try {
+            app(PctService::class)->schedulePractitionerInterview($application);
+        } catch (\Throwable $e) {
+            Log::error('Interview PCT step failed for ' . $application->tracking_number . ': ' . $e->getMessage());
+        }
+
+        CacheService::bustTrackingCache($application->tracking_number);
+        CacheService::bustApplicationCaches();
+
+        try {
+            if ($application->user?->email) {
+                Mail::to($application->user->email)->send(new InterviewScheduleEmail($application, $booked));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Interview confirmation email failed for ' . $application->tracking_number . ': ' . $e->getMessage());
+        }
+
+        // Every Accreditation admin hears about it, as with a new application.
+        $slot->refresh();
+        foreach (AdminAccess::membersOf(AdminAccess::ACCREDITATION)->get() as $admin) {
+            if (! $admin->email) {
+                continue;
+            }
+
+            try {
+                Mail::to($admin->email)->send(new AdminInterviewSlotBookedEmail($application, $slot));
+            } catch (\Throwable $e) {
+                Log::warning('Interview slot notification to ' . $admin->email . ' failed: ' . $e->getMessage());
+            }
+        }
+
+        return back()->with('success', 'Your interview is set for ' . $slot->slot_date->format('l, F j, Y') . ', ' . $slot->timeLabel() . '. A confirmation has been emailed to you.');
+    }
+
+    /**
+     * Approved Accreditation division (Practitioner / Consultant) applicants
+     * choose their own interview slot; FATPro interviews are set by HCD.
+     */
+    private function choosesInterviewSlot(Application $application): bool
+    {
+        return AdminAccess::isAccreditationDivisionType($application->accreditation_type_id)
+            && $application->latestStatus?->status?->name === 'Scheduled for Interview'
+            && ! $application->interview;
     }
 
     /**
@@ -109,7 +255,21 @@ class TrackingController extends Controller
             return back()->with('error', 'Invalid action. You can only resubmit documents if your application status is "For Update".');
         }
 
-        $request->validate([
+        // Accreditation division: the 5-working-day re-upload window has
+        // closed (the daily run archives it; this catches the gap before it).
+        $dueDate = $application->compliance_due_date;
+        if ($dueDate && $dueDate->lt(now()->startOfDay())) {
+            app(PractitionerArchiveService::class)->archive($application, PractitionerArchiveService::NON_COMPLIANCE);
+
+            return back()->with('error', 'The deadline to re-upload your documents was ' . $dueDate->format('F j, Y') . '. Your application has been archived.');
+        }
+
+        // A rejected AF-PCN-A1 is corrected on the page (Steps 3–13 again,
+        // pre-filled) rather than re-uploaded, and generated anew from the answers.
+        $practitioners = app(PractitionerApplicationService::class);
+        $formDoc       = $this->applicationFormToCorrect($application);
+
+        $request->validate(array_merge([
             'files'          => ['nullable', 'array'],
             'files.*'        => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'values'         => ['nullable', 'array'],
@@ -120,7 +280,7 @@ class TrackingController extends Controller
             'cv_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
             'legal03_file' => ['nullable', 'file', 'mimes:pdf', 'max:15360'],            'credential_files' => ['nullable', 'array'],
             'credential_files.*' => ['required', 'file', 'mimes:pdf', 'max:15360'],
-        ]);
+        ], $formDoc ? $practitioners->correctionRules($request) : []), [], $formDoc ? $practitioners->attributes() : []);
 
         $userId      = $application->user_id;
 
@@ -128,13 +288,33 @@ class TrackingController extends Controller
 
         $baseDocPath = ApplicantStoragePath::documents($accreditationName, $userId);
         $baseCredPath = ApplicantStoragePath::credentials($accreditationName, $userId);
-        
+        $resubmitted = 0;
+
+        // First, so a failure here leaves nothing else half-replaced.
+        if ($formDoc) {
+            try {
+                $practitioners->correct(
+                    $application,
+                    (array) $request->input('person', []),
+                    (array) $request->input('practitioner', []),
+                    $request->file('practitioner.profile.photo'),
+                    $baseDocPath
+                );
+            } catch (\Throwable $e) {
+                Log::error('Application form correction failed for ' . $application->tracking_number . ': ' . $e->getMessage(), ['exception' => $e]);
+
+                return back()->withInput()->with('error', 'Your application form could not be saved. Please try again.');
+            }
+
+            $formDoc->update(['status' => 'pending', 'remarks' => null]);
+            $resubmitted++;
+        }
+
         $files             = $request->file('files') ?? [];
         $values            = $request->input('values') ?? [];
         $instructorFiles   = $request->file('instructor_files') ?? [];
         $cvFiles           = $request->file('cv_files') ?? [];
         $credentialFiles   = $request->file('credential_files') ?? [];
-        $resubmitted       = 0;
 
         foreach ($values as $appDocId => $value) {
             $appDoc = ApplicationDocument::with(['documentField', 'userDocument'])
@@ -253,6 +433,8 @@ class TrackingController extends Controller
 
             $field = $appDoc->documentField;
             if (! $field || $field->input_type !== 'file') continue;
+            // Generated from the corrected answers above, never uploaded.
+            if (PractitionerApplicationService::isApplicationFormCode($field->code)) continue;
 
             $code      = $field->code;
             $timestamp = time();
@@ -396,6 +578,11 @@ class TrackingController extends Controller
         // ── PCT: Resume the paused step (applicant has resubmitted)
         app(PctService::class)->resumeCurrentStep($application);
 
+        // Re-uploaded in time: the archive deadline no longer applies.
+        if ($application->compliance_due_date) {
+            $application->forceFill(['compliance_due_date' => null])->save();
+        }
+
         // Bust tracking cache and listing caches
         CacheService::bustTrackingCache($application->tracking_number);
         CacheService::bustApplicationCaches();
@@ -440,6 +627,16 @@ class TrackingController extends Controller
             return back()->with('error', 'Invalid action. Proof of payment can only be uploaded while your application is awaiting payment.');
         }
 
+        // Accreditation division: a rejected proof of payment must be
+        // re-uploaded within 5 working days (the daily run archives it;
+        // this catches the gap before it).
+        $dueDate = $application->compliance_due_date;
+        if ($dueDate && $dueDate->lt(now()->startOfDay())) {
+            app(PractitionerArchiveService::class)->archive($application, PractitionerArchiveService::PAYMENT_NON_COMPLIANCE);
+
+            return back()->with('error', 'The deadline to re-upload your proof of payment was ' . $dueDate->format('F j, Y') . '. Your application has been archived.');
+        }
+
         $request->validate([
             'proof_of_payment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:15360'],
         ]);
@@ -472,6 +669,11 @@ class TrackingController extends Controller
             // ── PCT: Resume the paused Step 7 (payment re-uploaded)
             app(PctService::class)->resumeCurrentStep($application);
 
+            // Re-uploaded in time: the archive deadline no longer applies.
+            if ($application->compliance_due_date) {
+                $application->forceFill(['compliance_due_date' => null])->save();
+            }
+
             // ── Transition status to 'Payment Verification'
             $paymentVerificationStatus = ApplicationStatus::findByName('Payment Verification');
             if ($paymentVerificationStatus) {
@@ -485,9 +687,9 @@ class TrackingController extends Controller
 
             // Notify Verifiers via Notification system (Email + DB)
             try {
-                $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                    $q->where('name', 'Verifier');
-                })->get();
+                // Every Accreditation admin (Verifiers and their Team Lead)
+                // handles FATPro payment verification.
+                $verifiers = \App\Support\AdminAccess::membersOf(\App\Support\AdminAccess::ACCREDITATION)->get();
 
                 if ($verifiers->isNotEmpty()) {
                     \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\PaymentSubmittedNotification($application));

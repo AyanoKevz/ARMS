@@ -18,6 +18,9 @@ class ApplicationStatusSeeder extends Seeder
             'Payment Verification',
             'Approved',
             'Rejected',
+            // OSH Practitioner / Consultant: passed the panel interview. Kept
+            // last so the ids of the statuses above stay as they were.
+            'For Recommendation',
         ];
 
         foreach ($statuses as $name) {

@@ -112,6 +112,21 @@ class User extends Authenticatable
     }
 
     /**
+     * Whether this applicant's portal is the Accreditation division's (OSH
+     * Practitioner / Consultant) rather than FATPro's: their latest
+     * accreditation is one of the division's types. Remembered per request —
+     * the sidebar and the route guard both ask.
+     */
+    public function usesPractitionerPortal(): bool
+    {
+        return $this->usesPractitionerPortal ??= (bool) \App\Support\AdminAccess::isAccreditationDivisionType(
+            $this->accreditations()->latest('id')->value('accreditation_type_id')
+        );
+    }
+
+    private ?bool $usesPractitionerPortal = null;
+
+    /**
      * Get the documents uploaded by this user.
      */
     public function userDocuments()
@@ -141,9 +156,12 @@ class User extends Authenticatable
      */
     public function getNameAttribute()
     {
-        $role = $this->loadMissing('role')->role;
+        // A list of users would otherwise load each one's role separately.
+        $roleName = $this->relationLoaded('role')
+            ? $this->role?->name
+            : (Role::names()[$this->role_id] ?? null);
 
-        if ($role && strtolower($role->name) === 'admin') {
+        if ($roleName && strtolower($roleName) === 'admin') {
             $admin = $this->loadMissing('adminProfile')->adminProfile;
 
             return $admin ? "{$admin->first_name} {$admin->last_name}" : 'Admin';

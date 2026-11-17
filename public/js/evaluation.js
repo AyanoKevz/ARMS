@@ -19,6 +19,9 @@
 
     /* Label for the finalize button once everything is approved. */
     function approvalButtonLabel() {
+        // Pages whose evaluation does not lead to an interview or payment yet
+        // (OSH Practitioner) name the step themselves.
+        if (window.ARMS?.approvalLabel) return window.ARMS.approvalLabel;
         if (window.ARMS?.isApproved || window.ARMS?.isAccredited) return 'Save Approvals';
         return skipsInterview
             ? 'Save Approvals and Proceed to Payment'
@@ -970,6 +973,9 @@
 
     /* ─── Certificate Generation ──────────────────────────── */
     let certBaseUrl = '';
+    // The back page's two signatories start blank each time: the names change.
+    const CERT_BACK_SIGNATORIES = { 'cert-hcd-supervisor': 'hcd_supervisor', 'cert-hcd-chief': 'hcd_chief' };
+
     window.setCertUrl = function(url) {
         certBaseUrl = url;
         const nameInput = document.getElementById('cert-director-name');
@@ -977,6 +983,10 @@
             nameInput.value = 'JOSE MARIA S. BATINO';
             nameInput.classList.remove('is-invalid');
         }
+        Object.keys(CERT_BACK_SIGNATORIES).forEach(function (id) {
+            const input = document.getElementById(id);
+            if (input) input.value = '';
+        });
     };
 
     window.generateCert = function() {
@@ -986,7 +996,12 @@
             if (nameInput) nameInput.classList.add('is-invalid');
             return;
         }
-        const url = certBaseUrl + '?executive_director=' + encodeURIComponent(name);
+        const params = new URLSearchParams({ executive_director: name });
+        Object.entries(CERT_BACK_SIGNATORIES).forEach(function ([id, param]) {
+            const value = (document.getElementById(id)?.value || '').trim();
+            if (value) params.set(param, value);
+        });
+        const url = certBaseUrl + '?' + params.toString();
         window.open(url, '_blank');
         
         // Close modal programmatically by clicking the modal's close/cancel button
@@ -1170,6 +1185,10 @@
         let isSubmittingInterview = false;
         const secondsOnLoad = parseInt(liveCounter.getAttribute('data-seconds'), 10) || 0;
         const targetDays = liveCounter.getAttribute('data-target');
+        // "2 hours" for a target that is not whole days; "N days" otherwise.
+        const targetLabel = liveCounter.getAttribute('data-target-label') || `${targetDays} days`;
+        // FATPro interviews stop after 4 hours; pages may set a shorter limit.
+        const maxInterviewSeconds = window.ARMS?.maxInterviewSeconds || 14400;
         const holidaysList = window.ARMS?.holidays || [];
         const serverTimeOnLoad = window.ARMS?.serverTime || Date.now();
         const timeOffset = serverTimeOnLoad - Date.now();
@@ -1294,10 +1313,10 @@
             const workingSecondsSinceLoad = calculateWorkingSecondsJS(serverTimeOnLoad, serverNow);
             const seconds = secondsOnLoad + workingSecondsSinceLoad;
 
-            // Auto stop the interview if it has been running for 4 hours (14,400 seconds)
-            if (window.ARMS?.activeStep === 5 && 
-                window.ARMS?.pctStatus === 'active' && 
-                seconds >= 14400 && 
+            // Auto stop the interview once it has run its limit (4 hours by default)
+            if (window.ARMS?.activeStep === 5 &&
+                window.ARMS?.pctStatus === 'active' &&
+                seconds >= maxInterviewSeconds &&
                 !isSubmittingInterview) {
                 
                 isSubmittingInterview = true;
@@ -1322,7 +1341,7 @@
             const secs = seconds % 60;
             const liveTime = `${hrs}h ${mins}m ${secs}s`;
 
-            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetDays} days`;
+            liveCounter.innerHTML = `<i class="bi bi-stopwatch me-1"></i>(${liveTime}) &nbsp;&nbsp;${days} days / ${targetLabel}`;
 
             if (!isWorking) {
                 const stepEl = liveCounter.closest('.pct-step');

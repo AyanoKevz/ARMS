@@ -16,6 +16,7 @@ class DocumentTypeSeeder extends Seeder
         // not once a second checklist exists.
         $fatpro       = AccreditationType::where('name', 'First Aid Training Providers')->first();
         $practitioner = AccreditationType::where('name', 'Practitioners')->first();
+        $consultant   = AccreditationType::where('name', 'Consultant')->first();
 
         $types = [
             // ── First Aid Training Providers (organization) ──────────────
@@ -57,6 +58,14 @@ class DocumentTypeSeeder extends Seeder
                 'name' => 'Practitioner Documentary Requirements',
                 'code' => 'PRAC_DOCS',
                 'accreditation_type_id' => $practitioner?->id,
+            ],
+
+            // ── Consultant (individual) ──────────────────────────────────
+            // Same form and process as Practitioners; its own checklist.
+            [
+                'name' => 'Consultant Documentary Requirements',
+                'code' => 'CONS_DOCS',
+                'accreditation_type_id' => $consultant?->id,
             ],
         ];
 

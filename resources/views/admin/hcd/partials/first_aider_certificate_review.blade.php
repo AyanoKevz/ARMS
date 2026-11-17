@@ -16,7 +16,7 @@
     $faHistory  = $accreditation->firstAiderCertificateSubmissions()->whereIn('status', ['approved', 'rejected'])->with('reviewedByUser')->take(5)->get();
 
     $faViewer      = auth()->user();
-    $faRole        = strtolower($faViewer?->adminProfile?->adminRole?->name ?? '');
+    $faRole        = strtolower(\App\Support\AdminAccess::hcdRole($faViewer));
     $faAssignedId  = $accreditation->application?->assigned_evaluator_id;
     $faCanDecide   = $faRole === 'evaluator' && (!$faAssignedId || $faAssignedId === $faViewer->id);
 

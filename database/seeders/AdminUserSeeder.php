@@ -32,8 +32,11 @@ class AdminUserSeeder extends Seeder
         ['beanicole.castro@oshc.dole.gov.ph',      'HCD', 'Training Evaluator', 'Bea Nicole',   'Castro',     'LSO III'],
         ['rhyankeith.melgarejo@oshc.dole.gov.ph',  'HCD', 'Training Evaluator', 'Rhyan Keith',  'Melgarejo',  'LSO III'],
 
+        // ── Accreditation: Team Lead ──────────────────────────────────────────
+        // Leads the Accreditation division only — HCD has its own Team Leads.
+        ['oshc1987accreditation@gmail.com',        'Accreditation', 'Team Lead', 'Accreditation', 'Team Lead', 'LSO VI'],
+
         // ── Accreditation: Verifiers ──────────────────────────────────────────
-        ['oshc1987accreditation@gmail.com',        'Accreditation', 'Verifier', 'Accreditation', 'Verifier',  'LSO VI'],
         ['kevin.goto@oshc.dole.gov.ph',            'Accreditation', 'Verifier', 'Kevin',        'Goto',       'LSO VI'],
     ];
 

@@ -16,11 +16,16 @@ use Illuminate\Support\Str;
 /**
  * Accreditation Division Portal Controller
  *
- * Extends the HCD ApplicationController (DRY) - Verifier users belong to the
- * "Accreditation" division, so AuthController routes them here on login.
+ * Extends the HCD ApplicationController (DRY) - Accreditation admins (its Team
+ * Lead and Verifiers) belong to the "Accreditation" division, so AuthController
+ * routes them here on login.
  *
  * Only view-rendering is overridden to point at admin/accreditation/ views.
- * All business logic is inherited from the parent.
+ * All business logic is inherited from the parent. In that inherited FATPro
+ * pipeline every Accreditation admin acts as a Verifier (AdminAccess::hcdRole),
+ * so the Accreditation Team Lead never passes HCD's Team Lead checks.
+ *
+ * OSH Practitioner applications have their own controller: PractitionerController.
  */
 class ApplicationController extends HCDApplicationController
 {
@@ -31,8 +36,49 @@ class ApplicationController extends HCDApplicationController
     {
         $parentResponse = parent::dashboard($request);
         $viewData = $parentResponse->getData();
+        $viewData['division'] = $this->divisionStats();
 
         return view('admin.accreditation.dashboard', $viewData);
+    }
+
+    /**
+     * Dashboard counts for the division's own types, broken out per type:
+     *   new / renewal → pending, under_review
+     *   interviews, rejected → a single count
+     *
+     * @return array<string, array<string, mixed>> keyed by 'practitioner' / 'consultant'
+     */
+    private function divisionStats(): array
+    {
+        $types = [
+            (int) config('accreditation.types.practitioner') => 'practitioner',
+            (int) config('accreditation.types.consultant')   => 'consultant',
+        ];
+
+        $blank = ['pending' => 0, 'under_review' => 0];
+        $stats = array_fill_keys(array_values($types), [
+            'new' => $blank, 'renewal' => $blank, 'interviews' => 0, 'rejected' => 0,
+        ]);
+
+        $applications = Application::with('latestStatus.status')
+            ->whereIn('accreditation_type_id', array_keys($types))
+            ->get(['id', 'accreditation_type_id', 'application_type']);
+
+        foreach ($applications as $app) {
+            $type   = $types[(int) $app->accreditation_type_id];
+            $status = $app->latestStatus?->status?->name;
+            $stream = in_array($app->application_type, ['renewal', 'reinstatement'], true) ? 'renewal' : 'new';
+
+            match (true) {
+                $status === 'Submitted'                                        => $stats[$type][$stream]['pending']++,
+                in_array($status, ['Under Evaluation', 'For Update'], true)    => $stats[$type][$stream]['under_review']++,
+                $status === 'Scheduled for Interview'                          => $stats[$type]['interviews']++,
+                $status === 'Rejected'                                         => $stats[$type]['rejected']++,
+                default                                                        => null,
+            };
+        }
+
+        return $stats;
     }
 
     /**
@@ -71,8 +117,8 @@ class ApplicationController extends HCDApplicationController
      * Admin directory for the Accreditation division.
      *
      * The parent builds the same division-scoped list; only the view differs.
-     * No $adminRoles are passed because this portal has a single role — every
-     * admin here is a Verifier — so the invite form has no role picker.
+     * No $adminRoles are passed: invited admins always join as Verifiers (the
+     * division's one Team Lead is seeded), so the invite form has no role picker.
      */
     public function adminsList()
     {
@@ -86,11 +132,10 @@ class ApplicationController extends HCDApplicationController
      * Invite an admin into the Accreditation division.
      *
      * Overridden rather than inherited for two reasons:
-     *   1. The parent requires the Team Lead role. That role does not exist in this
-     *      portal, so inheriting it would make the feature unreachable — any admin
-     *      in the Accreditation division may invite here.
-     *   2. The role is not chosen by the user. Everyone in this portal is a Verifier,
-     *      so it is resolved server-side and the form has no role field.
+     *   1. The parent requires HCD's Team Lead. Here any admin in the
+     *      Accreditation division may invite.
+     *   2. The role is not chosen by the user. New admins always join as
+     *      Verifiers, so it is resolved server-side and the form has no role field.
      */
     public function inviteAdmin(Request $request)
     {

@@ -18,9 +18,9 @@ class AwaitingPaymentNotification extends Notification implements ShouldQueue
     /**
      * Route each channel to its own queue connection.
      *
-     * This notification fans out to every verifier, so sending mail inline meant
-     * one blocking SMTP handshake per verifier before the request could finish.
-     * Mail therefore goes to the queue.
+     * Mail follows QUEUE_CONNECTION like every other ARMS email: sent at once
+     * on "sync", or by the queue worker on "database". (Pinning it to
+     * "database" left it unsent in the jobs table wherever no worker runs.)
      *
      * The database channel stays on "sync" so the in-app notification bell still
      * updates immediately — it is a single fast INSERT with nothing to wait on.
@@ -30,7 +30,7 @@ class AwaitingPaymentNotification extends Notification implements ShouldQueue
     public function viaConnections(): array
     {
         return [
-            'mail'     => 'database',
+            'mail'     => config('queue.default'),
             'database' => 'sync',
         ];
     }

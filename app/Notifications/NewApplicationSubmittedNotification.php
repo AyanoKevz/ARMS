@@ -41,7 +41,7 @@ class NewApplicationSubmittedNotification extends Notification
             'application_id' => $this->application->id,
             'tracking_number' => $this->application->tracking_number,
             'message' => 'New application ' . $this->application->tracking_number . ' has been submitted by ' . ($this->application->user->name ?? 'Applicant') . ' and is ready for review.',
-            'link' => '/admin/hcd/applications/pending'
+            'link' => parse_url($this->application->adminPendingUrl(), PHP_URL_PATH),
         ];
     }
 }

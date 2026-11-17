@@ -257,6 +257,10 @@ class NtcController extends Controller
             ->latest()
             ->get();
 
+        // Each row's catch-up choices are drawn from this same list, so every
+        // report gets it rather than querying for it once per row.
+        $ntcReports->each->useTrainingsOf($ntcReports);
+
         $trainingTypes  = NtcTrainingType::all();
         $trainingModes  = NtcTrainingMode::all();
         $documentTypes  = NtcDocumentType::all();

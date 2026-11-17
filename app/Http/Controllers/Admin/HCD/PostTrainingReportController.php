@@ -204,7 +204,7 @@ class PostTrainingReportController extends Controller
 
         $request->validate([
             'evaluations'           => ['required', 'array'],
-            'evaluations.*.id'      => ['required', 'exists:ptr_documents,id'],
+            'evaluations.*.id'      => ['required', 'integer'], // resolved below, scoped to this report
             'evaluations.*.status'  => ['required', 'in:approved,rejected,pending,returned'],
             'evaluations.*.remarks' => ['nullable', 'string', 'max:1000'],
         ]);

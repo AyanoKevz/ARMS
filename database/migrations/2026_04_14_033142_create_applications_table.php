@@ -19,7 +19,26 @@ return new class extends Migration
             $table->foreignId('assigned_evaluator_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tracking_number')->unique(); // Example: ARMS-2026-000001
             $table->timestamp('submitted_at')->nullable();
+
+            // Accreditation division (OSH Practitioner / Consultant) deadlines.
+            $table->date('compliance_due_date')->nullable();
+            // Last day to re-upload rejected documents (5 working days)
+            $table->timestamp('archived_at')->nullable();
+            $table->string('archive_reason', 40)->nullable();
+            // non_compliance | interview_failed
+            $table->date('reapply_after')->nullable();
+            // When the applicant may apply again; the archived record is deleted on that day
+
             $table->timestamps();
+
+            $table->index('submitted_at', 'idx_applications_submitted_at');
+            // Also serves the user_id foreign key.
+            $table->index(['user_id', 'application_type'], 'idx_apps_user_type');
+            // Also serves application_type on its own, and the dashboard's
+            // per-year date range on created_at.
+            $table->index(['application_type', 'created_at'], 'idx_apps_type_created');
+            $table->index('compliance_due_date');
+            $table->index('reapply_after');
         });
 
         Schema::create('document_types', function (Blueprint $table) {
@@ -59,6 +78,10 @@ return new class extends Migration
             $table->string('status')->default('pending');
             $table->text('remarks')->nullable(); // Example: "File is blurred"
             $table->timestamps();
+
+            $table->index('status', 'idx_app_docs_status');
+            // Also serves the application_id foreign key.
+            $table->index(['application_id', 'status'], 'idx_app_docs_application_status');
         });
 
         Schema::create('application_statuses', function (Blueprint $table) {
@@ -75,6 +98,13 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->json('required_updates')->nullable();
             $table->timestamps();
+
+            // The "latest status" lookups (MAX(id) per application) run on almost
+            // every application list; these composites are what keep them fast.
+            // They also serve the application_id foreign key.
+            $table->index(['application_id', 'created_at'], 'idx_status_logs_app_created');
+            $table->index(['application_id', 'id'], 'idx_status_logs_app_id');
+            $table->index(['application_id', 'status_id'], 'idx_status_logs_app_status');
         });
 
         // Temporary holding table for unverified registrations
@@ -89,6 +119,8 @@ return new class extends Migration
             $table->json('documents_data')->nullable();     // temp file paths keyed by doc code
             $table->timestamp('expires_at');                // token valid for 5 minutes
             $table->timestamps();
+
+            $table->index('expires_at', 'idx_pending_reg_expires_at');
         });
 
         Schema::create('accreditations', function (Blueprint $table) {
@@ -121,6 +153,12 @@ return new class extends Migration
 
             $table->string('scanned_certificate')->nullable();
 
+            // OSH Practitioner certificate issuance: besides the signed
+            // certificate (scanned_certificate, as FATPro), the digital or
+            // scanned Identification Card, and when both were released.
+            $table->string('id_card')->nullable();
+            $table->timestamp('released_at')->nullable();
+
             // Reminder tracking columns
             $table->timestamp('reminder_3mo_sent_at')->nullable();
             $table->timestamp('reminder_2mo_sent_at')->nullable();
@@ -135,6 +173,15 @@ return new class extends Migration
             $table->timestamp('fa_cert_expired_notified_at')->nullable();
 
             $table->timestamps();
+
+            $table->index('validity_date', 'idx_accreditations_validity_date');
+            // The dashboard's "accredited per month" chart filters by this
+            // date alone, without a status.
+            $table->index('date_of_accreditation', 'idx_accreditations_date');
+            // Also serves the user_id foreign key.
+            $table->index(['user_id', 'status'], 'idx_accreditations_user_status');
+            // Also serves status on its own.
+            $table->index(['status', 'date_of_accreditation'], 'idx_accred_status_date');
         });
 
         // ── First-aider certificate renewals during an accreditation ──────────
@@ -168,8 +215,37 @@ return new class extends Migration
             $table->index(['accreditation_id', 'status'], 'fa_cert_subs_acc_status_idx');
         });
 
-        // PostgreSQL does not index foreign keys on its own (MySQL does).
+        // ── Foreign keys PostgreSQL leaves unindexed ──────────────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not, and an unindexed foreign key makes every
+        // "children of this parent" lookup a full table scan. Foreign keys that
+        // lead a composite index above are already served by it. The table
+        // drops in down() take these indexes with them.
         if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('applications', function (Blueprint $table) {
+                $table->index('accreditation_type_id', 'idx_fk_applications_accreditation_type_id');
+                $table->index('assigned_evaluator_id', 'idx_fk_applications_assigned_evaluator_id');
+            });
+
+            Schema::table('document_fields', function (Blueprint $table) {
+                $table->index('document_type_id', 'idx_fk_document_fields_document_type_id');
+            });
+
+            Schema::table('application_documents', function (Blueprint $table) {
+                $table->index('document_field_id', 'idx_fk_application_documents_document_field_id');
+                $table->index('user_document_id', 'idx_fk_application_documents_user_document_id');
+            });
+
+            Schema::table('application_status_logs', function (Blueprint $table) {
+                $table->index('status_id', 'idx_fk_application_status_logs_status_id');
+                $table->index('updated_by', 'idx_fk_application_status_logs_updated_by');
+            });
+
+            Schema::table('accreditations', function (Blueprint $table) {
+                $table->index('application_id', 'idx_fk_accreditations_application_id');
+                $table->index('accreditation_type_id', 'idx_fk_accreditations_accreditation_type_id');
+            });
+
             Schema::table('first_aider_certificate_submissions', function (Blueprint $table) {
                 $table->index('user_id', 'idx_fk_first_aider_certificate_submissions_user_id');
                 $table->index('reviewed_by', 'idx_fk_first_aider_certificate_submissions_reviewed_by');

@@ -17,12 +17,16 @@ class ApplicationEvaluationStartedEmail extends Mailable implements ShouldQueue
 
     public $application;
 
+    /** When the evaluation started — taken now, not when the queue sends it. */
+    public \Carbon\Carbon $startedAt;
+
     /**
      * Create a new message instance.
      */
     public function __construct(Application $application)
     {
         $this->application = $application;
+        $this->startedAt   = now();
     }
 
     /**

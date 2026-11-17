@@ -11,7 +11,7 @@
 @endpush
 
 @php
-    $adminRoleName = strtolower(auth()->user()?->adminProfile?->adminRole?->name ?? '');
+    $adminRoleName = strtolower(\App\Support\AdminAccess::hcdRole(auth()->user()));
 
     // Accreditation Type belongs to the Evaluator / Team Lead workflow. The Training
     // Evaluator works FATPro training reports only, so the column would read the same

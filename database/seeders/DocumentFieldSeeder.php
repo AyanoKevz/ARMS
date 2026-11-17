@@ -71,9 +71,12 @@ class DocumentFieldSeeder extends Seeder
             ],
 
             // ── Practitioner Documentary Requirements
-            // PRAC_03 is the only optional upload — it applies solely to
-            // applicants with a previous employer.
+            // PRAC_00 is the AF-PCN-A1 form the system generates on submission;
+            // it is evaluated alongside the uploads, and re-uploaded by the
+            // applicant if rejected. PRAC_03 is the only optional upload — it
+            // applies solely to applicants with a previous employer.
             'PRAC_DOCS' => [
+                ['name' => 'Application Form (DOLE-BWC AF-PCN-A1)',         'code' => 'PRAC_00', 'input_type' => 'file'],
                 ['name' => 'Original Certificate of Employment',            'code' => 'PRAC_01', 'input_type' => 'file'],
                 ['name' => 'Actual Duties and Responsibilities',            'code' => 'PRAC_02', 'input_type' => 'file'],
                 ['name' => 'Certificate of Employment (Previous Employer)', 'code' => 'PRAC_03', 'input_type' => 'file'],
@@ -81,6 +84,20 @@ class DocumentFieldSeeder extends Seeder
                 ['name' => 'Certificates of Attendance (OSH Trainings)',    'code' => 'PRAC_05', 'input_type' => 'file'],
                 ['name' => 'College Diploma or Transcript of Records',      'code' => 'PRAC_06', 'input_type' => 'file'],
                 ['name' => 'Proof of OSH-Related Accomplishments',          'code' => 'PRAC_07', 'input_type' => 'file'],
+            ],
+
+            // ── Consultant Documentary Requirements
+            // Same idea: CONS_00 is the generated AF-PCN-A1 (item 1 of the
+            // checklist). CONS_06, the PRC ID, is the only optional upload —
+            // it applies only to licensed professionals.
+            'CONS_DOCS' => [
+                ['name' => 'Application Form (DOLE-BWC AF-PCN-A1)',                        'code' => 'CONS_00', 'input_type' => 'file'],
+                ['name' => 'Certificate of Employment or Consultancy Contract',            'code' => 'CONS_01', 'input_type' => 'file'],
+                ['name' => 'List of OSH Consultancy Projects with Client Validation',      'code' => 'CONS_02', 'input_type' => 'file'],
+                ['name' => 'Certificate of Completion of Advanced OSH Courses',            'code' => 'CONS_03', 'input_type' => 'file'],
+                ['name' => 'Proof of at least 5 Years OSH Experience in a Supervisory Capacity', 'code' => 'CONS_04', 'input_type' => 'file'],
+                ['name' => 'Photocopy of College Diploma or Transcript of Records',        'code' => 'CONS_05', 'input_type' => 'file'],
+                ['name' => 'Professional License (PRC ID)',                                'code' => 'CONS_06', 'input_type' => 'file'],
             ],
         ];
 

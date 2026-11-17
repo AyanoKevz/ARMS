@@ -12,6 +12,7 @@ use App\Models\NtcReport;
 use App\Models\PostTrainingReport;
 use App\Models\PtrDocument;
 use App\Models\User;
+use App\Support\AdminAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -156,10 +157,14 @@ class AuditTrail
         'evaluations', 'instructor_evaluations', 'credential_evaluations', 'cv_evaluations',
     ];
 
-    /** The role name an admin holds, or null for anyone who is not an admin. */
+    /**
+     * The role name an admin holds, or null for anyone who is not an admin.
+     * An Accreditation Team Lead is recorded under its own name so its entries
+     * never surface in HCD's Team Lead log (see AdminAccess::auditRole).
+     */
     public static function roleOf(?User $user): ?string
     {
-        return $user?->loadMissing('adminProfile.adminRole')->adminProfile?->adminRole?->name;
+        return AdminAccess::auditRole($user);
     }
 
     /**

@@ -13,7 +13,7 @@
 @section('content')
 
 @php
-$isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+$isAdminRole = \App\Support\AdminAccess::hcdRole(auth()->user());
 $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 $isVerifier  = strtolower($isAdminRole) === 'verifier';
 $isTeamLead  = strtolower($isAdminRole) === 'team lead';
@@ -1741,11 +1741,30 @@ aria-expanded="{{ $isAccredited || $isApproved || $isRejected ? 'false' : 'true'
                             </div>
                         </div>
                         <div>
-                            <a href="{{ route('admin.hcd.accreditations.view_scanned', $application->accreditation->id) }}" data-file-modal data-file-title="Scanned Accreditation Certificate" class="btn btn-outline-success btn-sm fw-semibold px-3">
+                            <a href="{{ route('admin.hcd.accreditations.view_scanned', $application->accreditation->id) }}?v={{ $application->accreditation->updated_at?->timestamp }}" data-file-modal data-file-title="Scanned Accreditation Certificate" class="btn btn-outline-success btn-sm fw-semibold px-3">
                                 <i class="fas fa-eye me-1"></i> View Scanned Certificate
                             </a>
                         </div>
                     </div>
+
+                    @if($isVerifier)
+                        {{-- Replace: the old file is deleted once the new one is saved; the applicant is not emailed again. --}}
+                        <form id="upload-scanned-certificate-form" action="{{ route('admin.hcd.accreditations.upload_scanned', $application->accreditation->id) }}" method="POST" enctype="multipart/form-data" class="mt-3 pt-3 border-top">
+                            @csrf
+                            <label class="form-label small text-muted mb-1" for="replace-scanned-certificate">
+                                Replace file (PDF) — the current file is deleted once the new one is saved
+                            </label>
+                            <div class="d-flex gap-2 flex-wrap align-items-start">
+                                <input type="file" name="scanned_certificate" id="replace-scanned-certificate" class="form-control form-control-sm w-auto flex-grow-1" accept=".pdf" required>
+                                <button type="submit" class="btn btn-outline-primary btn-sm fw-semibold px-3 m-0">
+                                    <span class="btn-text"><i class="fas fa-sync-alt me-1"></i> Replace</span>
+                                    <span class="btn-spinner d-none">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Replacing...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    @endif
                 </div>
             @else
                 @if($isVerifier)
@@ -2591,6 +2610,13 @@ $accTypeName = $application->accreditationType->name ?? '—';
                 <label for="cert-director-name" class="form-label fw-semibold mt-2 mb-0 d-block text-center" style="font-size:.85rem;color:#333;">
                     Executive Director Name
                 </label>
+
+                {{-- The back page's two signatories: typed here, or left blank to write by hand --}}
+                <small class="text-muted d-block mt-4 mb-2">Signatories of the certification on the back. Leave blank to write the name by hand.</small>
+                <input type="text" class="form-control" id="cert-hcd-supervisor" placeholder="Enter name" autocomplete="off">
+                <label for="cert-hcd-supervisor" class="form-label fw-semibold mt-2 mb-0 d-block text-center small">Supervising Occupational Health Officer</label>
+                <input type="text" class="form-control mt-3" id="cert-hcd-chief" placeholder="Enter name" autocomplete="off">
+                <label for="cert-hcd-chief" class="form-label fw-semibold mt-2 mb-0 d-block text-center small">Chief, Health Control Division</label>
             </div>
             <div class="modal-footer border-0 px-4 pb-4 pt-0 d-flex flex-column gap-2">
                 <button type="button" class="btn btn-success w-100 fw-semibold" id="cert-generate-btn" style="border-radius:8px;background:#15803d;border-color:#166534;" onclick="generateCert()">

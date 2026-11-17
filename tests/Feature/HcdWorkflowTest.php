@@ -233,6 +233,7 @@ test('submitReupload blocks uploads if application status is not For Update', fu
 test('verifier can upload and view scanned certificate', function () {
     $this->withoutExceptionHandling();
     Mail::fake();
+    \Illuminate\Support\Facades\Storage::fake('local');
 
     $adminRole = Role::firstOrCreate(['name' => 'Admin']);
     $verifierAdminRole = AdminRole::firstOrCreate(['name' => 'Verifier']);
@@ -308,8 +309,112 @@ test('verifier can upload and view scanned certificate', function () {
     $viewResponse->assertStatus(200);
     $viewResponse->assertHeader('Content-Type', 'application/pdf');
 
-    // Clean up
-    \Illuminate\Support\Facades\Storage::disk('local')->delete($accreditation->scanned_certificate);
+    // Replace: the new file takes over and the old one is deleted, so files
+    // never pile up. The applicant is not emailed again.
+    $disk      = \Illuminate\Support\Facades\Storage::disk('local');
+    $oldPath   = $accreditation->scanned_certificate;
+    $fileCount = count($disk->allFiles());
+    $readyMails = fn () => Mail::queued(\App\Mail\ApplicationNoticeEmail::class)->count() + Mail::sent(\App\Mail\ApplicationNoticeEmail::class)->count();
+    $mailsBefore = $readyMails();
+
+    $this->actingAs($verifier)
+        ->post(route('admin.hcd.accreditations.upload_scanned', $accreditation->id), [
+            'scanned_certificate' => \Illuminate\Http\UploadedFile::fake()->create('corrected.pdf', 100, 'application/pdf'),
+        ])
+        ->assertSessionHas('success', 'Scanned certificate replaced. The old file has been deleted.');
+
+    $accreditation->refresh();
+    expect($accreditation->scanned_certificate)->not->toBe($oldPath)
+        ->and($disk->exists($accreditation->scanned_certificate))->toBeTrue()
+        ->and($disk->exists($oldPath))->toBeFalse()
+        ->and(count($disk->allFiles()))->toBe($fileCount)
+        ->and($readyMails())->toBe($mailsBefore)
+        ->and(ApplicationStatusLog::where('application_id', $application->id)->latest('id')->value('remarks'))->toBe('Scanned certificate replaced.');
+
+    // A failed save keeps the current file and leaves nothing new behind.
+    $current = $accreditation->scanned_certificate;
+    \App\Models\Accreditation::saving(fn () => throw new RuntimeException('Save failed.'));
+    $this->actingAs($verifier)
+        ->post(route('admin.hcd.accreditations.upload_scanned', $accreditation->id), [
+            'scanned_certificate' => \Illuminate\Http\UploadedFile::fake()->create('again.pdf', 100, 'application/pdf'),
+        ])
+        ->assertSessionHas('error', 'The upload failed, so the current file was kept. Please try again.');
+    expect($accreditation->fresh()->scanned_certificate)->toBe($current)
+        ->and($disk->exists($current))->toBeTrue()
+        ->and(count($disk->allFiles()))->toBe($fileCount);
+});
+
+test('the FATPro certificate PDF is a front and a back, with the renewal wording for a renewal or reinstatement', function () {
+    $verifier = User::forceCreate([
+        'email' => 'cert_verifier@example.com', 'password' => bcrypt('password'),
+        'role_id' => Role::firstOrCreate(['name' => 'Admin'])->id, 'profile_type' => 'Individual',
+    ]);
+    AdminProfile::create([
+        'user_id' => $verifier->id, 'division_id' => Division::firstOrCreate(['name' => 'HCD'])->id,
+        'first_name' => 'Test', 'last_name' => 'Verifier', 'position' => 'Verifier',
+        'admin_role_id' => AdminRole::firstOrCreate(['name' => 'Verifier'])->id,
+    ]);
+    $applicant = User::forceCreate([
+        'email' => 'cert_fatpro@example.com', 'password' => bcrypt('password'),
+        'role_id' => Role::firstOrCreate(['name' => 'Applicant'])->id, 'profile_type' => 'Organization',
+    ]);
+
+    // The view's backPage for each download.
+    $backPages = [];
+    \Illuminate\Support\Facades\View::composer('admin.accreditation_certificate', function ($view) use (&$backPages) {
+        $backPages[] = $view->getData()['backPage'] ?? null;
+    });
+
+    foreach (['new', 'renewal', 'reinstatement'] as $i => $type) {
+        $application = Application::create([
+            'user_id' => $applicant->id, 'accreditation_type_id' => $this->fatproTypeId,
+            'application_type' => $type, 'tracking_number' => 'ARMS-CERT-0' . $i,
+        ]);
+        $accreditation = \App\Models\Accreditation::create([
+            'user_id' => $applicant->id, 'application_id' => $application->id,
+            'accreditation_type_id' => $this->fatproTypeId, 'accreditation_number' => '235-250104-000' . $i,
+            'date_of_accreditation' => '2025-01-04', 'validity_date' => '2028-01-04', 'status' => 'active',
+        ]);
+
+        $pdf = $this->actingAs($verifier)->get(route('admin.hcd.accreditations.certificate', $accreditation))
+            ->assertOk()->assertHeader('content-type', 'application/pdf')
+            ->getContent();
+        expect(preg_match_all('#/Type ?/Page(?!s)#', $pdf))->toBe(2);
+    }
+    expect($backPages)->toBe(['new', 'renewal', 'renewal']);
+
+    $render = fn (?string $backPage) => view('admin.accreditation_certificate', [
+        'accreditation' => $accreditation, 'fatproName' => 'Philippine Red Cross',
+        'executiveDirector' => 'JOSE MARIA S. BATINO', 'backPage' => $backPage,
+    ])->render();
+
+    expect($render('new'))
+        ->toContain('CERTIFICATE OF ACCREDITATION')->toContain('No. 235-250104-0002')
+        ->toContain('Valid until: January 4, 2028')->toContain('Given this 4<sup>th</sup> day of January 2025')
+        ->toContain('CONFORME:')->toContain('Supervising Occupational Health Officer')->toContain('Chief, Health Control Division')
+        ->toContain('certifies that <strong>Philippine Red Cross</strong> has satisfactorily complied with all the requirements for the accreditation as First Aid Training Provider (FATPro)');
+    expect($render('renewal'))
+        ->toContain('all the requirements for the renewal of accreditation as First Aid Training Provider (FATPro)');
+    expect($render(null))->not->toContain('CONFORME:')->not->toContain('CERTIFICATION');
+
+    // The back's two signatories: typed in the pop-up, blank when not.
+    $signatories = [];
+    \Illuminate\Support\Facades\View::composer('admin.accreditation_certificate', function ($view) use (&$signatories) {
+        $signatories = \Illuminate\Support\Arr::only($view->getData(), ['hcdSupervisor', 'hcdChief']);
+    });
+    $this->actingAs($verifier)->get(route('admin.hcd.accreditations.certificate', [
+        $accreditation, 'executive_director' => 'JOSE MARIA S. BATINO', 'hcd_supervisor' => ' Ana Santos, RN ', 'hcd_chief' => 'Pedro Reyes, MD',
+    ]))->assertOk();
+    expect($signatories)->toBe(['hcdSupervisor' => 'Ana Santos, RN', 'hcdChief' => 'Pedro Reyes, MD']);
+    expect(view('admin.accreditation_certificate', [
+        'accreditation' => $accreditation, 'fatproName' => 'Philippine Red Cross', 'executiveDirector' => 'X',
+        'backPage' => 'new', 'hcdSupervisor' => 'Ana Santos, RN', 'hcdChief' => 'Pedro Reyes, MD',
+    ])->render())
+        ->toContain('<div class="cert-hcd-name">Ana Santos, RN</div>')
+        ->toContain('<div class="cert-hcd-name">Pedro Reyes, MD</div>');
+
+    $this->actingAs($verifier)->get(route('admin.hcd.accreditations.certificate', $accreditation))->assertOk();
+    expect($signatories)->toBe(['hcdSupervisor' => '', 'hcdChief' => '']);
 });
 
 test('approve/reject buttons are hidden and remarks are readonly when status is rejected or returned', function () {

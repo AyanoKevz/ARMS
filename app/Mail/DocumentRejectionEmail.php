@@ -22,6 +22,13 @@ class DocumentRejectionEmail extends Mailable implements ShouldQueue
     public $rejectedCvs;
 
     /**
+     * Accreditation division applications: the last day to re-upload, after
+     * which the application is archived (PractitionerArchiveService).
+     */
+    public ?\Carbon\Carbon $complianceDueDate = null;
+    public int $reapplyMonths = 0;
+
+    /**
      * Create a new message instance.
      *
      * @param Application $application
@@ -46,6 +53,15 @@ class DocumentRejectionEmail extends Mailable implements ShouldQueue
         if ($this->rejectedCredentials && $this->rejectedCredentials->isNotEmpty()) {
             $this->rejectedCredentials->loadMissing(['instructor']);
         }
+    }
+
+    /** State the re-upload deadline and what happens if it is missed. */
+    public function withComplianceDeadline(\Carbon\Carbon $dueDate, int $reapplyMonths): static
+    {
+        $this->complianceDueDate = $dueDate;
+        $this->reapplyMonths     = $reapplyMonths;
+
+        return $this;
     }
 
     /**

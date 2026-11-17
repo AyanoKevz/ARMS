@@ -201,8 +201,8 @@
     const orgFields    = document.getElementById('organizationFields');
 
     const IND_REQUIRED = ['first_name', 'last_name', 'sex', 'birthday', 'region_ind', 'city_ind', 'address_ind'];
-    const ORG_REQUIRED = ['org_name', 'org_address', 'head_name', 'designation', 'org_email',
-                          'rep_name', 'rep_position', 'rep_contact', 'rep_email'];
+    const ORG_REQUIRED = ['org_name', 'org_address', 'head_name', 'designation', 'head_sex', 'org_email',
+                          'rep_name', 'rep_position', 'rep_sex', 'rep_contact', 'rep_email'];
 
     function setRequired(ids, state) {
         ids.forEach(id => {
@@ -454,7 +454,22 @@
             }
 
             if (privacyCheck) privacyCheck.required = true;
-            
+
+            // OSH Practitioner reviews the AF-PCN-A1 application form itself,
+            // rendered by the server — practitioner-form.js owns that.
+            if (window.ARMS && window.ARMS.isPractitionerActive && window.ARMS.isPractitionerActive()) {
+                reviewBtn.disabled = true;
+                window.ARMS.renderPractitionerReview(reviewCont)
+                    .then(function () { toggleReviewMode(true); })
+                    .catch(function () {
+                        if (window.ARMS.showToast) {
+                            window.ARMS.showToast('Your application form could not be prepared. Please try again.', 'error', 6000);
+                        }
+                    })
+                    .finally(function () { reviewBtn.disabled = false; });
+                return;
+            }
+
             // Build summary HTML
             let summaryHtml = '<ul class="list-group list-group-flush">';
             const pType = hiddenPType.value;
@@ -468,19 +483,12 @@
                 summaryHtml += `<li class="list-group-item px-0"><strong>Head / Director:</strong> ${document.getElementById('head_name').value} (${document.getElementById('designation').value})</li>`;
                 summaryHtml += `<li class="list-group-item px-0"><strong>Representative Name and Contact:</strong> ${document.getElementById('rep_name').value} (${document.getElementById('rep_contact').value})</li>`;
             } else {
-                summaryHtml += `<li class="list-group-item px-0"><strong>Name:</strong> ${document.getElementById('first_name').value} ${document.getElementById('middle_name').value} ${document.getElementById('last_name').value}</li>`;
+                const suffix = document.getElementById('suffix').value.trim();
+                summaryHtml += `<li class="list-group-item px-0"><strong>Name:</strong> ${document.getElementById('first_name').value} ${document.getElementById('middle_name').value} ${document.getElementById('last_name').value}${suffix ? ', ' + suffix : ''}</li>`;
                 summaryHtml += `<li class="list-group-item px-0"><strong>Sex:</strong> ${document.getElementById('sex').value}</li>`;
                 summaryHtml += `<li class="list-group-item px-0"><strong>Address:</strong> ${document.getElementById('address_ind').value}, ${document.getElementById('city_ind').value}, ${document.getElementById('region_ind').value}</li>`;
             }
             summaryHtml += '</ul>';
-
-            // Practitioner CV sections render their own summary — the markup is
-            // entirely different from the instructor cards, so practitioner-form.js
-            // publishes a builder here rather than this function growing a second
-            // branch it has no other reason to know about.
-            if (pType === 'Individual' && window.ARMS && typeof window.ARMS.buildPractitionerSummary === 'function') {
-                summaryHtml += window.ARMS.buildPractitionerSummary();
-            }
 
             // Gather instructors from the DOM — organizations only. Practitioner
             // applications keep the instructor container in the DOM but disabled.
@@ -650,6 +658,7 @@
         first_name: 'first_name',
         middle_name: 'middle_name',
         last_name: 'last_name',
+        suffix: 'suffix',
         sex: 'sex',
         birthday: 'birthday',
         region: 'region_ind',

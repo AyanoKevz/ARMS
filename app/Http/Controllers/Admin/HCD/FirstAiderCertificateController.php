@@ -26,7 +26,7 @@ class FirstAiderCertificateController extends Controller
     /** Open the uploaded PDF. Anyone who may decide on it may also read it; Team Lead may read. */
     public function view(FirstAiderCertificateSubmission $submission)
     {
-        $role = strtolower(Auth::user()?->adminProfile?->adminRole?->name ?? '');
+        $role = strtolower(\App\Support\AdminAccess::hcdRole(Auth::user()));
 
         if (!in_array($role, ['evaluator', 'team lead'], true)) {
             abort(403, 'Unauthorized action.');

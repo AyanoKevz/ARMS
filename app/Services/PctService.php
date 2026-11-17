@@ -25,7 +25,101 @@ class PctService
     ];
 
     public const TOTAL_TARGET_DAYS = 20;
+
+    /**
+     * OSH Practitioner steps (Accreditation division).
+     *
+     * As with FATPro, nothing runs while the application is pending. Steps 1
+     * and 2 are recorded as done when an admin starts the evaluation (Step 3).
+     * Step 4 is the applicant choosing an interview slot — not admin time, so
+     * it is recorded as done the moment the approvals are saved. Step 5 is
+     * the panel interview: it waits (paused) from the booking until the slot
+     * starts and runs at most 2 hours. Step 6 runs from the interview's stop
+     * through the result and the recommendation form, until the scanned
+     * signed recommendation is uploaded. Step 7 (Payment), as FATPro's
+     * payment stage: paused while the applicant has yet to pay, running once
+     * the proof of payment is in, completed when the payment is validated.
+     * Step 8 runs from the validation (the accreditation number is issued)
+     * until both the signed certificate and the ID card are uploaded; Step 9
+     * until they are released to the applicant.
+     *
+     * Step 8 continues Step 6 ('continues' => 6): its clock picks up at the
+     * time Step 6 ended with, and its 4 days 4 hours is the two steps'
+     * combined target (Step 6's 3 days 4 hours + 1 day). It therefore adds
+     * only its own time to the total elapsed, and 1 day to the total target.
+     *
+     * target_seconds, where given, is the exact target in working seconds
+     * (a working day is 9 hours, 32,400 seconds); target_days is the whole
+     * number kept on the pct_entries row.
+     */
+    public const PRACTITIONER_STEPS = [
+        1 => ['name' => 'Acknowledge Receipt of Application',              'target_days' => 1],
+        2 => ['name' => 'Acknowledge Advice from OED Accreditation Focal', 'target_days' => 2],
+        3 => ['name' => 'Evaluation of Submitted Documents',               'target_days' => 5],
+        4 => ['name' => 'Set up Interview Schedule',                       'target_days' => 3],
+        5 => ['name' => 'Panel Interview',                                 'target_days' => 1, 'target_seconds' => 7200,   'target_label' => '2 hours'],
+        6 => ['name' => 'Interview Result and Recommendation',             'target_days' => 4, 'target_seconds' => 111600, 'target_label' => '3 days 4 hours'],
+        7 => ['name' => 'Payment',                                         'target_days' => 3, 'target_seconds' => 77400,  'target_label' => '2 days 3 hours 30 minutes'],
+        8 => ['name' => 'Prepare the Certificate of Accreditation and Identification Card', 'target_days' => 5, 'target_seconds' => 144000, 'target_label' => '4 days 4 hours', 'continues' => 6],
+        9 => ['name' => 'Release of Certificate and ID',                   'target_days' => 1, 'target_seconds' => 3600,   'target_label' => '1 hour'],
+    ];
     public const MAX_INTERVIEW_SECONDS = 14400; // 4 hours in seconds (4 * 3600)
+    public const MAX_PRACTITIONER_INTERVIEW_SECONDS = 7200; // 2 hours
+
+    /** Working seconds in one PCT day (8:00 AM – 5:00 PM). */
+    public const WORKING_DAY_SECONDS = 32400;
+
+    /** A step's target in working seconds. */
+    public static function targetSeconds(array $stepDef): int
+    {
+        return (int) ($stepDef['target_seconds'] ?? $stepDef['target_days'] * self::WORKING_DAY_SECONDS);
+    }
+
+    /**
+     * What a step adds to the overall target: its own target, less the
+     * target of the step it continues (Step 8 adds 1 day to Step 6's).
+     *
+     * @param array<int, array<string, mixed>> $stepDefs
+     */
+    public static function addedTargetSeconds(array $stepDefs, int $stepNumber): int
+    {
+        $def       = $stepDefs[$stepNumber];
+        $continues = $def['continues'] ?? null;
+
+        return self::targetSeconds($def) - ($continues ? self::targetSeconds($stepDefs[$continues]) : 0);
+    }
+
+    /** "5 days", "2 hours", "3 days 4 hours". */
+    public static function targetLabel(array $stepDef): string
+    {
+        return $stepDef['target_label'] ?? $stepDef['target_days'] . ' ' . \Illuminate\Support\Str::plural('day', $stepDef['target_days']);
+    }
+
+    /** How long an interview may run before it is stopped automatically. */
+    public function maxInterviewSeconds(Application $application): int
+    {
+        return $application->isPractitioner() ? self::MAX_PRACTITIONER_INTERVIEW_SECONDS : self::MAX_INTERVIEW_SECONDS;
+    }
+
+    /**
+     * Advance a date by working days — weekdays that are not holidays — the
+     * way PCT counts them.
+     */
+    public static function addWorkingDays(Carbon $from, int $workingDays): Carbon
+    {
+        $cursor   = $from->copy();
+        $holidays = self::getHolidays($from->year, $from->year + 1);
+        $counted  = 0;
+
+        while ($counted < $workingDays) {
+            $cursor->addDay();
+            if (! $cursor->isWeekend() && ! in_array($cursor->format('Y-m-d'), $holidays, true)) {
+                $counted++;
+            }
+        }
+
+        return $cursor;
+    }
 
     /**
      * Steps that exist only to cover the interview stage. Applications that skip
@@ -39,6 +133,151 @@ class PctService
      * Auto-completes Steps 1 (Submission) and 2 (Receipt of Requirements)
      * since these are system-automatic steps.
      */
+    /**
+     * The step definitions that apply to one application.
+     *
+     * @return array<int, array{name: string, target_days: int}>
+     */
+    public function stepsFor(Application $application): array
+    {
+        return $application->isPractitioner() ? self::PRACTITIONER_STEPS : self::STEPS;
+    }
+
+    /**
+     * Practitioner evaluation start — the same as FATPro's
+     * initializeFromEvaluation(): no clock runs while the application is
+     * pending. Steps 1 (Acknowledge Receipt) and 2 (Acknowledge Advice from
+     * the OED Accreditation Focal) are recorded as done with no time
+     * counted, and Step 3 (Evaluation) starts now.
+     */
+    public function startPractitionerEvaluation(Application $application): void
+    {
+        if ($application->pctEntries()->where('step_number', 3)->exists()) {
+            return;
+        }
+
+        // Entries left by the earlier flow, which ran Step 2 from submission.
+        $application->pctEntries()->delete();
+
+        $submittedAt = $application->submitted_at ?? $application->created_at ?? Carbon::now();
+
+        $this->createCompletedStep($application, 1, $submittedAt);
+        PctEntry::create([
+            'application_id'  => $application->id,
+            'step_name'       => self::PRACTITIONER_STEPS[2]['name'],
+            'step_number'     => 2,
+            'target_days'     => self::PRACTITIONER_STEPS[2]['target_days'],
+            'started_at'      => $submittedAt,
+            'completed_at'    => Carbon::now(),
+            'elapsed_seconds' => 0,
+            'is_active'       => false,
+        ]);
+
+        $this->startStep($application, 3);
+        $application->unsetRelation('pctEntries');
+    }
+
+    /**
+     * Practitioner approvals saved: Step 3 (Evaluation) completes, and Step 4
+     * (Set up Interview Schedule) is recorded as done with no time counted —
+     * the applicant books the slot themselves.
+     */
+    public function completePractitionerEvaluation(Application $application): void
+    {
+        $application->pctEntries()->where('step_number', 3)->whereNull('completed_at')->first()?->complete();
+
+        if (! $application->pctEntries()->where('step_number', 4)->exists()) {
+            $this->createCompletedStep($application, 4, Carbon::now());
+        }
+
+        $application->unsetRelation('pctEntries');
+    }
+
+    /**
+     * Practitioner interview booked: Step 5 (Panel Interview) is opened and
+     * paused straight away, as FATPro's scheduleInterview() does. It resumes
+     * on its own once the slot's start time arrives, or when an admin
+     * presses Start Interview.
+     */
+    public function schedulePractitionerInterview(Application $application): void
+    {
+        if ($application->pctEntries()->where('step_number', 5)->exists()) {
+            return;
+        }
+
+        $this->startStep($application, 5)->pause();
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+    }
+
+    /**
+     * Practitioner interview stopped: Step 5 completes and Step 6 (Interview
+     * Result and Recommendation) starts, as FATPro's Interview Result does.
+     */
+    public function startPractitionerInterviewResult(Application $application): void
+    {
+        $application->pctEntries()->where('step_number', 5)->whereNull('completed_at')->first()?->complete();
+
+        if (! $application->pctEntries()->where('step_number', 6)->exists()) {
+            $this->startStep($application, 6);
+        }
+
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+    }
+
+    /**
+     * Scanned signed recommendation uploaded: Step 6 completes and Step 7
+     * (Payment) opens paused — the applicant has yet to pay. It resumes when
+     * they upload the proof of payment (TrackingController::submitPaymentPublic).
+     */
+    public function startPractitionerPayment(Application $application): void
+    {
+        $application->pctEntries()->where('step_number', 6)->whereNull('completed_at')->first()?->complete();
+
+        if (! $application->pctEntries()->where('step_number', 7)->exists()) {
+            $this->startStep($application, 7)->pause();
+        }
+
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+    }
+
+    /**
+     * Payment validated, accreditation number issued: Step 7 completes and
+     * Step 8 (Prepare the Certificate and ID Card) starts.
+     */
+    public function startPractitionerCertificate(Application $application): void
+    {
+        $this->advancePractitionerStep($application, 7, 8);
+    }
+
+    /** Signed certificate and ID card both uploaded: Step 8 completes, Step 9 (Release) starts. */
+    public function startPractitionerRelease(Application $application): void
+    {
+        $this->advancePractitionerStep($application, 8, 9);
+    }
+
+    /** Certificate and ID card released: Step 9 completes — the end of the cycle. */
+    public function completePractitionerRelease(Application $application): void
+    {
+        $application->pctEntries()->where('step_number', 9)->whereNull('completed_at')->first()?->complete();
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+    }
+
+    private function advancePractitionerStep(Application $application, int $from, int $to): void
+    {
+        $application->pctEntries()->where('step_number', $from)->whereNull('completed_at')->first()?->complete();
+
+        if (! $application->pctEntries()->where('step_number', $to)->exists()) {
+            $this->startStep($application, $to);
+        }
+
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+    }
+
     public function initializeFromEvaluation(Application $application): void
     {
         // Guard: don't re-initialize if already has PCT entries
@@ -82,7 +321,7 @@ class PctService
      */
     private function createCompletedStep(Application $application, int $stepNumber, Carbon $time): void
     {
-        $stepDef = self::STEPS[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
+        $stepDef = $this->stepsFor($application)[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
         PctEntry::create([
             'application_id' => $application->id,
             'step_name'      => $stepDef['name'],
@@ -145,6 +384,49 @@ class PctService
             : $application->pctEntries()->exists();
 
         if ($hasEntries) {
+            return;
+        }
+
+        // Practitioner PCT starts with the evaluation, as FATPro's does. A
+        // pending one has no PCT yet.
+        if ($application->isPractitioner()) {
+            $statusName = $application->latestStatus?->status?->name;
+            $afterInterview = ['For Recommendation', 'Awaiting Payment', 'Payment Verification', 'Approved'];
+            if (in_array($statusName, ['Under Evaluation', 'For Update', 'Scheduled for Interview', ...$afterInterview], true)) {
+                $this->startPractitionerEvaluation($application);
+                if ($statusName === 'For Update') {
+                    $application->pctEntries()->where('step_number', 3)->first()?->pause();
+                } else {
+                    if ($statusName !== 'Under Evaluation') {
+                        $this->completePractitionerEvaluation($application);
+                    }
+                    if ($statusName === 'Scheduled for Interview' && $application->interview()->exists()) {
+                        $this->schedulePractitionerInterview($application);
+                    } elseif (in_array($statusName, $afterInterview, true)) {
+                        $this->createCompletedStep($application, 5, Carbon::now());
+                        $this->startPractitionerInterviewResult($application);
+                        if ($statusName !== 'For Recommendation') {
+                            $this->startPractitionerPayment($application);
+                            if ($statusName === 'Payment Verification') {
+                                $this->resumeCurrentStep($application);
+                            }
+                        }
+                        if ($statusName === 'Approved') {
+                            $this->resumeCurrentStep($application);
+                            $this->startPractitionerCertificate($application);
+                            $accreditation = $application->accreditation()->first();
+                            if ($accreditation?->scanned_certificate && $accreditation->id_card) {
+                                $this->startPractitionerRelease($application);
+                                if ($accreditation->released_at) {
+                                    $this->completePractitionerRelease($application);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            $application->unsetRelation('pctEntries');
             return;
         }
 
@@ -211,7 +493,7 @@ class PctService
      */
     public function startStep(Application $application, int $stepNumber): PctEntry
     {
-        $stepDef = self::STEPS[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
+        $stepDef = $this->stepsFor($application)[$stepNumber] ?? ['name' => "Step {$stepNumber}", 'target_days' => 1];
 
         $newStep = PctEntry::create([
             'application_id' => $application->id,
@@ -464,38 +746,72 @@ class PctService
         // Renewals never enter the interview stage, so Steps 4-6 have no entry.
         // Report them as explicitly skipped rather than perpetually pending, and
         // take their target days out of the overall SLA.
-        $skippedSteps = $application->skipsInterview() ? self::INTERVIEW_STEPS : [];
-        $totalTarget  = self::TOTAL_TARGET_DAYS;
+        $stepDefs     = $this->stepsFor($application);
+        $skippedSteps = (! $application->isPractitioner() && $application->skipsInterview()) ? self::INTERVIEW_STEPS : [];
+        $totalTarget  = array_sum(array_column($stepDefs, 'target_days'));
         foreach ($skippedSteps as $skippedStep) {
-            $totalTarget -= self::STEPS[$skippedStep]['target_days'];
+            $totalTarget -= $stepDefs[$skippedStep]['target_days'];
         }
 
-        foreach (self::STEPS as $num => $def) {
+        // A step with an exact target_seconds (the practitioner's 2-hour
+        // interview, 3 days 4 hours recommendation) is measured in seconds;
+        // the others keep their day-based figures.
+        // A step that continues another (practitioner Step 8 → Step 6) adds
+        // only the difference between their targets.
+        $exactTargets = collect($stepDefs)->contains(fn ($def) => isset($def['target_seconds']));
+        if ($exactTargets) {
+            $totalTarget = round(
+                array_sum(array_map(fn ($num) => self::addedTargetSeconds($stepDefs, $num), array_keys($stepDefs))) / self::WORKING_DAY_SECONDS,
+                1
+            );
+        }
+
+        foreach ($stepDefs as $num => $def) {
             $entry = $entries->firstWhere('step_number', $num);
 
             if ($entry) {
-                $elapsed = $entry->totalElapsedSeconds();
-                $totalElapsed += $elapsed;
+                $own = $entry->totalElapsedSeconds();
+                $totalElapsed += $own;
+
+                // A continuation's clock picks up where the step it continues
+                // ended; only its own time counts towards the total.
+                $continued = isset($def['continues']) ? $entries->firstWhere('step_number', $def['continues']) : null;
+                $elapsed   = $own + ($continued ? $continued->totalElapsedSeconds() : 0);
+
                 $elapsedDays = round($elapsed / 32400, 1);
+
+                if (isset($def['target_seconds'])) {
+                    $isOverdue = $elapsed > $def['target_seconds'];
+                    $percent   = min(100, round(($elapsed / $def['target_seconds']) * 100));
+                } else {
+                    $isOverdue = $elapsedDays > $def['target_days'];
+                    $percent   = $def['target_days'] > 0 ? min(100, round(($elapsedDays / $def['target_days']) * 100)) : 0;
+                }
 
                 $steps[] = [
                     'number'      => $num,
                     'name'        => $def['name'],
                     'target_days' => $def['target_days'],
+                    'target_seconds' => self::targetSeconds($def),
+                    'target_label'   => self::targetLabel($def),
+                    'continues'      => $def['continues'] ?? null,
                     'status'      => $entry->stepStatus(),
                     'elapsed_days' => $elapsedDays,
                     'elapsed_seconds' => $elapsed,
                     'started_at'  => $entry->started_at,
                     'completed_at' => $entry->completed_at,
                     'paused_at'   => $entry->paused_at,
-                    'is_overdue'  => $elapsedDays > $def['target_days'],
-                    'percent'     => $def['target_days'] > 0 ? min(100, round(($elapsedDays / $def['target_days']) * 100)) : 0,
+                    'is_overdue'  => $isOverdue,
+                    'percent'     => $percent,
                 ];
             } else {
                 $steps[] = [
                     'number'      => $num,
                     'name'        => $def['name'],
                     'target_days' => $def['target_days'],
+                    'target_seconds' => self::targetSeconds($def),
+                    'target_label'   => self::targetLabel($def),
+                    'continues'      => $def['continues'] ?? null,
                     'status'      => in_array($num, $skippedSteps, true) ? 'skipped' : 'pending',
                     'elapsed_days' => 0,
                     'started_at'  => null,
@@ -575,27 +891,41 @@ class PctService
         }
 
         if ($active) {
-            $reference = $active->resumed_at ?? $active->started_at;
-            $elapsedWorking = $active->totalElapsedSeconds();
-            $wallClockSeconds = $reference ? Carbon::now()->diffInSeconds($reference) : 0;
-
-            if ($elapsedWorking >= self::MAX_INTERVIEW_SECONDS || $wallClockSeconds >= self::MAX_INTERVIEW_SECONDS) {
-                // Complete Step 5 with capped time (max 4 hours)
-                $active->elapsed_seconds = min(self::MAX_INTERVIEW_SECONDS, max($active->elapsed_seconds, $elapsedWorking));
-                $active->completed_at = Carbon::now();
-                $active->is_active = false;
-                $active->save();
-
-                // Start Step 6: Interview Result
-                $this->startStep($application, 6);
-
-                $application->unsetRelation('pctEntries');
-                $application->unsetRelation('activePctEntry');
-                return true;
-            }
+            return $this->stopInterviewIfOverLimit($application, $active);
         }
 
         return false;
+    }
+
+    /**
+     * Stop a running Step 5 once it has run its limit — 4 hours for FATPro,
+     * 2 for a practitioner — with its time capped at that limit, and move on
+     * to Step 6 (Interview Result).
+     */
+    private function stopInterviewIfOverLimit(Application $application, PctEntry $entry): bool
+    {
+        $limit            = $this->maxInterviewSeconds($application);
+        $reference        = $entry->resumed_at ?? $entry->started_at;
+        $elapsedWorking   = $entry->totalElapsedSeconds();
+        $wallClockSeconds = $reference ? Carbon::now()->diffInSeconds($reference) : 0;
+
+        if ($elapsedWorking < $limit && $wallClockSeconds < $limit) {
+            return false;
+        }
+
+        $entry->elapsed_seconds = min($limit, max($entry->elapsed_seconds, $elapsedWorking));
+        $entry->completed_at    = Carbon::now();
+        $entry->is_active       = false;
+        $entry->save();
+
+        if (! $application->pctEntries()->where('step_number', 6)->exists()) {
+            $this->startStep($application, 6);
+        }
+
+        $application->unsetRelation('pctEntries');
+        $application->unsetRelation('activePctEntry');
+
+        return true;
     }
 
     /**
@@ -611,23 +941,8 @@ class PctService
             ->get();
 
         foreach ($runningEntries as $entry) {
-            $application = $entry->application;
-            if ($application) {
-                $reference = $entry->resumed_at ?? $entry->started_at;
-                $elapsedWorking = $entry->totalElapsedSeconds();
-                $wallClockSeconds = $reference ? Carbon::now()->diffInSeconds($reference) : 0;
-
-                if ($elapsedWorking >= self::MAX_INTERVIEW_SECONDS || $wallClockSeconds >= self::MAX_INTERVIEW_SECONDS) {
-                    $entry->elapsed_seconds = min(self::MAX_INTERVIEW_SECONDS, max($entry->elapsed_seconds, $elapsedWorking));
-                    $entry->completed_at = Carbon::now();
-                    $entry->is_active = false;
-                    $entry->save();
-
-                    $this->startStep($application, 6);
-
-                    $application->unsetRelation('pctEntries');
-                    $application->unsetRelation('activePctEntry');
-                }
+            if ($entry->application) {
+                $this->stopInterviewIfOverLimit($entry->application, $entry);
             }
         }
     }

@@ -25,6 +25,7 @@ use App\Mail\AccreditationRevokedEmail;
 use App\Mail\DocumentsApprovedEmail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\PctService;
+use App\Support\AdminAccess;
 
 class ApplicationController extends Controller
 {
@@ -39,7 +40,7 @@ class ApplicationController extends Controller
      */
     private function checkVerifierAccess()
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         if (strtolower($isAdminRole) === 'verifier') {
             abort(403, 'Unauthorized action. Verifiers do not have access to this page.');
         }
@@ -50,7 +51,7 @@ class ApplicationController extends Controller
      */
     private function checkEvaluatorAccess()
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         if (strtolower($isAdminRole) === 'evaluator') {
             abort(403, 'Unauthorized action. Evaluators do not have access to this page.');
         }
@@ -63,7 +64,7 @@ class ApplicationController extends Controller
      */
     private function checkTeamLeadAccess()
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         if (strtolower($isAdminRole) === 'team lead') {
             abort(403, 'Unauthorized action. Team Lead does not have access to this page.');
         }
@@ -75,7 +76,7 @@ class ApplicationController extends Controller
      */
     private function checkTrainingEvaluatorAccess()
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         if (strtolower($isAdminRole) === 'training evaluator') {
             abort(403, 'Unauthorized action. Training Evaluator does not have access to this page.');
         }
@@ -86,9 +87,21 @@ class ApplicationController extends Controller
      */
     private function requireTeamLeadAccess()
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         if (strtolower($isAdminRole) !== 'team lead') {
             abort(403, 'Unauthorized action. Only Team Lead can perform this action.');
+        }
+    }
+
+    /**
+     * Practitioner (and later Consultant) applications are processed by the
+     * Accreditation division on its own pages. HCD's lists already leave them
+     * out; this keeps HCD's endpoints from acting on one by id.
+     */
+    private function abortIfAccreditationDivisionApplication(?Application $application): void
+    {
+        if ($application && $application->isHandledByAccreditationDivision()) {
+            abort(404);
         }
     }
 
@@ -141,27 +154,27 @@ class ApplicationController extends Controller
                 $totalActiveFATPro = \App\Models\Accreditation::where('status', $activeFATProStatus)->count();
                 $totalRevokedFATPro = \App\Models\Accreditation::where('status', 'revoked')->count();
 
-                $newPending = Application::where('application_type', 'new')
+                $newPending = Application::where('application_type', 'new')->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
                     ->count();
 
-                $newUnderReview = Application::where('application_type', 'new')
+                $newUnderReview = Application::where('application_type', 'new')->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
                     ->count();
 
-                $renewalPending = Application::where('application_type', 'renewal')
+                $renewalPending = Application::where('application_type', 'renewal')->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $pendingStatuses)))
                     ->count();
 
-                $renewalUnderReview = Application::where('application_type', 'renewal')
+                $renewalUnderReview = Application::where('application_type', 'renewal')->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                     ->whereHas('latestStatus', fn($q) => $q->whereHas('status', fn($q2) => $q2->whereIn('name', $underReviewStatuses)))
                     ->count();
 
-                $scheduledInterviews = Application::whereHas('latestStatus', fn($q) =>
+                $scheduledInterviews = Application::whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())->whereHas('latestStatus', fn($q) =>
                     $q->whereHas('status', fn($q2) => $q2->whereIn('name', $scheduledStatuses))
                 )->count();
 
-                $totalRejected = Application::whereHas('latestStatus', fn($q) =>
+                $totalRejected = Application::whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())->whereHas('latestStatus', fn($q) =>
                     $q->whereHas('status', fn($q2) => $q2->where('name', 'Rejected'))
                 )->count();
 
@@ -252,7 +265,7 @@ class ApplicationController extends Controller
         extract($dashboardData);
 
         // ── Training Evaluator sees NTC/training stats instead of application stats ──
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         $isTrainingEvaluator = strtolower($isAdminRole) === 'training evaluator';
         $totalNtc = 0;
         $totalReportChanges = 0;
@@ -291,6 +304,7 @@ class ApplicationController extends Controller
                 'latestStatus.status',
             ])
                 ->where('application_type', 'new')
+                ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                 ->whereHas('latestStatus', function ($query) {
                     $query->whereHas('status', function ($q) {
                         $q->where('name', 'Submitted');
@@ -300,7 +314,7 @@ class ApplicationController extends Controller
                 ->get()
         );
 
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         $isTeamLead  = strtolower($isAdminRole) === 'team lead';
         $evaluators  = $isTeamLead
             ? \App\Models\User::whereHas('adminProfile.adminRole', fn ($q) => $q->where('name', 'Evaluator'))->get()
@@ -314,6 +328,7 @@ class ApplicationController extends Controller
      */
     public function updateToEvaluation(Request $request, Application $application)
     {
+        $this->abortIfAccreditationDivisionApplication($application);
         $this->requireTeamLeadAccess();
         $request->validate([
             'evaluator_id' => ['required', 'integer', 'exists:users,id'],
@@ -427,6 +442,7 @@ class ApplicationController extends Controller
                 'assignedEvaluator.adminProfile',
             ])
                 ->where('application_type', 'new')
+                ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                 ->whereHas('latestStatus', function ($query) {
                     $query->whereHas('status', function ($q) {
                         $q->whereIn('name', ['Under Evaluation', 'For Update']);
@@ -448,7 +464,8 @@ class ApplicationController extends Controller
      */
     public function show(Application $application)
     {
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $this->abortIfAccreditationDivisionApplication($application);
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         $isVerifier  = strtolower($isAdminRole) === 'verifier';
         $isEvaluator = strtolower($isAdminRole) === 'evaluator';
         $isTeamLead  = strtolower($isAdminRole) === 'team lead';
@@ -510,6 +527,7 @@ class ApplicationController extends Controller
      */
     public function evaluateDocument(Request $request, ApplicationDocument $document)
     {
+        $this->abortIfAccreditationDivisionApplication($document->application);
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
@@ -592,6 +610,7 @@ class ApplicationController extends Controller
      */
     public function evaluateItem(Request $request, Application $application)
     {
+        $this->abortIfAccreditationDivisionApplication($application);
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
@@ -650,6 +669,7 @@ class ApplicationController extends Controller
      */
     public function finalizeEvaluation(Request $request, Application $application)
     {
+        $this->abortIfAccreditationDivisionApplication($application);
         $this->checkVerifierAccess();
         $this->checkTeamLeadAccess();
         $this->checkTrainingEvaluatorAccess();
@@ -1205,6 +1225,7 @@ class ApplicationController extends Controller
                 });
             })
             ->whereDoesntHave('interview')
+            ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -1230,6 +1251,7 @@ class ApplicationController extends Controller
             'assignedEvaluator',
         ])
             ->whereHas('interview')
+            ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -1323,10 +1345,8 @@ class ApplicationController extends Controller
             }
         }
 
-        // Notify Verifiers
-        $verifiers = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-            $q->where('name', 'Verifier');
-        })->get();
+        // Notify Verifiers — every Accreditation admin, their Team Lead included.
+        $verifiers = AdminAccess::membersOf(AdminAccess::ACCREDITATION)->get();
         \Illuminate\Support\Facades\Notification::send($verifiers, new \App\Notifications\AwaitingPaymentNotification($application));
 
         // Bust caches — status changed to Awaiting Payment
@@ -1507,6 +1527,7 @@ class ApplicationController extends Controller
                 'latestStatus.status',
             ])
                 ->whereIn('application_type', ['renewal', 'reinstatement'])
+                ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                 ->whereHas('latestStatus', function ($query) {
                     $query->whereHas('status', function ($q) {
                         $q->where('name', 'Submitted');
@@ -1516,7 +1537,7 @@ class ApplicationController extends Controller
                 ->get()
         );
 
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         $isTeamLead  = strtolower($isAdminRole) === 'team lead';
         $evaluators  = $isTeamLead
             ? \App\Models\User::whereHas('adminProfile.adminRole', fn ($q) => $q->where('name', 'Evaluator'))->get()
@@ -1544,6 +1565,7 @@ class ApplicationController extends Controller
                 'assignedEvaluator.adminProfile',
             ])
                 ->whereIn('application_type', ['renewal', 'reinstatement'])
+                ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                 ->whereHas('latestStatus', function ($query) {
                     $query->whereHas('status', function ($q) {
                         $q->whereIn('name', ['Under Evaluation', 'For Update']);
@@ -1729,6 +1751,7 @@ class ApplicationController extends Controller
             'user.organizationProfile.authorizedRepresentatives',
             'user.individualProfile',
             'accreditationType',
+            'application',
         ]);
 
         $user = $accreditation->user;
@@ -1745,11 +1768,23 @@ class ApplicationController extends Controller
         // Allow admin to customise the Executive Director name on the certificate
         $executiveDirector = $request->query('executive_director', 'JOSE MARIA S. BATINO');
 
+        // Two pages on 8.5" x 13": the front, and the back with the conditions,
+        // CONFORME and HCD certification — whose wording says "renewal of
+        // accreditation" when this cycle came from a renewal or reinstatement.
+        $isRenewal = in_array($accreditation->application?->application_type, ['renewal', 'reinstatement'], true);
+
         $pdf = Pdf::loadView('admin.accreditation_certificate', [
             'accreditation'     => $accreditation,
             'fatproName'        => $fatproName,
             'executiveDirector' => $executiveDirector,
-        ])->setPaper('a4', 'portrait');
+            'backPage'          => $isRenewal ? 'renewal' : 'new',
+            // The back's two signatories, typed in the Generate Certificate
+            // pop-up; blank leaves the name to be written by hand.
+            'hcdSupervisor'     => trim((string) $request->query('hcd_supervisor', '')),
+            'hcdChief'          => trim((string) $request->query('hcd_chief', '')),
+        ])->setPaper('folio', 'portrait')
+            // Embed only the characters used: whole certificate fonts would make it ~4 MB.
+            ->setOption('isFontSubsettingEnabled', true);
 
         $filename = 'Accreditation_Certificate_' . $accreditation->accreditation_number . '.pdf';
 
@@ -2118,6 +2153,7 @@ class ApplicationController extends Controller
                         $q->where('status', 'archived');
                     });
                 })
+                ->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
                 ->orderBy('updated_at', 'desc')
                 ->get()
         );
@@ -2177,7 +2213,7 @@ class ApplicationController extends Controller
     {
         $this->checkTrainingEvaluatorAccess();
 
-        $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+        $isAdminRole = AdminAccess::hcdRole(auth()->user());
         $isEvaluator = strtolower($isAdminRole) === 'evaluator';
 
         // Allow both Verifiers, Evaluators, and Team Lead to access the list so they can view and print the recommendation form.
@@ -2193,10 +2229,15 @@ class ApplicationController extends Controller
             'assignedEvaluator.role',
         ])
             ->whereHas('latestStatus', function ($query) {
+                // For Recommendation: an OSH Practitioner whose recommendation
+                // form is still to be generated and its signed scan uploaded.
                 $query->whereHas('status', function ($q) {
-                    $q->whereIn('name', ['Awaiting Payment', 'Payment Verification']);
+                    $q->whereIn('name', ['For Recommendation', 'Awaiting Payment', 'Payment Verification']);
                 });
             })
+            // The Accreditation division handles payment and certificates for
+            // every type; HCD only sees FATPro here.
+            ->when(! AdminAccess::inDivision(auth()->user(), AdminAccess::ACCREDITATION), fn ($q) => $q->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes()))
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -2224,9 +2265,18 @@ class ApplicationController extends Controller
                     $q->where('name', 'Approved');
                 });
             })
+            // An OSH Practitioner stays until both the certificate and the
+            // ID card have been released, not just until the certificate scan.
             ->whereHas('accreditation', function ($query) {
-                $query->whereNull('scanned_certificate');
+                $query->where(fn ($w) => $w
+                    ->whereNull('scanned_certificate')
+                    ->orWhere(fn ($p) => $p
+                        ->whereIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
+                        ->whereNull('released_at')));
             })
+            // The Accreditation division handles payment and certificates for
+            // every type; HCD only sees FATPro here.
+            ->when(! AdminAccess::inDivision(auth()->user(), AdminAccess::ACCREDITATION), fn ($q) => $q->whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes()))
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -2579,6 +2629,11 @@ class ApplicationController extends Controller
 
     /**
      * Verifier uploads the scanned physical certificate (Step 8 completion).
+     *
+     * Uploading again replaces it: the new file is stored and saved first and
+     * the old one deleted only after that, so a failed upload keeps the
+     * current file. A replacement does not complete Step 8 or email the
+     * applicant again.
      */
     public function uploadScannedCertificate(Request $request, \App\Models\Accreditation $accreditation)
     {
@@ -2596,14 +2651,40 @@ class ApplicationController extends Controller
         $accreditationName = $accreditationType ? $accreditationType->name : null;
         $certificatePath = ApplicantStoragePath::certificate($accreditationName, $application->user_id);
 
-        if ($request->hasFile('scanned_certificate')) {
-            if ($accreditation->scanned_certificate && Storage::disk('local')->exists($accreditation->scanned_certificate)) {
-                Storage::disk('local')->delete($accreditation->scanned_certificate);
+        $disk    = Storage::disk('local');
+        $oldPath = $accreditation->scanned_certificate;
+        $newPath = null;
+
+        try {
+            // Unique, so the new file can never land on the old one's path.
+            $filename = 'scanned_certificate_' . time() . '_' . \Illuminate\Support\Str::random(6) . '.pdf';
+            $newPath  = $request->file('scanned_certificate')->storeAs($certificatePath, $filename, 'local');
+            if (! $newPath) {
+                throw new \RuntimeException('Could not store the scanned certificate.');
             }
-            $filename = "scanned_certificate_" . time() . ".pdf";
-            $path = $request->file('scanned_certificate')->storeAs($certificatePath, $filename, 'local');
-            $accreditation->scanned_certificate = $path;
+
+            $accreditation->scanned_certificate = $newPath;
             $accreditation->save();
+        } catch (\Throwable $e) {
+            if ($newPath) {
+                $disk->delete($newPath);
+            }
+            \Illuminate\Support\Facades\Log::error('Scanned certificate upload failed for accreditation ' . $accreditation->id . ': ' . $e->getMessage(), ['exception' => $e]);
+
+            return back()->with('error', 'The upload failed, so the current file was kept. Please try again.');
+        }
+
+        if ($oldPath) {
+            $disk->delete($oldPath);
+
+            ApplicationStatusLog::create([
+                'application_id' => $application->id,
+                'status_id'      => $application->latestStatus->status_id,
+                'updated_by'     => auth()->id(),
+                'remarks'        => 'Scanned certificate replaced.',
+            ]);
+
+            return back()->with('success', 'Scanned certificate replaced. The old file has been deleted.');
         }
 
         // ── PCT: Complete Step 8 (Certificate Issuance)
@@ -2680,7 +2761,11 @@ class ApplicationController extends Controller
         // Parsed in PHP rather than a raw SQL function (SPLIT_PART is Postgres-only, SUBSTRING_INDEX
         // is MySQL-only) so this works identically on both the local MySQL DB and Supabase Postgres in
         // production. The accreditations table is small, so pulling just this one column is cheap.
-        $maxFromDb = Accreditation::pluck('accreditation_number')
+        // FATPro numbers only: the Accreditation division's types keep their
+        // own sequence (OSH Practitioners carry on from 1950), which must not
+        // push FATPro's up.
+        $maxFromDb = Accreditation::whereNotIn('accreditation_type_id', AdminAccess::accreditationDivisionTypes())
+            ->pluck('accreditation_number')
             ->map(function ($number) {
                 $parts = explode('-', $number);
                 return (int) end($parts);

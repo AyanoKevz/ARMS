@@ -64,7 +64,7 @@
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
-                                    <th class="column-title">FATPro Name</th>
+                                    <th class="column-title">Name</th>
                                     <th class="column-title">Accreditation No</th>
                                     <th class="column-title">Approved Date</th>
                                     <th class="column-title text-center">Certificate Status</th>
@@ -88,6 +88,7 @@
                                             @else
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
+                                            <small class="d-block text-muted">{{ $app->isHandledByAccreditationDivision() ? \App\Support\AdminAccess::divisionTypeLabel($app->accreditation_type_id) : ($app->accreditationType?->name ?? 'FATPro') }}</small>
                                         </td>
                                         <td>
                                             <code class="fw-bold text-dark" style="font-size: .88rem;">
@@ -98,7 +99,16 @@
                                             {{ $app->updated_at->format('M d, Y') }}
                                         </td>
                                         <td class="text-center">
-                                            @if($hasScannedCert)
+                                            @if($app->isHandledByAccreditationDivision())
+                                                {{-- OSH Practitioner: signed certificate + ID card, then released. --}}
+                                                @if($accreditation?->released_at)
+                                                    <span class="cert-badge badge-released"><i class="fas fa-check-circle me-1"></i> Released</span>
+                                                @elseif($hasScannedCert && $accreditation->id_card)
+                                                    <span class="cert-badge badge-awaiting"><i class="fas fa-paper-plane me-1"></i> Ready for Release</span>
+                                                @else
+                                                    <span class="cert-badge badge-awaiting"><i class="fas fa-hourglass-half me-1"></i> Awaiting Certificate &amp; ID</span>
+                                                @endif
+                                            @elseif($hasScannedCert)
                                                 <span class="cert-badge badge-released">
                                                     <i class="fas fa-check-circle me-1"></i> Released
                                                 </span>
@@ -109,7 +119,7 @@
                                             @endif
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
-                                            <a href="{{ route('admin.accreditation.applications.show', $app->id) }}"
+                                            <a href="{{ $app->isHandledByAccreditationDivision() ? route('admin.accreditation.practitioner.show', $app->id) : route('admin.accreditation.applications.show', $app->id) }}"
                                                class="btn btn-info btn-xs m-0"
                                                title="View & Upload Certificate">
                                                 <i class="fas fa-eye me-1"></i> View

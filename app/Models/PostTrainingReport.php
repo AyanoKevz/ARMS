@@ -171,9 +171,19 @@ class PostTrainingReport extends Model
             return collect();
         }
 
-        return $this->documents->filter(
+        return $this->typedDocuments()->filter(
             fn ($d) => $d->status === 'rejected' && !$d->file_path && $d->documentType?->isFile()
         );
+    }
+
+    /**
+     * The report's documents with their types, which every section lookup
+     * here filters on. When a caller loaded only `documents` (or nothing),
+     * the types come in one query instead of one per document.
+     */
+    private function typedDocuments()
+    {
+        return $this->loadMissing('documents.documentType')->documents;
     }
 
     /**
@@ -185,7 +195,7 @@ class PostTrainingReport extends Model
      */
     public function directoryDocument()
     {
-        return $this->documents->first(fn ($d) => $d->documentType?->isEncoded());
+        return $this->typedDocuments()->first(fn ($d) => $d->documentType?->isEncoded());
     }
 
     /**
@@ -194,7 +204,7 @@ class PostTrainingReport extends Model
      */
     public function instructorsDocument()
     {
-        return $this->documents->first(fn ($d) => $d->documentType?->isRoster());
+        return $this->typedDocuments()->first(fn ($d) => $d->documentType?->isRoster());
     }
 
     /**
@@ -203,7 +213,7 @@ class PostTrainingReport extends Model
      */
     public function videoDocument()
     {
-        return $this->documents->first(fn ($d) => $d->documentType?->isLink());
+        return $this->typedDocuments()->first(fn ($d) => $d->documentType?->isLink());
     }
 
     /**
@@ -213,7 +223,7 @@ class PostTrainingReport extends Model
      */
     public function scoresDocument()
     {
-        return $this->documents->first(fn ($d) => $d->documentType?->isScores());
+        return $this->typedDocuments()->first(fn ($d) => $d->documentType?->isScores());
     }
 
     /**

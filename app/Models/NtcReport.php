@@ -94,6 +94,15 @@ class NtcReport extends Model
         'ptr_overdue_notified_at' => 'datetime',
     ];
 
+    /**
+     * Every training of this FATPro, handed over by a page that already loaded
+     * them all (see useTrainingsOf()), so catchUpSources() can pick from it
+     * rather than query once per row.
+     *
+     * @var \Illuminate\Support\Collection<int, NtcReport>|null
+     */
+    private ?\Illuminate\Support\Collection $fatproTrainings = null;
+
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function accreditation()
@@ -681,6 +690,17 @@ class NtcReport extends Model
      */
     public function catchUpSources()
     {
+        if ($this->fatproTrainings !== null) {
+            $today = Carbon::today();
+
+            return $this->fatproTrainings
+                ->filter(fn (NtcReport $r) => !$r->is($this)
+                    && $r->status === 'acknowledged'
+                    && $r->training_end_date?->lte($today))
+                ->sortByDesc(fn (NtcReport $r) => $r->training_start_date?->timestamp)
+                ->values();
+        }
+
         $userId = $this->accreditation?->user_id;
 
         if (!$userId) {
@@ -695,6 +715,19 @@ class NtcReport extends Model
             ->whereDate('training_end_date', '<=', Carbon::today())
             ->orderByDesc('training_start_date')
             ->get();
+    }
+
+    /**
+     * Give this report the FATPro's full list of trainings (with trainingType
+     * loaded), for catchUpSources() to choose from without a query.
+     *
+     * @param  \Illuminate\Support\Collection<int, NtcReport>  $trainings
+     */
+    public function useTrainingsOf(\Illuminate\Support\Collection $trainings): static
+    {
+        $this->fatproTrainings = $trainings;
+
+        return $this;
     }
 
     /**

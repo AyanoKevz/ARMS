@@ -1,0 +1,143 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRACTITIONER PORTAL — Renewal of Accreditation
+   (resources/views/applicant/practitioner/renewal.blade.php)
+
+   The page around the renewal form. The form's own controls are styled in
+   practitioner-fields.css and the AF-PCR-A2 preview in af-pcn-a1.css; the
+   two landing.css rules the form leans on (step titles, file-upload states)
+   are repeated here for the portal, which does not load landing.css.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.prac-renewal {
+    --pr-navy: #0b3d91;
+}
+
+/* ── "Not yet available" banner ─────────────────────────────────────────── */
+.prac-renewal .pr-soon {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    border-left: 4px solid #e0a100;
+    border-radius: 8px;
+    background: #fff8e6;
+    color: #6b4e00;
+    font-size: .88rem;
+    line-height: 1.5;
+}
+
+.prac-renewal .pr-soon i {
+    margin-top: 3px;
+    color: #e0a100;
+}
+
+/* ── Accreditation to renew ─────────────────────────────────────────────── */
+.prac-renewal .pr-gold {
+    color: #d4a017;
+}
+
+.prac-renewal .pr-label {
+    margin-bottom: 2px;
+    color: #6c757d;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.prac-renewal .pr-value {
+    margin-bottom: 0;
+    color: #1a2e5a;
+    font-size: .95rem;
+    font-weight: 600;
+}
+
+.prac-renewal .pr-value.is-number {
+    font-family: "DejaVu Sans Mono", "Courier New", monospace;
+}
+
+/* ── The form ───────────────────────────────────────────────────────────── */
+.prac-renewal .pr-intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: .6rem .8rem;
+    border: 1px solid rgba(46, 111, 216, .2);
+    border-radius: 8px;
+    background: rgba(46, 111, 216, .08);
+    color: #0D2B55;
+    font-size: .84rem;
+    line-height: 1.5;
+}
+
+.prac-renewal .form-section-title {
+    margin-top: 2rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(46, 111, 216, .15);
+    color: #2E6FD8;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.prac-renewal .form-section-title .prac-step-sub {
+    margin-left: 4px;
+}
+
+/* File uploads: the hidden input's state shown on its "Choose File" button. */
+.prac-renewal .file-upload-wrapper .custom-file-btn {
+    cursor: pointer;
+    transition: all .2s ease;
+}
+
+.prac-renewal .was-validated .real-file-input:invalid ~ .file-invalid-feedback,
+.prac-renewal .real-file-input.is-invalid ~ .file-invalid-feedback {
+    display: block !important;
+}
+
+.prac-renewal .was-validated .real-file-input:invalid ~ div .custom-file-btn,
+.prac-renewal .real-file-input.is-invalid ~ div .custom-file-btn {
+    border-color: var(--bs-danger) !important;
+    color: var(--bs-danger) !important;
+    background-color: transparent !important;
+}
+
+.prac-renewal .was-validated .real-file-input:valid ~ div .custom-file-btn {
+    border-color: var(--bs-success) !important;
+    background-color: var(--bs-success) !important;
+    color: #ffffff !important;
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+.prac-renewal .pr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.prac-renewal .pr-actions-note {
+    color: #6c757d;
+    font-size: .8rem;
+    font-style: italic;
+}
+
+/* The portal theme sets `td span { line-height: 28px }`, which would space
+   out every line of the AF-PCR-A2 preview. Its checkbox squares keep their
+   own line height (af-pcn-a1.css). */
+.prac-renewal .af-form td span:not(.af-box) {
+    line-height: inherit;
+}
+
+.prac-renewal .pr-review-state {
+    padding: 2rem 0;
+    color: #6c757d;
+    text-align: center;
+}

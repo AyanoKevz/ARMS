@@ -32,7 +32,7 @@ background: linear-gradient(135deg, #e0f2fe, #bae6fd);
 <p>Please log in to the admin portal to begin evaluating this application.</p>
 
 <div class="btn-wrap">
-  <a href="{{ route('admin.hcd.applications.show', $application->id) }}" class="btn-primary">
+  <a href="{{ $application->adminShowUrl() }}" class="btn-primary">
     View Application
   </a>
 </div>

@@ -16,7 +16,7 @@
         Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
     <p>
-        Congratulations on passing the {{ $application->skipsInterview() ? 'evaluation' : 'evaluation and interview' }} for your accreditation as a First Aid Training Provider!
+        Congratulations on passing the {{ $application->skipsInterview() ? 'evaluation' : 'evaluation and interview' }} for your accreditation as {{ $application->isPractitioner() ? 'an' : 'a' }} {{ $application->accreditationTitle() }}!
     </p>
     <p>
         We are pleased to inform you that your application has been approved by the Office of the Executive Director.
@@ -38,7 +38,7 @@
             </tr>
             <tr style="font-weight: bold; color: #1b5e20; font-size: 1.05rem;">
                 <td style="padding: 10px 0 0 0;">Amount Required</td>
-                <td style="padding: 10px 0 0 0; text-align: right;">900.00 Pesos</td>
+                <td style="padding: 10px 0 0 0; text-align: right;">{{ $application->paymentAmount() }} Pesos</td>
             </tr>
         </table>
     </div>

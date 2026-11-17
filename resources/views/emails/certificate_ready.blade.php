@@ -15,11 +15,17 @@
     <p>
         Dear <strong>{{ $application->user->name ?? $application->user->email }}</strong>,
     </p>
+    @php
+        // OSH Practitioner / Consultant: the certificate comes with an ID card,
+        // and is released by the Accreditation Division.
+        $withIdCard = $application->isHandledByAccreditationDivision();
+        $office     = $withIdCard ? 'Accreditation Division' : 'Health Control Division (HCD)';
+    @endphp
     <p>
-        We are pleased to inform you that your Accreditation Certificate for <strong>{{ $application->accreditationType->name ?? 'Accreditation' }}</strong> is now signed, finalized, and <strong>ready for pickup</strong>!
+        We are pleased to inform you that your Accreditation Certificate{{ $withIdCard ? ' and Identification Card' : '' }} for <strong>{{ $withIdCard ? $application->accreditationTitle() : ($application->accreditationType->name ?? 'Accreditation') }}</strong> {{ $withIdCard ? 'are' : 'is' }} now signed, finalized, and <strong>ready for pickup</strong>!
     </p>
     <p>
-        Please coordinate with the Health Control Division (HCD) office during regular office hours to claim your original physical certificate.
+        Please coordinate with the {{ $office }} office during regular office hours to claim your original physical certificate{{ $withIdCard ? ' and ID card' : '' }}.
     </p>
 
     <div class="tracking-card">
@@ -42,7 +48,7 @@
     </div>
 
     <p style="font-size:0.85rem; color:#888;">
-        For any questions regarding release schedules or requirements, please contact our HCD office.
+        For any questions regarding release schedules or requirements, please contact our {{ $withIdCard ? 'Accreditation Division' : 'HCD' }} office.
     </p>
 
 @endsection

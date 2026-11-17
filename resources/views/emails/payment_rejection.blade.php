@@ -24,12 +24,23 @@
         <p style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">
             ⚠️ Important Resubmission Deadline
         </p>
+        @if($application->isHandledByAccreditationDivision() && $application->compliance_due_date)
+        {{-- OSH Practitioner: enforced — archived after the deadline (PractitionerArchiveService). --}}
+        <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
+            You have 5 working days to resubmit your proof of payment — until {{ $application->compliance_due_date->format('l, F j, Y') }}.
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
+            If the corrected proof of payment is not received by then, your application will be archived and you may
+            apply again only after 1 month.
+        </p>
+        @else
         <p style="margin: 6px 0 0 0; font-size: 1.05rem; font-weight: 700; color: #b45309;">
             You have 5 days to resubmit your payment details.
         </p>
         <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #78350f;">
             Please re-upload corrected proof of payment within 5 calendar days to avoid cancellation of your application.
         </p>
+        @endif
     </div>
 
     <div class="doc-list" style="margin-bottom: 20px;">

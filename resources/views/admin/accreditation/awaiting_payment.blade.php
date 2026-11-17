@@ -66,7 +66,7 @@
                             <thead>
                                 <tr class="headings">
                                     <th class="column-title">Tracking No</th>
-                                    <th class="column-title">FATPro Name</th>
+                                    <th class="column-title">Name</th>
                                     <th class="column-title">Head Name</th>
                                     <th class="column-title">Email</th>
                                     <th class="column-title text-center">Passed Date</th>
@@ -92,14 +92,21 @@
                                             @else
                                                 {{ ($app->user->individualProfile->first_name ?? '') . ' ' . ($app->user->individualProfile->last_name ?? '') }}
                                             @endif
+                                            <small class="d-block text-muted">{{ $app->isHandledByAccreditationDivision() ? \App\Support\AdminAccess::divisionTypeLabel($app->accreditation_type_id) : ($app->accreditationType?->name ?? 'FATPro') }}</small>
                                         </td>
-                                        <td>{{ $org->head_name ?? 'â€”' }}</td>
+                                        <td>{{ $org->head_name ?? '—' }}</td>
                                         <td>{{ $app->user->email }}</td>
                                         <td class="text-center" data-order="{{ $app->updated_at->format('Y-m-d') }}">{{ $app->updated_at->format('M d, Y') }}</td>
                                         <td class="text-center">
                                             @php
                                             $statusName = $app->latestStatus->status->name ?? 'Awaiting Payment';
-                                            if ($statusName === 'Awaiting Payment') {
+                                            if ($statusName === 'For Recommendation') {
+                                                $statusLabel = 'For Recommendation';
+                                                $badgeClass  = 'bg-info text-dark';
+                                            } elseif ($statusName === 'Payment Verification' && $payment?->proof_of_payment_status === 'approved') {
+                                                $statusLabel = 'Payment Validated';
+                                                $badgeClass  = 'bg-success text-white';
+                                            } elseif ($statusName === 'Awaiting Payment') {
                                                 $statusLabel = 'Recommendation/Payment';
                                                 $badgeClass  = 'bg-warning text-dark';
                                             } elseif ($statusName === 'Payment Verification') {
@@ -121,7 +128,7 @@
                                         </span>
                                         </td>
                                         <td class="last text-center" style="white-space:nowrap;">
-                                            <a href="{{ route('admin.accreditation.applications.show', $app->id) }}"
+                                            <a href="{{ $app->isHandledByAccreditationDivision() ? route('admin.accreditation.practitioner.show', $app->id) : route('admin.accreditation.applications.show', $app->id) }}"
                                                class="btn btn-info btn-xs m-0"
                                                title="View Application">
                                                 <i class="fas fa-eye me-1"></i> View

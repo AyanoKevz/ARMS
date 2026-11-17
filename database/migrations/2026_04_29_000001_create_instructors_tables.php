@@ -72,6 +72,9 @@ return new class extends Migration
             $table->json('update_request_fields')->nullable();
 
             $table->timestamps();
+
+            $table->index('status', 'idx_instructors_status');
+            $table->index('update_request_status', 'idx_instructors_update_request_status');
         });
 
         // ── Instructor Credentials ──────────────────────────────────────
@@ -110,7 +113,21 @@ return new class extends Migration
             // The nightly expiry sweep asks for approved credentials lapsing
             // inside a window, and scanned the whole table to answer it.
             $table->index(['status', 'validity_date'], 'instructor_creds_status_validity_idx');
+            // instructor_id is covered by the unique index above.
+            $table->index('type', 'idx_instructor_creds_type');
         });
+
+        // ── Foreign keys PostgreSQL leaves unindexed ───────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not. The table drops in down() take these
+        // indexes with them.
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('instructors', function (Blueprint $table) {
+                $table->index('user_id', 'idx_fk_instructors_user_id');
+                $table->index('application_id', 'idx_fk_instructors_application_id');
+                $table->index('instructor_person_id', 'idx_fk_instructors_instructor_person_id');
+            });
+        }
 
         // ── Add instructors_data staging column to pending_registrations ─
         Schema::table('pending_registrations', function (Blueprint $table) {

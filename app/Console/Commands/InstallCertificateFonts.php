@@ -2,120 +2,186 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Console\Command;
 
+/**
+ * Registers the Certificate of Accreditation's typefaces (DOLE-OSHC template:
+ * Copperplate Gothic Bold, Arial Black, Bodoni MT, Script MT Bold, Times New
+ * Roman, Calibri and Arial Narrow) into dompdf's font cache in storage/fonts.
+ *
+ * Run it on a Windows machine that has the fonts installed; the generated files
+ * in storage/fonts are committed, so the server (Linux) needs no fonts of its own.
+ * Each style is read from its own TTF, so a regular weight really is regular.
+ *
+ * Only the styles the certificates use are stored (accreditation-certificate.css).
+ * A family's other styles point at one of those files instead of a copy of their
+ * own: dompdf switches to a different font altogether when a style is missing.
+ */
 class InstallCertificateFonts extends Command
 {
     protected $signature   = 'dompdf:install-certificate-fonts';
-    protected $description = 'Register Copperplate Gothic Bold, Bodoni MT, Calibri, Arial Narrow, and Script MT Bold into dompdf font cache';
+    protected $description = 'Register the certificate fonts (Copperplate Gothic Bold, Arial Black, Times New Roman, Bodoni MT, Script MT Bold, Calibri, Arial Narrow) into the dompdf font cache';
 
-    /**
-     * Each entry:
-     *   css_name  – the font-family name used in CSS
-     *   style     – normal | bold | italic | bold_italic
-     *   ttf_path  – absolute path to the TTF file on this server
-     */
+    private const WINDOWS_FONTS = 'C:/Windows/Fonts';
+
+    /** CSS family => [style => TTF file in C:/Windows/Fonts] — the styles the certificates use. */
     private array $fonts = [
-        // ── Copperplate Gothic Bold ──────────────────────────────────────────
-        ['css_name' => 'Copperplate Gothic Bold', 'style' => 'normal', 'ttf_path' => 'C:/Windows/Fonts/COPRGTB.TTF'],
-        ['css_name' => 'Copperplate Gothic Bold', 'style' => 'bold',   'ttf_path' => 'C:/Windows/Fonts/COPRGTB.TTF'],
+        // Single-weight faces.
+        'Copperplate Gothic Bold' => ['normal' => 'COPRGTB.TTF'],   // title
+        'Arial Black'             => ['normal' => 'ariblk.ttf'],    // type / field / CONSULTANT
+        'Script MT Bold'          => ['normal' => 'SCRIPTBL.TTF'],  // body text
 
-        // ── Bodoni MT ────────────────────────────────────────────────────────
-        ['css_name' => 'Bodoni MT', 'style' => 'normal',     'ttf_path' => 'C:/Windows/Fonts/BOD_R.TTF'],
-        ['css_name' => 'Bodoni MT', 'style' => 'bold',       'ttf_path' => 'C:/Windows/Fonts/BOD_B.TTF'],
-        ['css_name' => 'Bodoni MT', 'style' => 'italic',     'ttf_path' => 'C:/Windows/Fonts/BOD_I.TTF'],
-        ['css_name' => 'Bodoni MT', 'style' => 'bold_italic', 'ttf_path' => 'C:/Windows/Fonts/BOD_BI.TTF'],
+        // Number, validity, "This certifies that" and the signatory (dompdf's
+        // built-in Times is only a look-alike).
+        'Times New Roman' => ['normal' => 'times.ttf', 'bold' => 'timesbd.ttf', 'italic' => 'timesi.ttf'],
 
-        // ── Calibri ──────────────────────────────────────────────────────────
-        ['css_name' => 'Calibri', 'style' => 'normal',     'ttf_path' => 'C:/Windows/Fonts/calibri.ttf'],
-        ['css_name' => 'Calibri', 'style' => 'bold',       'ttf_path' => 'C:/Windows/Fonts/calibrib.ttf'],
-        ['css_name' => 'Calibri', 'style' => 'italic',     'ttf_path' => 'C:/Windows/Fonts/calibrii.ttf'],
-        ['css_name' => 'Calibri', 'style' => 'bold_italic', 'ttf_path' => 'C:/Windows/Fonts/calibriz.ttf'],
+        'Bodoni MT'    => ['normal' => 'BOD_R.TTF', 'bold' => 'BOD_B.TTF'],      // the name (bold)
+        'Calibri'      => ['normal' => 'calibri.ttf', 'bold' => 'calibrib.ttf'], // backs, "as", footers
+        'Arial Narrow' => ['normal' => 'ARIALN.TTF'],                            // FATPro footer
+    ];
 
-        // ── Arial Narrow ─────────────────────────────────────────────────────
-        ['css_name' => 'Arial Narrow', 'style' => 'normal',     'ttf_path' => 'C:/Windows/Fonts/ARIALN.TTF'],
-        ['css_name' => 'Arial Narrow', 'style' => 'bold',       'ttf_path' => 'C:/Windows/Fonts/ARIALNB.TTF'],
-        ['css_name' => 'Arial Narrow', 'style' => 'italic',     'ttf_path' => 'C:/Windows/Fonts/ARIALNI.TTF'],
-        ['css_name' => 'Arial Narrow', 'style' => 'bold_italic', 'ttf_path' => 'C:/Windows/Fonts/ARIALNBI.TTF'],
-
-        // ── Script MT Bold ───────────────────────────────────────────────────
-        ['css_name' => 'Script MT Bold', 'style' => 'normal',     'ttf_path' => 'C:/Windows/Fonts/SCRIPTBL.TTF'],
-        ['css_name' => 'Script MT Bold', 'style' => 'bold',       'ttf_path' => 'C:/Windows/Fonts/SCRIPTBL.TTF'],
-        ['css_name' => 'Script MT Bold', 'style' => 'italic',     'ttf_path' => 'C:/Windows/Fonts/SCRIPTBL.TTF'],
-        ['css_name' => 'Script MT Bold', 'style' => 'bold_italic', 'ttf_path' => 'C:/Windows/Fonts/SCRIPTBL.TTF'],
+    /** A style a family lacks uses the first of these that it has. */
+    private const STYLE_FALLBACKS = [
+        'normal'      => ['bold', 'italic', 'bold_italic'],
+        'bold'        => ['normal', 'bold_italic', 'italic'],
+        'italic'      => ['normal', 'bold_italic', 'bold'],
+        'bold_italic' => ['bold', 'italic', 'normal'],
     ];
 
     public function handle(): int
     {
-        $fontDir   = storage_path('fonts');
-        $cacheDir  = storage_path('fonts');
-
-        // Ensure the directory is writable
+        $fontDir = storage_path('fonts');
         if (! is_dir($fontDir)) {
             mkdir($fontDir, 0775, true);
         }
 
         $options = new Options();
         $options->setFontDir($fontDir);
-        $options->setFontCache($cacheDir);
-        $options->setChroot([base_path(), 'C:/Windows/Fonts', 'C:\Windows\Fonts']);
+        $options->setFontCache($fontDir);
+        $options->setChroot([base_path(), self::WINDOWS_FONTS, str_replace('/', '\\', self::WINDOWS_FONTS)]);
 
-        $dompdf = new Dompdf($options);
-        $fontMetrics = $dompdf->getFontMetrics();
+        $fontMetrics = (new Dompdf($options))->getFontMetrics();
 
-        foreach ($this->fonts as $font) {
-            $ttf = $font['ttf_path'];
+        foreach ($this->fonts as $family => $styles) {
+            foreach ($styles as $style => $file) {
+                $ttf = $this->source($family, $style, $file, $fontDir);
+                if (! $ttf) {
+                    $this->warn("  ⚠  {$family} ({$style}): {$file} not found, skipping");
+                    continue;
+                }
 
-            // Check if font already exists in storage/fonts directory first
-            $storageFonts = glob($fontDir . '/' . strtolower(str_replace(' ', '_', $font['css_name'])) . '*.' . 'ttf');
-            if (!empty($storageFonts)) {
-                $ttf = $storageFonts[0];
-            }
+                $this->line("  → Registering [{$family}] ({$style}) from " . basename($ttf));
 
-            if (! file_exists($ttf)) {
-                $this->warn("  ⚠  TTF not found, skipping: {$ttf}");
-                continue;
-            }
+                $registered = $fontMetrics->registerFont([
+                    'family' => $family,
+                    'weight' => str_contains($style, 'bold') ? 'bold' : 'normal',
+                    'style'  => str_contains($style, 'italic') ? 'italic' : 'normal',
+                ], $ttf);
 
-            $this->line("  → Registering [{$font['css_name']}] ({$font['style']})");
-
-            $success = $fontMetrics->registerFont(
-                [
-                    'family' => $font['css_name'],
-                    'style'  => $font['style'] === 'bold_italic' ? 'bold italic' : $font['style'],
-                    'weight' => str_contains($font['style'], 'bold') ? 'bold' : 'normal',
-                ],
-                $ttf
-            );
-
-            if (!$success) {
-                $this->error("      ✖ Failed to register font: {$ttf}");
+                if (! $registered) {
+                    $this->error("      ✖ Failed to register {$ttf}");
+                }
             }
         }
 
         $fontMetrics->saveFontFamilies();
 
-        // Normalize installed-fonts.json to relative paths so it works seamlessly across OS/environments
-        $installedFontsFile = $fontDir . '/installed-fonts.json';
-        if (file_exists($installedFontsFile)) {
-            $json = json_decode(file_get_contents($installedFontsFile), true);
-            if (is_array($json)) {
-                $cleanJson = [];
-                foreach ($json as $family => $variants) {
-                    $cleanJson[$family] = [];
-                    foreach ($variants as $style => $path) {
-                        $cleanJson[$family][$style] = basename($path);
-                    }
-                }
-                file_put_contents($installedFontsFile, json_encode($cleanJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-            }
-        }
+        $installed = $this->normalizeInstalledFonts($fontDir);
+        $this->removeStaleFiles($fontDir, $installed);
 
-        $this->info('✔ All certificate fonts registered in ' . $fontDir);
+        $this->info('✔ Certificate fonts registered in ' . $fontDir);
         $this->info('  Clear any cached views: php artisan view:clear');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The TTF for one style: the Windows font, or else the copy already in
+     * storage/fonts for exactly this family and style.
+     */
+    private function source(string $family, string $style, string $file, string $fontDir): ?string
+    {
+        $windows = self::WINDOWS_FONTS . '/' . $file;
+        if (file_exists($windows)) {
+            return $windows;
+        }
+
+        $pattern = '/^' . preg_quote($this->prefix($family), '/') . '_' . $style . '_[0-9a-f]{32}\.ttf$/';
+        foreach (scandir($fontDir) ?: [] as $name) {
+            if (preg_match($pattern, $name)) {
+                return $fontDir . '/' . $name;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * installed-fonts.json with file names only (no absolute paths), so the
+     * committed cache works on any machine. For these families it keeps only
+     * the styles registered now, and every other style points at one of them.
+     * Returns the referenced names.
+     */
+    private function normalizeInstalledFonts(string $fontDir): array
+    {
+        $path = $fontDir . '/installed-fonts.json';
+        $json = file_exists($path) ? json_decode(file_get_contents($path), true) : null;
+        if (! is_array($json)) {
+            return [];
+        }
+
+        $managed = [];
+        foreach ($this->fonts as $family => $styles) {
+            $managed[mb_strtolower($family)] = array_keys($styles);
+        }
+
+        $clean = [];
+        foreach ($json as $family => $variants) {
+            foreach ($variants as $style => $file) {
+                if (! isset($managed[$family]) || in_array($style, $managed[$family], true)) {
+                    $clean[$family][$style] = basename($file);
+                }
+            }
+
+            if (isset($managed[$family], $clean[$family])) {
+                foreach (self::STYLE_FALLBACKS as $style => $fallbacks) {
+                    if (isset($clean[$family][$style])) {
+                        continue;
+                    }
+                    foreach ($fallbacks as $fallback) {
+                        if (isset($clean[$family][$fallback])) {
+                            $clean[$family][$style] = $clean[$family][$fallback];
+                            break;
+                        }
+                    }
+                }
+                ksort($clean[$family]);
+            }
+        }
+        file_put_contents($path, json_encode($clean, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        return collect($clean)->flatten()->all();
+    }
+
+    /** Delete earlier copies of these families that installed-fonts.json no longer uses. */
+    private function removeStaleFiles(string $fontDir, array $installed): void
+    {
+        $prefixes = implode('|', array_map(fn ($family) => preg_quote($this->prefix($family), '/'), array_keys($this->fonts)));
+        $pattern  = '/^((?:' . $prefixes . ')_(?:normal|bold|italic|bold_italic)_[0-9a-f]{32})\.(?:ttf|ufm|ufm\.json|afm|afm\.json)$/';
+
+        foreach (scandir($fontDir) ?: [] as $name) {
+            if (preg_match($pattern, $name, $m) && ! in_array($m[1], $installed, true)) {
+                unlink($fontDir . '/' . $name);
+                $this->line("  − Removed stale {$name}");
+            }
+        }
+    }
+
+    /** dompdf's file-name prefix for a family ("Bodoni MT" → "bodoni_mt"). */
+    private function prefix(string $family): string
+    {
+        return preg_replace('/\W/', '_', mb_strtolower($family));
     }
 }

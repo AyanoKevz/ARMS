@@ -45,6 +45,8 @@ return new class extends Migration
             $table->string('user_photo')->nullable();
             $table->rememberToken();
             $table->timestamps();
+
+            $table->index('profile_type', 'idx_users_profile_type');
         });
 
 
@@ -58,6 +60,10 @@ return new class extends Migration
             $table->foreignId('division_id')->constrained()->cascadeOnDelete();
             // Example: 1 = HCD;
             $table->timestamps();
+
+            // "Admins of this division with this role" — the evaluator lookups.
+            // Also serves the division_id foreign key.
+            $table->index(['division_id', 'admin_role_id'], 'idx_admin_profiles_division_role');
         });
 
         Schema::create('pending_admins', function (Blueprint $table) {
@@ -126,6 +132,28 @@ return new class extends Migration
             // Everything ever done to one record.
             $table->index(['subject_type', 'subject_id'], 'audit_logs_subject_idx');
         });
+
+        // ── Foreign keys PostgreSQL leaves unindexed ──────────────────────────
+        // MySQL indexes every foreign key on its own; PostgreSQL (the live
+        // Supabase database) does not, and an unindexed foreign key makes every
+        // "children of this parent" lookup a full table scan. Foreign keys that
+        // lead a composite index above are already served by it. The table
+        // drops in down() take these indexes with them.
+        if (Schema::getConnection()->getDriverName() !== 'mysql') {
+            Schema::table('users', function (Blueprint $table) {
+                $table->index('role_id', 'idx_fk_users_role_id');
+            });
+
+            Schema::table('admin_profiles', function (Blueprint $table) {
+                $table->index('user_id', 'idx_fk_admin_profiles_user_id');
+                $table->index('admin_role_id', 'idx_fk_admin_profiles_admin_role_id');
+            });
+
+            Schema::table('pending_admins', function (Blueprint $table) {
+                $table->index('admin_role_id', 'idx_fk_pending_admins_admin_role_id');
+                $table->index('division_id', 'idx_fk_pending_admins_division_id');
+            });
+        }
     }
 
     /**

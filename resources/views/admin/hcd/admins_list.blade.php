@@ -11,7 +11,7 @@
 @endpush
 
 @php
-    $isAdminRole = auth()->user()?->adminProfile?->adminRole?->name ?? '';
+    $isAdminRole = \App\Support\AdminAccess::hcdRole(auth()->user());
     $isTeamLead = strtolower($isAdminRole) === 'team lead';
 @endphp
 

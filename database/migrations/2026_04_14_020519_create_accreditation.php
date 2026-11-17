@@ -23,6 +23,7 @@
                 $table->string('first_name');
                 $table->string('middle_name')->nullable();
                 $table->string('last_name');
+                $table->string('suffix', 20)->nullable(); // Jr., Sr., III … (printed on the certificates)
                 $table->string('sex');
                 $table->date('birthday');
                 $table->string('region');
@@ -45,6 +46,8 @@
                 $table->string('fax')->nullable(); // 123-4567
                 $table->string('email'); // company@email.com
                 $table->timestamps();
+
+                $table->index('name', 'idx_org_profiles_name');
             });
 
             Schema::create('authorized_representatives', function (Blueprint $table) {
@@ -65,6 +68,24 @@
                 // Example: juan@email.com
                 $table->timestamps();
             });
+
+            // ── Foreign keys PostgreSQL leaves unindexed ──────────────────────
+            // MySQL indexes every foreign key on its own; PostgreSQL (the live
+            // Supabase database) does not. The table drops in down() take these
+            // indexes with them.
+            if (Schema::getConnection()->getDriverName() !== 'mysql') {
+                Schema::table('individual_profiles', function (Blueprint $table) {
+                    $table->index('user_id', 'idx_fk_individual_profiles_user_id');
+                });
+
+                Schema::table('organization_profiles', function (Blueprint $table) {
+                    $table->index('user_id', 'idx_fk_organization_profiles_user_id');
+                });
+
+                Schema::table('authorized_representatives', function (Blueprint $table) {
+                    $table->index('organization_profile_id', 'idx_fk_authorized_representatives_organization_profile_id');
+                });
+            }
         }
 
         /**

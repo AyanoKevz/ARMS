@@ -1,0 +1,70 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPLICANT PORTAL — OSH Practitioner
+   (resources/views/applicant/practitioner/dashboard)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ap-summary {
+    border-top: none;
+    border-left: 4px solid var(--portal-gold, #d4ac4b);
+}
+
+.ap-title {
+    color: #2A3F54;
+}
+
+.ap-gold {
+    color: var(--portal-gold, #d4ac4b);
+}
+
+.ap-label {
+    margin-bottom: .25rem;
+    font-size: .85rem;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.ap-value {
+    margin-bottom: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #2A3F54;
+}
+
+.ap-value.is-number {
+    color: #0b3d91;
+}
+
+.ap-status {
+    padding: 6px 12px;
+    font-size: .9rem;
+}
+
+.ap-release {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+    background: #fffbeb;
+    color: #78350f;
+    font-size: .92rem;
+    line-height: 1.5;
+}
+
+.ap-release i {
+    margin-top: 3px;
+    font-size: 1.1rem;
+}
+
+.ap-release.is-ready {
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+    color: #14532d;
+}
+
+.ap-tracking {
+    margin-top: 14px;
+    font-size: .88rem;
+    color: #475569;
+}

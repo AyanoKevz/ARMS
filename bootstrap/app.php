@@ -21,6 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('post-training:reminder-check')->daily();
         // Voids declined reports not resubmitted within 10 working days.
         $schedule->command('post-training:void-lapsed')->daily();
+        // OSH Practitioner / Consultant: archives applications whose rejected
+        // documents were not re-uploaded within 5 working days, and deletes
+        // archived ones once the applicant may apply again.
+        $schedule->command('practitioner:enforce-deadlines')->daily();
         // Verification links live for one hour, so hourly keeps abandoned
         // registrations (and the password hashes they carry) from lingering.
         $schedule->command('pending-registrations:prune')->hourly();
@@ -54,6 +58,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // only deny specific ADMIN sub-roles, so without this an applicant
             // passed straight through them. See EnsureUserIsAdmin.
             'admin'                => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            // Division gate for portal sections, e.g. admin.division:Accreditation.
+            'admin.division'       => \App\Http\Middleware\EnsureAdminDivision::class,
+            // FATPro-only applicant pages, closed to the practitioner portal.
+            'fatpro.portal'        => \App\Http\Middleware\EnsureFatproPortal::class,
+            // OSH Practitioner / Consultant portal pages, closed to FATPro.
+            'practitioner.portal'  => \App\Http\Middleware\EnsurePractitionerPortal::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -10,13 +10,19 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminInvitationController;
 use App\Http\Controllers\Admin\HCD\ApplicationController as HCDApplicationController;
 use App\Http\Controllers\Admin\Accreditation\ApplicationController as AccreditationApplicationController;
+use App\Http\Controllers\Admin\Accreditation\PractitionerController as AccreditationPractitionerController;
+use App\Http\Controllers\Admin\Accreditation\DivisionController as AccreditationDivisionController;
+use App\Http\Controllers\Admin\Accreditation\InterviewSlotController as AccreditationInterviewSlotController;
 use App\Http\Controllers\Applicant\InstructorController as ApplicantInstructorController;
 use App\Http\Controllers\Applicant\RenewalController;
+use App\Http\Controllers\Applicant\PractitionerRenewalController;
 use App\Http\Controllers\Applicant\NtcController;
 use App\Http\Controllers\Applicant\PostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\NtcController as AdminNtcController;
 use App\Http\Controllers\Admin\HCD\PostTrainingReportController as AdminPostTrainingReportController;
 use App\Http\Controllers\Admin\HCD\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\HCD\GraduateVisitorController as AdminGraduateVisitorController;
+use App\Http\Controllers\GraduateLookupController;
 use App\Http\Controllers\Admin\HCD\FirstAiderCertificateController as AdminFirstAiderCertificateController;
 use App\Http\Controllers\Applicant\FirstAiderCertificateController as ApplicantFirstAiderCertificateController;
 
@@ -61,6 +67,8 @@ Route::get('/register', function () {
 
 // Registration — process form & send verification email
 Route::post('/register', [RegistrationController::class, 'store'])->name('register.store')->middleware('throttle:5,1');
+// "Review Details" for OSH Practitioner: renders the AF-PCN-A1 form, stores nothing.
+Route::post('/register/practitioner/preview', [RegistrationController::class, 'previewPractitioner'])->name('register.practitioner.preview')->middleware('throttle:30,1');
 
 // Email verification link
 Route::get('/verify-email/{token}', [RegistrationController::class, 'verify'])->name('register.verify');
@@ -89,8 +97,12 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
     Route::get('/profile/{user}', [ProfileController::class, 'show'])->name('profile.show');
 
     Route::prefix('applicant')->name('applicant.')->group(function () {
+        // OSH Practitioners have their own dashboard (no reports, instructors
+        // or first-aider certificates — see EnsureFatproPortal).
         Route::get('/dashboard', function () {
-            return view('applicant.dashboard');
+            return auth()->user()->usesPractitionerPortal()
+                ? view('applicant.practitioner.dashboard')
+                : view('applicant.dashboard');
         })->name('dashboard');
 
         // Notifications. The admin portal has its own copies of these under the
@@ -107,8 +119,19 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             return back();
         })->name('notifications.mark_all_read');
 
+        // ── OSH Practitioner / Consultant renewal: the AF-PCR-A2 form ─────
+        // The form and its Review Details only; it cannot be submitted yet.
+        Route::middleware('practitioner.portal')->prefix('practitioner/renewal')->group(function () {
+            Route::get('/', [PractitionerRenewalController::class, 'index'])->name('practitioner.renewal');
+            Route::post('/preview', [PractitionerRenewalController::class, 'preview'])->name('practitioner.renewal.preview')->middleware('throttle:30,1');
+            Route::get('/certificate', [PractitionerRenewalController::class, 'certificate'])->name('practitioner.renewal.certificate');
+        });
+
+        // ── FATPro-only pages: closed to the practitioner portal ──────────
+        Route::middleware('fatpro.portal')->group(function () {
+
         // FATPro Instructor Management
-        Route::get('/instructors', [ApplicantInstructorController::class, 'index'])->name('instructors.index');
+        Route::get('/instructors',[ApplicantInstructorController::class, 'index'])->name('instructors.index');
         Route::post('/instructors', [ApplicantInstructorController::class, 'store'])->name('instructors.store')->middleware('throttle:5,1');
         Route::get('/instructors/{instructor}', [ApplicantInstructorController::class, 'show'])->name('instructors.show');
         Route::delete('/instructors/{instructor}', [ApplicantInstructorController::class, 'destroy'])->name('instructors.destroy')->middleware('throttle:5,1');
@@ -157,6 +180,8 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
         // frequent and cheap, so the throttle is far looser than a submit.
         Route::post('/post-training/{ntcReport}/draft', [PostTrainingReportController::class, 'saveDraft'])->name('post_training.draft.save')->middleware('throttle:120,1');
         Route::delete('/post-training/{ntcReport}/draft', [PostTrainingReportController::class, 'discardDraft'])->name('post_training.draft.discard')->middleware('throttle:30,1');
+
+        }); // fatpro.portal
     });
 
     // 'admin' is the allow-list that the controllers' per-role deny-lists do not
@@ -248,6 +273,10 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             // Audit Logs — each role sees its own role's entries only.
             Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])->name('audit_logs.index');
             Route::get('/audit-logs/data', [AdminAuditLogController::class, 'data'])->name('audit_logs.data')->middleware('throttle:120,1');
+
+            // Who used the public Graduate Lookup, and what they searched.
+            Route::get('/graduate-visitors', [AdminGraduateVisitorController::class, 'index'])->name('graduate_visitors.index');
+            Route::get('/graduate-visitors/data', [AdminGraduateVisitorController::class, 'data'])->name('graduate_visitors.data')->middleware('throttle:120,1');
         });
 
         // ── Accreditation Division (Verifier Portal) ──────────────────────
@@ -271,6 +300,53 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
             // Admin directory (own portal admins list)
             Route::get('/directory/admins', [AccreditationApplicationController::class, 'adminsList'])->name('directory.admins');
             Route::post('/directory/admins/invite', [AccreditationApplicationController::class, 'inviteAdmin'])->name('directory.admins.invite');
+
+            // OSH Consultant — new applications. Same form and process as
+            // OSH Practitioner, so only its own two lists live here; an
+            // application opens on the practitioner pages below.
+            Route::prefix('consultant')->name('consultant.')->middleware('admin.division:Accreditation')->group(function () {
+                Route::get('/new/pending', [AccreditationPractitionerController::class, 'consultantPending'])->name('new.pending');
+                Route::get('/new/under-review', [AccreditationPractitionerController::class, 'consultantUnderReview'])->name('new.under_review');
+            });
+
+            // OSH Practitioner (and OSH Consultant) — new applications.
+            // Accreditation division only. Renewal / Reinstatement is not open
+            // yet (locked in the sidebar), so it has no routes.
+            Route::prefix('practitioner')->name('practitioner.')->middleware('admin.division:Accreditation')->group(function () {
+                Route::get('/new/pending', [AccreditationPractitionerController::class, 'pending'])->name('new.pending');
+                Route::get('/new/under-review', [AccreditationPractitionerController::class, 'underReview'])->name('new.under_review');
+                Route::get('/applications/{application}', [AccreditationPractitionerController::class, 'show'])->name('show');
+                Route::get('/applications/{application}/application-form', [AccreditationPractitionerController::class, 'applicationForm'])->name('application_form');
+                Route::get('/applications/{application}/photo', [AccreditationPractitionerController::class, 'photo'])->name('photo');
+                Route::post('/applications/{application}/start', [AccreditationPractitionerController::class, 'start'])->name('start');
+                Route::post('/applications/{application}/evaluate-item', [AccreditationPractitionerController::class, 'evaluateItem'])->name('evaluate_item');
+                Route::post('/applications/{application}/finalize-evaluation', [AccreditationPractitionerController::class, 'finalizeEvaluation'])->name('finalize_evaluation');
+                Route::post('/applications/{application}/start-interview', [AccreditationPractitionerController::class, 'startInterview'])->name('start_interview');
+                Route::post('/applications/{application}/stop-interview', [AccreditationPractitionerController::class, 'stopInterview'])->name('stop_interview');
+                Route::post('/applications/{application}/interview-result', [AccreditationPractitionerController::class, 'recordInterviewResult'])->name('interview_result');
+                Route::match(['get', 'post'], '/applications/{application}/generate-recommendation', [AccreditationPractitionerController::class, 'generateRecommendation'])->name('generate_recommendation');
+                Route::post('/applications/{application}/upload-recommendation', [AccreditationPractitionerController::class, 'uploadRecommendation'])->name('upload_recommendation');
+                Route::post('/applications/{application}/evaluate-payment', [AccreditationPractitionerController::class, 'evaluatePayment'])->name('evaluate_payment');
+                Route::get('/applications/{application}/certificate', [AccreditationPractitionerController::class, 'certificate'])->name('certificate');
+                Route::post('/applications/{application}/certificate-files', [AccreditationPractitionerController::class, 'uploadCertificateFiles'])->name('certificate_files.upload');
+                Route::get('/applications/{application}/certificate-files/{file}', [AccreditationPractitionerController::class, 'certificateFile'])->whereIn('file', ['certificate', 'id-card'])->name('certificate_files.view');
+                Route::post('/applications/{application}/release', [AccreditationPractitionerController::class, 'releaseCertificate'])->name('release');
+                Route::post('/applications/{application}/archive', [AccreditationPractitionerController::class, 'archiveApplication'])->name('archive');
+                Route::post('/applications/{application}/accreditation/archive', [AccreditationPractitionerController::class, 'archiveAccreditation'])->name('accreditation.archive');
+                Route::post('/applications/{application}/accreditation/unarchive', [AccreditationPractitionerController::class, 'unarchiveAccreditation'])->name('accreditation.unarchive');
+                Route::post('/applications/{application}/reschedule-interview', [AccreditationPractitionerController::class, 'rescheduleInterview'])->name('reschedule_interview');
+            });
+
+            // Lists across OSH Practitioner and OSH Consultant.
+            Route::prefix('division')->name('division.')->middleware('admin.division:Accreditation')->group(function () {
+                Route::get('/interviews/slots', [AccreditationInterviewSlotController::class, 'index'])->name('interviews.slots');
+                Route::post('/interviews/slots', [AccreditationInterviewSlotController::class, 'store'])->name('interviews.slots.store');
+                Route::delete('/interviews/slots/{slot}', [AccreditationInterviewSlotController::class, 'destroy'])->name('interviews.slots.destroy');
+                Route::get('/interviews/scheduled', [AccreditationDivisionController::class, 'scheduledInterviews'])->name('interviews.scheduled');
+                Route::get('/accreditations/active', [AccreditationDivisionController::class, 'activeAccreditations'])->name('accreditations.active');
+                Route::get('/accreditations/inactive', [AccreditationDivisionController::class, 'inactiveAccreditations'])->name('accreditations.inactive');
+                Route::get('/applications/archived', [AccreditationDivisionController::class, 'archived'])->name('applications.archived');
+            });
         });
     });
 });
@@ -282,6 +358,14 @@ Route::middleware(['auth', 'prevent-back-history'])->group(function () {
 Route::get('/track-application', [TrackingController::class, 'index'])->name('track')->middleware('throttle:20,1');
 Route::post('/track-application/resubmit-all', [TrackingController::class, 'resubmitAll'])->name('track.resubmit.all')->middleware('throttle:5,1');
 Route::post('/track-application/submit-payment', [TrackingController::class, 'submitPaymentPublic'])->name('track.submit_payment')->middleware('throttle:5,1');
+Route::post('/track-application/interview', [TrackingController::class, 'bookInterview'])->name('track.interview.book')->middleware('throttle:10,1');
+
+// Graduate Lookup — public, but each visitor verifies an e-mail first and every
+// search is logged for HCD (see GraduateLookupController).
+Route::get('/graduates', [GraduateLookupController::class, 'create'])->name('graduates.request');
+Route::post('/graduates', [GraduateLookupController::class, 'store'])->name('graduates.request.store')->middleware('throttle:5,1');
+Route::get('/graduates/access/{visitor}', [GraduateLookupController::class, 'access'])->name('graduates.access')->middleware('throttle:20,1');
+Route::get('/graduates/search', [GraduateLookupController::class, 'search'])->name('graduates.search')->middleware('throttle:30,1');
 
 // Document and Instructor file viewers.
 //

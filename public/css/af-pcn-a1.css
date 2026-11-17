@@ -1,0 +1,829 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOLE-BWC AF-PCN-A1 — OSH Practitioner / Consultant Application Form
+
+   Every field of the printed form (OSH-PRACTITIONER-CONSULTANT-NEW-
+   APPLICATION-FORM.pdf): a ruled sheet per page, plain numbered headings
+   with the form's own notes, black rules throughout and the "give details"
+   lines under the declarations. The application type box and the profile
+   grid are styled after the cleaner AF-PCR-A2 renewal form
+   (OSH-PRACTITIONER-CONSULTANT-RENEWAL.pdf).
+
+   Shared by the on-screen "Review Details" viewer and the PDF dompdf renders
+   (resources/views/practitioner/form), and by the AF-PCR-A2 renewal form
+   built on the same partials (resources/views/practitioner/renewal-form,
+   its own rules under "AF-PCR-A2 renewal form"). dompdf understands tables, borders,
+   floats and inline-block but not flexbox, grid or CSS variables, so the form
+   itself sticks to those. Viewer-only chrome (.af-viewer, .af-tabs) can use
+   anything: dompdf never sees it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Page & base ───────────────────────────────────────────────────────── */
+@page {
+    size: A4 portrait;
+    margin: 9mm 10mm 7mm;
+}
+
+.af-pdf {
+    margin: 0;
+    font-family: Helvetica, Arial, sans-serif;
+    color: #000000;
+}
+
+.af-form {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 7.5pt;
+    line-height: 1.25;
+    color: #000000;
+}
+
+.af-form table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.af-page {
+    page-break-after: always;
+}
+
+.af-page-last {
+    page-break-after: auto;
+}
+
+/* The ruled sheet each page is printed inside; the footer sits under it. */
+.af-sheet {
+    border: 1.5px solid #000000;
+    padding: 10px 12px 14px;
+    background: #ffffff;
+}
+
+/* Paper only: every sheet runs the full page, as on the printed form. */
+.af-pdf .af-sheet {
+    min-height: 268mm;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.af-header {
+    border: 2px solid #000000;
+}
+
+.af-header td {
+    border: 1px solid #000000;
+    padding: 4px 6px;
+    vertical-align: top;
+}
+
+.af-header-brand {
+    width: 36%;
+}
+
+.af-header .af-brand td {
+    border: 0;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.af-brand-logo {
+    width: 40px;
+}
+
+.af-logo {
+    width: 36px;
+    height: auto;
+}
+
+.af-header .af-brand .af-brand-name {
+    padding-left: 6px;
+    font-size: 6.5pt;
+    line-height: 1.25;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.af-header-title {
+    width: 26%;
+    text-align: center;
+    font-size: 9.5pt;
+    font-weight: bold;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.af-header-title span {
+    text-transform: none;
+}
+
+.af-header-code {
+    width: 21%;
+    font-size: 8pt;
+    line-height: 1.3;
+}
+
+.af-header-code span {
+    display: block;
+}
+
+.af-code-agency {
+    font-size: 8.5pt;
+    font-weight: bold;
+}
+
+.af-code-form {
+    font-size: 9.5pt;
+    font-weight: bold;
+}
+
+/* Pages 2 and 3: three cells, no photo box. */
+.af-header-cont .af-header-title {
+    width: 40%;
+    height: 62px;
+    vertical-align: middle;
+}
+
+.af-header-cont .af-header-code {
+    width: 24%;
+}
+
+.af-header-photo {
+    width: 17%;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 6.5pt;
+    line-height: 1.3;
+}
+
+.af-header td.af-header-photo {
+    vertical-align: middle;
+}
+
+.af-photo {
+    width: 92px;
+    height: 92px;
+    object-fit: cover;
+}
+
+.af-header-instructions {
+    font-size: 7.5pt;
+    line-height: 1.35;
+}
+
+.af-header-instructions strong {
+    display: block;
+    font-size: 8pt;
+}
+
+/* ── Application type ──────────────────────────────────────────────────── */
+/* A double-ruled box with both choices on one line, as on the AF-PCR-A2. */
+.af-apply {
+    margin: 10px 0 0;
+    border: 4px double #000000;
+}
+
+.af-apply td {
+    padding: 5px 12px;
+    vertical-align: middle;
+    font-size: 9.5pt;
+}
+
+.af-apply .af-apply-label {
+    width: 44%;
+}
+
+.af-apply .af-apply-choice {
+    width: 28%;
+}
+
+.af-apply .af-check {
+    font-size: 9.5pt;
+    font-weight: bold;
+}
+
+.af-apply .af-box {
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    line-height: 10px;
+}
+
+/* ── Checkboxes ────────────────────────────────────────────────────────── */
+.af-check {
+    display: inline-block;
+    margin-right: 10px;
+    white-space: nowrap;
+}
+
+.af-box {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border: 1px solid #000000;
+    font-size: 7pt;
+    font-weight: bold;
+    line-height: 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ── Section headings ──────────────────────────────────────────────────── */
+.af-section {
+    margin: 12px 0 4px;
+    font-size: 7.5pt;
+    line-height: 1.3;
+}
+
+.af-section-title {
+    font-size: 9pt;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.af-section-lead {
+    font-size: 8pt;
+    font-weight: bold;
+}
+
+.af-section-note {
+    font-style: italic;
+}
+
+.af-sheet-spaced .af-section {
+    margin-top: 20px;
+}
+
+/* Section 3's heading with the Years of OSH Experience box beside it. */
+.af-section-split td {
+    padding: 0;
+    vertical-align: bottom;
+}
+
+.af-section-split .af-years {
+    width: 22%;
+    padding: 0 0 4px 10px;
+}
+
+.af-years-box td {
+    border: 0;
+    vertical-align: middle;
+}
+
+.af-years-box .af-years-value {
+    width: 40px;
+    height: 24px;
+    border: 2px solid #000000;
+    text-align: center;
+    font-family: "DejaVu Sans Mono", "Courier New", monospace;
+    font-size: 10pt;
+    font-weight: bold;
+}
+
+.af-years-box .af-years-label {
+    padding-left: 6px;
+    font-size: 7pt;
+    font-weight: bold;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+/* ── 1. Profile grid ───────────────────────────────────────────────────── */
+/* Plain full-width rows, label on top of each cell (see _cell.blade.php). */
+.af-fields td {
+    border: 1px solid #000000;
+    padding: 1px 5px 2px;
+    line-height: 1.15;
+    vertical-align: top;
+}
+
+/* Keeps an empty value's line, so every row of the grid is the same height. */
+.af-fields .af-block {
+    min-height: 10px;
+}
+
+/* M and F side by side in the narrow Sex column. */
+.af-fields .af-sex .af-check {
+    margin-right: 5px;
+}
+
+.af-fields .af-sizer td {
+    height: 0;
+    padding: 0;
+    border: 0;
+}
+
+/* Row 1's labels sit on a grey strip, inside the same cells as the values. */
+.af-fields .af-band td {
+    background: #e3e3e3;
+    border-bottom: none;
+    padding-bottom: 1px;
+}
+
+.af-fields .af-band-after td {
+    border-top: none;
+    padding-top: 3px;
+    padding-bottom: 4px;
+}
+
+.af-fields .af-shade td {
+    background: #e3e3e3;
+    padding-top: 3px;
+    padding-bottom: 5px;
+}
+
+.af-fields .af-name td,
+.af-fields .af-checks td {
+    border: 0;
+    padding: 0 4px 0 0;
+    background: transparent;
+}
+
+.af-fields .af-checks td {
+    width: 50%;
+    padding: 1px 0;
+}
+
+/* Last / First / Middle Name / Suffix ("Jr.", "III" — a few letters). */
+.af-name-last {
+    width: 33%;
+}
+
+.af-name-first {
+    width: 27%;
+}
+
+.af-name-middle {
+    width: 27%;
+}
+
+.af-name-suffix {
+    width: 13%;
+}
+
+.af-label {
+    font-size: 6.5pt;
+}
+
+.af-label-strong {
+    font-weight: bold;
+}
+
+.af-value {
+    font-family: "DejaVu Sans Mono", "Courier New", monospace;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+}
+
+.af-block {
+    display: block;
+    margin-top: 1px;
+}
+
+.af-value-plain {
+    text-transform: none;
+}
+
+.af-center {
+    text-align: center;
+}
+
+/* A short value written on its own underline: "MALE: ___". */
+.af-blank {
+    display: inline-block;
+    padding: 0 6px;
+    border-bottom: 1px solid #000000;
+    text-align: center;
+}
+
+.af-employment {
+    display: block;
+    margin-top: 3px;
+    text-align: center;
+}
+
+.af-employment span.af-emp {
+    display: inline-block;
+    margin: 0 6px;
+    font-size: 7pt;
+    font-weight: bold;
+}
+
+.af-workplace {
+    display: block;
+    margin-top: 3px;
+    padding-left: 60px;
+}
+
+/* ── Label + underlined value lines (license, declarations) ─────────────── */
+.af-line td {
+    padding: 3px 4px 0 0;
+    vertical-align: bottom;
+}
+
+.af-line .af-line-label {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.af-line .af-line-value {
+    border-bottom: 1px solid #000000;
+    padding-left: 4px;
+}
+
+/* Under the education table, closing it off like its last row. */
+.af-license {
+    border: 1px solid #000000;
+    border-top: 0;
+    padding: 1px 4px 4px;
+}
+
+/* ── Data tables (sections 2–10) ───────────────────────────────────────── */
+.af-grid {
+    border: 1px solid #000000;
+}
+
+.af-grid th {
+    border: 1px solid #000000;
+    padding: 2px 3px;
+    font-size: 7.5pt;
+    font-weight: normal;
+    line-height: 1.2;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.af-grid td {
+    border: 1px solid #000000;
+    padding: 1px 4px;
+    height: 18px;
+    font-size: 7pt;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+
+.af-grid-tall td {
+    height: 22px;
+}
+
+.af-w-6  { width: 6%; }
+.af-w-7  { width: 7%; }
+.af-w-8  { width: 8%; }
+.af-w-9  { width: 9%; }
+.af-w-10 { width: 10%; }
+.af-w-11 { width: 11%; }
+.af-w-12 { width: 12%; }
+.af-w-13 { width: 13%; }
+.af-w-14 { width: 14%; }
+.af-w-15 { width: 15%; }
+.af-w-16 { width: 16%; }
+.af-w-17 { width: 17%; }
+.af-w-19 { width: 19%; }
+.af-w-20 { width: 20%; }
+.af-w-22 { width: 22%; }
+.af-w-23 { width: 23%; }
+.af-w-24 { width: 24%; }
+.af-w-26 { width: 26%; }
+.af-w-27 { width: 27%; }
+.af-w-28 { width: 28%; }
+.af-w-29 { width: 29%; }
+.af-w-30 { width: 30%; }
+.af-w-31 { width: 31%; }
+.af-w-32 { width: 32%; }
+.af-w-33 { width: 33%; }
+.af-w-34 { width: 34%; }
+.af-w-36 { width: 36%; }
+.af-w-38 { width: 38%; }
+.af-w-41 { width: 41%; }
+.af-w-42 { width: 42%; }
+
+/* ── Declarations & certification (page 3) ─────────────────────────────── */
+.af-decl {
+    margin-top: 22px;
+    font-size: 8pt;
+    line-height: 1.35;
+}
+
+.af-decl-line {
+    margin-bottom: 9px;
+}
+
+.af-decl .af-check {
+    margin: 0 6px 0 8px;
+}
+
+.af-decl .af-line .af-check {
+    margin: 0 8px 0 0;
+}
+
+/* A long answer starts on the label's line and ends on the rule. */
+.af-decl .af-line td {
+    font-size: 8pt;
+    vertical-align: top;
+}
+
+.af-decl .af-line .af-line-value {
+    font-size: 7.5pt;
+}
+
+.af-certify {
+    margin-top: 26px;
+}
+
+.af-certify td {
+    vertical-align: bottom;
+}
+
+.af-certify .af-certify-text {
+    padding-bottom: 22px;
+    font-size: 8pt;
+    font-style: italic;
+}
+
+.af-certify .af-sign {
+    width: 46%;
+    padding-right: 24px;
+}
+
+.af-sign-value {
+    display: block;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #000000;
+    text-align: center;
+    font-family: "DejaVu Sans Mono", "Courier New", monospace;
+    font-size: 8pt;
+    text-transform: uppercase;
+}
+
+.af-sign-label {
+    display: block;
+    margin-top: 2px;
+    text-align: center;
+    font-size: 8pt;
+    font-weight: bold;
+}
+
+.af-certify .af-date {
+    width: 28%;
+    padding-bottom: 14px;
+    font-size: 8pt;
+}
+
+.af-certify .af-certify-gap {
+    width: 6%;
+}
+
+.af-certify .af-thumb {
+    width: 20%;
+    height: 82px;
+    border: 1px solid #000000;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 7.5pt;
+}
+
+/* ── AF-PCR-A2 renewal form (resources/views/practitioner/renewal-form) ── */
+/* The renewal choice and, beside it, the accreditation being renewed: two
+   double-ruled boxes on one line, as printed. */
+.af-renew-head {
+    margin-top: 10px;
+}
+
+.af-renew-head > tbody > tr > td,
+.af-renew-head > tr > td {
+    padding: 0;
+    vertical-align: top;
+}
+
+.af-renew-head .af-renew-apply {
+    width: 54%;
+}
+
+.af-renew-head .af-renew-gap {
+    width: 2%;
+}
+
+.af-renew-head .af-renew-accr {
+    width: 44%;
+}
+
+.af-renew-box {
+    border: 4px double #000000;
+    padding: 6px 12px 8px;
+}
+
+.af-renew-apply-label {
+    font-size: 9.5pt;
+}
+
+.af-renew-apply-choices {
+    margin-top: 12px;
+    padding-left: 8px;
+}
+
+.af-renew-apply-choices .af-check {
+    margin-right: 22px;
+    font-size: 9.5pt;
+    font-weight: bold;
+}
+
+.af-renew-apply-choices .af-box {
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    line-height: 10px;
+}
+
+.af-renew-lines td {
+    font-size: 8.5pt;
+}
+
+.af-renew-lines .af-renew-number-label {
+    font-size: 9.5pt;
+    font-weight: bold;
+}
+
+/* "Total ____" under the hours column: a borderless last row. */
+.af-grid-with-total {
+    border: 0;
+}
+
+.af-grid .af-grid-total td {
+    border: 0;
+    height: auto;
+    padding-top: 5px;
+}
+
+.af-grid .af-grid-total .af-total-label {
+    text-align: right;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 8pt;
+    font-weight: bold;
+}
+
+.af-grid .af-grid-total .af-total-value {
+    border-bottom: 1px solid #000000;
+}
+
+/* The certification sits well clear of the awards table, as printed. */
+.af-certify-renewal {
+    margin-top: 60px;
+}
+
+/* ── Footer (under the sheet) ──────────────────────────────────────────── */
+.af-footer {
+    margin-top: 5px;
+}
+
+.af-footer td {
+    padding: 0 4px;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 7.5pt;
+    font-weight: bold;
+}
+
+.af-footer .af-footer-left {
+    width: 34%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   On-screen viewer only
+   ═══════════════════════════════════════════════════════════════════════════ */
+.af-viewer-banner {
+    display: block;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: #172b5a;
+    color: #ffffff;
+    margin-bottom: 14px;
+}
+
+.af-viewer-banner span {
+    display: block;
+}
+
+.af-viewer-kicker {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #a7c4ff;
+}
+
+.af-viewer-title {
+    margin-top: 2px;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.af-viewer-sub {
+    font-size: .78rem;
+    opacity: .85;
+}
+
+.af-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    margin-bottom: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f1f5f9;
+}
+
+.af-tab {
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    padding: 7px 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #475569;
+}
+
+.af-tab:hover {
+    background: #e2e8f0;
+}
+
+.af-tab.is-active {
+    background: #111827;
+    color: #ffffff;
+}
+
+.af-screen {
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 18px;
+}
+
+.af-screen .af-page {
+    min-width: 720px;
+}
+
+.af-screen .af-page + .af-page {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 2px dashed #cbd5e1;
+}
+
+/* Page tabs: AF-PCN-A1 has 3 pages, the AF-PCR-A2 renewal form 2. */
+.af-viewer[data-af-show="1"] .af-page:not([data-af-page="1"]),
+.af-viewer[data-af-show="2"] .af-page:not([data-af-page="2"]),
+.af-viewer[data-af-show="3"] .af-page:not([data-af-page="3"]) {
+    display: none;
+}
+
+.af-viewer[data-af-show="1"] .af-page + .af-page,
+.af-viewer[data-af-show="2"] .af-page + .af-page,
+.af-viewer[data-af-show="3"] .af-page + .af-page {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+
+/* Uploaded documents listed under the form in the review step. */
+.af-documents {
+    margin-top: 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 16px 18px;
+}
+
+.af-documents-title {
+    margin: 0 0 10px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #0b3d91;
+}
+
+.af-documents-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.af-documents-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .85rem;
+}
+
+.af-documents-list li:last-child {
+    border-bottom: 0;
+}
+
+.af-doc-name {
+    color: #64748b;
+    text-align: right;
+    word-break: break-all;
+}
+
+.af-doc-missing {
+    color: #94a3b8;
+    font-style: italic;
+}

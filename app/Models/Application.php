@@ -16,10 +16,17 @@ class Application extends Model
         'assigned_evaluator_id',
         'tracking_number',
         'submitted_at',
+        'compliance_due_date',
+        'archived_at',
+        'archive_reason',
+        'reapply_after',
     ];
 
     protected $casts = [
-        'submitted_at' => 'datetime',
+        'submitted_at'        => 'datetime',
+        'compliance_due_date' => 'date',
+        'archived_at'         => 'datetime',
+        'reapply_after'       => 'date',
     ];
 
     /**
@@ -52,6 +59,12 @@ class Application extends Model
     public function interview()
     {
         return $this->hasOne(Interview::class);
+    }
+
+    /** The Accreditation division interview slot this applicant booked. */
+    public function interviewSlot()
+    {
+        return $this->hasOne(InterviewSlot::class);
     }
 
     /**
@@ -128,6 +141,126 @@ class Application extends Model
     public function instructors()
     {
         return $this->hasMany(Instructor::class);
+    }
+
+    /* ── Practitioner CV sections (AF-PCN-A1 sections 2–10) ──────────── */
+
+    public function practitionerEducations()
+    {
+        return $this->hasMany(PractitionerEducation::class)->orderBy('sort_order');
+    }
+
+    public function practitionerLicenses()
+    {
+        return $this->hasMany(PractitionerProfessionalLicense::class)->orderBy('sort_order');
+    }
+
+    public function practitionerWorkExperiences()
+    {
+        return $this->hasMany(PractitionerWorkExperience::class)->orderBy('sort_order');
+    }
+
+    public function practitionerTrainings()
+    {
+        return $this->hasMany(PractitionerTraining::class)->orderBy('sort_order');
+    }
+
+    public function practitionerLectures()
+    {
+        return $this->hasMany(PractitionerLecture::class)->orderBy('sort_order');
+    }
+
+    public function practitionerSkills()
+    {
+        return $this->hasMany(PractitionerSkill::class)->orderBy('sort_order');
+    }
+
+    public function practitionerAwards()
+    {
+        return $this->hasMany(PractitionerAward::class)->orderBy('sort_order');
+    }
+
+    public function practitionerExaminations()
+    {
+        return $this->hasMany(PractitionerExamination::class)->orderBy('sort_order');
+    }
+
+    public function practitionerMemberships()
+    {
+        return $this->hasMany(PractitionerMembership::class)->orderBy('sort_order');
+    }
+
+    public function practitionerReferences()
+    {
+        return $this->hasMany(PractitionerReference::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Practitioner per-application scalars, declarations and the generated
+     * AF-PCN-A1 form.
+     */
+    public function practitionerProfile()
+    {
+        return $this->hasOne(PractitionerProfile::class);
+    }
+
+    /**
+     * Whether this application goes through the OSH Practitioner process —
+     * an OSH Practitioner OR an OSH Consultant application. The two share the
+     * AF-PCN-A1 form, its evaluation, interview, PCT and certificate; only
+     * the documents, fee and photo background differ (isConsultant()).
+     */
+    public function isPractitioner(): bool
+    {
+        return \App\Services\PractitionerApplicationService::handles($this->accreditation_type_id);
+    }
+
+    /** Whether this is an OSH Consultant application (see isPractitioner()). */
+    public function isConsultant(): bool
+    {
+        return (int) $this->accreditation_type_id === (int) config('accreditation.types.consultant');
+    }
+
+    /** The accreditation fee, formatted: "450.00". */
+    public function paymentAmount(): string
+    {
+        $amounts = config('accreditation.payment_amounts', []);
+
+        return number_format((float) ($amounts[(int) $this->accreditation_type_id] ?? $amounts['default'] ?? 900), 2);
+    }
+
+    /** What the applicant is accredited as: "OSH Practitioner", "First Aid Training Provider". */
+    public function accreditationTitle(): string
+    {
+        return config('accreditation.accreditation_division_types.' . (int) $this->accreditation_type_id)
+            ?? 'First Aid Training Provider';
+    }
+
+    /** Whether the Accreditation division (not HCD) handles this application. */
+    public function isHandledByAccreditationDivision(): bool
+    {
+        return \App\Support\AdminAccess::isAccreditationDivisionType($this->accreditation_type_id);
+    }
+
+    /**
+     * The admin page for this application, in whichever portal processes it.
+     * Emails and in-app notifications link here instead of hardcoding HCD.
+     */
+    public function adminShowUrl(): string
+    {
+        return $this->isHandledByAccreditationDivision()
+            ? route('admin.accreditation.practitioner.show', $this->id)
+            : route('admin.hcd.applications.show', $this->id);
+    }
+
+    /** The admin list a brand-new submission lands in. */
+    public function adminPendingUrl(): string
+    {
+        return match (true) {
+            $this->isConsultant()                     => route('admin.accreditation.consultant.new.pending'),
+            $this->isHandledByAccreditationDivision() => route('admin.accreditation.practitioner.new.pending'),
+            default                                   => route('admin.hcd.applications.pending'),
+        };
     }
 
     /**

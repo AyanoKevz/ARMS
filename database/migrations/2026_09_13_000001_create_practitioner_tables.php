@@ -19,10 +19,6 @@ use Illuminate\Support\Facades\Schema;
  * Every repeatable row hangs off (user_id, application_id) the same way
  * `instructors` does, so a renewal writes a fresh set of rows against the new
  * application while the previous submission stays intact for the evaluator.
- *
- * Indexes live here rather than in add_performance_indexes because these tables
- * are created *after* that migration — its Schema::hasTable guards would be
- * false on a fresh migrate.
  */
 return new class extends Migration
 {
@@ -86,13 +82,28 @@ return new class extends Migration
 
             $table->unsignedSmallInteger('total_osh_experience_years')->default(0);
 
+            $table->string('photo_path')->nullable();
+            // The 1"x1" ID photo printed on the AF-PCN-A1 form. Kept on the private
+            // disk, not in individual_profiles.photo_path (the public portal avatar).
+            $table->string('application_form_path')->nullable();
+            // The generated DOLE-BWC AF-PCN-A1 PDF the Accreditation admins open
+            // from the application.
+
             // The five yes/no disclosures. Nullable so an in-progress record can
             // tell "not answered yet" from an explicit "No".
+            //
+            // Each is followed by its "give details" line from page 3 of the
+            // AF-PCN-A1, asked for only when answered "Yes" (the two pending-case
+            // questions share one); otherwise null and the form prints N/A.
             $table->boolean('has_pending_admin_case')->nullable();
             $table->boolean('has_pending_criminal_case')->nullable();
+            $table->text('pending_case_details')->nullable();
             $table->boolean('has_crime_conviction')->nullable();
+            $table->text('crime_conviction_details')->nullable();
             $table->boolean('has_admin_offense_conviction')->nullable();
+            $table->text('admin_offense_details')->nullable();
             $table->boolean('has_forced_separation')->nullable();
+            $table->text('forced_separation_reasons')->nullable();
 
             $table->timestamps();
 
@@ -184,6 +195,8 @@ return new class extends Migration
         Schema::create('practitioner_awards', function (Blueprint $table) {
             $this->ownerColumns($table);
             $table->string('title');
+            $table->text('description')->nullable();
+            // "Brief Description" — a column of the AF-PCR-A2 renewal form only.
             $table->string('issued_by')->nullable();
             $table->date('date_issued')->nullable();
             $table->timestamps();

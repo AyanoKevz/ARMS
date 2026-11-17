@@ -19,7 +19,11 @@ use App\Models\PendingRegistration;
 use App\Models\User;
 use App\Models\UserDocument;
 use App\Services\CacheService;
+use App\Services\PractitionerApplicationService;
+use App\Services\PractitionerArchiveService;
+use App\Support\AdminAccess;
 use App\Support\ApplicantStoragePath;
+use App\Support\PractitionerForm;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -29,6 +33,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class RegistrationController extends Controller
 {
@@ -36,6 +41,47 @@ class RegistrationController extends Controller
     // Public so the FATPRO portal's "Add Instructor" form validates against the
     // same list registration does instead of keeping a second copy of it.
     public const CREDENTIAL_TYPES = ['EMS', 'TM1', 'NTTC'];
+
+    public function __construct(
+        private readonly PractitionerApplicationService $practitioners,
+        private readonly PractitionerArchiveService $archives,
+    ) {
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  POST /register/practitioner/preview — "Review Details"
+    // ─────────────────────────────────────────────────────────────
+    /**
+     * Render the AF-PCN-A1 form from what the applicant has typed so far.
+     *
+     * Nothing is stored. The form is rendered by the same partials as the PDF
+     * attached on submission, so the preview is exactly what the Accreditation
+     * admins will receive. The ID photo is not uploaded here; the browser
+     * drops the chosen file into the photo box itself.
+     */
+    public function previewPractitioner(Request $request)
+    {
+        $request->validate([
+            'email'                 => ['nullable', 'string', 'max:255'],
+            'practitioner'          => ['nullable', 'array'],
+            'accreditation_type_id' => ['nullable', 'integer'],
+        ]);
+
+        $core = collect(['first_name', 'middle_name', 'last_name', 'suffix', 'sex', 'birthday', 'region', 'city', 'address'])
+            ->mapWithKeys(fn ($field) => [$field => is_string($request->input($field)) ? $request->input($field) : null])
+            ->all();
+
+        $form = PractitionerForm::fromInput(
+            $core,
+            (array) $request->input('practitioner', []),
+            $request->input('email'),
+            $request->integer('accreditation_type_id') ?: null,
+        );
+
+        return response()->json([
+            'html' => view('practitioner.form.viewer', ['form' => $form])->render(),
+        ]);
+    }
 
     // ─────────────────────────────────────────────────────────────
     //  POST /register  — Save pending data, send verification email
@@ -114,6 +160,32 @@ class RegistrationController extends Controller
             }
         }
 
+        // ── Waiting period after an archived practitioner application ──
+        // Checked before validation: the archived applicant's account still
+        // holds the email until the record is deleted, and "already taken"
+        // would not tell them when they may apply again.
+        $blocking = $this->archives->blockingApplication(
+            $request->input('email'),
+            $request->input('first_name'),
+            $request->input('last_name'),
+            $request->input('birthday'),
+        );
+        if ($blocking) {
+            $why = $blocking->archive_reason === PractitionerArchiveService::INTERVIEW_FAILED
+                ? 'did not pass the panel interview'
+                : 'was archived because its rejected documents were not re-uploaded in time';
+
+            throw ValidationException::withMessages([
+                'email' => "Your previous application ({$blocking->tracking_number}) {$why}. You may apply again on or after "
+                    . $blocking->reapply_after->format('F j, Y') . '.',
+            ]);
+        }
+
+        // ── Practitioner CV, declarations and required uploads ─────
+        // OSH Consultant applies with the same form; only its uploads differ.
+        $isPractitioner    = PractitionerApplicationService::handles($submittedType);
+        $practitionerRules = $isPractitioner ? $this->practitioners->rules($request) : [];
+
         // ── Full validation ────────────────────────────────────────
         $request->validate(array_merge([
             // in: not just exists: — the form disables the other options, but
@@ -154,6 +226,7 @@ class RegistrationController extends Controller
             'first_name'         => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
             'middle_name'        => ['nullable', 'string', 'max:255'],
             'last_name'          => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            'suffix'             => ['nullable', 'string', 'max:20'],
             'sex'                => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
             'birthday'           => ['required_if:profile_type,Individual', 'nullable', 'date'],
             'region'             => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
@@ -162,20 +235,22 @@ class RegistrationController extends Controller
 
             'documents'   => ['nullable', 'array'],
             'instructors' => ['nullable', 'array'],
-        ], $documentRules, $instructorRules), [
+        ], $documentRules, $instructorRules, $practitionerRules), [
             'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
             'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
             'rep_contact_number.regex' => 'The representative contact number must be a valid PH mobile number (e.g. 09171234567 or +639171234567).',
-        ]);
+        ], $isPractitioner ? $this->practitioners->attributes() : []);
 
         // ── Generate token ─────────────────────────────────────────
         $token = Str::random(64);
 
         // ── Store regular document fields ──────────────────────────
-        $documentsData    = [];
-        $allDocumentFields = DocumentField::allCached();
+        // Only the submitted type's checklist (validated above): an upload
+        // under another type's code — a Practitioner's PRAC_ on a Consultant
+        // application — is not this application's document.
+        $documentsData = [];
 
-        foreach ($allDocumentFields as $code => $field) {
+        foreach ($documentFields as $code => $field) {
             if ($field->input_type === 'file') {
                 if ($request->hasFile("documents.{$code}")) {
                     $file     = $request->file("documents.{$code}");
@@ -256,12 +331,15 @@ class RegistrationController extends Controller
             $instructorsData[] = $entry;
         }
 
+        // ── Store practitioner data (CV sections + ID photo) ───────
+        $practitionerData = $isPractitioner ? $this->practitioners->stage($request, $token) : null;
+
         // ── Gather form data ───────────────────────────────────────
         $formData = $request->only([
             'org_name', 'org_address', 'head_name', 'head_sex', 'designation',
             'telephone', 'fax', 'org_email',
             'rep_full_name', 'rep_sex', 'rep_position', 'rep_contact_number', 'rep_email',
-            'first_name', 'middle_name', 'last_name',
+            'first_name', 'middle_name', 'last_name', 'suffix',
             'sex', 'birthday', 'region', 'city', 'address',
         ]);
 
@@ -282,6 +360,7 @@ class RegistrationController extends Controller
             'form_data'             => $formData,
             'documents_data'        => $documentsData,
             'instructors_data'      => $instructorsData,
+            'practitioner_data'     => $practitionerData,
             'expires_at'            => now()->addHours(1),
         ]);
 
@@ -391,11 +470,12 @@ class RegistrationController extends Controller
                         'email'                   => $form['rep_email']          ?? '',
                     ]);
                 } else {
-                    \App\Models\IndividualProfile::create([
+                    $individualProfile = \App\Models\IndividualProfile::create([
                         'user_id'     => $user->id,
                         'first_name'  => $form['first_name']  ?? '',
                         'middle_name' => $form['middle_name'] ?? null,
                         'last_name'   => $form['last_name']   ?? '',
+                        'suffix'      => $form['suffix']      ?? null,
                         'sex'         => $form['sex']         ?? null,
                         'birthday'    => $form['birthday']    ?? null,
                         'region'      => $form['region']      ?? null,
@@ -522,6 +602,11 @@ class RegistrationController extends Controller
                     }
                 }
 
+                // 7b. Persist the practitioner profile, CV sections and ID photo.
+                if (! empty($pending->practitioner_data) && isset($individualProfile)) {
+                    $this->practitioners->persist($pending->practitioner_data, $user, $application, $individualProfile, $baseDocPath);
+                }
+
                 // 8. Clean up temp folder AND the pending record itself.
                 // The row has done its job once the User/Application exist; leaving it
                 // behind kept a bcrypt password hash and the applicant's full form data
@@ -547,6 +632,18 @@ class RegistrationController extends Controller
             // 11. Bust application listing caches so admin sees the new submission immediately
             CacheService::bustApplicationCaches();
 
+            // Practitioner: generate and attach the AF-PCN-A1 form. It may not
+            // undo a submission that already succeeded — the admin page
+            // regenerates a missing form on demand. (PCT starts with the
+            // evaluation, as FATPro's does.)
+            if ($application && $application->isPractitioner()) {
+                try {
+                    $this->practitioners->generateApplicationForm($application);
+                } catch (\Throwable $e) {
+                    Log::error('AF-PCN-A1 generation failed for ' . $trackingNumber . ': ' . $e->getMessage(), ['exception' => $e]);
+                }
+            }
+
             // 10 & 12. Send confirmation email & notify admin evaluators after HTTP response (instant user feedback)
             dispatch(function () use ($applicantEmail, $trackingNumber, $application) {
                 try {
@@ -556,14 +653,17 @@ class RegistrationController extends Controller
                 }
 
                 try {
-                    $teamLeads = \App\Models\User::whereHas('adminProfile.adminRole', function ($q) {
-                        $q->where('name', 'Team Lead');
-                    })->get();
+                    // Whoever receives the application for its division: HCD's
+                    // Team Leads deck FATPro; every Accreditation admin sees a
+                    // new Practitioner application.
+                    $teamLeads = $application && $application->isHandledByAccreditationDivision()
+                        ? AdminAccess::membersOf(AdminAccess::ACCREDITATION)->get()
+                        : AdminAccess::teamLeadsOf(AdminAccess::HCD)->get();
 
                     if ($teamLeads->isNotEmpty() && $application) {
                         $application->load(['user', 'accreditationType']);
 
-                        // Send email to EVERY Team Lead admin individually
+                        // Send email to EVERY recipient individually
                         foreach ($teamLeads as $teamLeadAdmin) {
                             if ($teamLeadAdmin->email) {
                                 try {

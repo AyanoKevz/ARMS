@@ -15,12 +15,20 @@ background: linear-gradient(135deg, #e0f2fe, #bae6fd);
   Dear {{ $application->user->name }},
 </p>
 <p>
-  Your {{ $application->application_type }} application with tracking number <strong>{{ $application->tracking_number }}</strong> is now <strong>Under Evaluation</strong>.
+  Your {{ $application->application_type }} <strong>{{ $application->accreditationTitle() }}</strong> application with tracking number <strong>{{ $application->tracking_number }}</strong> is now <strong>Under Evaluation</strong>.
 </p>
 
 <div class="tracking-card">
   <p class="label">Tracking Number</p>
   <p class="value">{{ $application->tracking_number }}</p>
+</div>
+
+<div class="details-box">
+  <h3>Application Details</h3>
+  <p><strong>Accreditation Type:</strong> {{ $application->accreditationTitle() }}</p>
+  <p><strong>Application Type:</strong> {{ ucfirst($application->application_type) }}</p>
+  <p><strong>Date Submitted:</strong> {{ ($application->submitted_at ?? $application->created_at)?->format('F d, Y \a\t h:i A') }}</p>
+  <p><strong>Evaluation Started:</strong> {{ $startedAt->format('F d, Y \a\t h:i A') }}</p>
 </div>
 
 <p>Our team is currently reviewing your submitted documents. We will notify you of any updates or if further information is required.</p>

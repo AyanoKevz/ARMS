@@ -1,0 +1,610 @@
+/*
+ * Certificate of Accreditation — dompdf. Copies the DOLE-OSHC Word templates:
+ *   FATPro (admin/accreditation_certificate.blade.php)
+ *     front  FATPRO TEMPLATE (FRONT).docx            8.5 x 13 in, margins 1 in / 0.75 in
+ *     back   FATPRO TEMPLATE NEW / RENEWAL (BACK).docx — Calibri 10 pt, 1 in sides
+ *   OSH Practitioner (admin/accreditation/practitioner/certificate_pdf.blade.php)
+ *     NEW / RENEWAL - OSH PRACTITIONER FRONT and BACK
+ *   OSH Consultant (admin/accreditation/practitioner/certificate_consultant_pdf.blade.php)
+ *     NEW / RENEWAL - OSH CONSULTANT FRONT and BACK
+ *   — same page and fonts; each has its section at the end.
+ * Font sizes are the template's points. Fonts are registered by
+ * `php artisan dompdf:install-certificate-fonts`.
+ *
+ * Line spacing: dompdf multiplies line-height by the font's own height, which
+ * for these TrueType fonts is 1.1 x Word's "single" line, so
+ *   line-height: 0.909  = Word single     (0.981 = Word's 1.08 "Normal" spacing)
+ * Word's blank paragraphs become top margins: one blank "No Spacing" Calibri
+ * 12 pt line is 14.65 pt, 13 pt is 15.9 pt; Script MT Bold 16 pt is 19.3 pt.
+ */
+
+@page {
+    size: 8.5in 13in;
+    margin: 0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: #fff;
+    color: #000;
+    font-family: "Times New Roman", Times, serif;
+}
+
+/* ─── Front ──────────────────────────────────────────────────────────────── */
+
+.cert-front {
+    padding: 72pt 54pt 0 54pt;
+}
+
+/* 5 blank 12 pt lines above the title */
+.cert-title {
+    margin-top: 73.2pt;
+    font-family: "Copperplate Gothic Bold", serif;
+    font-size: 24pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-as {
+    font-family: "Calibri", sans-serif;
+    font-size: 13pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+/* 1 blank 12 pt line */
+.cert-type {
+    margin-top: 14.65pt;
+    font-family: "Arial Black", sans-serif;
+    font-size: 27pt;
+    line-height: 0.909;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* Times New Roman 18 pt. (Measured against Word: the line's larger paragraph
+   mark does not make it taller.) */
+.cert-number {
+    font-size: 18pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-valid {
+    font-size: 16pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+/* 2 blank 12 pt lines */
+.cert-certifies {
+    margin-top: 29.3pt;
+    font-size: 14pt;
+    font-style: italic;
+    line-height: 0.909;
+}
+
+/* 2 blank 12 pt lines. Bodoni MT Bold 36 pt — the bold comes from the
+   template's character style. */
+.cert-name {
+    margin-top: 29.3pt;
+    font-family: "Bodoni MT", serif;
+    font-size: 36pt;
+    font-weight: bold;
+    line-height: 0.909;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* A long name steps down so the front stays on one sheet. */
+.cert-name-md {
+    font-size: 30pt;
+}
+
+.cert-name-sm {
+    font-size: 24pt;
+}
+
+/* Script MT Bold 16 pt paragraphs, each followed by one blank 16 pt line;
+   2 blank 12 pt lines above the first. */
+.cert-body {
+    margin-top: 29.3pt;
+}
+
+.cert-body p {
+    margin-bottom: 19.3pt;
+    font-family: "Script MT Bold", cursive;
+    font-size: 16pt;
+    line-height: 0.909;
+    text-align: justify;
+}
+
+.cert-body p.cert-given {
+    margin-bottom: 0;
+}
+
+.cert-body sup {
+    font-size: 10.5pt;
+    vertical-align: 4pt;
+}
+
+/* 4 blank 13 pt lines; the block starts 4 in from the left margin and its
+   lines are centred in the remaining 3 in. */
+.cert-signatory {
+    margin: 63.5pt 0 0 288pt;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.cert-signatory-name {
+    font-size: 15pt;
+    font-weight: bold;
+    line-height: 0.909;
+}
+
+.cert-signatory-title {
+    font-size: 13pt;
+    line-height: 0.909;
+}
+
+/* The template's footer text box sits 32.75 pt under the next paragraph,
+   plus its 3.6 pt inset. */
+.cert-footer-note {
+    margin-top: 36.4pt;
+    font-family: "Arial Narrow", sans-serif;
+    font-size: 7.5pt;
+    line-height: 0.909;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* ─── Back ───────────────────────────────────────────────────────────────── */
+
+.cert-back {
+    page-break-before: always;
+    padding: 58.5pt 72pt 0 72pt;
+    font-family: "Calibri", sans-serif;
+    font-size: 10pt;
+    line-height: 0.981;
+}
+
+/* FATPro's back template is A4, a 451.35 pt text column. Word squeezes the
+   spaces of a tight justified line, which dompdf cannot, so the column here is
+   458.5 pt, centred on the 8.5 in sheet: measured against Word, every line then
+   breaks where Word's does except one "of" in the third condition. */
+.cert-fatpro-back {
+    padding-left: 76.75pt;
+    padding-right: 76.75pt;
+}
+
+.cert-back-heading {
+    margin-bottom: 8pt;
+    font-weight: bold;
+    text-align: center;
+}
+
+.cert-back-heading-lg {
+    font-size: 11pt;
+}
+
+.cert-back p {
+    margin-bottom: 8pt;
+    text-align: justify;
+    text-indent: 36pt;
+}
+
+/* Padding, not margin, where a paragraph's 8 pt space-after sits above:
+   CSS would collapse the two margins into one. */
+
+/* One blank paragraph, then CONFORME: — centred after the template's 53
+   leading spaces (119.8 pt), so it sits right of centre. */
+.cert-conforme-label {
+    margin-bottom: 8pt;
+    padding: 21.2pt 0 0 119.8pt;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* The applicant's signature line: 2.5 in indent plus 8 spaces, 39 underscores
+   (+3.55 pt: Word's column starts that far inside our wider one). */
+.cert-conforme {
+    margin-left: 201.65pt;
+    width: 194pt;
+    text-align: center;
+}
+
+/* A blank line, then the underscored line */
+.cert-sign-line {
+    height: 25.4pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+/* 6 blank lines between the caption and CERTIFICATION */
+.cert-certification {
+    margin-top: 80pt;
+}
+
+/* 3 blank paragraphs, then the two HCD signatories centred: the line, a blank
+   bold line for the printed name, the position; 4 blank lines between. */
+.cert-hcd-signatories {
+    padding-top: 64.5pt;
+    text-align: center;
+    line-height: 0.909;
+}
+
+.cert-hcd-line {
+    margin: 0 auto;
+    width: 164pt;
+    height: 11pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+.cert-hcd-name {
+    height: 12.2pt;
+    font-weight: bold;
+}
+
+.cert-hcd-gap {
+    height: 48.8pt;
+}
+
+/* ─── OSH Practitioner (admin/accreditation/practitioner/certificate_pdf) ───
+ * NEW / RENEWAL - OSH PRACTITIONER FRONT and BACK. The front reuses the
+ * classes above and adds the type and field; the back is its own layout. */
+
+/* 2 blank 12 pt lines, then "OSH PRACTITIONER" in Arial Black 37 pt */
+.cert-prac-type {
+    margin-top: 29.3pt;
+    font-family: "Arial Black", sans-serif;
+    font-size: 37pt;
+    line-height: 0.909;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.cert-prac-in-field {
+    font-family: "Calibri", sans-serif;
+    font-size: 13pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+/* 1 blank 12 pt line, then the field (Type of Industry) in Arial Black 32 pt */
+.cert-prac-field {
+    margin-top: 14.65pt;
+    font-family: "Arial Black", sans-serif;
+    font-size: 32pt;
+    line-height: 0.909;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.cert-prac-field-md {
+    font-size: 24pt;
+}
+
+.cert-prac-field-sm {
+    font-size: 20pt;
+}
+
+/* No field on file: a line to write it on */
+.cert-prac-field-blank {
+    display: inline-block;
+    width: 250pt;
+    height: 30pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+/* Calibri, in a text box slightly wider than the margins, 789.4 pt from the
+   top of the page when the name and field are one line each */
+.cert-prac-footer-note {
+    margin: 46.7pt -9pt 0;
+    font-family: "Calibri", sans-serif;
+}
+
+/* Back: Calibri 10 pt, Word's 1.08 "Normal" spacing unless marked single */
+.cert-prac-list {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cert-prac-list td {
+    padding: 0;
+    vertical-align: top;
+    text-align: justify;
+}
+
+.cert-prac-list td.cert-prac-marker {
+    width: 18pt;
+    text-align: left;
+}
+
+/* a.) – d.): the letter 0.5 in in, the text 0.75 in */
+.cert-prac-sublist {
+    margin: 0 0 8pt 36pt;
+    width: 432pt;
+}
+
+/* One blank paragraph above; the line sits 3.5 in from the margin */
+.cert-prac-conforme {
+    padding-top: 21.2pt;
+    line-height: 0.909;
+}
+
+.cert-prac-sign-line {
+    margin-left: 252pt;
+    width: 179pt;
+    height: 11pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+.cert-prac-sign-caption {
+    margin-left: 252pt;
+    width: 179pt;
+    text-align: center;
+}
+
+/* One blank line before "Date" (two on the renewal) */
+.cert-prac-date {
+    margin: 12.2pt 0 0 211.6pt;
+}
+
+.cert-prac-date.is-renewal {
+    margin-top: 24.4pt;
+}
+
+.cert-prac-date-line {
+    display: inline-block;
+    width: 179pt;
+    height: 9pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+/* A blank line and 3 blank 11 pt lines (2 on the renewal) above the heading */
+.cert-prac-certification {
+    margin-top: 52.5pt;
+}
+
+.cert-prac-certification.is-renewal {
+    margin-top: 39.1pt;
+}
+
+.cert-prac-heading {
+    margin-bottom: 12.2pt;
+    font-size: 11pt;
+    font-weight: bold;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-back p.cert-prac-single {
+    margin-bottom: 0;
+    line-height: 0.909;
+}
+
+/* One blank line, then the two bullets 0.25 in in */
+.cert-prac-bullets {
+    margin: 12.2pt 0 0 18pt;
+    width: 450pt;
+    line-height: 0.909;
+}
+
+.cert-back p.cert-prac-active {
+    margin-top: 12.2pt;
+}
+
+/* Blank lines down to the OIC-Deputy Executive Director's line: the new
+   template's nested table leaves more room than the renewal's. */
+.cert-prac-signatory {
+    margin-top: 139.75pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-prac-signatory.is-renewal {
+    margin-top: 87.9pt;
+}
+
+.cert-prac-signatory-line {
+    margin: 0 auto;
+    width: 229pt;
+    height: 11pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+.cert-prac-signatory-name {
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+/* ─── OSH Consultant (admin/accreditation/practitioner/certificate_consultant_pdf) ───
+ * NEW / RENEWAL - OSH CONSULTANT FRONT and BACK. One front — the NEW one —
+ * for both; the back as in each template. The front template is A4: its
+ * 487.3 pt column (A4 less 0.75 in a side), centred on the 8.5 in sheet. */
+
+.cert-cons-front {
+    padding: 72pt 62.35pt 0;
+}
+
+/* 6 blank 12 pt lines above the title */
+.cert-cons-front .cert-title {
+    margin-top: 87.9pt;
+}
+
+/* 2 blank 12 pt lines; centred on a centre tab 3.5 in from the margin,
+   8.35 pt right of the column's centre */
+.cert-cons-osh {
+    margin-top: 29.3pt;
+    padding-left: 16.7pt;
+    font-family: "Calibri", sans-serif;
+    font-size: 19pt;
+    font-weight: bold;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-cons-type {
+    font-family: "Arial Black", sans-serif;
+    font-size: 37pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+/* 1 blank 12 pt line above the name, which is 38 pt here */
+.cert-cons-front .cert-name {
+    margin-top: 14.65pt;
+    font-size: 38pt;
+}
+
+.cert-cons-front .cert-name-md {
+    font-size: 30pt;
+}
+
+.cert-cons-front .cert-name-sm {
+    font-size: 24pt;
+}
+
+/* 4 blank 13 pt lines; the template spaces its three lines to centre on
+   357.5 pt from the margin */
+.cert-cons-signatory {
+    margin: 63.5pt 0 0 249.5pt;
+    width: 216pt;
+    line-height: 0.909;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.cert-cons-signatory-name {
+    font-size: 15pt;
+    font-weight: bold;
+}
+
+.cert-cons-signatory-title {
+    font-size: 13pt;
+}
+
+/* Calibri, in a 522 pt text box (wider than the column), 782.8 pt from the
+   top of the page when the name is one line */
+.cert-cons-footer-note {
+    margin: 89.6pt -17.35pt 0;
+    font-family: "Calibri", sans-serif;
+}
+
+/* Back: 8.5 x 13 in, 1 in sides; the new template starts with a blank line */
+.cert-cons-back {
+    padding-top: 79.5pt;
+}
+
+.cert-cons-back.is-renewal {
+    padding-top: 58.5pt;
+}
+
+/* Indented with 14 spaces rather than a first-line indent */
+.cert-back p.cert-cons-indent {
+    text-indent: 31.6pt;
+}
+
+/* "1." 0.25 in in, its text 0.5 in */
+.cert-cons-list {
+    margin-left: 18pt;
+    width: 450pt;
+}
+
+/* "a)" 0.75 in in, its text 1 in */
+.cert-cons-sublist {
+    margin: 0 0 8pt 54pt;
+    width: 414pt;
+}
+
+/* One blank paragraph, then the consultant's signature line 4 in from the
+   margin (32 underscores), the caption, a blank paragraph and the date line
+   lined up under it */
+.cert-cons-conforme {
+    padding-top: 21.2pt;
+    line-height: 0.909;
+}
+
+.cert-cons-sign-line {
+    margin-left: 288pt;
+    width: 159.4pt;
+    height: 11pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+.cert-cons-sign-caption {
+    margin: 2.2pt 0 0 303.8pt;
+}
+
+.cert-cons-back.is-renewal .cert-cons-sign-caption {
+    margin-left: 301.6pt;
+}
+
+.cert-cons-date {
+    margin: 29.2pt 0 0 263.3pt;
+}
+
+.cert-cons-date-label {
+    display: inline-block;
+    width: 24.7pt;
+}
+
+.cert-cons-date-line {
+    display: inline-block;
+    width: 159.4pt;
+    height: 9pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+/* The date's space after and a blank paragraph above; a blank 11 pt
+   paragraph below */
+.cert-cons-heading {
+    margin: 29.2pt 0 30.5pt;
+    font-size: 11pt;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* 11 pt, indented with 14 spaces */
+.cert-back p.cert-cons-certification {
+    font-size: 11pt;
+    text-indent: 34.8pt;
+}
+
+.cert-cons-back.is-renewal p.cert-cons-certification {
+    margin-bottom: 0;
+}
+
+/* Renewal: a blank 11 pt line, then the three-year line */
+.cert-back p.cert-cons-active {
+    margin-top: 13.4pt;
+    font-size: 11pt;
+}
+
+/* New: a blank 11 pt paragraph and 4 blank lines, then the name — no line.
+   Renewal: the table's first row (75.1 pt) and a blank line, then a 43-underscore
+   line over the name. */
+.cert-cons-back-signatory {
+    padding-top: 71.3pt;
+    line-height: 0.909;
+    text-align: center;
+}
+
+.cert-cons-back.is-renewal .cert-cons-back-signatory {
+    padding-top: 87.3pt;
+}
+
+.cert-cons-back-line {
+    margin: 0 auto 1.2pt;
+    width: 214pt;
+    height: 11pt;
+    border-bottom: 0.6pt solid #000;
+}
+
+.cert-cons-back-name {
+    font-size: 11pt;
+    font-weight: bold;
+}
