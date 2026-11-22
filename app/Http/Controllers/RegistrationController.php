@@ -23,6 +23,7 @@ use App\Services\PractitionerApplicationService;
 use App\Services\PractitionerArchiveService;
 use App\Support\AdminAccess;
 use App\Support\ApplicantStoragePath;
+use App\Support\PhLocations;
 use App\Support\PractitionerForm;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -229,8 +230,9 @@ class RegistrationController extends Controller
             'suffix'             => ['nullable', 'string', 'max:20'],
             'sex'                => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
             'birthday'           => ['required_if:profile_type,Individual', 'nullable', 'date'],
-            'region'             => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
-            'city'               => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255'],
+            // Region and city come from the PSGC dropdowns (public/data/ph-locations.json).
+            'region'             => ['required_if:profile_type,Individual', 'nullable', 'string', Rule::in(PhLocations::regionCodes())],
+            'city'               => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:255', PhLocations::cityRule($request->input('region'))],
             'address'            => ['required_if:profile_type,Individual', 'nullable', 'string', 'max:500'],
 
             'documents'   => ['nullable', 'array'],
@@ -239,6 +241,7 @@ class RegistrationController extends Controller
             'telephone.regex'          => 'The telephone number must be a valid 10-digit number (e.g. 0281234567).',
             'fax.regex'                => 'The facsimile number must be a valid 10-digit number (e.g. 0281234567).',
             'rep_contact_number.regex' => 'The representative contact number must be a valid PH mobile number (e.g. 09171234567 or +639171234567).',
+            'region.in'                => 'Choose a region from the list.',
         ], $isPractitioner ? $this->practitioners->attributes() : []);
 
         // ── Generate token ─────────────────────────────────────────

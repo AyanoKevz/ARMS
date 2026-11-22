@@ -45,8 +45,8 @@
             ['name' => 'suffix',      'label' => 'Suffix',              'type' => 'text',   'col' => 'col-md-2', 'placeholder' => 'Jr., Sr., III'],
             ['name' => 'sex',         'label' => 'Sex',                 'type' => 'select', 'col' => 'col-md-4', 'required' => true, 'options' => ['Male', 'Female']],
             ['name' => 'birthday',    'label' => 'Date of Birth',       'type' => 'date',   'col' => 'col-md-4', 'required' => true],
-            ['name' => 'region',      'label' => 'Region',              'type' => 'text',   'col' => 'col-md-4', 'required' => true, 'placeholder' => 'e.g. NCR'],
-            ['name' => 'city',        'label' => 'City / Municipality', 'type' => 'text',   'col' => 'col-md-6', 'required' => true],
+            ['name' => 'region',      'label' => 'Region',              'type' => 'ph-address', 'part' => 'region', 'col' => 'col-md-4', 'required' => true],
+            ['name' => 'city',        'label' => 'City / Municipality', 'type' => 'ph-address', 'part' => 'city',   'col' => 'col-md-6', 'required' => true],
             ['name' => 'address',     'label' => 'Full Address',        'type' => 'text',   'col' => 'col-md-6', 'required' => true, 'placeholder' => 'Street, Barangay'],
         ] as $f)
             @include('landing.partials.practitioner.field', ['f' => $f, 'group' => 'person', 'idPrefix' => 'prac_person'])

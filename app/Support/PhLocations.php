@@ -82,6 +82,24 @@ class PhLocations
         return $city !== null && in_array($city, self::citiesIn($region), true);
     }
 
+    /**
+     * Validation rule for a city dropdown: one the region submitted with it
+     * contains. A missing or unknown region is left to the region's own rule
+     * (Rule::in(regionCodes())), so the mistake is reported once.
+     */
+    public static function cityRule(mixed $region): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($region): void {
+            if (! is_string($value) || $value === '' || ! is_string($region) || ! self::isRegion($region)) {
+                return;
+            }
+
+            if (! self::isCityIn($value, $region)) {
+                $fail('Choose a city or municipality of the selected region.');
+            }
+        };
+    }
+
     /** Only for tests and tinkering — forces the next read off disk. */
     public static function flush(): void
     {

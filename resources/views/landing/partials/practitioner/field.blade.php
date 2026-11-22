@@ -8,6 +8,8 @@
     Expects:
       $f        array  — name, label, type, col, required, placeholder, help,
                          hint, options, rows, min, max, step, attrs, accept, allowedExt
+                         (type 'ph-address': a Region or City dropdown from the
+                         PSGC list — part 'region' | 'city', pair = shared key)
                          (hint: a short muted note on the label's own line, e.g.
                          "(if any)", so the input stays level with its row
                          neighbours; help: a longer note on its own line, or
@@ -90,6 +92,21 @@
                 @foreach($f['options'] as $opt)
                     <option value="{{ $opt }}" @selected($currentFlag === (string) $opt)>{{ $opt }}</option>
                 @endforeach
+            </select>
+            @break
+
+        @case('ph-address')
+            {{-- Region ($f['part'] 'region') or city ('city') from the PSGC
+                 list, filled by ph-fields.js; data-value is the answer on file.
+                 The pair shares one key, so the city follows its region. --}}
+            @pushOnce('scripts', 'ph-fields')
+                <script src="{{ \App\Support\AssetVersion::url('js/ph-fields.js') }}" defer></script>
+            @endPushOnce
+            <select class="form-select form-select-sm" id="{{ $id }}" name="{{ $name }}"
+                    data-ph-address-{{ ($f['part'] ?? 'region') === 'city' ? 'city' : 'region' }}="{{ $f['pair'] ?? 'person' }}"
+                    data-value="{{ $current }}"
+                    @if($required) required @endif {!! $attrs !!}>
+                <option value="" disabled selected>{{ ($f['part'] ?? 'region') === 'city' ? '— Select a region first —' : '— Select region —' }}</option>
             </select>
             @break
 

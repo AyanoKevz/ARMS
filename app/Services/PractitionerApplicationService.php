@@ -20,6 +20,7 @@ use App\Models\PractitionerTraining;
 use App\Models\PractitionerWorkExperience;
 use App\Models\User;
 use App\Models\UserDocument;
+use App\Support\PhLocations;
 use App\Support\PractitionerForm;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -299,8 +300,9 @@ class PractitionerApplicationService
             'person.suffix'      => ['nullable', 'string', 'max:20'],
             'person.sex'         => ['required', Rule::in(['Male', 'Female'])],
             'person.birthday'    => ['required', 'date'],
-            'person.region'      => ['required', 'string', 'max:255'],
-            'person.city'        => ['required', 'string', 'max:255'],
+            // The PSGC dropdowns (public/data/ph-locations.json), as on registration.
+            'person.region'      => ['required', 'string', Rule::in(PhLocations::regionCodes())],
+            'person.city'        => ['required', 'string', 'max:255', PhLocations::cityRule($request->input('person.region'))],
             'person.address'     => ['required', 'string', 'max:500'],
         ];
     }

@@ -6,6 +6,9 @@
    and landline numbers to the same shape the registration form on
    the landing page already enforces.
 
+   Selects marked data-ph-address-region / -city wire themselves on
+   load (the Practitioner / Consultant person fields); see wireMarked().
+
    The register lives in public/data/ph-locations.json — 17 regions
    and 1,634 cities and municipalities, about 20 KB. It is fetched
    once per page and cached by the browser like any other asset.
@@ -269,6 +272,35 @@
         });
 
         input.addEventListener('blur', check);
+    }
+
+    /* ─── Static forms ─────────────────────────────────────────── */
+
+    /**
+     * Wire every pair a page marks in its markup:
+     *
+     *   <select data-ph-address-region="person" data-value="NCR">
+     *   <select data-ph-address-city="person" data-value="Quezon City">
+     *
+     * The shared key pairs a region with its city; data-value is the answer
+     * already on file, if any. Grids that build rows on the fly (the Post
+     * Training directory) call wireAddress() themselves instead.
+     */
+    function wireMarked() {
+        var regionSelects = document.querySelectorAll('select[data-ph-address-region]');
+
+        Array.prototype.forEach.call(regionSelects, function (regionSel) {
+            var key     = regionSel.getAttribute('data-ph-address-region');
+            var citySel = document.querySelector('select[data-ph-address-city="' + key + '"]');
+
+            wireAddress(regionSel, citySel);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wireMarked);
+    } else {
+        wireMarked();
     }
 
     window.PhFields = {

@@ -1994,6 +1994,42 @@ test('a name suffix is saved with the profile and printed on the application for
         ->assertStatus(422)->assertJsonValidationErrors('suffix');
 });
 
+test('region and city are picked from the Philippine list, and the server holds them to it', function () {
+    // Registration: two dropdowns the Post Training directory's script fills, loaded once.
+    $html = $this->get(route('register'))->assertOk()->getContent();
+    expect($html)
+        ->toMatch('/<select[^>]*name="region"[^>]*data-ph-address-region="person"/')
+        ->toMatch('/<select[^>]*name="city"[^>]*data-ph-address-city="person"[^>]*disabled/')
+        ->not->toContain('placeholder="e.g. NCR"');
+    expect(substr_count($html, 'js/ph-fields.js'))->toBe(1);
+
+    // A city outside the region, or a region not on the list, is refused.
+    $this->postJson(route('register.store'), pracPayload(['email' => 'wrong-city@example.com', 'region' => 'Region VII', 'city' => 'Quezon City']))
+        ->assertStatus(422)->assertJsonValidationErrors('city')->assertJsonMissingValidationErrors('region');
+    $this->postJson(route('register.store'), pracPayload(['email' => 'wrong-region@example.com', 'region' => 'Metro Manila', 'city' => 'Quezon City']))
+        ->assertStatus(422)->assertJsonValidationErrors('region');
+
+    // The tracking page's correction holds them to the same list.
+    $service = app(\App\Services\PractitionerApplicationService::class);
+    foreach ([[['region' => 'NCR', 'city' => 'Cebu City'], 'person.city'], [['region' => 'Visayas', 'city' => 'Cebu City'], 'person.region']] as [$person, $error]) {
+        $request = \Illuminate\Http\Request::create('/', 'POST', ['person' => $person]);
+        $rules   = array_intersect_key($service->correctionRules($request), array_flip(['person.region', 'person.city']));
+        expect(\Illuminate\Support\Facades\Validator::make($request->all(), $rules)->errors()->keys())->toBe([$error]);
+    }
+
+    // Accepted, and the renewal form comes back with the stored pair selected.
+    Carbon::setTestNow(Carbon::parse('2026-11-03 09:00:00'));
+    $application = pracSubmit($this, ['region' => 'Region VII', 'city' => 'Cebu City']);
+    expect($application->user->individualProfile->only('region', 'city'))->toBe(['region' => 'Region VII', 'city' => 'Cebu City']);
+
+    pracAccredit($this, $application);
+    $renewal = pracRenewalPage($this, $application->fresh()->user)->assertOk()->getContent();
+    expect($renewal)
+        ->toMatch('/name="person\[region\]"\s+data-ph-address-region="person"\s+data-value="Region VII"/')
+        ->toMatch('/name="person\[city\]"\s+data-ph-address-city="person"\s+data-value="Cebu City"/');
+    expect(substr_count($renewal, 'js/ph-fields.js'))->toBe(1);
+});
+
 /** An accredited applicant's renewal page, as that applicant on a fresh session. */
 function pracRenewalPage($test, User $user)
 {

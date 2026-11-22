@@ -289,16 +289,20 @@
                                                 <label for="region_ind" class="form-label fw-semibold">
                                                     Region <span class="text-danger">*</span>
                                                 </label>
-                                                <input type="text" class="form-control" id="region_ind"
-                                                    name="region" placeholder="e.g. NCR">
+                                                {{-- Region and city come from the PSGC list (ph-fields.js),
+                                                     the same one the Post Training directory uses. --}}
+                                                <select class="form-select" id="region_ind" name="region" data-ph-address-region="person">
+                                                    <option value="" disabled selected>&mdash; Select region &mdash;</option>
+                                                </select>
                                                 <div class="invalid-feedback">Region is required.</div>
                                             </div>
                                             <div class="col-md-6">
                                                 <label for="city_ind" class="form-label fw-semibold">
                                                     City / Municipality <span class="text-danger">*</span>
                                                 </label>
-                                                <input type="text" class="form-control" id="city_ind"
-                                                    name="city" placeholder="Quezon City">
+                                                <select class="form-select" id="city_ind" name="city" data-ph-address-city="person" disabled>
+                                                    <option value="" disabled selected>&mdash; Select a region first &mdash;</option>
+                                                </select>
                                                 <div class="invalid-feedback">City is required.</div>
                                             </div>
                                             <div class="col-md-6">
@@ -1088,3 +1092,8 @@
          stacks scripts above it), which calls into it from "Review Details". --}}
     <script src="{{ \App\Support\AssetVersion::url('js/practitioner-form.js') }}" defer></script>
 @endpush
+
+{{-- Step 3's Region / City dropdowns (OSH Practitioner / Consultant). --}}
+@pushOnce('scripts', 'ph-fields')
+    <script src="{{ \App\Support\AssetVersion::url('js/ph-fields.js') }}" defer></script>
+@endPushOnce
